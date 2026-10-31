@@ -1,0 +1,91 @@
+name: Construire les APK et le site web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Site web (proto React)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: capacitor } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: capacitor/package-lock.json }
+      - run: npm ci
+      - run: npm test
+      - run: npx vite build --base=./
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: capacitor/dist }
+
+  deploy-web:
+    name: Publier le site (GitHub Pages)
+    needs: web
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  apk-capacitor:
+    name: APK Capacitor (React)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: capacitor/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - working-directory: capacitor
+        run: |
+          npm ci
+          npx vite build
+          npx cap sync android
+      - working-directory: capacitor/android
+        run: ./gradlew --no-daemon assembleRelease
+      - name: Renommer l'APK
+        run: |
+          cp capacitor/android/app/build/outputs/apk/release/*.apk assomoutain-capacitor.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: apk-capacitor, path: assomoutain-capacitor.apk }
+
+  apk-kotlin:
+    name: APK Kotlin natif
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: kotlin-natif } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: ./gradlew --no-daemon assembleRelease
+      - run: cp app/build/outputs/apk/release/*.apk ../assomoutain-kotlin.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: apk-kotlin, path: assomoutain-kotlin.apk }
+
+  release:
+    name: Mettre les APK en téléchargement
+    needs: [apk-capacitor, apk-kotlin]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { merge-multiple: true }
+      - name: Publier la release « latest »
+        env: { GH_TOKEN: '${{ github.token }}', GH_REPO: '${{ github.repository }}' }
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest assomoutain-capacitor.apk assomoutain-kotlin.apk \
+            --title "Dernière version des prototypes" \
+            --notes "APK construits automatiquement depuis le commit ${{ github.sha }}. À ouvrir depuis le téléphone pour installer."
