@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: build-${{ github.ref }}
@@ -26,17 +24,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npx vite build --base=./
-      - uses: actions/upload-pages-artifact@v3
-        with: { path: capacitor/dist }
-
-  deploy-web:
-    name: Publier le site (GitHub Pages)
-    needs: web
-    runs-on: ubuntu-latest
-    environment: { name: github-pages, url: '${{ steps.deploy.outputs.page_url }}' }
-    steps:
-      - id: deploy
-        uses: actions/deploy-pages@v4
+      - uses: actions/upload-artifact@v4
+        with: { name: web, path: capacitor/dist }
 
   apk-capacitor:
     name: APK Capacitor (React)
@@ -87,3 +76,31 @@ jobs:
           gh release create latest assomoutain-capacitor.apk assomoutain-kotlin.apk \
             --title "Dernière version des prototypes" \
             --notes "APK construits automatiquement depuis le commit ${{ github.sha }}. À ouvrir depuis le téléphone pour installer."
+
+  site:
+    # Branche « site » = ce que le VPS sert sur https://silvaplana.cloud/mountaintest/
+    # (le VPS la récupère toutes les 5 minutes, voir deploy/README.md).
+    name: Préparer le site pour le VPS
+    needs: [web, apk-capacitor, apk-kotlin]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: deploy }
+      - uses: actions/download-artifact@v4
+        with: { name: web, path: site }
+      - uses: actions/download-artifact@v4
+        with: { pattern: apk-*, merge-multiple: true, path: site/apk }
+      - name: Page de téléchargement des APK
+        run: |
+          rm -f site/*.map site/assets/*.map
+          sed -e "s/@DATE@/$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')/" \
+              -e "s/@CAP@/$(du -m site/apk/assomoutain-capacitor.apk | cut -f1)/" \
+              -e "s/@KOT@/$(du -m site/apk/assomoutain-kotlin.apk | cut -f1)/" \
+              deploy/apk-index.html > site/apk/index.html
+      - name: Pousser la branche site
+        run: |
+          cd site
+          git init -q -b site
+          git -c user.name=github-actions -c user.email=actions@github.com add -A
+          git -c user.name=github-actions -c user.email=actions@github.com commit -qm "Site ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" site
