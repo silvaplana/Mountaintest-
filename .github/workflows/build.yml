@@ -93,7 +93,7 @@ jobs:
       - name: Page de téléchargement des APK
         run: |
           rm -f site/*.map site/assets/*.map
-          sed -e "s/@DATE@/$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')/" \
+          sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" \
               -e "s/@CAP@/$(du -m site/apk/assomoutain-capacitor.apk | cut -f1)/" \
               -e "s/@KOT@/$(du -m site/apk/assomoutain-kotlin.apk | cut -f1)/" \
               deploy/apk-index.html > site/apk/index.html
