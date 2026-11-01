@@ -292,7 +292,11 @@
                     <TextView android:id="@+id/offlineHint" style="@style/Hint" />
 
                     <LinearLayout style="@style/Row">
-                        <Button android:id="@+id/btnDownload" style="@style/Btn.Primary" android:text="Télécharger la zone" />
+                        <Button android:id="@+id/btnDownload" style="@style/Btn.Primary" android:text="Zone La Ciotat" />
+                        <Button android:id="@+id/btnDownloadView" style="@style/Btn.Primary" android:text="Zone affichée" />
+                    </LinearLayout>
+
+                    <LinearLayout style="@style/Row">
                         <Button android:id="@+id/btnCancel" style="@style/Btn" android:text="Annuler" />
                         <Button android:id="@+id/btnClear" style="@style/Btn" android:text="Vider" />
                     </LinearLayout>

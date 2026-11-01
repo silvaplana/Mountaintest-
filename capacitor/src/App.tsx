@@ -5,7 +5,7 @@ import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
 import type { Map as MlMap } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BASE_MODES, DEFAULT_SCAN_KEY, LA_CIOTAT_BBOX, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
+import { BASE_MODES, type Bbox, DEFAULT_SCAN_KEY, LA_CIOTAT_BBOX, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
 import { decideSettings, sameSettings } from './gps/adaptive';
 import { EcoLocation } from './gps/ecoLocation';
 import { filterForMode } from './gps/filter';
@@ -35,6 +35,9 @@ function openDirections(lat: number, lon: number) {
   // Dans l'appli, Capacitor confie les liens externes à Android, qui ouvre Google Maps.
   if (Capacitor.isNativePlatform()) window.location.href = url; else window.open(url, '_blank');
 }
+
+/** Au-delà, le téléchargement serait long et lourd : on demande de zoomer (même limite côté Kotlin). */
+const MAX_ZONE_TILES = 6000;
 
 function formatMo(bytes: number) { return `${(bytes / 1e6).toFixed(1).replace('.', ',')} Mo`; }
 
@@ -230,13 +233,21 @@ export function App() {
     setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes() });
   }
 
-  async function downloadZone() {
+  /** bbox absente : zone du scénario (La Ciotat) ; sinon la zone affichée à l'écran. */
+  async function downloadZone(bbox: Bbox = LA_CIOTAT_BBOX) {
+    const plan = offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM);
+    const total = plan.reduce((n, st) => n + tilesForBbox(bbox, st.minZoom, st.maxZoom).length, 0);
+    if (total > MAX_ZONE_TILES) {
+      setStatus(`Zone trop grande (${total} tuiles, maximum ${MAX_ZONE_TILES}) : zoome un peu sur le coin de la rando.`);
+      return;
+    }
+    setStatus('');
     abort.current = new AbortController();
-    for (const step of offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)) {
+    for (const step of plan) {
       if (abort.current.signal.aborted) break;
       const layer = LAYERS[step.layer];
       const store = await getTileStore(layer);
-      const tiles = tilesForBbox(LA_CIOTAT_BBOX, step.minZoom, step.maxZoom);
+      const tiles = tilesForBbox(bbox, step.minZoom, step.maxZoom);
       setDownloading(`${layer.label}, zooms ${step.minZoom} à ${step.maxZoom}`);
       bench('download-start', { layer: layer.id, tiles: tiles.length });
       const res = await downloadTiles(store, tiles, (t) => wmtsTileUrl(layer, t.z, t.x, t.y, apiKey), setProgress, abort.current.signal);
@@ -340,12 +351,18 @@ export function App() {
               <button onClick={testKey}>Tester la clé</button>
               <label><input type="checkbox" defaultChecked onChange={(e) => { prefs.cacheViewed = e.target.checked; }} /> Garder les tuiles vues</label>
             </div>
-            <p className="hint">Zone La Ciotat, fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
+            <p className="hint">Télécharge la zone du scénario (La Ciotat) ou ce que montre l'écran (zoome sur le coin de la rando avant). Fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
               .map((p) => `${LAYERS[p.layer].label} z${p.minZoom}-${p.maxZoom}`).join(' + ')}.
               En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}).</p>
             <p className="hint"><b>Place prise sur le téléphone : {formatMo(stored.scan25Bytes + stored.planignBytes)}</b>. Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface.</p>
             <div className="row">
-              <button className="primary" onClick={downloadZone}>Télécharger la zone</button>
+              <button className="primary" onClick={() => downloadZone()}>Zone La Ciotat</button>
+              <button className="primary" disabled={!map} onClick={() => {
+                const b = map!.getBounds();
+                void downloadZone([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+              }}>Zone affichée</button>
+            </div>
+            <div className="row">
               <button onClick={() => abort.current?.abort()}>Annuler</button>
               <button onClick={clearZone}>Vider</button>
             </div>

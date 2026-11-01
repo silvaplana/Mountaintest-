@@ -198,7 +198,10 @@ class MainActivity : AppCompatActivity() {
             MapLibre.setConnected(online)
             refreshOffline()
         }
-        findViewById<Button>(R.id.btnDownload).setOnClickListener { downloadZone() }
+        findViewById<Button>(R.id.btnDownload).setOnClickListener { downloadZone(null) }
+        findViewById<Button>(R.id.btnDownloadView).setOnClickListener {
+            map?.projection?.visibleRegion?.latLngBounds?.let { downloadZone(it) }
+        }
         findViewById<Button>(R.id.btnCancel).setOnClickListener { offline.cancel(); setStatus("Téléchargement annulé.") }
         findViewById<Button>(R.id.btnClear).setOnClickListener {
             offline.clear { runOnUiThread { findViewById<ProgressBar>(R.id.progress).visibility = View.GONE; refreshOffline() } }
@@ -630,18 +633,27 @@ class MainActivity : AppCompatActivity() {
         offline.summary { s -> runOnUiThread {
             offlineSummary = s
             findViewById<TextView>(R.id.offlineHint).text =
-                "Zone La Ciotat, fond affiché (${mapMode.label}) : ${mapMode.offlinePlan()}.\nEn stock : $s.\n" +
+                "Télécharge la zone du scénario (La Ciotat) ou ce que montre l'écran (zoome sur le coin de la rando avant). Fond affiché (${mapMode.label}) : ${mapMode.offlinePlan()}.\nEn stock : $s.\n" +
                 "Place prise sur le téléphone : ${mo(offline.databaseBytes())} (tuiles téléchargées + tuiles vues). " +
                 "Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface."
         } }
     }
 
-    private fun downloadZone() {
+    /** bounds null : zone du scénario (La Ciotat) ; sinon la zone affichée à l'écran. */
+    private fun downloadZone(bounds: LatLngBounds?) {
+        if (bounds != null) {
+            val n = OfflineDownloader.tileCount(mapMode, bounds)
+            if (n > OfflineDownloader.MAX_ZONE_TILES) {
+                setStatus("Zone trop grande ($n tuiles, maximum ${OfflineDownloader.MAX_ZONE_TILES}) : zoome un peu sur le coin de la rando.")
+                return
+            }
+        }
+        setStatus("")
         val bar = findViewById<ProgressBar>(R.id.progress)
         val info = findViewById<TextView>(R.id.offlineInfo)
         bar.visibility = View.VISIBLE; bar.progress = 0
         info.text = "Préparation…"
-        offline.download(mapMode, apiKey) { p -> runOnUiThread {
+        offline.download(mapMode, apiKey, bounds) { p -> runOnUiThread {
             if (p.error != null) { info.text = "Erreur : ${p.error}"; return@runOnUiThread }
             bar.max = p.total.toInt().coerceAtLeast(1)
             bar.progress = p.done.toInt()
