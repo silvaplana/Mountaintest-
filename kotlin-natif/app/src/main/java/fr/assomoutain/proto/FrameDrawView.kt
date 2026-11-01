@@ -22,6 +22,8 @@ import kotlin.math.min
  */
 class FrameDrawView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = null) : View(ctx, attrs) {
     var onFrame: ((PointF, PointF) -> Unit)? = null
+
+    private val density = resources.displayMetrics.density
     /** Tracé au doigt : ligne libre au lieu d'un rectangle. */
     var freehand = false
     var onLine: ((List<PointF>) -> Unit)? = null
@@ -31,8 +33,6 @@ class FrameDrawView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet?
         style = Paint.Style.STROKE; color = Color.parseColor("#E4572E"); strokeWidth = 4 * density
         strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
-
-    private val density = resources.displayMetrics.density
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE; color = Color.parseColor("#1D2421"); strokeWidth = 2 * density
         pathEffect = DashPathEffect(floatArrayOf(6 * density, 4 * density), 0f)
