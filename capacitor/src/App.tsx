@@ -24,6 +24,10 @@ import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
+import { DrawOverlay } from './DrawOverlay';
+import { Profile } from './Profile';
+import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './trails/route';
+import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
@@ -99,6 +103,9 @@ export function App() {
   const [trailsMsg, setTrailsMsg] = useState('');
   const [selected, setSelected] = useState<Trail | null>(null);
   const [elevated, setElevated] = useState<ElevatedTrail | 'loading' | 'error' | null>(null);
+  /** Tracé au doigt en cours, et recalage sur les chemins (IGN) ou ligne libre. */
+  const [drawing, setDrawing] = useState(false);
+  const [onPaths, setOnPaths] = useState(true);
   const trailsAbort = useRef<AbortController | null>(null);
 
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
@@ -331,6 +338,21 @@ export function App() {
     }
   }
 
+  async function drawDone(line: LonLat[]) {
+    setDrawing(false);
+    setOpen(true); setTab('randos');
+    let final = line, used = onPaths, msg = '';
+    if (onPaths) {
+      setTrailsMsg('Calcul du chemin sur les sentiers…');
+      try { final = await routeOnPaths(waypoints(line)); }
+      catch { used = false; msg = 'Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle.'; }
+    }
+    setTrailsMsg(msg);
+    const t = drawnTrail(final, used);
+    setTrails((prev) => [t, ...prev.filter((x) => x.id !== DRAWN_ID)]);
+    await selectTrail(t);
+  }
+
   async function exportTrail() {
     if (!selected) return;
     const segs = elevated && typeof elevated === 'object' ? elevated.segments : selected.segments;
@@ -351,7 +373,9 @@ export function App() {
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)} />
-      {!framing && <QuickButtons geo={geo} onToast={setToast} />}
+      {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
+        onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
+      {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} />}
       {toast && <div className="toast">{toast}</div>}
 
       {framing && map && <FrameOverlay map={map}
@@ -439,6 +463,7 @@ export function App() {
             <p className="hint">Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. {OSM_ATTRIBUTION}.</p>
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
+              <button disabled={!map} onClick={() => { setDrawing(true); setOpen(false); setSearching(false); }}>✏ Tracer au doigt</button>
               <button disabled={!map} onClick={() => {
                 const b = map!.getBounds();
                 void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
@@ -448,13 +473,15 @@ export function App() {
             {selected && (
               <div className="trail-card">
                 <b>{selected.name}</b>
-                <span className="hint">{selected.kind} · <a href={`https://www.openstreetmap.org/relation/${selected.id}`} target="_blank" rel="noreferrer">fiche OSM</a>
+                <span className="hint">{selected.kind}{selected.id > 0 && <> · <a href={`https://www.openstreetmap.org/relation/${selected.id}`} target="_blank" rel="noreferrer">fiche OSM</a></>}
                   {selected.segments.length > 1 && ` · ${selected.segments.length} morceaux`}</span>
                 <div className="stats">
                   <div><b>{formatKm(selected.distanceM)}</b><span>distance</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.gainM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D+</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.lossM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D−</span></div>
+                  <div><b>{typeof elevated === 'object' && elevated ? formatHours(walkingHours(selected.distanceM, elevated.gainM, elevated.lossM)) : elevated === 'loading' ? '…' : '—'}</b><span>marche</span></div>
                 </div>
+                {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} />}
                 {elevated === 'error' && <p className="hint">Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude.</p>}
                 <div className="row">
                   <button className="primary" onClick={exportTrail} disabled={elevated === 'loading'}>Exporter GPX</button>
@@ -539,4 +566,10 @@ export function App() {
       </section>
     </div>
   );
+}
+
+/** 2,6 h → « 2h35 ». */
+function formatHours(h: number) {
+  const min = Math.round(h * 60);
+  return `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
 }

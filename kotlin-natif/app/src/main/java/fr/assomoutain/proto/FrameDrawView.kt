@@ -22,6 +22,15 @@ import kotlin.math.min
  */
 class FrameDrawView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = null) : View(ctx, attrs) {
     var onFrame: ((PointF, PointF) -> Unit)? = null
+    /** Tracé au doigt : ligne libre au lieu d'un rectangle. */
+    var freehand = false
+    var onLine: ((List<PointF>) -> Unit)? = null
+    private val line = ArrayList<PointF>()
+    private val path = android.graphics.Path()
+    private val pen = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE; color = Color.parseColor("#E4572E"); strokeWidth = 4 * density
+        strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
+    }
 
     private val density = resources.displayMetrics.density
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -35,10 +44,11 @@ class FrameDrawView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet?
 
     init { setBackgroundColor(Color.parseColor("#0D000000")) }
 
-    fun reset() { start = null; hasRect = false; invalidate() }
+    fun reset() { start = null; hasRect = false; line.clear(); path.reset(); invalidate() }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(e: MotionEvent): Boolean {
+        if (freehand) return onFreehand(e)
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> { start = PointF(e.x, e.y); hasRect = false; invalidate() }
             MotionEvent.ACTION_MOVE -> start?.let { s ->
@@ -57,8 +67,28 @@ class FrameDrawView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet?
         return true
     }
 
+    private fun onFreehand(e: MotionEvent): Boolean {
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> { line.clear(); path.reset(); line += PointF(e.x, e.y); path.moveTo(e.x, e.y); invalidate() }
+            MotionEvent.ACTION_MOVE -> {
+                val last = line.lastOrNull() ?: return true
+                if (Math.hypot((e.x - last.x).toDouble(), (e.y - last.y).toDouble()) < 6 * density / 2) return true
+                line += PointF(e.x, e.y); path.lineTo(e.x, e.y); invalidate()
+            }
+            MotionEvent.ACTION_UP -> {
+                val len = line.zipWithNext { a, b -> Math.hypot((b.x - a.x).toDouble(), (b.y - a.y).toDouble()) }.sum()
+                // Trop court : on recommence.
+                if (len < 40 * density / 2) { reset(); return true }
+                onLine?.invoke(ArrayList(line))
+            }
+            MotionEvent.ACTION_CANCEL -> reset()
+        }
+        return true
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        if (freehand) { canvas.drawPath(path, pen); return }
         if (!hasRect) return
         canvas.drawRect(rect, fill)
         canvas.drawRect(rect, stroke)

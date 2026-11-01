@@ -782,6 +782,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<Button>(R.id.btnFrame).setOnClickListener { framingForOffline = false; setFraming(true) }
+        findViewById<Button>(R.id.btnDrawPath).setOnClickListener { framingForOffline = false; setFraming(true, freehand = true) }
+        draw.onLine = { pts ->
+            val proj = map?.projection
+            setFraming(false)
+            if (proj != null) drawDone(pts.map { val ll = proj.fromScreenLocation(it); LonLat(ll.longitude, ll.latitude) })
+        }
         findViewById<Button>(R.id.btnFrameCancel).setOnClickListener { setFraming(false); framingForOffline = false; sheetOpen = true; refreshTabs() }
         findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
             map?.projection?.visibleRegion?.latLngBounds?.let {
@@ -803,9 +809,13 @@ class MainActivity : AppCompatActivity() {
     /** Le rectangle tracé sert au hors ligne (true) ou aux randos OSM (false). */
     private var framingForOffline = false
 
-    private fun setFraming(on: Boolean) {
+    private fun setFraming(on: Boolean, freehand: Boolean = false) {
         val draw = findViewById<FrameDrawView>(R.id.frameDraw)
         draw.reset()
+        draw.freehand = freehand
+        findViewById<TextView>(R.id.frameText).text = if (freehand) "Trace ton parcours du doigt" else "Trace un rectangle du doigt sur la zone"
+        findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.quickButtons).visibility = if (on) View.GONE else View.VISIBLE
         draw.visibility = if (on) View.VISIBLE else View.GONE
         findViewById<View>(R.id.frameBanner).visibility = if (on) View.VISIBLE else View.GONE
         findViewById<View>(R.id.topBar).visibility = if (on) View.GONE else View.VISIBLE
@@ -839,6 +849,25 @@ class MainActivity : AppCompatActivity() {
                 trailsMessage = "Recherche impossible (pas de réseau ? serveur saturé ?) : ${e.message}"
             }
             drawTrails(fit = false); refreshTrails()
+        }
+    }
+
+    /** Ligne dessinée : recalée sur les chemins (IGN) si demandé et possible, puis mesurée comme une rando. */
+    private fun drawDone(line: List<LonLat>) {
+        tab = Tab.RANDOS; sheetOpen = true; refreshTabs()
+        val onPaths = findViewById<CheckBox>(R.id.chkOnPaths).isChecked
+        trailsMessage = if (onPaths) "Calcul du chemin sur les sentiers…" else ""
+        refreshTrails()
+        trailsJob?.cancel()
+        trailsJob = lifecycleScope.launch {
+            var used = onPaths
+            val final = if (!onPaths) line else withContext(Dispatchers.IO) {
+                runCatching { Trails.routeOnPaths(Trails.waypoints(line)) }.getOrNull()
+            } ?: line.also { used = false }
+            trailsMessage = if (onPaths && !used) "Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle." else ""
+            val t = Trails.drawnTrail(final, used)
+            trails = listOf(t) + trails.filter { it.id != Trails.DRAWN_ID }
+            selectTrail(t)
         }
     }
 
@@ -905,12 +934,21 @@ class MainActivity : AppCompatActivity() {
         if (sel != null) {
             findViewById<TextView>(R.id.trailName).text = sel.name
             findViewById<TextView>(R.id.trailKind).text = sel.kind +
-                (if (sel.segments.size > 1) " · ${sel.segments.size} morceaux" else "") + " · openstreetmap.org/relation/${sel.id}"
+                (if (sel.segments.size > 1) " · ${sel.segments.size} morceaux" else "") +
+                (if (sel.id > 0) " · openstreetmap.org/relation/${sel.id}" else "")
             val e = elevated?.getOrNull()
             val wait = if (elevated == null) "…" else "—"
             findViewById<TextView>(R.id.trailDist).text = stat(String.format(Locale.FRANCE, "%.2f km", sel.distanceM / 1000), "distance")
             findViewById<TextView>(R.id.trailGain).text = stat(e?.let { "${it.gainM.toInt()} m" } ?: wait, "D+")
             findViewById<TextView>(R.id.trailLoss).text = stat(e?.let { "${it.lossM.toInt()} m" } ?: wait, "D−")
+            findViewById<TextView>(R.id.trailTime).text = stat(e?.let {
+                val min = Math.round(Trails.walkingHours(sel.distanceM, it.gainM, it.lossM) * 60).toInt()
+                String.format(Locale.FRANCE, "%dh%02d", min / 60, min % 60)
+            } ?: wait, "marche")
+            findViewById<ProfileView>(R.id.trailProfile).apply {
+                setData(e?.segments)
+                visibility = if (e != null) View.VISIBLE else View.GONE
+            }
             findViewById<View>(R.id.trailAltError).visibility = if (elevated?.isFailure == true) View.VISIBLE else View.GONE
             findViewById<Button>(R.id.btnTrailExport).isEnabled = elevated != null
         }

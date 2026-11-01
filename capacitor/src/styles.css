@@ -93,7 +93,7 @@ progress { width: 100%; }
 .frame-banner button { min-height: 38px; padding: 6px 12px; }
 .frame-rect { position: absolute; border: 2px dashed #1d2421; background: #7b3fe422; pointer-events: none; }
 .trail-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 2px solid #7b3fe4; border-radius: 12px; }
-.trail-card .stats { grid-template-columns: repeat(3, 1fr); }
+.trail-card .stats { grid-template-columns: repeat(4, 1fr); }
 .trail-card a { color: var(--accent); }
 .trail-list { list-style: none; margin: 0; padding: 0; }
 .trail-list li { border-bottom: 1px solid var(--line); }
@@ -136,3 +136,12 @@ progress { width: 100%; }
   position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 70px); z-index: 4;
   background: #1d2421e6; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 14px; text-align: center;
 }
+
+/* Tracé au doigt et profil en coupe */
+.draw-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.draw-svg path { fill: none; stroke: #e4572e; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.frame-banner label.paths { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.profile { width: 100%; height: auto; display: block; }
+.profile text { font-size: 9px; fill: var(--muted); }
+.profile-line { fill: none; stroke: #e4572e; stroke-width: 1.8; }
+.profile-area { fill: #e4572e33; }

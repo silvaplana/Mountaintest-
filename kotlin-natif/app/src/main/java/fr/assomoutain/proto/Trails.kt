@@ -248,6 +248,58 @@ object Trails {
         return ElevatedTrail(segments, gain, loss)
     }
 
+    // ---------- Tracé au doigt (même logique que src/trails/route.ts côté Capacitor) ----------
+
+    private const val URL_ROUTE = "https://data.geopf.fr/navigation/itineraire"
+    /** Points de passage envoyés au calcul d'itinéraire (départ et arrivée compris). */
+    const val MAX_WAYPOINTS = 12
+    /** Identifiant réservé au tracé au doigt (les randos OSM ont des identifiants positifs). */
+    const val DRAWN_ID = -1L
+    const val DRAWN_COLOR = "#e4572e"
+
+    fun lineLengthM(line: List<LonLat>) = line.zipWithNext { a, b -> distanceM(a, b) }.sum()
+
+    /** Points de passage régulièrement espacés le long de la ligne dessinée. */
+    fun waypoints(line: List<LonLat>, max: Int = MAX_WAYPOINTS): List<LonLat> {
+        if (line.size <= 2) return line
+        val step = lineLengthM(line) / (max - 1)
+        val out = mutableListOf(line.first())
+        var acc = 0.0
+        for (i in 1 until line.size - 1) {
+            acc += distanceM(line[i - 1], line[i])
+            if (acc >= step * out.size && out.size < max - 1) out += line[i]
+        }
+        out += line.last()
+        return out
+    }
+
+    fun parseRoute(json: String): List<LonLat> {
+        val c = JSONObject(json).optJSONObject("geometry")?.optJSONArray("coordinates") ?: error("itinéraire vide")
+        if (c.length() < 2) error("itinéraire vide")
+        return (0 until c.length()).map { val p = c.getJSONArray(it); LonLat(p.getDouble(0), p.getDouble(1)) }
+    }
+
+    /** Itinéraire piéton IGN (BD TOPO) passant par les points. Appel réseau : hors du fil principal. */
+    fun routeOnPaths(pts: List<LonLat>): List<LonLat> {
+        fun f(p: LonLat) = String.format(Locale.US, "%.6f,%.6f", p.lon, p.lat)
+        fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
+        var q = "resource=bdtopo-pgr&profile=pedestrian&optimization=shortest&start=${enc(f(pts.first()))}" +
+            "&end=${enc(f(pts.last()))}&geometryFormat=geojson&getSteps=false"
+        if (pts.size > 2) q += "&intermediates=" + enc(pts.subList(1, pts.size - 1).joinToString("|") { f(it) })
+        val c = URL("$URL_ROUTE?$q").openConnection() as HttpURLConnection
+        c.connectTimeout = 15_000; c.readTimeout = 30_000
+        if (c.responseCode != 200) error("itinéraire HTTP ${c.responseCode}")
+        return parseRoute(c.inputStream.bufferedReader().use { it.readText() })
+    }
+
+    fun drawnTrail(line: List<LonLat>, onPaths: Boolean) = Trail(
+        DRAWN_ID, "Mon tracé",
+        if (onPaths) "Tracé au doigt, recalé sur les chemins (IGN)" else "Tracé au doigt, ligne libre",
+        0, DRAWN_COLOR, listOf(line), lineLengthM(line))
+
+    /** Temps de marche estimé : 4 km/h à plat + 1 h par 300 m de montée + 1 h par 500 m de descente. */
+    fun walkingHours(distM: Double, gainM: Double, lossM: Double) = distM / 4000 + gainM / 300 + lossM / 500
+
     private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 
     /** GPX d'une rando OSM : un segment par morceau continu, source et licence dans les métadonnées. */
@@ -255,8 +307,10 @@ object Trails {
         append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
         append("<gpx version=\"1.1\" creator=\"assomoutain-kotlin\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
         append("  <metadata>\n    <name>${esc(t.name)}</name>\n")
-        append("    <copyright author=\"OpenStreetMap contributors\"><license>https://opendatacommons.org/licenses/odbl/</license></copyright>\n")
-        append("    <link href=\"https://www.openstreetmap.org/relation/${t.id}\"><text>${esc(OSM_ATTRIBUTION)}</text></link>\n")
+        if (t.id > 0) {
+            append("    <copyright author=\"OpenStreetMap contributors\"><license>https://opendatacommons.org/licenses/odbl/</license></copyright>\n")
+            append("    <link href=\"https://www.openstreetmap.org/relation/${t.id}\"><text>${esc(OSM_ATTRIBUTION)}</text></link>\n")
+        }
         append("  </metadata>\n  <trk>\n    <name>${esc(t.name)}</name>\n")
         for (seg in segments) {
             append("    <trkseg>\n")

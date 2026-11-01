@@ -162,11 +162,20 @@
         android:visibility="gone">
 
         <TextView
+            android:id="@+id/frameText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Trace un rectangle du doigt sur la zone"
             android:textSize="14sp" />
+
+        <CheckBox
+            android:id="@+id/chkOnPaths"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="chemins"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btnFrameCancel"
@@ -346,6 +355,7 @@
 
                     <LinearLayout style="@style/Row">
                         <Button android:id="@+id/btnFrame" style="@style/Btn.Primary" android:text="Encadrer une zone" />
+                        <Button android:id="@+id/btnDrawPath" style="@style/Btn" android:text="✏ Tracer au doigt" />
                         <Button android:id="@+id/btnTrailsView" style="@style/Btn" android:text="Zone affichée" />
                     </LinearLayout>
 
@@ -371,7 +381,13 @@
                             <TextView android:id="@+id/trailDist" style="@style/Stat" />
                             <TextView android:id="@+id/trailGain" style="@style/Stat" />
                             <TextView android:id="@+id/trailLoss" style="@style/Stat" />
+                            <TextView android:id="@+id/trailTime" style="@style/Stat" />
                         </LinearLayout>
+
+                        <!-- Profil en coupe (ProfileView, même dessin que Profile.tsx) -->
+                        <fr.assomoutain.proto.ProfileView android:id="@+id/trailProfile"
+                            android:layout_width="match_parent" android:layout_height="120dp"
+                            android:layout_marginTop="6dp" android:visibility="gone" />
 
                         <TextView android:id="@+id/trailAltError" style="@style/Hint" android:visibility="gone"
                             android:text="Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude." />

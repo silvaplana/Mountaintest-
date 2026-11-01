@@ -101,9 +101,9 @@ export function trailToGpx(trail: Trail, segments: (LonLat & { ele?: number | nu
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Assomoutain Rando" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
-    <name>${esc(trail.name)}</name>
+    <name>${esc(trail.name)}</name>${trail.id > 0 ? `
     <copyright author="OpenStreetMap contributors"><license>https://opendatacommons.org/licenses/odbl/</license></copyright>
-    <link href="https://www.openstreetmap.org/relation/${trail.id}"><text>${esc(OSM_ATTRIBUTION)}</text></link>
+    <link href="https://www.openstreetmap.org/relation/${trail.id}"><text>${esc(OSM_ATTRIBUTION)}</text></link>` : ''}
   </metadata>
   <trk>
     <name>${esc(trail.name)}</name>
