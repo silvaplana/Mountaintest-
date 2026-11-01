@@ -355,6 +355,11 @@
                         <Button android:id="@+id/btnBluetooth" style="@style/Btn" android:text="Bluetooth" />
                     </LinearLayout>
 
+                    <!-- Mode poche (PocketMode.java) -->
+                    <CheckBox android:id="@+id/chkPoche"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="Mode poche : écran éteint dans la poche, rallumé à plat ou par 2 secousses" />
+
                     <LinearLayout style="@style/Row">
                         <Button android:id="@+id/btnExport" style="@style/Btn" android:text="Exporter GPX" />
                         <Button android:id="@+id/btnImport" style="@style/Btn" android:text="Importer GPX" />

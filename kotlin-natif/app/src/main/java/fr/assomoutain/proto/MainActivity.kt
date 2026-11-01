@@ -204,6 +204,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnImport).setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
         mapOf(R.id.btnAvion to "avion", R.id.btnWifi to "wifi", R.id.btnDonnees to "donnees", R.id.btnBluetooth to "bluetooth")
             .forEach { (id, what) -> findViewById<Button>(id).setOnClickListener { BatterySettings.open(this, what) } }
+        findViewById<CheckBox>(R.id.chkPoche).apply {
+            isChecked = PocketMode.isEnabled(this@MainActivity)
+            setOnCheckedChangeListener { _, on -> PocketMode.setEnabled(this@MainActivity, on) }
+        }
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
 
         setupTrails()
@@ -248,6 +252,8 @@ class MainActivity : AppCompatActivity() {
         setupCoords()
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "kotlin")
+        // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
+        PocketMode.init(this)
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
