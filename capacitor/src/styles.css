@@ -82,3 +82,24 @@ progress { width: 100%; }
 .target span { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .target button.primary { flex: 1; min-height: 38px; padding: 6px 10px; }
 .target button:not(.primary) { min-height: 38px; padding: 6px 12px; }
+
+/* Randos libres d'une zone (OpenStreetMap) */
+.frame-overlay { position: absolute; inset: 0; z-index: 3; touch-action: none; cursor: crosshair; background: #0000000d; }
+.frame-banner {
+  position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 64px;
+  display: flex; gap: 8px; align-items: center; justify-content: space-between;
+  background: var(--bg); border-radius: 10px; padding: 6px 8px 6px 12px; box-shadow: 0 1px 6px #0003; font-size: 14px;
+}
+.frame-banner button { min-height: 38px; padding: 6px 12px; }
+.frame-rect { position: absolute; border: 2px dashed #1d2421; background: #7b3fe422; pointer-events: none; }
+.trail-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 2px solid #7b3fe4; border-radius: 12px; }
+.trail-card .stats { grid-template-columns: repeat(3, 1fr); }
+.trail-card a { color: var(--accent); }
+.trail-list { list-style: none; margin: 0; padding: 0; }
+.trail-list li { border-bottom: 1px solid var(--line); }
+.trail-list button { width: 100%; display: flex; gap: 10px; align-items: center; text-align: left; border: 0; border-radius: 0; padding: 8px 4px; }
+.trail-list button.active { background: #7b3fe41a; }
+.trail-list i { flex: 0 0 6px; align-self: stretch; border-radius: 3px; }
+.trail-list span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.trail-list b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trail-list small { font-size: 12px; color: var(--muted); }

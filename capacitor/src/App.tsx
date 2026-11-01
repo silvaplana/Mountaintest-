@@ -20,10 +20,13 @@ import { registerIgnProtocol } from './tiles/protocol';
 import { tilesForBbox } from './tiles/tileMath';
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
-import { TrackRecorder } from './track/recorder';
+import { saveGpxFile, TrackRecorder } from './track/recorder';
+import { FrameOverlay } from './FrameOverlay';
+import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
+import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
 import { computeStats, formatDuration, formatKm } from './track/stats';
 
-type Tab = 'sortie' | 'horsligne' | 'mesures';
+type Tab = 'sortie' | 'randos' | 'horsligne' | 'mesures';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
 
 const prefs = { apiKey: DEFAULT_SCAN_KEY, cacheViewed: true };
@@ -74,6 +77,15 @@ export function App() {
   const [stored, setStored] = useState({ scan25: 0, planign: 0, scan25Bytes: 0, planignBytes: 0 });
   const [downloading, setDownloading] = useState('');
   const abort = useRef<AbortController | null>(null);
+
+  // Randos libres (OpenStreetMap) d'une zone encadrée
+  const [framing, setFraming] = useState(false);
+  const [frame, setFrame] = useState<Bbox | null>(null);
+  const [trails, setTrails] = useState<Trail[]>([]);
+  const [trailsMsg, setTrailsMsg] = useState('');
+  const [selected, setSelected] = useState<Trail | null>(null);
+  const [elevated, setElevated] = useState<ElevatedTrail | 'loading' | 'error' | null>(null);
+  const trailsAbort = useRef<AbortController | null>(null);
 
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
@@ -263,6 +275,58 @@ export function App() {
     setProgress(null);
   }
 
+  async function searchTrails(b: Bbox) {
+    setFraming(false);
+    setOpen(true);
+    setTab('randos');
+    if (zoneTooBig(b)) {
+      setTrailsMsg(`Zone trop grande : encadre au plus ${Math.round(MAX_ZONE_DEG * 100)} km de côté environ.`);
+      return;
+    }
+    setFrame(b);
+    setTrails([]); setSelected(null); setElevated(null);
+    setTrailsMsg('Recherche des randos dans OpenStreetMap…');
+    trailsAbort.current?.abort();
+    const ctrl = new AbortController();
+    trailsAbort.current = ctrl;
+    const t0 = performance.now();
+    try {
+      const found = await fetchTrails(b, ctrl.signal);
+      bench('trails-search', { found: found.length, ms: Math.round(performance.now() - t0) });
+      setTrails(found);
+      setTrailsMsg(found.length ? `${found.length} rando${found.length > 1 ? 's' : ''} balisée${found.length > 1 ? 's' : ''} trouvée${found.length > 1 ? 's' : ''}. Touche-en une (liste ou carte).`
+        : 'Aucune rando balisée dans OpenStreetMap sur cette zone.');
+    } catch (e) {
+      if (!ctrl.signal.aborted) setTrailsMsg(`Recherche impossible (pas de réseau ? serveur saturé ?) : ${(e as Error).message}`);
+    }
+  }
+
+  async function selectTrail(t: Trail | null) {
+    setSelected(t);
+    setElevated(t ? 'loading' : null);
+    setFollow(false);
+    if (!t) return;
+    setOpen(true); setTab('randos');
+    const first = t.segments[0][0];
+    setTarget({ lon: first.lon, lat: first.lat, label: `Départ de « ${t.name} »` });
+    try {
+      const el = await elevate(t);
+      setSelected((cur) => { if (cur?.id === t.id) setElevated(el); return cur; });
+    } catch {
+      setSelected((cur) => { if (cur?.id === t.id) setElevated('error'); return cur; });
+    }
+  }
+
+  async function exportTrail() {
+    if (!selected) return;
+    const segs = elevated && typeof elevated === 'object' ? elevated.segments : selected.segments;
+    try {
+      setStatus(`GPX enregistré : ${await saveGpxFile(selected.name, trailToGpx(selected, segs))}`);
+    } catch (e) {
+      setStatus(`Export impossible : ${(e as Error).message}`);
+    }
+  }
+
   const stats = computeStats(recorded);
   const avgTile = metrics.tilesFromDisk + metrics.tilesFromNetwork ? metrics.tileLoadTotalMs / (metrics.tilesFromDisk + metrics.tilesFromNetwork) : 0;
 
@@ -270,7 +334,10 @@ export function App() {
     <div className="app">
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
-        onMapReady={setMap} />
+        onMapReady={setMap} trails={trails} selectedTrail={selected} frame={frame}
+        onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)} />
+
+      {framing && map && <FrameOverlay map={map} onDone={(b) => void searchTrails(b)} onCancel={() => { setFraming(false); setOpen(true); }} />}
 
       {searching ? (
         <SearchBar onClose={() => setSearching(false)} onPick={(p) => {
@@ -300,9 +367,9 @@ export function App() {
       <section className={`sheet ${open ? 'open' : ''}`}>
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
-          {(['sortie', 'horsligne', 'mesures'] as Tab[]).map((t) => (
+          {(['sortie', 'randos', 'horsligne', 'mesures'] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setOpen(true); void refreshStored(); }}>
-              {{ sortie: 'Sortie', horsligne: 'Hors ligne', mesures: 'Mesures' }[t]}
+              {{ sortie: 'Sortie', randos: 'Randos', horsligne: 'Hors ligne', mesures: 'Mesures' }[t]}
             </button>
           ))}
         </nav>
@@ -339,6 +406,50 @@ export function App() {
               <label className="file">Importer GPX<input type="file" accept=".gpx,application/gpx+xml" onChange={(e) => e.target.files?.[0] && importGpx(e.target.files[0])} /></label>
               {imported.length > 0 && <button onClick={() => setImported([])}>Effacer l'import</button>}
             </div>
+          </div>
+        )}
+
+        {open && tab === 'randos' && (
+          <div className="pane">
+            <p className="hint">Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. {OSM_ATTRIBUTION}.</p>
+            <div className="row">
+              <button className="primary" disabled={!map} onClick={() => { setFraming(true); setOpen(false); }}>Encadrer une zone</button>
+              <button disabled={!map} onClick={() => {
+                const b = map!.getBounds();
+                void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+              }}>Zone affichée</button>
+            </div>
+            {trailsMsg && <p className="hint">{trailsMsg}</p>}
+            {selected && (
+              <div className="trail-card">
+                <b>{selected.name}</b>
+                <span className="hint">{selected.kind} · <a href={`https://www.openstreetmap.org/relation/${selected.id}`} target="_blank" rel="noreferrer">fiche OSM</a>
+                  {selected.segments.length > 1 && ` · ${selected.segments.length} morceaux`}</span>
+                <div className="stats">
+                  <div><b>{formatKm(selected.distanceM)}</b><span>distance</span></div>
+                  <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.gainM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D+</span></div>
+                  <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.lossM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D−</span></div>
+                </div>
+                {elevated === 'error' && <p className="hint">Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude.</p>}
+                <div className="row">
+                  <button className="primary" onClick={exportTrail} disabled={elevated === 'loading'}>Exporter GPX</button>
+                  <button onClick={() => void selectTrail(null)}>Fermer</button>
+                </div>
+              </div>
+            )}
+            {trails.length > 0 && (
+              <ul className="trail-list">
+                {trails.map((t) => (
+                  <li key={t.id}>
+                    <button className={selected?.id === t.id ? 'active' : ''} onClick={() => void selectTrail(t)}>
+                      <i style={{ background: t.color }} />
+                      <span><b>{t.name}</b><small>{t.kind} · {formatKm(t.distanceM)}</small></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {trails.length > 0 && <button onClick={() => { setTrails([]); setFrame(null); void selectTrail(null); setTrailsMsg(''); }}>Effacer les randos de la carte</button>}
           </div>
         )}
 

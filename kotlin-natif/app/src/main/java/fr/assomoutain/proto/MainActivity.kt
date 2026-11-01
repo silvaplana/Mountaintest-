@@ -53,16 +53,23 @@ import org.maplibre.android.style.layers.PropertyFactory.circleColor
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
 import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
 import org.maplibre.android.style.layers.PropertyFactory.rasterOpacity
 import org.maplibre.android.style.layers.PropertyFactory.visibility
 import org.maplibre.android.style.layers.RasterLayer
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.RasterSource
 import org.maplibre.android.style.sources.TileSet
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
+import org.maplibre.geojson.MultiLineString
+import org.maplibre.geojson.Polygon
 import org.maplibre.geojson.Point
 import java.net.HttpURLConnection
 import java.net.URL
@@ -77,7 +84,7 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private enum class Source(val label: String) { GPS("GPS réel"), SIM10("Simulation ×10"), SIM60("Simulation ×60") }
-    private enum class Tab { SORTIE, OFFLINE, MESURES }
+    private enum class Tab { SORTIE, RANDOS, OFFLINE, MESURES }
 
     private lateinit var mapView: MapView
     private var map: MapLibreMap? = null
@@ -112,6 +119,9 @@ class MainActivity : AppCompatActivity() {
     private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/gpx+xml")) { uri ->
         uri?.let { exportTo(it) }
     }
+    private val trailExportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/gpx+xml")) { uri ->
+        uri?.let { exportTrailTo(it) }
+    }
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importFrom(it) }
     }
@@ -138,6 +148,16 @@ class MainActivity : AppCompatActivity() {
             }
             // Appui long sur la carte : choisir un lieu où aller.
             m.addOnMapLongClickListener { p -> setTarget(p.latitude, p.longitude, "Point choisi sur la carte"); true }
+            // Appui sur une rando affichée : on la choisit (zone de 20 dp autour du doigt).
+            m.addOnMapClickListener { p ->
+                if (trails.isEmpty()) return@addOnMapClickListener false
+                val pt = m.projection.toScreenLocation(p)
+                val r = 20 * resources.displayMetrics.density
+                val hit = m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), LAYER_TRAILS)
+                val id = hit.firstOrNull()?.getNumberProperty("id")?.toLong() ?: return@addOnMapClickListener false
+                trails.firstOrNull { it.id == id }?.let { selectTrail(it) }
+                true
+            }
             loadStyle()
         }
         findViewById<Button>(R.id.btnGo).setOnClickListener { target?.let { openDirections(it.first, it.second) } }
@@ -163,6 +183,7 @@ class MainActivity : AppCompatActivity() {
         // Panneau
         findViewById<View>(R.id.handle).setOnClickListener { sheetOpen = !sheetOpen; refreshTabs() }
         findViewById<Button>(R.id.tabSortie).setOnClickListener { showTab(Tab.SORTIE) }
+        findViewById<Button>(R.id.tabRandos).setOnClickListener { showTab(Tab.RANDOS) }
         findViewById<Button>(R.id.tabOffline).setOnClickListener { showTab(Tab.OFFLINE) }
         findViewById<Button>(R.id.tabMesures).setOnClickListener { showTab(Tab.MESURES) }
 
@@ -179,6 +200,8 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnImport).setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
+
+        setupTrails()
 
         // Onglet Hors ligne
         val editKey = findViewById<EditText>(R.id.editKey)
@@ -232,7 +255,8 @@ class MainActivity : AppCompatActivity() {
 
     /** Android 15 dessine sous les barres système : on décale le haut et le bas de l'interface. */
     private fun applyInsets() {
-        val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.mapButtons), findViewById<View>(R.id.searchPanel))
+        val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.mapButtons), findViewById<View>(R.id.searchPanel),
+            findViewById<View>(R.id.frameBanner))
         val target = findViewById<View>(R.id.targetBar)
         val targetTop = (66 * resources.displayMetrics.density).toInt()
         val sheet = findViewById<View>(R.id.sheet)
@@ -258,6 +282,14 @@ class MainActivity : AppCompatActivity() {
                 maxZoom = slopesLayer.maxNativeZoom.toFloat()
             }, 256))
             style.addLayer(RasterLayer(LAYER_SLOPES, SRC_SLOPES).withProperties(rasterOpacity(0.6f), visibility(Property.NONE)))
+            style.addSource(GeoJsonSource(SRC_FRAME))
+            style.addSource(GeoJsonSource(SRC_TRAILS))
+            style.addSource(GeoJsonSource(SRC_TRAIL_SEL))
+            style.addLayer(LineLayer("frame", SRC_FRAME).withProperties(lineColor("#1d2421"), lineWidth(2f), lineDasharray(arrayOf(3f, 2f))))
+            style.addLayer(LineLayer(LAYER_TRAILS, SRC_TRAILS).withProperties(
+                lineColor(Expression.get("color")), lineWidth(3f), lineOpacity(0.75f), lineCap(Property.LINE_CAP_ROUND)))
+            style.addLayer(LineLayer("trail-sel-casing", SRC_TRAIL_SEL).withProperties(lineColor("#ffffff"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND)))
+            style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor("#7b3fe4"), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
             style.addSource(GeoJsonSource(SRC_IMPORT))
             style.addSource(GeoJsonSource(SRC_TRACK))
             style.addSource(GeoJsonSource(SRC_POS))
@@ -270,6 +302,7 @@ class MainActivity : AppCompatActivity() {
                 circleRadius(9f), circleColor("#c0392b"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             applySlopes()
             drawImported(fit = false)
+            drawTrails(fit = false)
             drawTarget()
             render()
             if (locating) startLocate()
@@ -486,6 +519,7 @@ class MainActivity : AppCompatActivity() {
         tab = t; sheetOpen = true; refreshTabs()
         when (t) {
             Tab.SORTIE -> refreshSortie()
+            Tab.RANDOS -> refreshTrails()
             Tab.OFFLINE -> refreshOffline()
             Tab.MESURES -> refreshMesures()
         }
@@ -494,11 +528,12 @@ class MainActivity : AppCompatActivity() {
     private fun refreshTabs() {
         val accent = ContextCompat.getColor(this, R.color.accent)
         val muted = ContextCompat.getColor(this, R.color.muted)
-        mapOf(Tab.SORTIE to R.id.tabSortie, Tab.OFFLINE to R.id.tabOffline, Tab.MESURES to R.id.tabMesures).forEach { (t, id) ->
+        mapOf(Tab.SORTIE to R.id.tabSortie, Tab.RANDOS to R.id.tabRandos, Tab.OFFLINE to R.id.tabOffline, Tab.MESURES to R.id.tabMesures).forEach { (t, id) ->
             findViewById<Button>(id).setTextColor(if (t == tab && sheetOpen) accent else muted)
         }
         findViewById<View>(R.id.content).visibility = if (sheetOpen) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneSortie).visibility = if (tab == Tab.SORTIE) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.paneRandos).visibility = if (tab == Tab.RANDOS) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneOffline).visibility = if (tab == Tab.OFFLINE) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneMesures).visibility = if (tab == Tab.MESURES) View.VISIBLE else View.GONE
         val status = findViewById<TextView>(R.id.status)
@@ -626,6 +661,198 @@ class MainActivity : AppCompatActivity() {
             .onFailure { setStatus("Import impossible : ${it.message}") }
     }
 
+    // ---------- Randos libres (OpenStreetMap) d'une zone encadrée ----------
+
+    private var trails: List<Trail> = emptyList()
+    private var frame: Zone? = null
+    private var selectedTrail: Trail? = null
+    /** null : pas encore calculé ; échec : service d'altitude injoignable. */
+    private var elevated: Result<ElevatedTrail>? = null
+    private var trailsMessage = ""
+    private var trailsJob: kotlinx.coroutines.Job? = null
+    private var elevJob: kotlinx.coroutines.Job? = null
+
+    private fun setupTrails() {
+        findViewById<TextView>(R.id.trailsAttribution).text =
+            "Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. ${Trails.OSM_ATTRIBUTION}."
+        val draw = findViewById<FrameDrawView>(R.id.frameDraw)
+        draw.onFrame = { a, b ->
+            val proj = map?.projection
+            if (proj != null) {
+                val p = proj.fromScreenLocation(a); val q = proj.fromScreenLocation(b)
+                searchTrails(Zone(minOf(p.longitude, q.longitude), minOf(p.latitude, q.latitude),
+                    maxOf(p.longitude, q.longitude), maxOf(p.latitude, q.latitude)))
+            }
+        }
+        findViewById<Button>(R.id.btnFrame).setOnClickListener { setFraming(true) }
+        findViewById<Button>(R.id.btnFrameCancel).setOnClickListener { setFraming(false); sheetOpen = true; refreshTabs() }
+        findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
+            map?.projection?.visibleRegion?.latLngBounds?.let {
+                searchTrails(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth))
+            }
+        }
+        findViewById<Button>(R.id.btnTrailExport).setOnClickListener {
+            selectedTrail?.let { t -> trailExportLauncher.launch("${t.name.replace(Regex("[^\\p{L}\\p{N}-]+"), "_")}.gpx") }
+        }
+        findViewById<Button>(R.id.btnTrailClose).setOnClickListener { selectTrail(null) }
+        findViewById<Button>(R.id.btnTrailsClear).setOnClickListener {
+            trailsJob?.cancel()
+            trails = emptyList(); frame = null; trailsMessage = ""
+            selectTrail(null); drawTrails(fit = false)
+        }
+        refreshTrails()
+    }
+
+    private fun setFraming(on: Boolean) {
+        val draw = findViewById<FrameDrawView>(R.id.frameDraw)
+        draw.reset()
+        draw.visibility = if (on) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.frameBanner).visibility = if (on) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.topBar).visibility = if (on) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.targetBar).visibility = if (!on && target != null) View.VISIBLE else View.GONE
+        if (on) { sheetOpen = false; refreshTabs() }
+    }
+
+    private fun searchTrails(z: Zone) {
+        setFraming(false)
+        tab = Tab.RANDOS; sheetOpen = true; refreshTabs()
+        if (Trails.zoneTooBig(z)) {
+            trailsMessage = "Zone trop grande : encadre au plus ${(Trails.MAX_ZONE_DEG * 100).toInt()} km de côté environ."
+            refreshTrails(); return
+        }
+        frame = z
+        trails = emptyList(); selectedTrail = null; elevated = null; elevJob?.cancel()
+        trailsMessage = "Recherche des randos dans OpenStreetMap…"
+        drawTrails(fit = false); refreshTrails()
+        trailsJob?.cancel()
+        trailsJob = lifecycleScope.launch {
+            val t0 = SystemClock.elapsedRealtime()
+            val r = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(z) } }
+            r.onSuccess { found ->
+                Log.i(Scenario.BENCH_TAG, "{\"event\":\"trails-search\",\"found\":${found.size},\"ms\":${SystemClock.elapsedRealtime() - t0}}")
+                trails = found
+                val n = found.size; val s = if (n > 1) "s" else ""
+                trailsMessage = if (n > 0) "$n rando$s balisée$s trouvée$s. Touche-en une (liste ou carte)."
+                    else "Aucune rando balisée dans OpenStreetMap sur cette zone."
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+                trailsMessage = "Recherche impossible (pas de réseau ? serveur saturé ?) : ${e.message}"
+            }
+            drawTrails(fit = false); refreshTrails()
+        }
+    }
+
+    private fun selectTrail(t: Trail?) {
+        selectedTrail = t
+        elevated = null
+        elevJob?.cancel()
+        if (t != null) { tab = Tab.RANDOS; sheetOpen = true; refreshTabs() }
+        drawTrails(fit = t != null)
+        refreshTrails()
+        if (t == null) return
+        if (follow) setFollow(false)
+        if (locating) map?.locationComponent?.cameraMode = CameraMode.NONE
+        val first = t.segments.first().first()
+        setTarget(first.lat, first.lon, "Départ de « ${t.name} »")
+        elevJob = lifecycleScope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { Trails.elevate(t) } }
+            if (r.exceptionOrNull() is kotlinx.coroutines.CancellationException || selectedTrail?.id != t.id) return@launch
+            elevated = r
+            refreshTrails()
+        }
+    }
+
+    private fun trailFeature(t: Trail) = Feature.fromGeometry(
+        MultiLineString.fromLngLats(t.segments.map { seg -> seg.map { Point.fromLngLat(it.lon, it.lat) } })
+    ).apply { addNumberProperty("id", t.id); addStringProperty("color", t.color) }
+
+    private fun drawTrails(fit: Boolean) {
+        val style = map?.style ?: return
+        if (!style.isFullyLoaded) return
+        style.getSourceAs<GeoJsonSource>(SRC_TRAILS)?.setGeoJson(FeatureCollection.fromFeatures(trails.map { trailFeature(it) }))
+        val sel = selectedTrail
+        style.getSourceAs<GeoJsonSource>(SRC_TRAIL_SEL)?.setGeoJson(
+            FeatureCollection.fromFeatures(if (sel != null) listOf(trailFeature(sel)) else emptyList()))
+        val z = frame
+        style.getSourceAs<GeoJsonSource>(SRC_FRAME)?.setGeoJson(
+            if (z == null) FeatureCollection.fromFeatures(emptyList<Feature>())
+            else FeatureCollection.fromFeature(Feature.fromGeometry(Polygon.fromLngLats(listOf(listOf(
+                Point.fromLngLat(z.west, z.south), Point.fromLngLat(z.east, z.south), Point.fromLngLat(z.east, z.north),
+                Point.fromLngLat(z.west, z.north), Point.fromLngLat(z.west, z.south)))))))
+        if (fit && sel != null) {
+            val b = LatLngBounds.Builder()
+            sel.segments.forEach { seg -> seg.forEach { b.include(LatLng(it.lat, it.lon)) } }
+            // Haut : barres « fond de carte » et « Y aller » ; bas : le panneau ouvert.
+            val d = resources.displayMetrics.density
+            val sheet = findViewById<View>(R.id.sheet)
+            sheet.post {
+                val h = mapView.height
+                val bottom = (sheet.height + 20 * d).toInt().coerceAtMost(h - (200 * d).toInt()).coerceAtLeast((20 * d).toInt())
+                runCatching {
+                    map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(),
+                        (30 * d).toInt(), (140 * d).toInt(), (70 * d).toInt(), bottom), 800)
+                }
+            }
+        }
+    }
+
+    private fun refreshTrails() {
+        findViewById<TextView>(R.id.trailsInfo).apply {
+            text = trailsMessage; visibility = if (trailsMessage.isEmpty()) View.GONE else View.VISIBLE
+        }
+        val sel = selectedTrail
+        findViewById<View>(R.id.trailCard).visibility = if (sel != null) View.VISIBLE else View.GONE
+        if (sel != null) {
+            findViewById<TextView>(R.id.trailName).text = sel.name
+            findViewById<TextView>(R.id.trailKind).text = sel.kind +
+                (if (sel.segments.size > 1) " · ${sel.segments.size} morceaux" else "") + " · openstreetmap.org/relation/${sel.id}"
+            val e = elevated?.getOrNull()
+            val wait = if (elevated == null) "…" else "—"
+            findViewById<TextView>(R.id.trailDist).text = stat(String.format(Locale.FRANCE, "%.2f km", sel.distanceM / 1000), "distance")
+            findViewById<TextView>(R.id.trailGain).text = stat(e?.let { "${it.gainM.toInt()} m" } ?: wait, "D+")
+            findViewById<TextView>(R.id.trailLoss).text = stat(e?.let { "${it.lossM.toInt()} m" } ?: wait, "D−")
+            findViewById<View>(R.id.trailAltError).visibility = if (elevated?.isFailure == true) View.VISIBLE else View.GONE
+            findViewById<Button>(R.id.btnTrailExport).isEnabled = elevated != null
+        }
+        val list = findViewById<android.widget.LinearLayout>(R.id.trailList)
+        list.removeAllViews()
+        val d = resources.displayMetrics.density
+        trails.forEach { t ->
+            list.addView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                setPadding((4 * d).toInt(), (8 * d).toInt(), (4 * d).toInt(), (8 * d).toInt())
+                isClickable = true
+                if (t.id == sel?.id) setBackgroundColor(Color.parseColor("#1A7B3FE4"))
+                else setBackgroundResource(android.R.drawable.list_selector_background)
+                addView(View(this@MainActivity).apply { setBackgroundColor(Color.parseColor(t.color)) },
+                    android.widget.LinearLayout.LayoutParams((6 * d).toInt(), android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                        .apply { marginEnd = (10 * d).toInt() })
+                addView(TextView(this@MainActivity).apply {
+                    val sub = String.format(Locale.FRANCE, "%s · %.2f km", t.kind, t.distanceM / 1000)
+                    text = android.text.SpannableString("${t.name}\n$sub").apply {
+                        setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, t.name.length, 0)
+                        setSpan(android.text.style.ForegroundColorSpan(Color.parseColor("#1D2421")), 0, t.name.length, 0)
+                        setSpan(android.text.style.RelativeSizeSpan(0.85f), t.name.length + 1, t.name.length + 1 + sub.length, 0)
+                    }
+                    textSize = 15f
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
+                })
+                setOnClickListener { selectTrail(t) }
+            })
+            list.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.line)) },
+                android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1))
+        }
+        findViewById<View>(R.id.btnTrailsClear).visibility = if (trails.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun exportTrailTo(uri: Uri) {
+        val t = selectedTrail ?: return
+        val segs = elevated?.getOrNull()?.segments ?: t.segments.map { seg -> seg.map { it to null } }
+        runCatching { contentResolver.openOutputStream(uri)!!.use { it.write(Trails.toGpx(t, segs).toByteArray()) } }
+            .onSuccess { setStatus("GPX enregistré : « ${t.name} ».") }
+            .onFailure { setStatus("Export impossible : ${it.message}") }
+    }
+
     // ---------- Hors ligne ----------
 
     private fun refreshOffline() {
@@ -731,6 +958,10 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_IMPORT = "import-src"
         private const val SRC_TARGET = "target-src"
         private const val SRC_SLOPES = "slopes-src"
+        private const val SRC_TRAILS = "trails-src"
+        private const val SRC_TRAIL_SEL = "trail-sel-src"
+        private const val SRC_FRAME = "frame-src"
+        private const val LAYER_TRAILS = "trails"
         private const val LAYER_SLOPES = "slopes"
     }
 }

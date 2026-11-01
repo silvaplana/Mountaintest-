@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Même organisation que le prototype Capacitor : carte plein écran, fond de carte en haut à gauche,
-     boutons carte à droite, panneau en bas avec trois onglets (Sortie, Hors ligne, Mesures). -->
+     boutons carte à droite, panneau en bas avec quatre onglets (Sortie, Randos, Hors ligne, Mesures). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:maplibre="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root"
@@ -16,6 +16,13 @@
         maplibre:maplibre_cameraTargetLng="5.6"
         maplibre:maplibre_cameraZoom="14"
         maplibre:maplibre_uiCompassMarginTop="64dp" />
+
+    <!-- Encadrer une zone (randos OSM) : capte le doigt au-dessus de la carte -->
+    <fr.assomoutain.proto.FrameDrawView
+        android:id="@+id/frameDraw"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
 
     <LinearLayout
         android:id="@+id/topBar"
@@ -139,6 +146,38 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/frameBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="68dp"
+        android:background="@drawable/card_bg"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="4dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Trace un rectangle du doigt sur la zone"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnFrameCancel"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Annuler"
+            android:textAllCaps="false" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/mapButtons"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -215,6 +254,9 @@
             <Button android:id="@+id/tabSortie" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:text="Sortie" android:textAllCaps="false" android:textSize="15sp" />
+            <Button android:id="@+id/tabRandos" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Randos" android:textAllCaps="false" android:textSize="15sp" />
             <Button android:id="@+id/tabOffline" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:text="Hors ligne" android:textAllCaps="false" android:textSize="15sp" />
@@ -269,6 +311,65 @@
                         <Button android:id="@+id/btnClearImport" style="@style/Btn" android:text="Effacer l'import"
                             android:visibility="gone" />
                     </LinearLayout>
+                </LinearLayout>
+
+                <!-- Onglet Randos : randos balisées libres (OpenStreetMap) d'une zone encadrée -->
+                <LinearLayout
+                    android:id="@+id/paneRandos"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView android:id="@+id/trailsAttribution" style="@style/Hint" />
+
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnFrame" style="@style/Btn.Primary" android:text="Encadrer une zone" />
+                        <Button android:id="@+id/btnTrailsView" style="@style/Btn" android:text="Zone affichée" />
+                    </LinearLayout>
+
+                    <TextView android:id="@+id/trailsInfo" style="@style/Hint" android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/trailCard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/trail_card"
+                        android:orientation="vertical"
+                        android:padding="10dp"
+                        android:visibility="gone">
+
+                        <TextView android:id="@+id/trailName" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:textSize="16sp" android:textStyle="bold"
+                            android:textColor="#1D2421" />
+                        <TextView android:id="@+id/trailKind" style="@style/Hint" android:layout_marginTop="2dp" />
+
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp" android:orientation="horizontal">
+                            <TextView android:id="@+id/trailDist" style="@style/Stat" />
+                            <TextView android:id="@+id/trailGain" style="@style/Stat" />
+                            <TextView android:id="@+id/trailLoss" style="@style/Stat" />
+                        </LinearLayout>
+
+                        <TextView android:id="@+id/trailAltError" style="@style/Hint" android:visibility="gone"
+                            android:text="Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude." />
+
+                        <LinearLayout style="@style/Row">
+                            <Button android:id="@+id/btnTrailExport" style="@style/Btn.Primary" android:text="Exporter GPX" />
+                            <Button android:id="@+id/btnTrailClose" style="@style/Btn" android:text="Fermer" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/trailList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="vertical" />
+
+                    <Button android:id="@+id/btnTrailsClear" style="@style/Btn" android:layout_width="match_parent"
+                        android:layout_weight="0" android:text="Effacer les randos de la carte" android:visibility="gone" />
                 </LinearLayout>
 
                 <!-- Onglet Hors ligne -->

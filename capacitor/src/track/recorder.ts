@@ -72,17 +72,21 @@ export class TrackRecorder {
   }
 
   async exportGpx(name: string): Promise<string> {
-    const gpx = toGpx({ name, points: this.points });
-    const file = `${name.replace(/[^\w-]+/g, '_')}.gpx`;
-    if (Capacitor.isNativePlatform()) {
-      const r = await Filesystem.writeFile({ directory: Directory.Documents, path: `Assomoutain/${file}`, data: gpx, encoding: Encoding.UTF8, recursive: true });
-      return r.uri;
-    }
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([gpx], { type: 'application/gpx+xml' }));
-    a.download = file;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    return file;
+    return saveGpxFile(name, toGpx({ name, points: this.points }));
   }
+}
+
+/** Enregistre un GPX dans Documents/Assomoutain (appli) ou le télécharge (web). Renvoie l'emplacement. */
+export async function saveGpxFile(name: string, gpx: string): Promise<string> {
+  const file = `${name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '_')}.gpx`;
+  if (Capacitor.isNativePlatform()) {
+    const r = await Filesystem.writeFile({ directory: Directory.Documents, path: `Assomoutain/${file}`, data: gpx, encoding: Encoding.UTF8, recursive: true });
+    return r.uri;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([gpx], { type: 'application/gpx+xml' }));
+  a.download = file;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  return file;
 }

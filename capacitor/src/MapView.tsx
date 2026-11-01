@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AUTO_PLAN_UNTIL, AUTO_SCAN_FROM, DISPLAY_MAX_ZOOM, LA_CIOTAT_CENTER, LAYERS, type BaseMode } from './config';
 import { bench, metrics } from './metrics';
 import { toLineString, type TrackPoint } from './track/gpx';
+import { bboxPolygon, trailsGeoJson, type Trail } from './trails/osmTrails';
+import type { Bbox } from './config';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -16,6 +18,11 @@ export interface MapViewProps {
   /** Faux quand l'appli est en arrière-plan : on ne redessine rien pour économiser la batterie. */
   visible: boolean;
   onMapReady?: (map: MlMap) => void;
+  /** Randos OSM trouvées dans la zone encadrée, celle choisie, et le cadre. */
+  trails: Trail[];
+  selectedTrail: Trail | null;
+  frame: Bbox | null;
+  onTrailClick?: (id: number) => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -32,6 +39,8 @@ export function MapView(props: MapViewProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
   const [ready, setReady] = useState(false);
+  const onTrailClick = useRef(props.onTrailClick);
+  onTrailClick.current = props.onTrailClick;
 
   useEffect(() => {
     const m = new maplibregl.Map({
@@ -46,13 +55,20 @@ export function MapView(props: MapViewProps) {
       style: {
         version: 8,
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
-          recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY } },
+          recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
+          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
           // Plan IGN sous le SCAN 25 : en mode Auto, le SCAN 25 apparaît en fondu par-dessus en zoomant.
           { id: 'planign', type: 'raster', source: 'planign' },
           { id: 'scan25', type: 'raster', source: 'scan25' },
           { id: 'slopes', type: 'raster', source: 'slopes', paint: { 'raster-opacity': 0.6 }, layout: { visibility: 'none' } },
+          { id: 'frame', type: 'line', source: 'frame', paint: { 'line-color': '#1d2421', 'line-width': 2, 'line-dasharray': [3, 2] } },
+          { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': 0.75 } },
+          // Couche invisible plus large : le doigt n'a pas besoin de tomber pile sur le trait.
+          { id: 'trails-hit', type: 'line', source: 'trails', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
+          { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8 } },
+          { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#7b3fe4', 'line-width': 5 } },
           { id: 'imported', type: 'line', source: 'imported', paint: { 'line-color': '#7b3fe4', 'line-width': 4, 'line-opacity': 0.8 } },
           { id: 'recorded', type: 'line', source: 'recorded', paint: { 'line-color': '#e4572e', 'line-width': 4 } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
@@ -73,6 +89,12 @@ export function MapView(props: MapViewProps) {
       metrics.firstMapRenderMs = Math.round(performance.now() - metrics.appStart);
       bench('startup', { startup: 'map_idle', ms: metrics.firstMapRenderMs });
     });
+    m.on('click', 'trails-hit', (e) => {
+      const id = e.features?.[0]?.properties?.id;
+      if (id != null) onTrailClick.current?.(Number(id));
+    });
+    m.on('mouseenter', 'trails-hit', () => { m.getCanvas().style.cursor = 'pointer'; });
+    m.on('mouseleave', 'trails-hit', () => { m.getCanvas().style.cursor = ''; });
     m.on('load', () => {
       setReady(true);
       props.onMapReady?.(m);
@@ -111,6 +133,29 @@ export function MapView(props: MapViewProps) {
       m.fitBounds(b, { padding: 40, duration: 0 });
     }
   }, [props.imported, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    (m.getSource('trails') as GeoJSONSource).setData(trailsGeoJson(props.trails));
+    (m.getSource('frame') as GeoJSONSource).setData(props.frame ? bboxPolygon(props.frame) : EMPTY);
+  }, [props.trails, props.frame, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    const t = props.selectedTrail;
+    (m.getSource('trailSel') as GeoJSONSource).setData(t ? trailsGeoJson([t]) : EMPTY);
+    if (t) {
+      const b = new maplibregl.LngLatBounds();
+      t.segments.forEach((s) => s.forEach((p) => b.extend([p.lon, p.lat])));
+      // Haut : barres « fond de carte » et « Y aller » ; bas : le panneau ouvert.
+      const sheet = document.querySelector('.sheet')?.getBoundingClientRect().height ?? 0;
+      const h = m.getContainer().clientHeight;
+      const bottom = Math.min(sheet + 20, h - 200);
+      m.fitBounds(b, { padding: { top: 140, left: 30, right: 70, bottom: Math.max(20, bottom) }, duration: 800 });
+    }
+  }, [props.selectedTrail, ready]);
 
   useEffect(() => {
     const p = props.position;
