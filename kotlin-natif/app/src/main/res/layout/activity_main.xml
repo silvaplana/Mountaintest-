@@ -114,6 +114,39 @@
         </ScrollView>
     </LinearLayout>
 
+    <!-- Ma position en coordonnées (copiable pour les secours) -->
+    <LinearLayout
+        android:id="@+id/coordsBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="66dp"
+        android:layout_marginEnd="68dp"
+        android:background="@drawable/card_bg"
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/coordsText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackground"
+            android:padding="8dp"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnCoordsClose"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:contentDescription="Masquer les coordonnées"
+            android:text="✕" />
+    </LinearLayout>
+
     <!-- Lieu choisi : « Y aller » ouvre Google Maps -->
     <LinearLayout
         android:id="@+id/targetBar"

@@ -120,3 +120,15 @@ progress { width: 100%; }
   background: #ffffffb0; border: 1px solid #0002; font-size: 20px; color: #1d2421;
 }
 
+
+/* Ma position en coordonnées (copiable pour les secours) */
+.coords {
+  position: absolute; top: calc(env(safe-area-inset-top) + 66px); left: 10px; right: 64px;
+  display: flex; align-items: stretch; background: var(--bg); border-radius: 10px; box-shadow: 0 1px 6px #0003;
+}
+.coords button { border: 0; min-height: 0; background: none; }
+.coords .coords-text { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 6px 10px; text-align: left; }
+.coords .coords-text b { font-size: 14px; font-variant-numeric: tabular-nums; }
+.coords .coords-text span { font-size: 12px; color: var(--muted); }
+.target.below-coords { top: calc(env(safe-area-inset-top) + 122px); }
+.app.nature .coords { top: calc(env(safe-area-inset-top) + 10px); right: 10px; }

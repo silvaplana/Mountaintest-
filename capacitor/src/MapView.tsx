@@ -18,6 +18,8 @@ export interface MapViewProps {
   /** Faux quand l'appli est en arrière-plan : on ne redessine rien pour économiser la batterie. */
   visible: boolean;
   onMapReady?: (map: MlMap) => void;
+  /** Position donnée par le bouton « me localiser ». */
+  onGeolocate?: (p: { coords: GeolocationCoordinates; timestamp: number }) => void;
   /** Randos OSM trouvées dans la zone encadrée, celle choisie, et le cadre. */
   trails: Trail[];
   selectedTrail: Trail | null;
@@ -39,6 +41,8 @@ export function MapView(props: MapViewProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
   const [ready, setReady] = useState(false);
+  const onGeolocate = useRef(props.onGeolocate);
+  onGeolocate.current = props.onGeolocate;
   const onTrailClick = useRef(props.onTrailClick);
   onTrailClick.current = props.onTrailClick;
 
@@ -78,12 +82,14 @@ export function MapView(props: MapViewProps) {
     m.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: false }), 'top-right');
     // Bouton « me localiser » : 1er appui centre sur ma position et la suit, 2e appui arrête.
     // Le GPS du téléphone ne tourne que tant que le bouton est actif (et jamais appli en arrière-plan).
-    m.addControl(new maplibregl.GeolocateControl({
+    const geo = new maplibregl.GeolocateControl({
       positionOptions: { enableHighAccuracy: true, timeout: 20_000, maximumAge: 10_000 },
       trackUserLocation: true,
       showAccuracyCircle: true,
       fitBoundsOptions: { maxZoom: 15 },
-    }), 'top-right');
+    });
+    geo.on('geolocate', (p) => onGeolocate.current?.(p));
+    m.addControl(geo, 'top-right');
     m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     m.once('idle', () => {
       metrics.firstMapRenderMs = Math.round(performance.now() - metrics.appStart);

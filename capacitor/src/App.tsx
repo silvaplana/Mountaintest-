@@ -23,6 +23,7 @@ import { SearchBar } from './SearchBar';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { Versions } from './Versions';
+import { Coords, type Fix } from './Coords';
 import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
 import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
@@ -54,6 +55,9 @@ export function App() {
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [searching, setSearching] = useState(false);
+  /** Dernière position connue (bouton « me localiser » ou enregistrement en cours), affichée en coordonnées. */
+  const [myFix, setMyFix] = useState<Fix | null>(null);
+  const [showCoords, setShowCoords] = useState(true);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
   const [nature, setNature] = useState(false);
   /** Lieu choisi (recherche, appui long, départ d'une trace importée) : « Y aller » ouvre Google Maps. */
@@ -141,6 +145,7 @@ export function App() {
     // mais ne touche pas à l'affichage : le rendu sera fait au retour.
     if (document.visibilityState === 'visible') {
       setPosition(last);
+      setMyFix({ lat: last.lat, lon: last.lon, alt: last.alt ?? null, accuracy: last.accuracy ?? null, time: last.time });
       if (kept) setRecorded([...recorder.current.points]);
     }
     void adapt(document.visibilityState === 'visible');
@@ -343,7 +348,9 @@ export function App() {
       {nature && <button className="restore" onClick={() => setNature(false)} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
-        onMapReady={setMap} trails={trails} selectedTrail={selected} frame={frame}
+ onMapReady={setMap}
+        onGeolocate={(p) => { setMyFix({ lat: p.coords.latitude, lon: p.coords.longitude, alt: p.coords.altitude, accuracy: p.coords.accuracy, time: p.timestamp }); setShowCoords(true); }}
+        trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)} />
 
       {framing && map && <FrameOverlay map={map}
@@ -371,8 +378,9 @@ export function App() {
       </div>
       )}
 
+      {myFix && showCoords && !searching && !framing && <Coords fix={myFix} onClose={() => setShowCoords(false)} />}
       {target && !searching && (
-        <div className="target">
+        <div className={`target ${myFix && showCoords && !framing ? 'below-coords' : ''}`}>
           <span>📍 {target.label}</span>
           <button className="primary" onClick={() => openDirections(target.lat, target.lon)}>Y aller (Google Maps)</button>
           <button onClick={() => setTarget(null)} aria-label="Effacer le lieu choisi">✕</button>
