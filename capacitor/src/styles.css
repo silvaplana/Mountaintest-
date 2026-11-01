@@ -103,3 +103,20 @@ progress { width: 100%; }
 .trail-list span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .trail-list b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trail-list small { font-size: 12px; color: var(--muted); }
+
+/* Onglet Versions */
+.tabs button.close { flex: 0 0 40px; font-size: 18px; color: var(--muted); }
+.versions article { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.versions h4 { margin: 0 0 2px; font-size: 15px; }
+.versions ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
+.versions li { margin: 2px 0; }
+
+/* Mode nature : carte seule, interface masquée ; un petit bouton discret la fait revenir. */
+.app.nature .layers, .app.nature .search, .app.nature .target, .app.nature .sheet,
+.app.nature .maplibregl-ctrl-top-right, .app.nature .maplibregl-ctrl-bottom-left { display: none; }
+.restore {
+  position: absolute; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 28px); z-index: 3;
+  width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%;
+  background: #ffffffb0; border: 1px solid #0002; font-size: 20px; color: #1d2421;
+}
+

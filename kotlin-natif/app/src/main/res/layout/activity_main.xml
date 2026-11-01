@@ -253,16 +253,23 @@
 
             <Button android:id="@+id/tabSortie" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="Sortie" android:textAllCaps="false" android:textSize="15sp" />
+                android:text="Sortie" android:textAllCaps="false" android:textSize="14sp" />
             <Button android:id="@+id/tabRandos" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="Randos" android:textAllCaps="false" android:textSize="15sp" />
+                android:text="Randos" android:textAllCaps="false" android:textSize="14sp" />
             <Button android:id="@+id/tabOffline" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="Hors ligne" android:textAllCaps="false" android:textSize="15sp" />
+                android:text="Hors ligne" android:textAllCaps="false" android:textSize="14sp" />
             <Button android:id="@+id/tabMesures" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="Mesures" android:textAllCaps="false" android:textSize="15sp" />
+                android:text="Mesures" android:textAllCaps="false" android:textSize="14sp" />
+            <Button android:id="@+id/tabVersions" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Versions" android:textAllCaps="false" android:textSize="14sp" />
+            <Button android:id="@+id/btnNature" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="40dp" android:layout_height="wrap_content"
+                android:contentDescription="Masquer l'interface (mode nature)" android:text="✕"
+                android:textColor="@color/muted" android:textSize="18sp" />
         </LinearLayout>
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/line" />
@@ -393,8 +400,7 @@
                     <TextView android:id="@+id/offlineHint" style="@style/Hint" />
 
                     <LinearLayout style="@style/Row">
-                        <Button android:id="@+id/btnDownload" style="@style/Btn.Primary" android:text="Zone La Ciotat" />
-                        <Button android:id="@+id/btnDownloadView" style="@style/Btn.Primary" android:text="Zone affichée" />
+                        <Button android:id="@+id/btnDownload" style="@style/Btn.Primary" android:text="Tracer un rectangle" />
                     </LinearLayout>
 
                     <LinearLayout style="@style/Row">
@@ -407,6 +413,14 @@
                         android:visibility="gone" />
                     <TextView android:id="@+id/offlineInfo" style="@style/Hint" />
                 </LinearLayout>
+
+                <!-- Onglet Versions : historique embarqué par la CI (assets/changelog.json) -->
+                <LinearLayout
+                    android:id="@+id/paneVersions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone" />
 
                 <!-- Onglet Mesures -->
                 <LinearLayout
@@ -429,4 +443,21 @@
 
         <TextView android:id="@+id/status" style="@style/Hint" android:visibility="gone" />
     </LinearLayout>
+
+    <!-- Mode nature : petit bouton discret pour faire revenir l'interface -->
+    <Button
+        android:id="@+id/btnRestore"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="28dp"
+        android:alpha="0.7"
+        android:background="@drawable/round_btn"
+        android:contentDescription="Afficher les boutons"
+        android:padding="0dp"
+        android:text="☰"
+        android:textColor="#1D2421"
+        android:textSize="20sp"
+        android:visibility="gone" />
 </FrameLayout>

@@ -84,7 +84,7 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private enum class Source(val label: String) { GPS("GPS réel"), SIM10("Simulation ×10"), SIM60("Simulation ×60") }
-    private enum class Tab { SORTIE, RANDOS, OFFLINE, MESURES }
+    private enum class Tab { SORTIE, RANDOS, OFFLINE, MESURES, VERSIONS }
 
     private lateinit var mapView: MapView
     private var map: MapLibreMap? = null
@@ -186,6 +186,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabRandos).setOnClickListener { showTab(Tab.RANDOS) }
         findViewById<Button>(R.id.tabOffline).setOnClickListener { showTab(Tab.OFFLINE) }
         findViewById<Button>(R.id.tabMesures).setOnClickListener { showTab(Tab.MESURES) }
+        findViewById<Button>(R.id.tabVersions).setOnClickListener { showTab(Tab.VERSIONS) }
+        findViewById<Button>(R.id.btnNature).setOnClickListener { setNature(true) }
+        findViewById<Button>(R.id.btnRestore).setOnClickListener { setNature(false) }
 
         // Onglet Sortie
         findViewById<Button>(R.id.btnMode).setOnClickListener { if (!recording()) { mode = mode.next(); refreshSortie() } }
@@ -221,10 +224,7 @@ class MainActivity : AppCompatActivity() {
             MapLibre.setConnected(online)
             refreshOffline()
         }
-        findViewById<Button>(R.id.btnDownload).setOnClickListener { downloadZone(null) }
-        findViewById<Button>(R.id.btnDownloadView).setOnClickListener {
-            map?.projection?.visibleRegion?.latLngBounds?.let { downloadZone(it) }
-        }
+        findViewById<Button>(R.id.btnDownload).setOnClickListener { framingForOffline = true; setFraming(true) }
         findViewById<Button>(R.id.btnCancel).setOnClickListener { offline.cancel(); setStatus("Téléchargement annulé.") }
         findViewById<Button>(R.id.btnClear).setOnClickListener {
             offline.clear { runOnUiThread { findViewById<ProgressBar>(R.id.progress).visibility = View.GONE; refreshOffline() } }
@@ -266,6 +266,7 @@ class MainActivity : AppCompatActivity() {
             top.forEach { v -> v.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + margin } }
             target.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + targetTop }
             sheet.updatePadding(bottom = bars.bottom + margin)
+            findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
             insets
         }
     }
@@ -522,13 +523,15 @@ class MainActivity : AppCompatActivity() {
             Tab.RANDOS -> refreshTrails()
             Tab.OFFLINE -> refreshOffline()
             Tab.MESURES -> refreshMesures()
+            Tab.VERSIONS -> showVersions()
         }
     }
 
     private fun refreshTabs() {
         val accent = ContextCompat.getColor(this, R.color.accent)
         val muted = ContextCompat.getColor(this, R.color.muted)
-        mapOf(Tab.SORTIE to R.id.tabSortie, Tab.RANDOS to R.id.tabRandos, Tab.OFFLINE to R.id.tabOffline, Tab.MESURES to R.id.tabMesures).forEach { (t, id) ->
+        mapOf(Tab.SORTIE to R.id.tabSortie, Tab.RANDOS to R.id.tabRandos, Tab.OFFLINE to R.id.tabOffline, Tab.MESURES to R.id.tabMesures,
+            Tab.VERSIONS to R.id.tabVersions).forEach { (t, id) ->
             findViewById<Button>(id).setTextColor(if (t == tab && sheetOpen) accent else muted)
         }
         findViewById<View>(R.id.content).visibility = if (sheetOpen) View.VISIBLE else View.GONE
@@ -536,6 +539,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.paneRandos).visibility = if (tab == Tab.RANDOS) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneOffline).visibility = if (tab == Tab.OFFLINE) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneMesures).visibility = if (tab == Tab.MESURES) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.paneVersions).visibility = if (tab == Tab.VERSIONS) View.VISIBLE else View.GONE
         val status = findViewById<TextView>(R.id.status)
         status.visibility = if (sheetOpen && status.text.isNotEmpty()) View.VISIBLE else View.GONE
         // Panneau limité à 45 % de l'écran, comme côté Capacitor.
@@ -550,6 +554,63 @@ class MainActivity : AppCompatActivity() {
         val status = findViewById<TextView>(R.id.status)
         status.text = text
         status.visibility = if (sheetOpen && text.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
+    // ---------- Mode nature ----------
+
+    private var nature = false
+    private val hiddenInNature = mutableMapOf<Int, Int>()
+
+    /** Carte seule : toute l'interface est masquée, un petit bouton ☰ la fait revenir. */
+    private fun setNature(on: Boolean) {
+        if (on == nature) return
+        nature = on
+        val ids = listOf(R.id.topBar, R.id.searchPanel, R.id.targetBar, R.id.mapButtons, R.id.sheet)
+        if (on) ids.forEach { id ->
+            val v = findViewById<View>(id)
+            hiddenInNature[id] = v.visibility
+            v.visibility = View.GONE
+        } else ids.forEach { id -> findViewById<View>(id).visibility = hiddenInNature[id] ?: View.VISIBLE }
+        findViewById<View>(R.id.btnRestore).visibility = if (on) View.VISIBLE else View.GONE
+        map?.uiSettings?.isCompassEnabled = !on
+    }
+
+    // ---------- Versions ----------
+
+    /** Historique généré par la CI (shared/changelog.py), le plus récent en haut. */
+    private fun showVersions() {
+        val pane = findViewById<android.widget.LinearLayout>(R.id.paneVersions)
+        if (pane.childCount > 0) return
+        val json = runCatching { assets.open("changelog.json").bufferedReader().use { it.readText() } }.getOrNull()
+        fun hint(t: CharSequence) = TextView(this).apply {
+            text = t; textSize = 13f; setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
+        }
+        if (json == null) { pane.addView(hint("Historique absent de cette version (il est ajouté par la compilation GitHub).")); return }
+        val log = org.json.JSONObject(json)
+        pane.addView(hint("Version installée : ${log.optInt("build")}. Les changements les plus récents sont en haut."))
+        val entries = log.getJSONArray("entries")
+        val pad = (8 * resources.displayMetrics.density).toInt()
+        for (i in 0 until entries.length()) {
+            val e = entries.getJSONObject(i)
+            pane.addView(TextView(this).apply {
+                text = e.getString("title"); textSize = 15f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setTextColor(Color.parseColor("#1D2421"))
+                setPadding(0, pad, 0, 0)
+            })
+            val (d, t) = e.getString("date").split(" ").let { it[0] to it.getOrElse(1) { "" } }
+            val (y, m, day) = d.split("-")
+            pane.addView(hint("$day/$m/$y à ${t.replace(":", "h")}"))
+            val details = e.getJSONArray("details")
+            for (j in 0 until details.length()) pane.addView(TextView(this).apply {
+                text = "• ${details.getString(j)}"; textSize = 14f
+                setTextColor(Color.parseColor("#1D2421"))
+            })
+            pane.addView(View(this).apply {
+                setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.line))
+                layoutParams = android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { topMargin = pad }
+            })
+        }
     }
 
     // ---------- Sortie ----------
@@ -680,12 +741,18 @@ class MainActivity : AppCompatActivity() {
             val proj = map?.projection
             if (proj != null) {
                 val p = proj.fromScreenLocation(a); val q = proj.fromScreenLocation(b)
-                searchTrails(Zone(minOf(p.longitude, q.longitude), minOf(p.latitude, q.latitude),
+                if (framingForOffline) {
+                    // Même outil rectangle que pour les randos : ici, on télécharge ses tuiles.
+                    setFraming(false); framingForOffline = false
+                    showTab(Tab.OFFLINE)
+                    downloadZone(LatLngBounds.from(maxOf(p.latitude, q.latitude), maxOf(p.longitude, q.longitude),
+                        minOf(p.latitude, q.latitude), minOf(p.longitude, q.longitude)))
+                } else searchTrails(Zone(minOf(p.longitude, q.longitude), minOf(p.latitude, q.latitude),
                     maxOf(p.longitude, q.longitude), maxOf(p.latitude, q.latitude)))
             }
         }
-        findViewById<Button>(R.id.btnFrame).setOnClickListener { setFraming(true) }
-        findViewById<Button>(R.id.btnFrameCancel).setOnClickListener { setFraming(false); sheetOpen = true; refreshTabs() }
+        findViewById<Button>(R.id.btnFrame).setOnClickListener { framingForOffline = false; setFraming(true) }
+        findViewById<Button>(R.id.btnFrameCancel).setOnClickListener { setFraming(false); framingForOffline = false; sheetOpen = true; refreshTabs() }
         findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
             map?.projection?.visibleRegion?.latLngBounds?.let {
                 searchTrails(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth))
@@ -702,6 +769,9 @@ class MainActivity : AppCompatActivity() {
         }
         refreshTrails()
     }
+
+    /** Le rectangle tracé sert au hors ligne (true) ou aux randos OSM (false). */
+    private var framingForOffline = false
 
     private fun setFraming(on: Boolean) {
         val draw = findViewById<FrameDrawView>(R.id.frameDraw)
@@ -860,22 +930,20 @@ class MainActivity : AppCompatActivity() {
         offline.summary { s -> runOnUiThread {
             offlineSummary = s
             findViewById<TextView>(R.id.offlineHint).text =
-                "Télécharge la zone du scénario (La Ciotat) ou ce que montre l'écran (zoome sur le coin de la rando avant). Fond affiché (${mapMode.label}) : ${mapMode.offlinePlan()}.\nEn stock : $s.\n" +
+                "« Tracer un rectangle » : trace du doigt le coin de la rando sur la carte, ses tuiles se téléchargent. Fond affiché (${mapMode.label}) : ${mapMode.offlinePlan()}.\nEn stock : $s.\n" +
                 "Place prise sur le téléphone : ${mo(offline.databaseBytes())} (tuiles téléchargées + tuiles vues). " +
                 "Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface."
         } }
     }
 
-    /** bounds null : zone du scénario (La Ciotat) ; sinon la zone affichée à l'écran. */
-    private fun downloadZone(bounds: LatLngBounds?) {
-        if (bounds != null) {
-            val n = OfflineDownloader.tileCount(mapMode, bounds)
-            if (n > OfflineDownloader.MAX_ZONE_TILES) {
-                setStatus("Zone trop grande ($n tuiles, maximum ${OfflineDownloader.MAX_ZONE_TILES}) : zoome un peu sur le coin de la rando.")
-                return
-            }
+    /** Télécharge le rectangle tracé sur la carte, pour le fond affiché. */
+    private fun downloadZone(bounds: LatLngBounds) {
+        val n = OfflineDownloader.tileCount(mapMode, bounds)
+        if (n > OfflineDownloader.MAX_ZONE_TILES) {
+            setStatus("Zone trop grande ($n tuiles, maximum ${OfflineDownloader.MAX_ZONE_TILES}) : trace un rectangle plus petit.")
+            return
         }
-        setStatus("")
+        setStatus("Rectangle : $n tuiles, environ ${mo(n * TILE_BYTES_ESTIMATE)}.")
         val bar = findViewById<ProgressBar>(R.id.progress)
         val info = findViewById<TextView>(R.id.offlineInfo)
         bar.visibility = View.VISIBLE; bar.progress = 0
@@ -954,6 +1022,8 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val SRC_TRACK = "track-src"
+        /** Taille moyenne d'une tuile IGN 256 px, pour l'estimation avant téléchargement (même valeur côté Capacitor). */
+        private const val TILE_BYTES_ESTIMATE = 25_000L
         private const val SRC_POS = "pos-src"
         private const val SRC_IMPORT = "import-src"
         private const val SRC_TARGET = "target-src"

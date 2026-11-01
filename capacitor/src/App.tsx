@@ -5,7 +5,7 @@ import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
 import type { Map as MlMap } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BASE_MODES, type Bbox, DEFAULT_SCAN_KEY, LA_CIOTAT_BBOX, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
+import { BASE_MODES, type Bbox, DEFAULT_SCAN_KEY, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
 import { decideSettings, sameSettings } from './gps/adaptive';
 import { EcoLocation } from './gps/ecoLocation';
 import { filterForMode } from './gps/filter';
@@ -22,11 +22,12 @@ import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
+import { Versions } from './Versions';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
 import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
 import { computeStats, formatDuration, formatKm } from './track/stats';
 
-type Tab = 'sortie' | 'randos' | 'horsligne' | 'mesures';
+type Tab = 'sortie' | 'randos' | 'horsligne' | 'mesures' | 'versions';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
 
 const prefs = { apiKey: DEFAULT_SCAN_KEY, cacheViewed: true };
@@ -41,6 +42,8 @@ function openDirections(lat: number, lon: number) {
 
 /** Au-delà, le téléchargement serait long et lourd : on demande de zoomer (même limite côté Kotlin). */
 const MAX_ZONE_TILES = 6000;
+/** Taille moyenne d'une tuile IGN 256 px (JPEG SCAN 25 / PNG Plan IGN), pour l'estimation avant téléchargement. */
+const TILE_BYTES_ESTIMATE = 25_000;
 
 function formatMo(bytes: number) { return `${(bytes / 1e6).toFixed(1).replace('.', ',')} Mo`; }
 
@@ -50,6 +53,8 @@ export function App() {
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [searching, setSearching] = useState(false);
+  /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
+  const [nature, setNature] = useState(false);
   /** Lieu choisi (recherche, appui long, départ d'une trace importée) : « Y aller » ouvre Google Maps. */
   const [target, setTarget] = useState<{ lon: number; lat: number; label: string } | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
@@ -80,6 +85,8 @@ export function App() {
 
   // Randos libres (OpenStreetMap) d'une zone encadrée
   const [framing, setFraming] = useState(false);
+  /** Le même outil rectangle sert aux randos OSM et au téléchargement hors ligne. */
+  const [framingFor, setFramingFor] = useState<'randos' | 'horsligne'>('randos');
   const [frame, setFrame] = useState<Bbox | null>(null);
   const [trails, setTrails] = useState<Trail[]>([]);
   const [trailsMsg, setTrailsMsg] = useState('');
@@ -245,15 +252,15 @@ export function App() {
     setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes() });
   }
 
-  /** bbox absente : zone du scénario (La Ciotat) ; sinon la zone affichée à l'écran. */
-  async function downloadZone(bbox: Bbox = LA_CIOTAT_BBOX) {
+  /** Télécharge le rectangle choisi sur la carte, pour le fond affiché. */
+  async function downloadZone(bbox: Bbox) {
     const plan = offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM);
     const total = plan.reduce((n, st) => n + tilesForBbox(bbox, st.minZoom, st.maxZoom).length, 0);
     if (total > MAX_ZONE_TILES) {
-      setStatus(`Zone trop grande (${total} tuiles, maximum ${MAX_ZONE_TILES}) : zoome un peu sur le coin de la rando.`);
+      setStatus(`Zone trop grande (${total} tuiles, maximum ${MAX_ZONE_TILES}) : trace un rectangle plus petit.`);
       return;
     }
-    setStatus('');
+    setStatus(`Rectangle : ${total} tuiles, environ ${formatMo(total * TILE_BYTES_ESTIMATE)}.`);
     abort.current = new AbortController();
     for (const step of plan) {
       if (abort.current.signal.aborted) break;
@@ -331,13 +338,20 @@ export function App() {
   const avgTile = metrics.tilesFromDisk + metrics.tilesFromNetwork ? metrics.tileLoadTotalMs / (metrics.tilesFromDisk + metrics.tilesFromNetwork) : 0;
 
   return (
-    <div className="app">
+    <div className={`app ${nature ? 'nature' : ''}`}>
+      {nature && <button className="restore" onClick={() => setNature(false)} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)} />
 
-      {framing && map && <FrameOverlay map={map} onDone={(b) => void searchTrails(b)} onCancel={() => { setFraming(false); setOpen(true); }} />}
+      {framing && map && <FrameOverlay map={map}
+        onDone={(b) => {
+          if (framingFor === 'randos') { void searchTrails(b); return; }
+          setFraming(false); setTab('horsligne'); setOpen(true);
+          void downloadZone(b);
+        }}
+        onCancel={() => { setFraming(false); setOpen(true); }} />}
 
       {searching ? (
         <SearchBar onClose={() => setSearching(false)} onPick={(p) => {
@@ -367,11 +381,12 @@ export function App() {
       <section className={`sheet ${open ? 'open' : ''}`}>
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
-          {(['sortie', 'randos', 'horsligne', 'mesures'] as Tab[]).map((t) => (
+          {(['sortie', 'randos', 'horsligne', 'mesures', 'versions'] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setOpen(true); void refreshStored(); }}>
-              {{ sortie: 'Sortie', randos: 'Randos', horsligne: 'Hors ligne', mesures: 'Mesures' }[t]}
+              {{ sortie: 'Sortie', randos: 'Randos', horsligne: 'Hors ligne', mesures: 'Mesures', versions: 'Versions' }[t]}
             </button>
           ))}
+          <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
         </nav>
 
         {open && tab === 'sortie' && (
@@ -413,7 +428,7 @@ export function App() {
           <div className="pane">
             <p className="hint">Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. {OSM_ATTRIBUTION}.</p>
             <div className="row">
-              <button className="primary" disabled={!map} onClick={() => { setFraming(true); setOpen(false); }}>Encadrer une zone</button>
+              <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
               <button disabled={!map} onClick={() => {
                 const b = map!.getBounds();
                 void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
@@ -462,16 +477,12 @@ export function App() {
               <button onClick={testKey}>Tester la clé</button>
               <label><input type="checkbox" defaultChecked onChange={(e) => { prefs.cacheViewed = e.target.checked; }} /> Garder les tuiles vues</label>
             </div>
-            <p className="hint">Télécharge la zone du scénario (La Ciotat) ou ce que montre l'écran (zoome sur le coin de la rando avant). Fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
+            <p className="hint">« Tracer un rectangle » : trace du doigt le coin de la rando sur la carte, ses tuiles se téléchargent. Fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
               .map((p) => `${LAYERS[p.layer].label} z${p.minZoom}-${p.maxZoom}`).join(' + ')}.
               En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}).</p>
             <p className="hint"><b>Place prise sur le téléphone : {formatMo(stored.scan25Bytes + stored.planignBytes)}</b>. Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface.</p>
             <div className="row">
-              <button className="primary" onClick={() => downloadZone()}>Zone La Ciotat</button>
-              <button className="primary" disabled={!map} onClick={() => {
-                const b = map!.getBounds();
-                void downloadZone([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
-              }}>Zone affichée</button>
+              <button className="primary" disabled={!map} onClick={() => { setFramingFor('horsligne'); setFraming(true); setOpen(false); }}>Tracer un rectangle</button>
             </div>
             <div className="row">
               <button onClick={() => abort.current?.abort()}>Annuler</button>
@@ -486,6 +497,8 @@ export function App() {
             )}
           </div>
         )}
+
+        {open && tab === 'versions' && <div className="pane"><Versions /></div>}
 
         {open && tab === 'mesures' && (
           <div className="pane">

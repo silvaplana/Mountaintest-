@@ -19,6 +19,9 @@ jobs:
     defaults: { run: { working-directory: capacitor } }
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Historique des versions (onglet Versions)
+        run: python3 ../shared/changelog.py ${{ github.run_number }} public/changelog.json
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: capacitor/package-lock.json }
       - run: npm ci
@@ -69,6 +72,7 @@ jobs:
       SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}'
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - if: needs.cle.outputs.ok
         uses: actions/download-artifact@v4
         with: { name: cle, path: signing }
@@ -80,6 +84,7 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - working-directory: capacitor
         run: |
+          python3 ../shared/changelog.py ${{ github.run_number }} public/changelog.json
           npm ci
           npx vite build
           npx cap sync android
@@ -101,6 +106,7 @@ jobs:
       SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}'
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - if: needs.cle.outputs.ok
         uses: actions/download-artifact@v4
         with: { name: cle, path: signing }
@@ -109,6 +115,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - run: |
+          python3 ../shared/changelog.py ${{ github.run_number }} app/src/main/assets/changelog.json
           ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
       - run: cp app/build/outputs/apk/release/*.apk ../assomoutain-kotlin.apk
       - uses: actions/upload-artifact@v4
