@@ -86,7 +86,7 @@ export function MapView(props: MapViewProps) {
         ],
       },
     });
-    m.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: false }), 'top-right');
+    m.addControl(new maplibregl.NavigationControl({ showZoom: false, showCompass: true, visualizePitch: false }), 'top-right');
     // Bouton « me localiser » : 1er appui centre sur ma position et la suit, 2e appui arrête.
     // Le GPS du téléphone ne tourne que tant que le bouton est actif (et jamais appli en arrière-plan).
     const geo = new maplibregl.GeolocateControl({

@@ -124,7 +124,7 @@ progress { width: 100%; }
 /* Boutons toujours visibles, même en mode nature : me localiser, mode avion, mode poche */
 .maplibregl-ctrl-group:has(.maplibregl-ctrl-geolocate) { display: none; }
 .quick {
-  position: absolute; right: 10px; top: 50%; transform: translateY(-50%); z-index: 2;
+  position: absolute; right: 10px; top: calc(env(safe-area-inset-top) + 64px); z-index: 2;
   display: flex; flex-direction: column; gap: 12px;
 }
 .quick button {

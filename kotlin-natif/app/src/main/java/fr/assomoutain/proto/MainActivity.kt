@@ -139,6 +139,8 @@ class MainActivity : AppCompatActivity() {
             map = m
             m.setMaxZoomPreference(Scenario.MAX_DISPLAY_ZOOM)
             m.uiSettings.isAttributionEnabled = true
+            m.uiSettings.setCompassMargins(0, compassTop.takeIf { it > 0 } ?: (200 * resources.displayMetrics.density).toInt(),
+                (10 * resources.displayMetrics.density).toInt(), 0)
             // Rouvre la carte là où on l'avait laissée (sinon La Ciotat, valeur du layout).
             if (prefs.contains("vueLat")) m.moveCamera(CameraUpdateFactory.newLatLngZoom(
                 LatLng(prefs.getFloat("vueLat", 43.172f).toDouble(), prefs.getFloat("vueLon", 5.6f).toDouble()),
@@ -187,8 +189,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<CheckBox>(R.id.chkSlopes).setOnCheckedChangeListener { _, checked -> slopes = checked; applySlopes() }
 
         // Boutons carte
-        findViewById<Button>(R.id.btnZoomIn).setOnClickListener { map?.animateCamera(CameraUpdateFactory.zoomIn()) }
-        findViewById<Button>(R.id.btnZoomOut).setOnClickListener { map?.animateCamera(CameraUpdateFactory.zoomOut()) }
         findViewById<ImageButton>(R.id.btnLocate).setOnClickListener { onLocateClicked() }
 
         // Panneau
@@ -279,8 +279,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Android 15 dessine sous les barres système : on décale le haut et le bas de l'interface. */
+    private var compassTop = 0
+
     private fun applyInsets() {
-        val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.mapButtons), findViewById<View>(R.id.searchPanel),
+        val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.quickButtons), findViewById<View>(R.id.searchPanel),
             findViewById<View>(R.id.frameBanner))
         val target = findViewById<View>(R.id.targetBar)
         val targetTop = (66 * resources.displayMetrics.density).toInt()
@@ -291,6 +293,9 @@ class MainActivity : AppCompatActivity() {
             top.forEach { v -> v.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + margin } }
             target.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + targetTop }
             sheet.updatePadding(bottom = bars.bottom + margin)
+            // Boussole sous les trois boutons permanents (◎ ✈ 👖), à droite.
+            map?.uiSettings?.setCompassMargins(0, bars.top + (200 * resources.displayMetrics.density).toInt(), margin, 0)
+            compassTop = bars.top + (200 * resources.displayMetrics.density).toInt()
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
             insets
         }
@@ -590,7 +595,7 @@ class MainActivity : AppCompatActivity() {
     private fun setNature(on: Boolean) {
         if (on == nature) return
         nature = on
-        val ids = listOf(R.id.topBar, R.id.searchPanel, R.id.targetBar, R.id.mapButtons, R.id.sheet)
+        val ids = listOf(R.id.topBar, R.id.searchPanel, R.id.targetBar, R.id.sheet)
         if (on) ids.forEach { id ->
             val v = findViewById<View>(id)
             hiddenInNature[id] = v.visibility
