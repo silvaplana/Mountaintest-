@@ -340,6 +340,13 @@ export function App() {
     }
   }
 
+  function startDrawing() {
+    // Nouveau tracé : l'ancien disparaît tout de suite.
+    setTrails((prev) => prev.filter((x) => x.id !== DRAWN_ID));
+    if (selected?.id === DRAWN_ID) void selectTrail(null);
+    setDrawing(true); setOpen(false); setSearching(false);
+  }
+
   async function drawDone(line: LonLat[]) {
     setDrawing(false);
     setOpen(true); setTab('randos');
@@ -377,7 +384,7 @@ export function App() {
         onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)} />
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
-      {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} />}
+      {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined} />}
       {toast && <div className="toast">{toast}</div>}
 
       {framing && map && <FrameOverlay map={map}
@@ -465,12 +472,7 @@ export function App() {
             <p className="hint">Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. {OSM_ATTRIBUTION}.</p>
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
-              <button disabled={!map} onClick={() => {
-                // Nouveau tracé : l'ancien disparaît tout de suite.
-                setTrails((prev) => prev.filter((x) => x.id !== DRAWN_ID));
-                if (selected?.id === DRAWN_ID) void selectTrail(null);
-                setDrawing(true); setOpen(false); setSearching(false);
-              }}>✏ Tracer au doigt</button>
+              <button disabled={!map} onClick={startDrawing}>✏ Tracer au doigt</button>
               <button disabled={!map} onClick={() => {
                 const b = map!.getBounds();
                 void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);

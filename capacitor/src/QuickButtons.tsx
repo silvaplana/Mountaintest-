@@ -13,7 +13,7 @@ type WatchState = 'OFF' | 'ACTIVE_LOCK' | 'WAITING_ACTIVE' | 'ACTIVE_ERROR' | 'B
  * Boutons toujours visibles sur la carte, même en mode nature : me localiser, mode avion, mode poche.
  * Android interdit à une appli de basculer le mode avion : le bouton montre son état et ouvre le réglage.
  */
-export function QuickButtons({ geo, onToast }: { geo: GeolocateControl | null; onToast: (msg: string) => void }) {
+export function QuickButtons({ geo, onToast, onDraw }: { geo: GeolocateControl | null; onToast: (msg: string) => void; onDraw?: () => void }) {
   const native = Capacitor.isNativePlatform();
   const [watch, setWatch] = useState<WatchState>('OFF');
   const [airplane, setAirplane] = useState(false);
@@ -56,6 +56,7 @@ export function QuickButtons({ geo, onToast }: { geo: GeolocateControl | null; o
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>
+      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" onClick={onDraw}>✏</button>
     </div>
   );
 }

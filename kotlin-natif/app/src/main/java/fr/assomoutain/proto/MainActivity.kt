@@ -139,7 +139,7 @@ class MainActivity : AppCompatActivity() {
             map = m
             m.setMaxZoomPreference(Scenario.MAX_DISPLAY_ZOOM)
             m.uiSettings.isAttributionEnabled = true
-            m.uiSettings.setCompassMargins(0, compassTop.takeIf { it > 0 } ?: (200 * resources.displayMetrics.density).toInt(),
+            m.uiSettings.setCompassMargins(0, compassTop.takeIf { it > 0 } ?: (260 * resources.displayMetrics.density).toInt(),
                 (10 * resources.displayMetrics.density).toInt(), 0)
             // Rouvre la carte là où on l'avait laissée (sinon La Ciotat, valeur du layout).
             if (prefs.contains("vueLat")) m.moveCamera(CameraUpdateFactory.newLatLngZoom(
@@ -294,8 +294,8 @@ class MainActivity : AppCompatActivity() {
             target.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + targetTop }
             sheet.updatePadding(bottom = bars.bottom + margin)
             // Boussole sous les trois boutons permanents (◎ ✈ 👖), à droite.
-            map?.uiSettings?.setCompassMargins(0, bars.top + (200 * resources.displayMetrics.density).toInt(), margin, 0)
-            compassTop = bars.top + (200 * resources.displayMetrics.density).toInt()
+            map?.uiSettings?.setCompassMargins(0, bars.top + (260 * resources.displayMetrics.density).toInt(), margin, 0)
+            compassTop = bars.top + (260 * resources.displayMetrics.density).toInt()
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
             insets
         }
@@ -787,12 +787,14 @@ class MainActivity : AppCompatActivity() {
             isChecked = prefs.getBoolean("recaler", false)
             setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("recaler", c).apply() }
         }
-        findViewById<Button>(R.id.btnDrawPath).setOnClickListener {
+        val startDrawing = View.OnClickListener {
             // Nouveau tracé : l'ancien disparaît tout de suite.
             trails = trails.filter { it.id != Trails.DRAWN_ID }
             if (selectedTrail?.id == Trails.DRAWN_ID) selectTrail(null) else drawTrails(fit = false)
             framingForOffline = false; setFraming(true, freehand = true)
         }
+        findViewById<Button>(R.id.btnDrawPath).setOnClickListener(startDrawing)
+        findViewById<Button>(R.id.btnQuickDraw).setOnClickListener(startDrawing)
         draw.onLine = { pts ->
             val proj = map?.projection
             setFraming(false)
