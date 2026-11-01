@@ -168,7 +168,7 @@ public final class PocketMode implements SensorEventListener {
         if (overlay.getParent() == null) decor.addView(overlay, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         overlay.bringToFront();
         WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
-        lp.screenBrightness = 0.01f;
+        lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_OFF; // luminosité au plus bas (utile sur écran LCD)
         activity.getWindow().setAttributes(lp);
         // Laisse Android éteindre l'écran à la mise en veille normale.
         activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
