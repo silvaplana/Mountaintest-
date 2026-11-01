@@ -9,6 +9,31 @@ export const OFFLINE_MIN_ZOOM = 10;
 export const OFFLINE_MAX_ZOOM = 16;
 export const DISPLAY_MAX_ZOOM = 18;
 
+/**
+ * Carte « Auto » (même réglage que le prototype Kotlin, Scenario.kt) : Plan IGN de loin,
+ * SCAN 25 de près, fondu entre les zooms 13 et 14.
+ * Hors ligne en Auto : Plan IGN z10-13 + SCAN 25 z13-16.
+ */
+export const AUTO_SCAN_FROM = 13;
+export const AUTO_PLAN_UNTIL = 14;
+export type BaseMode = 'auto' | 'scan25' | 'planign';
+export const BASE_MODES: Record<BaseMode, string> = {
+  auto: 'Carte auto',
+  scan25: 'SCAN 25',
+  planign: 'Plan IGN',
+};
+
+/** Couches et zooms à télécharger pour un fond donné, dans l'ordre. */
+export function offlinePlan(mode: BaseMode, min: number, max: number): { layer: string; minZoom: number; maxZoom: number }[] {
+  if (mode === 'auto') {
+    return [
+      { layer: 'planign', minZoom: min, maxZoom: Math.min(max, AUTO_SCAN_FROM) },
+      { layer: 'scan25', minZoom: Math.max(min, AUTO_SCAN_FROM), maxZoom: Math.min(max, LAYERS.scan25.maxNativeZoom) },
+    ];
+  }
+  return [{ layer: mode, minZoom: min, maxZoom: Math.min(max, LAYERS[mode].maxNativeZoom) }];
+}
+
 export interface LayerDef {
   id: string;
   label: string;

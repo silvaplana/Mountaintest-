@@ -53,3 +53,8 @@ progress { width: 100%; }
 .metrics { width: 100%; border-collapse: collapse; font-size: 14px; }
 .metrics td { padding: 6px 0; border-bottom: 1px solid var(--line); }
 .metrics td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Boutons de la carte (zoom, boussole, me localiser) assez grands pour le pouce. */
+.maplibregl-ctrl-top-right { top: env(safe-area-inset-top); }
+.maplibregl-ctrl-group button { width: 44px; height: 44px; }
+.maplibregl-ctrl-geolocate .maplibregl-ctrl-icon { background-size: 26px; }

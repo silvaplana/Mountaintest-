@@ -5,12 +5,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
-import java.time.Instant
 
 data class Fix(val lat: Double, val lon: Double, val ele: Double?, val accuracyM: Float, val timeMs: Long)
 
 data class TrackState(
     val recording: Boolean = false,
+    val startedMs: Long = 0,
     val source: String = "",
     val points: List<Fix> = emptyList(),
     val received: Int = 0,
@@ -36,7 +36,7 @@ object TrackRecorder {
     fun start(source: String, mode: GpsMode) {
         this.mode = mode
         eleRef = null
-        _state.value = TrackState(recording = true, source = source)
+        _state.value = TrackState(recording = true, source = source, startedMs = System.currentTimeMillis())
     }
 
     fun setMode(mode: GpsMode) { this.mode = mode }
@@ -68,22 +68,16 @@ object TrackRecorder {
         _state.value = s.copy(points = s.points + fix, received = received, distanceM = s.distanceM + step, gainM = gain)
     }
 
+    /** Fin d'enregistrement sans fichier (rejeu). */
+    fun finish() { _state.value = _state.value.copy(recording = false) }
+
     fun stop(dir: File): File? {
         val s = _state.value
         _state.value = s.copy(recording = false)
         if (s.points.isEmpty()) return null
         dir.mkdirs()
         val file = File(dir, "trace-${s.source}-${System.currentTimeMillis()}.gpx")
-        file.bufferedWriter().use { w ->
-            w.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-            w.write("<gpx version=\"1.1\" creator=\"assomoutain-kotlin\" xmlns=\"http://www.topografix.com/GPX/1/1\"><trk><trkseg>\n")
-            for (p in s.points) {
-                w.write("<trkpt lat=\"${p.lat}\" lon=\"${p.lon}\">")
-                p.ele?.let { w.write("<ele>$it</ele>") }
-                w.write("<time>${Instant.ofEpochMilli(p.timeMs)}</time></trkpt>\n")
-            }
-            w.write("</trkseg></trk></gpx>\n")
-        }
+        file.writeText(toGpx(s.points))
         return file
     }
 

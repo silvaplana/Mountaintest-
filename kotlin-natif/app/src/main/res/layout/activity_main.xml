@@ -1,51 +1,234 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Même organisation que le prototype Capacitor : carte plein écran, fond de carte en haut à gauche,
+     boutons carte à droite, panneau en bas avec trois onglets (Sortie, Hors ligne, Mesures). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:maplibre="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#F2EFE9">
 
     <org.maplibre.android.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        maplibre:maplibre_cameraTargetLat="43.18"
-        maplibre:maplibre_cameraTargetLng="5.605"
-        maplibre:maplibre_cameraZoom="13" />
+        maplibre:maplibre_cameraTargetLat="43.172"
+        maplibre:maplibre_cameraTargetLng="5.6"
+        maplibre:maplibre_cameraZoom="14"
+        maplibre:maplibre_uiCompassMarginTop="64dp" />
 
-    <TextView
-        android:id="@+id/stats"
+    <LinearLayout
+        android:id="@+id/topBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|start"
-        android:layout_margin="8dp"
-        android:background="#CCFFFFFF"
-        android:padding="6dp"
-        android:textSize="12sp"
-        android:fontFamily="monospace" />
+        android:layout_margin="10dp"
+        android:background="@drawable/card_bg"
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="4dp"
+        android:paddingEnd="8dp">
+
+        <Button
+            android:id="@+id/btnLayer"
+            style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAllCaps="false"
+            android:textSize="15sp" />
+
+        <CheckBox
+            android:id="@+id/chkSlopes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pentes" />
+    </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/mapButtons"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="8dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="10dp"
         android:orientation="vertical">
 
-        <Button android:id="@+id/btnLayer" style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content" android:layout_height="wrap_content" />
-        <Button android:id="@+id/btnOffline" style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Télécharger z10-16" />
-        <Button android:id="@+id/btnNetwork" style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content" android:layout_height="wrap_content" />
-        <Button android:id="@+id/btnMode" style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content" android:layout_height="wrap_content" />
-        <Button android:id="@+id/btnGps" style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content" android:layout_height="wrap_content" />
-        <Button android:id="@+id/btnReplay" style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Rejouer GPX x10" />
-        <Button android:id="@+id/btnBench" style="?android:attr/buttonStyleSmall"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Bench caméra 30 s" />
+        <Button
+            android:id="@+id/btnZoomIn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/round_btn"
+            android:contentDescription="Zoomer"
+            android:elevation="4dp"
+            android:padding="0dp"
+            android:text="+"
+            android:textColor="#1D2421"
+            android:textSize="24sp" />
+
+        <Button
+            android:id="@+id/btnZoomOut"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/round_btn"
+            android:contentDescription="Dézoomer"
+            android:elevation="4dp"
+            android:padding="0dp"
+            android:text="−"
+            android:textColor="#1D2421"
+            android:textSize="24sp" />
+
+        <ImageButton
+            android:id="@+id/btnLocate"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/round_btn"
+            android:contentDescription="Me localiser"
+            android:elevation="4dp"
+            android:src="@android:drawable/ic_menu_mylocation" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/sheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@drawable/sheet_bg"
+        android:elevation="8dp"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp">
+
+        <FrameLayout
+            android:id="@+id/handle"
+            android:layout_width="match_parent"
+            android:layout_height="22dp"
+            android:contentDescription="Ouvrir ou fermer le panneau">
+
+            <View
+                android:layout_width="44dp"
+                android:layout_height="5dp"
+                android:layout_gravity="center"
+                android:background="@drawable/handle" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/tabSortie" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Sortie" android:textAllCaps="false" android:textSize="15sp" />
+            <Button android:id="@+id/tabOffline" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Hors ligne" android:textAllCaps="false" android:textSize="15sp" />
+            <Button android:id="@+id/tabMesures" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Mesures" android:textAllCaps="false" android:textSize="15sp" />
+        </LinearLayout>
+
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/line" />
+
+        <ScrollView
+            android:id="@+id/content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="10dp">
+
+                <!-- Onglet Sortie -->
+                <LinearLayout
+                    android:id="@+id/paneSortie"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+                        <TextView android:id="@+id/statDist" style="@style/Stat" />
+                        <TextView android:id="@+id/statGain" style="@style/Stat" />
+                        <TextView android:id="@+id/statTime" style="@style/Stat" />
+                        <TextView android:id="@+id/statPoints" style="@style/Stat" />
+                    </LinearLayout>
+
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnMode" style="@style/Btn" />
+                        <Button android:id="@+id/btnSource" style="@style/Btn" />
+                    </LinearLayout>
+
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnStart" style="@style/Btn.Primary" />
+                        <CheckBox android:id="@+id/chkFollow" android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" android:checked="true" android:text="Suivre" />
+                    </LinearLayout>
+
+                    <TextView android:id="@+id/gpsReasons" style="@style/Hint" android:visibility="gone" />
+
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnExport" style="@style/Btn" android:text="Exporter GPX" />
+                        <Button android:id="@+id/btnImport" style="@style/Btn" android:text="Importer GPX" />
+                        <Button android:id="@+id/btnClearImport" style="@style/Btn" android:text="Effacer l'import"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Onglet Hors ligne -->
+                <LinearLayout
+                    android:id="@+id/paneOffline"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView style="@style/Hint" android:text="Clé IGN pour le SCAN 25" />
+                    <EditText android:id="@+id/editKey" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:inputType="text|textNoSuggestions"
+                        android:importantForAutofill="no" android:hint="clé cartes.gouv.fr" />
+
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnTestKey" style="@style/Btn" android:text="Tester la clé" />
+                        <Button android:id="@+id/btnNetwork" style="@style/Btn" />
+                    </LinearLayout>
+
+                    <TextView android:id="@+id/offlineHint" style="@style/Hint" />
+
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnDownload" style="@style/Btn.Primary" android:text="Télécharger la zone" />
+                        <Button android:id="@+id/btnCancel" style="@style/Btn" android:text="Annuler" />
+                        <Button android:id="@+id/btnClear" style="@style/Btn" android:text="Vider" />
+                    </LinearLayout>
+
+                    <ProgressBar android:id="@+id/progress" style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:visibility="gone" />
+                    <TextView android:id="@+id/offlineInfo" style="@style/Hint" />
+                </LinearLayout>
+
+                <!-- Onglet Mesures -->
+                <LinearLayout
+                    android:id="@+id/paneMesures"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView android:id="@+id/metrics" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:lineSpacingExtra="6dp" android:textSize="14sp" />
+
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnRefresh" style="@style/Btn" android:text="Rafraîchir" />
+                        <Button android:id="@+id/btnBench" style="@style/Btn" android:text="Bench caméra 30 s" />
+                    </LinearLayout>
+                </LinearLayout>
+            </FrameLayout>
+        </ScrollView>
+
+        <TextView android:id="@+id/status" style="@style/Hint" android:visibility="gone" />
     </LinearLayout>
 </FrameLayout>

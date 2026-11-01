@@ -4,7 +4,7 @@ import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
 import type { Map as MlMap } from 'maplibre-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DEFAULT_SCAN_KEY, LA_CIOTAT_BBOX, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, wmtsTileUrl } from './config';
+import { BASE_MODES, DEFAULT_SCAN_KEY, LA_CIOTAT_BBOX, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
 import { decideSettings, sameSettings } from './gps/adaptive';
 import { EcoLocation } from './gps/ecoLocation';
 import { filterForMode } from './gps/filter';
@@ -30,7 +30,7 @@ registerIgnProtocol({ getApiKey: () => prefs.apiKey, cacheViewedTiles: () => pre
 export function App() {
   const [tab, setTab] = useState<Tab>('sortie');
   const [open, setOpen] = useState(true);
-  const [baseLayer, setBaseLayer] = useState<'scan25' | 'planign'>('scan25');
+  const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [visible, setVisible] = useState(true);
 
@@ -53,7 +53,8 @@ export function App() {
   // Hors ligne
   const [apiKey, setApiKey] = useState(DEFAULT_SCAN_KEY);
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
-  const [stored, setStored] = useState(0);
+  const [stored, setStored] = useState({ scan25: 0, planign: 0 });
+  const [downloading, setDownloading] = useState('');
   const abort = useRef<AbortController | null>(null);
 
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
@@ -65,7 +66,7 @@ export function App() {
     (async () => {
       const k = (await Preferences.get({ key: 'apiKey' })).value;
       if (k) { prefs.apiKey = k; setApiKey(k); }
-      setStored((await getTileStore(LAYERS.scan25)).count());
+      await refreshStored();
       if (await recorder.current.restore()) {
         // Si le système a tué l'appli pendant la sortie, le service natif a continué à noter les positions.
         if (Capacitor.isNativePlatform()) {
@@ -193,21 +194,29 @@ export function App() {
     }
   }
 
+  async function refreshStored() {
+    setStored({ scan25: (await getTileStore(LAYERS.scan25)).count(), planign: (await getTileStore(LAYERS.planign)).count() });
+  }
+
   async function downloadZone() {
-    const layer = LAYERS[baseLayer];
-    const store = await getTileStore(layer);
-    const tiles = tilesForBbox(LA_CIOTAT_BBOX, OFFLINE_MIN_ZOOM, Math.min(OFFLINE_MAX_ZOOM, layer.maxNativeZoom));
     abort.current = new AbortController();
-    bench('download-start', { layer: layer.id, tiles: tiles.length });
-    const res = await downloadTiles(store, tiles, (t) => wmtsTileUrl(layer, t.z, t.x, t.y, apiKey), setProgress, abort.current.signal);
-    bench('download-end', { layer: layer.id, ...res });
-    setStored(store.count());
+    for (const step of offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)) {
+      if (abort.current.signal.aborted) break;
+      const layer = LAYERS[step.layer];
+      const store = await getTileStore(layer);
+      const tiles = tilesForBbox(LA_CIOTAT_BBOX, step.minZoom, step.maxZoom);
+      setDownloading(`${layer.label}, zooms ${step.minZoom} à ${step.maxZoom}`);
+      bench('download-start', { layer: layer.id, tiles: tiles.length });
+      const res = await downloadTiles(store, tiles, (t) => wmtsTileUrl(layer, t.z, t.x, t.y, apiKey), setProgress, abort.current.signal);
+      bench('download-end', { layer: layer.id, ...res });
+    }
+    setDownloading('');
+    await refreshStored();
   }
 
   async function clearZone() {
-    const store = await getTileStore(LAYERS[baseLayer]);
-    await store.clear();
-    setStored(0);
+    for (const id of ['scan25', 'planign']) await (await getTileStore(LAYERS[id])).clear();
+    await refreshStored();
     setProgress(null);
   }
 
@@ -221,9 +230,8 @@ export function App() {
         onMapReady={setMap} />
 
       <div className="layers">
-        <select value={baseLayer} onChange={(e) => setBaseLayer(e.target.value as 'scan25' | 'planign')}>
-          <option value="scan25">SCAN 25</option>
-          <option value="planign">Plan IGN</option>
+        <select value={baseLayer} onChange={(e) => setBaseLayer(e.target.value as BaseMode)}>
+          {(Object.keys(BASE_MODES) as BaseMode[]).map((k) => <option key={k} value={k}>{BASE_MODES[k]}</option>)}
         </select>
         <label><input type="checkbox" checked={showSlopes} onChange={(e) => setShowSlopes(e.target.checked)} /> Pentes</label>
       </div>
@@ -282,7 +290,9 @@ export function App() {
               <button onClick={testKey}>Tester la clé</button>
               <label><input type="checkbox" defaultChecked onChange={(e) => { prefs.cacheViewed = e.target.checked; }} /> Garder les tuiles vues</label>
             </div>
-            <p className="hint">Zone La Ciotat, zooms {OFFLINE_MIN_ZOOM} à {OFFLINE_MAX_ZOOM}, couche affichée ({LAYERS[baseLayer].label}). Tuiles SCAN 25 en stock : {stored}.</p>
+            <p className="hint">Zone La Ciotat, fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
+              .map((p) => `${LAYERS[p.layer].label} z${p.minZoom}-${p.maxZoom}`).join(' + ')}.
+              En stock : {stored.scan25} tuiles SCAN 25, {stored.planign} tuiles Plan IGN.</p>
             <div className="row">
               <button className="primary" onClick={downloadZone}>Télécharger la zone</button>
               <button onClick={() => abort.current?.abort()}>Annuler</button>
@@ -290,6 +300,7 @@ export function App() {
             </div>
             {progress && (
               <>
+                {downloading && <p className="hint">En cours : {downloading}</p>}
                 <progress max={progress.total} value={progress.done + progress.failed} />
                 <p className="hint">{progress.done}/{progress.total} tuiles, {progress.failed} échecs, {(progress.bytes / 1e6).toFixed(1)} Mo, {(progress.elapsedMs / 1000).toFixed(1)} s</p>
               </>
