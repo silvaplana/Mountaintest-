@@ -13,4 +13,13 @@ public class BatterySettingsPlugin extends Plugin {
         BatterySettings.open(getActivity(), call.getString("what", "avion"));
         call.resolve();
     }
+
+    /** Le mode avion est-il activé ? (Android ne laisse pas une appli le basculer, seulement le lire.) */
+    @PluginMethod
+    public void airplane(PluginCall call) {
+        com.getcapacitor.JSObject r = new com.getcapacitor.JSObject();
+        r.put("on", android.provider.Settings.Global.getInt(getContext().getContentResolver(),
+            android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) == 1);
+        call.resolve(r);
+    }
 }

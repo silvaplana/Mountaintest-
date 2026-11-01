@@ -114,39 +114,6 @@
         </ScrollView>
     </LinearLayout>
 
-    <!-- Ma position en coordonnées (copiable pour les secours) -->
-    <LinearLayout
-        android:id="@+id/coordsBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="10dp"
-        android:layout_marginTop="66dp"
-        android:layout_marginEnd="68dp"
-        android:background="@drawable/card_bg"
-        android:elevation="4dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/coordsText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="?android:attr/selectableItemBackground"
-            android:padding="8dp"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/btnCoordsClose"
-            style="@style/Widget.AppCompat.Button.Borderless"
-            android:layout_width="44dp"
-            android:layout_height="wrap_content"
-            android:contentDescription="Masquer les coordonnées"
-            android:text="✕" />
-    </LinearLayout>
-
     <!-- Lieu choisi : « Y aller » ouvre Google Maps -->
     <LinearLayout
         android:id="@+id/targetBar"
@@ -243,15 +210,51 @@
             android:textColor="#1D2421"
             android:textSize="24sp" />
 
+    </LinearLayout>
+
+    <!-- Boutons toujours visibles, même en mode nature : me localiser, mode avion, mode poche -->
+    <LinearLayout
+        android:id="@+id/quickButtons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="10dp"
+        android:orientation="vertical">
+
         <ImageButton
             android:id="@+id/btnLocate"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_marginTop="16dp"
             android:background="@drawable/round_btn"
             android:contentDescription="Me localiser"
             android:elevation="4dp"
             android:src="@android:drawable/ic_menu_mylocation" />
+
+        <Button
+            android:id="@+id/btnQuickAvion"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/round_btn"
+            android:contentDescription="Mode avion (sans réseau, Wi-Fi ni Bluetooth)"
+            android:elevation="4dp"
+            android:padding="0dp"
+            android:text="✈"
+            android:textColor="#1D2421"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btnPoche"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/round_btn"
+            android:contentDescription="Mode poche (écran noir quand le téléphone est vertical)"
+            android:elevation="4dp"
+            android:padding="0dp"
+            android:text="👖"
+            android:textColor="#1D2421"
+            android:textSize="20sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -355,10 +358,6 @@
                         <Button android:id="@+id/btnBluetooth" style="@style/Btn" android:text="Bluetooth" />
                     </LinearLayout>
 
-                    <!-- Mode poche (PocketMode.java) -->
-                    <CheckBox android:id="@+id/chkPoche"
-                        android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Mode poche : écran noir dès que le téléphone est vertical 3 s, rallumé à plat ou par 2 secousses" />
 
                     <LinearLayout style="@style/Row">
                         <Button android:id="@+id/btnExport" style="@style/Btn" android:text="Exporter GPX" />

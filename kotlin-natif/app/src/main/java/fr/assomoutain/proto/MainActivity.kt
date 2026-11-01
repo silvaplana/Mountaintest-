@@ -204,9 +204,15 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnImport).setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
         mapOf(R.id.btnAvion to "avion", R.id.btnWifi to "wifi", R.id.btnDonnees to "donnees", R.id.btnBluetooth to "bluetooth")
             .forEach { (id, what) -> findViewById<Button>(id).setOnClickListener { BatterySettings.open(this, what) } }
-        findViewById<CheckBox>(R.id.chkPoche).apply {
-            isChecked = PocketMode.isEnabled(this@MainActivity)
-            setOnCheckedChangeListener { _, on -> PocketMode.setEnabled(this@MainActivity, on) }
+        findViewById<Button>(R.id.btnQuickAvion).setOnClickListener {
+            toast(if (airplaneOn()) "Désactive le mode avion" else "Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.")
+            BatterySettings.open(this, "avion")
+        }
+        findViewById<Button>(R.id.btnPoche).setOnClickListener {
+            val on = !PocketMode.isEnabled(this)
+            PocketMode.setEnabled(this, on)
+            toast(if (on) "Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer" else "Mode poche désactivé")
+            refreshQuickButtons()
         }
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
 
@@ -249,7 +255,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         refreshTabs(); refreshSortie(); refreshOffline()
-        setupCoords()
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "kotlin")
         // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
@@ -266,13 +271,14 @@ class MainActivity : AppCompatActivity() {
     private fun applyInsets() {
         val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.mapButtons), findViewById<View>(R.id.searchPanel),
             findViewById<View>(R.id.frameBanner))
+        val target = findViewById<View>(R.id.targetBar)
+        val targetTop = (66 * resources.displayMetrics.density).toInt()
         val sheet = findViewById<View>(R.id.sheet)
         val margin = (10 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             top.forEach { v -> v.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + margin } }
-            barsTop = bars.top
-            placeTopCards()
+            target.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + targetTop }
             sheet.updatePadding(bottom = bars.bottom + margin)
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
             insets
@@ -431,59 +437,6 @@ class MainActivity : AppCompatActivity() {
         scroll.post { scroll.updateLayoutParams { height = if (list.height > maxH) maxH else android.view.ViewGroup.LayoutParams.WRAP_CONTENT } }
     }
 
-    // ---------- Ma position en coordonnées ----------
-
-    private var barsTop = 0
-    private var coordsShown = true
-    private var coordsCopy = ""
-    private val coordsHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val coordsTick = object : Runnable {
-        override fun run() { refreshCoords(); coordsHandler.postDelayed(this, 2_000) }
-    }
-
-    /** Encadré des coordonnées sous la barre du haut ; le bandeau « Y aller » se place en dessous. */
-    private fun placeTopCards() {
-        val d = resources.displayMetrics.density
-        val coords = findViewById<View>(R.id.coordsBar)
-        coords.updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
-            topMargin = barsTop + ((if (nature) 10 else 66) * d).toInt()
-            marginEnd = ((if (nature) 10 else 68) * d).toInt()
-        }
-        findViewById<View>(R.id.targetBar).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
-            topMargin = barsTop + ((if (coords.visibility == View.VISIBLE) 122 else 66) * d).toInt()
-        }
-    }
-
-    private fun setupCoords() {
-        findViewById<TextView>(R.id.coordsText).setOnClickListener {
-            if (coordsCopy.isEmpty()) return@setOnClickListener
-            getSystemService(android.content.ClipboardManager::class.java)
-                .setPrimaryClip(android.content.ClipData.newPlainText("Ma position", coordsCopy))
-            toast("Coordonnées copiées : $coordsCopy")
-        }
-        findViewById<Button>(R.id.btnCoordsClose).setOnClickListener { coordsShown = false; refreshCoords() }
-    }
-
-    /** Position du bouton « me localiser », sinon dernier point de l'enregistrement en cours. */
-    @SuppressLint("MissingPermission")
-    private fun refreshCoords() {
-        val bar = findViewById<View>(R.id.coordsBar)
-        val lc = map?.locationComponent
-        val loc = if (locating && lc != null && lc.isLocationComponentActivated) lc.lastKnownLocation else null
-        val fix: Fix? = loc?.let { Fix(it.latitude, it.longitude, if (it.hasAltitude()) it.altitude else null, it.accuracy, it.time) }
-            ?: TrackRecorder.state.value.let { st -> if (st.recording) st.points.lastOrNull() else null }
-        val visible = fix != null && coordsShown && findViewById<View>(R.id.searchPanel).visibility != View.VISIBLE &&
-            findViewById<View>(R.id.frameBanner).visibility != View.VISIBLE
-        if (fix != null) {
-            fun deg(v: Double, pos: String, neg: String) = String.format(Locale.FRANCE, "%.5f° %s", Math.abs(v), if (v >= 0) pos else neg)
-            val extra = listOfNotNull(fix.ele?.let { "alt. ${it.toInt()} m" }, "± ${fix.accuracyM.toInt()} m").joinToString(" · ")
-            coordsCopy = String.format(Locale.US, "%.6f, %.6f", fix.lat, fix.lon)
-            findViewById<TextView>(R.id.coordsText).text = stat("📍 ${deg(fix.lat, "N", "S")}, ${deg(fix.lon, "E", "O")}", "$extra · appuie pour copier")
-        }
-        val now = if (visible) View.VISIBLE else View.GONE
-        if (bar.visibility != now) { bar.visibility = now; placeTopCards() }
-    }
-
     // ---------- Lieu choisi : Y aller ----------
 
     private var target: Pair<Double, Double>? = null
@@ -530,7 +483,6 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission") // vérifiée dans onLocateClicked
     private fun startLocate() {
-        coordsShown = true
         val m = map ?: return
         val style = m.style ?: return
         val lc = m.locationComponent
@@ -635,7 +587,6 @@ class MainActivity : AppCompatActivity() {
         } else ids.forEach { id -> findViewById<View>(id).visibility = hiddenInNature[id] ?: View.VISIBLE }
         findViewById<View>(R.id.btnRestore).visibility = if (on) View.VISIBLE else View.GONE
         map?.uiSettings?.isCompassEnabled = !on
-        placeTopCards()
     }
 
     // ---------- Versions ----------
@@ -844,7 +795,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.topBar).visibility = if (on) View.GONE else View.VISIBLE
         findViewById<View>(R.id.targetBar).visibility = if (!on && target != null) View.VISIBLE else View.GONE
         if (on) { sheetOpen = false; refreshTabs() }
-        refreshCoords()
     }
 
     private fun searchTrails(z: Zone) {
@@ -1077,8 +1027,22 @@ class MainActivity : AppCompatActivity() {
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 
     override fun onStart() { super.onStart(); mapView.onStart() }
-    override fun onResume() { super.onResume(); mapView.onResume(); coordsHandler.post(coordsTick) }
-    override fun onPause() { coordsHandler.removeCallbacks(coordsTick); mapView.onPause(); super.onPause() }
+    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons() }
+
+    /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
+    private fun airplaneOn() =
+        android.provider.Settings.Global.getInt(contentResolver, android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) == 1
+
+    /** Icône « allumée » (fond vert, symbole blanc) quand le mode est actif. */
+    private fun refreshQuickButtons() {
+        fun paint(id: Int, on: Boolean) = findViewById<Button>(id).apply {
+            backgroundTintList = if (on) ColorStateList.valueOf(Color.parseColor("#2F6F4F")) else null
+            setTextColor(if (on) Color.WHITE else Color.parseColor("#1D2421"))
+        }
+        paint(R.id.btnQuickAvion, airplaneOn())
+        paint(R.id.btnPoche, PocketMode.isEnabled(this))
+    }
+    override fun onPause() { mapView.onPause(); super.onPause() }
     override fun onStop() { mapView.onStop(); super.onStop() }
     override fun onLowMemory() { super.onLowMemory(); mapView.onLowMemory() }
     override fun onDestroy() { mapView.onDestroy(); super.onDestroy() }

@@ -18,8 +18,8 @@ export interface MapViewProps {
   /** Faux quand l'appli est en arrière-plan : on ne redessine rien pour économiser la batterie. */
   visible: boolean;
   onMapReady?: (map: MlMap) => void;
-  /** Position donnée par le bouton « me localiser ». */
-  onGeolocate?: (p: { coords: GeolocationCoordinates; timestamp: number }) => void;
+  /** Le contrôle « me localiser », piloté par les boutons permanents (QuickButtons). */
+  onGeolocate?: (g: maplibregl.GeolocateControl) => void;
   /** Randos OSM trouvées dans la zone encadrée, celle choisie, et le cadre. */
   trails: Trail[];
   selectedTrail: Trail | null;
@@ -41,8 +41,6 @@ export function MapView(props: MapViewProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
   const [ready, setReady] = useState(false);
-  const onGeolocate = useRef(props.onGeolocate);
-  onGeolocate.current = props.onGeolocate;
   const onTrailClick = useRef(props.onTrailClick);
   onTrailClick.current = props.onTrailClick;
 
@@ -88,8 +86,8 @@ export function MapView(props: MapViewProps) {
       showAccuracyCircle: true,
       fitBoundsOptions: { maxZoom: 15 },
     });
-    geo.on('geolocate', (p) => onGeolocate.current?.(p));
-    m.addControl(geo, 'top-right');
+    m.addControl(geo, 'top-right'); // son bouton est masqué (CSS) : on passe par QuickButtons
+    props.onGeolocate?.(geo);
     m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     m.once('idle', () => {
       metrics.firstMapRenderMs = Math.round(performance.now() - metrics.appStart);
