@@ -139,6 +139,17 @@ class MainActivity : AppCompatActivity() {
             map = m
             m.setMaxZoomPreference(Scenario.MAX_DISPLAY_ZOOM)
             m.uiSettings.isAttributionEnabled = true
+            // Rouvre la carte là où on l'avait laissée (sinon La Ciotat, valeur du layout).
+            if (prefs.contains("vueLat")) m.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                LatLng(prefs.getFloat("vueLat", 43.172f).toDouble(), prefs.getFloat("vueLon", 5.6f).toDouble()),
+                prefs.getFloat("vueZoom", 14f).toDouble()))
+            m.addOnCameraIdleListener {
+                val c = m.cameraPosition
+                c.target?.let { t ->
+                    prefs.edit().putFloat("vueLat", t.latitude.toFloat()).putFloat("vueLon", t.longitude.toFloat())
+                        .putFloat("vueZoom", c.zoom.toFloat()).apply()
+                }
+            }
             // Un glissement de carte arrête le suivi (comme côté Capacitor) ; la position reste affichée.
             m.addOnCameraMoveStartedListener { reason ->
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {

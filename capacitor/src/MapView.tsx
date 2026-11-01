@@ -30,6 +30,15 @@ export interface MapViewProps {
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
 maplibregl.setWorkerUrl(workerUrl);
 
+const VIEW_KEY = 'derniereVue';
+function savedView(): { center: [number, number]; zoom: number } {
+  try {
+    const v = JSON.parse(localStorage.getItem(VIEW_KEY) ?? 'null') as { lon: number; lat: number; zoom: number } | null;
+    if (v && Number.isFinite(v.lon) && Number.isFinite(v.lat) && Number.isFinite(v.zoom)) return { center: [v.lon, v.lat], zoom: v.zoom };
+  } catch { /* stockage indisponible : vue par défaut */ }
+  return { center: LA_CIOTAT_CENTER, zoom: 14 };
+}
+
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
 function rasterSource(layerId: string): maplibregl.RasterSourceSpecification {
@@ -47,8 +56,8 @@ export function MapView(props: MapViewProps) {
   useEffect(() => {
     const m = new maplibregl.Map({
       container: el.current!,
-      center: LA_CIOTAT_CENTER,
-      zoom: 14,
+      // Rouvre la carte là où on l'avait laissée (sinon La Ciotat).
+      ...savedView(),
       maxZoom: DISPLAY_MAX_ZOOM,
       // Un écran 3x dessine 2,25 fois plus de pixels qu'en 2x pour un gain peu visible sur des cartes raster.
       pixelRatio: Math.min(window.devicePixelRatio, 2),
@@ -88,6 +97,10 @@ export function MapView(props: MapViewProps) {
     });
     m.addControl(geo, 'top-right'); // son bouton est masqué (CSS) : on passe par QuickButtons
     props.onGeolocate?.(geo);
+    m.on('moveend', () => {
+      const c = m.getCenter();
+      try { localStorage.setItem(VIEW_KEY, JSON.stringify({ lon: c.lng, lat: c.lat, zoom: m.getZoom() })); } catch { /* ignoré */ }
+    });
     m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     m.once('idle', () => {
       metrics.firstMapRenderMs = Math.round(performance.now() - metrics.appStart);
