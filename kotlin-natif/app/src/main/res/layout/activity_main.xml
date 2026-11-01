@@ -107,6 +107,37 @@
         </ScrollView>
     </LinearLayout>
 
+    <!-- Lieu choisi : « Y aller » ouvre Google Maps -->
+    <LinearLayout
+        android:id="@+id/targetBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="66dp"
+        android:layout_marginEnd="68dp"
+        android:background="@drawable/card_bg"
+        android:elevation="4dp"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/targetLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textSize="14sp" />
+
+        <LinearLayout style="@style/Row">
+            <Button android:id="@+id/btnGo" style="@style/Btn.Primary" android:text="Y aller (Google Maps)" />
+            <Button android:id="@+id/btnTargetClear" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="48dp" android:layout_height="wrap_content"
+                android:contentDescription="Effacer le lieu choisi" android:text="✕" />
+        </LinearLayout>
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/mapButtons"
         android:layout_width="wrap_content"

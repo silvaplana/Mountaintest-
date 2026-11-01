@@ -72,3 +72,13 @@ progress { width: 100%; }
 .search-results li.hint { padding: 10px 12px; }
 .search-results button { width: 100%; text-align: left; border: 0; border-radius: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; }
 .search-results button span { font-size: 13px; color: var(--muted); }
+
+/* Lieu choisi : « Y aller » */
+.target {
+  position: absolute; top: calc(env(safe-area-inset-top) + 66px); left: 10px; right: 64px;
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  background: var(--bg); border-radius: 10px; padding: 6px 8px; box-shadow: 0 1px 6px #0003; font-size: 14px;
+}
+.target span { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.target button.primary { flex: 1; min-height: 38px; padding: 6px 10px; }
+.target button:not(.primary) { min-height: 38px; padding: 6px 12px; }

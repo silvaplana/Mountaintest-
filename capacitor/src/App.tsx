@@ -1,3 +1,4 @@
+import * as maplibregl from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Device } from '@capacitor/device';
@@ -28,6 +29,13 @@ type SourceKind = 'gps' | 'sim10' | 'sim60';
 const prefs = { apiKey: DEFAULT_SCAN_KEY, cacheViewed: true };
 registerIgnProtocol({ getApiKey: () => prefs.apiKey, cacheViewedTiles: () => prefs.cacheViewed });
 
+/** Ouvre Google Maps (appli si installée) en itinéraire voiture vers le point. */
+function openDirections(lat: number, lon: number) {
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lon.toFixed(6)}&travelmode=driving`;
+  // Dans l'appli, Capacitor confie les liens externes à Android, qui ouvre Google Maps.
+  if (Capacitor.isNativePlatform()) window.location.href = url; else window.open(url, '_blank');
+}
+
 function formatMo(bytes: number) { return `${(bytes / 1e6).toFixed(1).replace('.', ',')} Mo`; }
 
 export function App() {
@@ -36,6 +44,9 @@ export function App() {
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [searching, setSearching] = useState(false);
+  /** Lieu choisi (recherche, appui long, départ d'une trace importée) : « Y aller » ouvre Google Maps. */
+  const [target, setTarget] = useState<{ lon: number; lat: number; label: string } | null>(null);
+  const marker = useRef<maplibregl.Marker | null>(null);
   const [visible, setVisible] = useState(true);
 
   // Sortie
@@ -136,6 +147,20 @@ export function App() {
     return () => clearInterval(id);
   }, [recording]);
 
+  // Appui long sur la carte : choisir un lieu où aller.
+  useEffect(() => {
+    if (!map) return;
+    const onLong = (e: maplibregl.MapMouseEvent) => setTarget({ lon: e.lngLat.lng, lat: e.lngLat.lat, label: 'Point choisi sur la carte' });
+    map.on('contextmenu', onLong);
+    return () => { map.off('contextmenu', onLong); };
+  }, [map]);
+
+  useEffect(() => {
+    marker.current?.remove();
+    marker.current = null;
+    if (map && target) marker.current = new maplibregl.Marker({ color: '#c0392b' }).setLngLat([target.lon, target.lat]).addTo(map);
+  }, [map, target]);
+
   async function startRecording() {
     setStatus('');
     recorder.current.reset();
@@ -173,6 +198,7 @@ export function App() {
     try {
       const t = parseGpx(await file.text());
       setImported(t.points);
+      if (t.points[0]) setTarget({ lon: t.points[0].lon, lat: t.points[0].lat, label: `Départ de « ${t.name} »` });
       const s = computeStats(t.points);
       setStatus(`« ${t.name} » : ${formatKm(s.distanceM)}, D+ ${Math.round(s.gainM)} m`);
     } catch (e) {
@@ -240,6 +266,7 @@ export function App() {
           setSearching(false);
           setFollow(false);
           map?.flyTo({ center: [p.lon, p.lat], zoom: p.zoom, duration: 1500 });
+          setTarget({ lon: p.lon, lat: p.lat, label: p.label });
         }} />
       ) : (
       <div className="layers">
@@ -249,6 +276,14 @@ export function App() {
         </select>
         <label><input type="checkbox" checked={showSlopes} onChange={(e) => setShowSlopes(e.target.checked)} /> Pentes</label>
       </div>
+      )}
+
+      {target && !searching && (
+        <div className="target">
+          <span>📍 {target.label}</span>
+          <button className="primary" onClick={() => openDirections(target.lat, target.lon)}>Y aller (Google Maps)</button>
+          <button onClick={() => setTarget(null)} aria-label="Effacer le lieu choisi">✕</button>
+        </div>
       )}
 
       <section className={`sheet ${open ? 'open' : ''}`}>

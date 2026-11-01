@@ -136,8 +136,12 @@ class MainActivity : AppCompatActivity() {
                     refreshLocateButton()
                 }
             }
+            // Appui long sur la carte : choisir un lieu où aller.
+            m.addOnMapLongClickListener { p -> setTarget(p.latitude, p.longitude, "Point choisi sur la carte"); true }
             loadStyle()
         }
+        findViewById<Button>(R.id.btnGo).setOnClickListener { target?.let { openDirections(it.first, it.second) } }
+        findViewById<Button>(R.id.btnTargetClear).setOnClickListener { setTarget(null, null, "") }
 
         // Fond de carte et pentes
         val btnLayer = findViewById<Button>(R.id.btnLayer)
@@ -226,11 +230,14 @@ class MainActivity : AppCompatActivity() {
     /** Android 15 dessine sous les barres système : on décale le haut et le bas de l'interface. */
     private fun applyInsets() {
         val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.mapButtons), findViewById<View>(R.id.searchPanel))
+        val target = findViewById<View>(R.id.targetBar)
+        val targetTop = (66 * resources.displayMetrics.density).toInt()
         val sheet = findViewById<View>(R.id.sheet)
         val margin = (10 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             top.forEach { v -> v.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + margin } }
+            target.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + targetTop }
             sheet.updatePadding(bottom = bars.bottom + margin)
             insets
         }
@@ -251,12 +258,16 @@ class MainActivity : AppCompatActivity() {
             style.addSource(GeoJsonSource(SRC_IMPORT))
             style.addSource(GeoJsonSource(SRC_TRACK))
             style.addSource(GeoJsonSource(SRC_POS))
+            style.addSource(GeoJsonSource(SRC_TARGET))
             style.addLayer(LineLayer("import", SRC_IMPORT).withProperties(lineColor("#7b3fe4"), lineWidth(4f), lineOpacity(0.8f)))
             style.addLayer(LineLayer("track", SRC_TRACK).withProperties(lineColor("#e4572e"), lineWidth(4f)))
             style.addLayer(CircleLayer("pos", SRC_POS).withProperties(
                 circleRadius(7f), circleColor("#1d6fe0"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
+            style.addLayer(CircleLayer("target", SRC_TARGET).withProperties(
+                circleRadius(9f), circleColor("#c0392b"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             applySlopes()
             drawImported(fit = false)
+            drawTarget()
             render()
             if (locating) startLocate()
             if (startupMs == null) {
@@ -361,6 +372,7 @@ class MainActivity : AppCompatActivity() {
                     if (follow) setFollow(false)
                     if (locating) map?.locationComponent?.cameraMode = CameraMode.NONE
                     map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(p.lat, p.lon), p.zoom), 1500)
+                    setTarget(p.lat, p.lon, p.label)
                     refreshLocateButton()
                 }
             })
@@ -372,6 +384,33 @@ class MainActivity : AppCompatActivity() {
         val maxH = (resources.displayMetrics.heightPixels * 0.5).toInt()
         val scroll = findViewById<View>(R.id.searchScroll)
         scroll.post { scroll.updateLayoutParams { height = if (list.height > maxH) maxH else android.view.ViewGroup.LayoutParams.WRAP_CONTENT } }
+    }
+
+    // ---------- Lieu choisi : Y aller ----------
+
+    private var target: Pair<Double, Double>? = null
+    private var targetLabel = ""
+
+    private fun setTarget(lat: Double?, lon: Double?, label: String) {
+        target = if (lat != null && lon != null) lat to lon else null
+        targetLabel = label
+        findViewById<View>(R.id.targetBar).visibility = if (target != null) View.VISIBLE else View.GONE
+        findViewById<TextView>(R.id.targetLabel).text = "📍 $label"
+        drawTarget()
+    }
+
+    private fun drawTarget() {
+        val src = map?.style?.getSourceAs<GeoJsonSource>(SRC_TARGET) ?: return
+        val t = target
+        if (t == null) src.setGeoJson(org.maplibre.geojson.FeatureCollection.fromFeatures(emptyList()))
+        else src.setGeoJson(Point.fromLngLat(t.second, t.first))
+    }
+
+    /** Ouvre Google Maps (appli si installée) en itinéraire voiture vers le point. */
+    private fun openDirections(lat: Double, lon: Double) {
+        val url = String.format(Locale.US, "https://www.google.com/maps/dir/?api=1&destination=%.6f,%.6f&travelmode=driving", lat, lon)
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .onFailure { toast("Impossible d'ouvrir Google Maps") }
     }
 
     // ---------- Me localiser ----------
@@ -576,6 +615,7 @@ class MainActivity : AppCompatActivity() {
             .onSuccess { t ->
                 imported = t.points
                 drawImported()
+                t.points.firstOrNull()?.let { setTarget(it.lat, it.lon, "Départ de « ${t.name} »") }
                 val (d, gain) = trackStats(t.points)
                 setStatus(String.format(Locale.FRANCE, "« %s » : %.2f km, D+ %d m", t.name, d / 1000, gain.toInt()))
                 refreshSortie()
@@ -677,6 +717,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRACK = "track-src"
         private const val SRC_POS = "pos-src"
         private const val SRC_IMPORT = "import-src"
+        private const val SRC_TARGET = "target-src"
         private const val SRC_SLOPES = "slopes-src"
         private const val LAYER_SLOPES = "slopes"
     }
