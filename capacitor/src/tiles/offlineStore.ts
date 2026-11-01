@@ -8,7 +8,8 @@ import type { TileCoord } from './tileMath';
  * Stockage des tuiles hors ligne.
  * - Natif (Android/iOS) : un fichier par tuile dans le dossier privé de l'appli
  *   (tiles/<couche>/<z>/<x>/<y>.<ext>), téléchargé par le code natif et relu par
- *   l'URL locale du WebView, sans passer par du base64.
+ *   l'URL locale du WebView, sans passer par du base64. Ce dossier est conservé par
+ *   les mises à jour de l'appli (il n'est effacé qu'à la désinstallation).
  * - Navigateur (dev) : Cache Storage.
  */
 export interface TileStore {
@@ -19,6 +20,8 @@ export interface TileStore {
   /** Enregistre une tuile déjà reçue (cache des tuiles vues en ligne). */
   put(t: TileCoord, data: ArrayBuffer): Promise<void>;
   count(): number;
+  /** Place occupée sur le téléphone par les tuiles de cette couche, en octets. */
+  bytes(): number;
   clear(): Promise<void>;
   flushIndex(): Promise<void>;
 }
@@ -26,7 +29,9 @@ export interface TileStore {
 const key = (t: TileCoord) => `${t.z}/${t.x}/${t.y}`;
 
 class NativeTileStore implements TileStore {
-  private index = new Set<string>();
+  /** tuile -> taille en octets (0 si inconnue). */
+  private index = new Map<string, number>();
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private madeDirs = new Set<string>();
   private dirty = false;
   private baseUri = '';
@@ -40,15 +45,31 @@ class NativeTileStore implements TileStore {
     this.baseUri = (await Filesystem.getUri({ directory: Directory.Data, path: this.root() })).uri;
     try {
       const r = await Filesystem.readFile({ directory: Directory.Data, path: `${this.root()}/index.json`, encoding: Encoding.UTF8 });
-      for (const k of JSON.parse(r.data as string) as string[]) this.index.add(k);
+      // Ancien format : liste de clés ; nouveau : liste de [clé, octets].
+      for (const e of JSON.parse(r.data as string) as (string | [string, number])[]) {
+        if (typeof e === 'string') this.index.set(e, 0); else this.index.set(e[0], e[1]);
+      }
+      if ([...this.index.values()].some((b) => b === 0)) await this.measureUnknown();
     } catch {
       // Pas encore d'index : première utilisation.
     }
     return this;
   }
 
+  /** Tailles absentes de l'index (ancien format) : relues une fois sur le disque. */
+  private async measureUnknown() {
+    for (const [k, b] of this.index) {
+      if (b) continue;
+      const st = await Filesystem.stat({ directory: Directory.Data, path: `${this.root()}/${k}.${this.layer.ext}` }).catch(() => null);
+      if (st) this.index.set(k, st.size); else this.index.delete(k);
+    }
+    this.dirty = true;
+    await this.flushIndex();
+  }
+
   has(t: TileCoord) { return this.index.has(key(t)); }
   count() { return this.index.size; }
+  bytes() { let n = 0; for (const b of this.index.values()) n += b; return n; }
 
   async read(t: TileCoord) {
     if (!this.has(t)) return null;
@@ -71,7 +92,7 @@ class NativeTileStore implements TileStore {
     const st = await Filesystem.stat({ directory: Directory.Data, path: this.path(t) });
     // Le flux WMTS renvoie parfois une petite image ou un XML d'erreur avec un code 200.
     if (st.size < 200) throw new Error(`tuile suspecte (${st.size} o) ${key(t)}`);
-    this.index.add(key(t));
+    this.index.set(key(t), st.size);
     this.dirty = true;
     return st.size;
   }
@@ -79,8 +100,11 @@ class NativeTileStore implements TileStore {
   async put(t: TileCoord, data: ArrayBuffer) {
     await this.ensureDir(t);
     await Filesystem.writeFile({ directory: Directory.Data, path: this.path(t), data: toBase64(data) });
-    this.index.add(key(t));
+    this.index.set(key(t), data.byteLength);
     this.dirty = true;
+    // Tuiles vues en ligne : index enregistré 5 s après la dernière, pour les retrouver au prochain lancement.
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    this.flushTimer = setTimeout(() => void this.flushIndex(), 5000);
   }
 
   async flushIndex() {
@@ -89,7 +113,7 @@ class NativeTileStore implements TileStore {
     await Filesystem.writeFile({
       directory: Directory.Data,
       path: `${this.root()}/index.json`,
-      data: JSON.stringify([...this.index]),
+      data: JSON.stringify([...this.index.entries()]),
       encoding: Encoding.UTF8,
       recursive: true,
     });
@@ -103,7 +127,7 @@ class NativeTileStore implements TileStore {
 }
 
 class WebTileStore implements TileStore {
-  private index = new Set<string>();
+  private index = new Map<string, number>();
   constructor(private layer: LayerDef) {}
 
   private cacheName() { return `tiles-${this.layer.id}`; }
@@ -111,12 +135,16 @@ class WebTileStore implements TileStore {
 
   async init() {
     const cache = await caches.open(this.cacheName());
-    for (const r of await cache.keys()) this.index.add(new URL(r.url).pathname.split('/').slice(3).join('/'));
+    for (const r of await cache.keys()) {
+      const res = await cache.match(r);
+      this.index.set(new URL(r.url).pathname.split('/').slice(3).join('/'), res ? (await res.blob()).size : 0);
+    }
     return this;
   }
 
   has(t: TileCoord) { return this.index.has(key(t)); }
   count() { return this.index.size; }
+  bytes() { let n = 0; for (const b of this.index.values()) n += b; return n; }
 
   async read(t: TileCoord) {
     const res = await (await caches.open(this.cacheName())).match(this.req(t));
@@ -133,7 +161,7 @@ class WebTileStore implements TileStore {
 
   async put(t: TileCoord, data: ArrayBuffer) {
     await (await caches.open(this.cacheName())).put(this.req(t), new Response(data));
-    this.index.add(key(t));
+    this.index.set(key(t), data.byteLength);
   }
 
   async flushIndex() {}

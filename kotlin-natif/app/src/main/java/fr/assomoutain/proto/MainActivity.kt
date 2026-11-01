@@ -590,7 +590,9 @@ class MainActivity : AppCompatActivity() {
         offline.summary { s -> runOnUiThread {
             offlineSummary = s
             findViewById<TextView>(R.id.offlineHint).text =
-                "Zone La Ciotat, fond affiché (${mapMode.label}) : ${mapMode.offlinePlan()}.\nEn stock : $s."
+                "Zone La Ciotat, fond affiché (${mapMode.label}) : ${mapMode.offlinePlan()}.\nEn stock : $s.\n" +
+                "Place prise sur le téléphone : ${mo(offline.databaseBytes())} (tuiles téléchargées + tuiles vues). " +
+                "Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface."
         } }
     }
 
@@ -651,12 +653,15 @@ class MainActivity : AppCompatActivity() {
             append("Première carte affichée : ${startupMs?.let { "$it ms" } ?: "—"}\n")
             append("Zoom : ${map?.cameraPosition?.zoom?.let { String.format(Locale.FRANCE, "%.1f", it) } ?: "—"}\n")
             append("Hors ligne en stock : $offlineSummary\n")
+            append("Place sur le téléphone : ${mo(offline.databaseBytes())}\n")
             append("Positions reçues / gardées : ${s.received} / ${s.points.size}\n")
             append("Source : ${s.source.ifEmpty { "—" }}${if (s.stationary) " (à l'arrêt)" else ""}\n")
             append("Bench caméra : $benchInfo")
         }
         offline.summary { r -> runOnUiThread { if (r != offlineSummary) { offlineSummary = r; refreshMesures() } } }
     }
+
+    private fun mo(bytes: Long) = String.format(Locale.FRANCE, "%.1f Mo", bytes / 1e6)
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 

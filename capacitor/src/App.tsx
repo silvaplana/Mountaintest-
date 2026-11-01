@@ -28,6 +28,8 @@ type SourceKind = 'gps' | 'sim10' | 'sim60';
 const prefs = { apiKey: DEFAULT_SCAN_KEY, cacheViewed: true };
 registerIgnProtocol({ getApiKey: () => prefs.apiKey, cacheViewedTiles: () => prefs.cacheViewed });
 
+function formatMo(bytes: number) { return `${(bytes / 1e6).toFixed(1).replace('.', ',')} Mo`; }
+
 export function App() {
   const [tab, setTab] = useState<Tab>('sortie');
   const [open, setOpen] = useState(true);
@@ -55,7 +57,7 @@ export function App() {
   // Hors ligne
   const [apiKey, setApiKey] = useState(DEFAULT_SCAN_KEY);
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
-  const [stored, setStored] = useState({ scan25: 0, planign: 0 });
+  const [stored, setStored] = useState({ scan25: 0, planign: 0, scan25Bytes: 0, planignBytes: 0 });
   const [downloading, setDownloading] = useState('');
   const abort = useRef<AbortController | null>(null);
 
@@ -197,7 +199,9 @@ export function App() {
   }
 
   async function refreshStored() {
-    setStored({ scan25: (await getTileStore(LAYERS.scan25)).count(), planign: (await getTileStore(LAYERS.planign)).count() });
+    const scan = await getTileStore(LAYERS.scan25);
+    const plan = await getTileStore(LAYERS.planign);
+    setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes() });
   }
 
   async function downloadZone() {
@@ -251,7 +255,7 @@ export function App() {
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
           {(['sortie', 'horsligne', 'mesures'] as Tab[]).map((t) => (
-            <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setOpen(true); }}>
+            <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setOpen(true); void refreshStored(); }}>
               {{ sortie: 'Sortie', horsligne: 'Hors ligne', mesures: 'Mesures' }[t]}
             </button>
           ))}
@@ -303,7 +307,8 @@ export function App() {
             </div>
             <p className="hint">Zone La Ciotat, fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
               .map((p) => `${LAYERS[p.layer].label} z${p.minZoom}-${p.maxZoom}`).join(' + ')}.
-              En stock : {stored.scan25} tuiles SCAN 25, {stored.planign} tuiles Plan IGN.</p>
+              En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}).</p>
+            <p className="hint"><b>Place prise sur le téléphone : {formatMo(stored.scan25Bytes + stored.planignBytes)}</b>. Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface.</p>
             <div className="row">
               <button className="primary" onClick={downloadZone}>Télécharger la zone</button>
               <button onClick={() => abort.current?.abort()}>Annuler</button>
@@ -323,6 +328,7 @@ export function App() {
           <div className="pane">
             <table className="metrics"><tbody>
               <tr><td>Plateforme</td><td>{Capacitor.getPlatform()}</td></tr>
+              <tr><td>Tuiles hors ligne</td><td>{stored.scan25 + stored.planign} ({formatMo(stored.scan25Bytes + stored.planignBytes)})</td></tr>
               <tr><td>Première carte affichée</td><td>{metrics.firstMapRenderMs} ms</td></tr>
               <tr><td>Tuiles disque / réseau / erreurs</td><td>{metrics.tilesFromDisk} / {metrics.tilesFromNetwork} / {metrics.tileErrors}</td></tr>
               <tr><td>Temps moyen par tuile</td><td>{avgTile.toFixed(1)} ms</td></tr>

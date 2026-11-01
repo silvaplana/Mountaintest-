@@ -21,10 +21,23 @@ class OfflineDownloader(private val context: Context) {
     private val manager get() = OfflineManager.getInstance(context)
     private var current: OfflineRegion? = null
 
-    /** Remplace la région déjà téléchargée pour ce fond de carte, puis télécharge. */
+    /**
+     * Télécharge la zone pour ce fond de carte. Si elle existe déjà, on la reprend : les tuiles déjà
+     * présentes ne sont pas retéléchargées (la base est gardée par les mises à jour de l'appli).
+     */
     fun download(mode: MapMode, apiKey: String, onProgress: (Progress) -> Unit) {
-        deleteRegions({ String(it) == mode.name }) { create(mode, apiKey, onProgress) }
+        manager.listOfflineRegions(object : OfflineManager.ListOfflineRegionsCallback {
+            override fun onList(offlineRegions: Array<OfflineRegion>?) {
+                val existing = offlineRegions.orEmpty().firstOrNull { String(it.metadata) == mode.name }
+                if (existing != null) start(existing, mode, onProgress) else create(mode, apiKey, onProgress)
+            }
+            override fun onError(error: String) = create(mode, apiKey, onProgress)
+        })
     }
+
+    /** Taille de la base hors ligne de MapLibre sur le téléphone (tuiles téléchargées + cache des tuiles vues). */
+    fun databaseBytes(): Long =
+        context.filesDir.listFiles { f -> f.name.startsWith("mbgl-offline.db") }?.sumOf { it.length() } ?: 0L
 
     fun cancel() {
         current?.setDownloadState(OfflineRegion.STATE_INACTIVE)
@@ -83,11 +96,16 @@ class OfflineDownloader(private val context: Context) {
             Scenario.OFFLINE_MIN_ZOOM, Scenario.OFFLINE_MAX_ZOOM,
             1f, // pixelRatio 1 : tuiles 256 px, comme côté Capacitor
         )
-        val started = SystemClock.elapsedRealtime()
         manager.createOfflineRegion(
             definition, mode.name.toByteArray(),
             object : OfflineManager.CreateOfflineRegionCallback {
-                override fun onCreate(offlineRegion: OfflineRegion) {
+                override fun onCreate(offlineRegion: OfflineRegion) = start(offlineRegion, mode, onProgress)
+                override fun onError(error: String) = onProgress(Progress(0, 0, 0, 0, false, error))
+            })
+    }
+
+    private fun start(offlineRegion: OfflineRegion, mode: MapMode, onProgress: (Progress) -> Unit) {
+        val started = SystemClock.elapsedRealtime()
                     current = offlineRegion
                     offlineRegion.setObserver(object : OfflineRegion.OfflineRegionObserver {
                         override fun onStatusChanged(status: OfflineRegionStatus) {
@@ -110,8 +128,5 @@ class OfflineDownloader(private val context: Context) {
                         }
                     })
                     offlineRegion.setDownloadState(OfflineRegion.STATE_ACTIVE)
-                }
-                override fun onError(error: String) = onProgress(Progress(0, 0, 0, 0, false, error))
-            })
     }
 }
