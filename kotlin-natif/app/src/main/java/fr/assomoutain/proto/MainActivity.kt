@@ -148,6 +148,7 @@ class MainActivity : AppCompatActivity() {
             btnLayer.text = "${mapMode.label} ▾"
             loadStyle(); refreshOffline()
         }
+        setupSearch()
         findViewById<CheckBox>(R.id.chkSlopes).setOnCheckedChangeListener { _, checked -> slopes = checked; applySlopes() }
 
         // Boutons carte
@@ -224,7 +225,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Android 15 dessine sous les barres système : on décale le haut et le bas de l'interface. */
     private fun applyInsets() {
-        val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.mapButtons))
+        val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.mapButtons), findViewById<View>(R.id.searchPanel))
         val sheet = findViewById<View>(R.id.sheet)
         val margin = (10 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
@@ -299,6 +300,78 @@ class MainActivity : AppCompatActivity() {
             imported.forEach { b.include(LatLng(it.lat, it.lon)) }
             map?.moveCamera(CameraUpdateFactory.newLatLngBounds(b.build(), 80))
         }
+    }
+
+    // ---------- Recherche de lieux ----------
+
+    private val searchHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var searchSeq = 0
+
+    private fun setupSearch() {
+        val panel = findViewById<View>(R.id.searchPanel)
+        val topBar = findViewById<View>(R.id.topBar)
+        val text = findViewById<EditText>(R.id.searchText)
+        val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        fun close() {
+            imm.hideSoftInputFromWindow(text.windowToken, 0)
+            panel.visibility = View.GONE; topBar.visibility = View.VISIBLE
+            text.setText(""); findViewById<android.widget.LinearLayout>(R.id.searchResults).removeAllViews()
+        }
+        findViewById<ImageButton>(R.id.btnSearch).setOnClickListener {
+            topBar.visibility = View.GONE; panel.visibility = View.VISIBLE
+            text.requestFocus(); imm.showSoftInput(text, 0)
+        }
+        findViewById<Button>(R.id.btnSearchClose).setOnClickListener { close() }
+        text.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                searchHandler.removeCallbacksAndMessages(null)
+                val q = s.toString().trim()
+                val seq = ++searchSeq
+                if (q.length < 2) { showResults(emptyList(), null, ::close); return }
+                searchHandler.postDelayed({
+                    lifecycleScope.launch {
+                        val r = withContext(Dispatchers.IO) { runCatching { Search.search(q) } }
+                        if (seq != searchSeq) return@launch
+                        r.onSuccess { showResults(it, if (it.isEmpty()) "Aucun résultat" else null, ::close) }
+                            .onFailure { showResults(emptyList(), "Recherche impossible (pas de réseau ?)", ::close) }
+                    }
+                }, 300)
+            }
+        })
+        text.setOnEditorActionListener { _, _, _ ->
+            findViewById<android.widget.LinearLayout>(R.id.searchResults).getChildAt(0)?.performClick(); true
+        }
+    }
+
+    private fun showResults(places: List<Place>, message: String?, close: () -> Unit) {
+        val list = findViewById<android.widget.LinearLayout>(R.id.searchResults)
+        list.removeAllViews()
+        val pad = (12 * resources.displayMetrics.density).toInt()
+        places.forEach { p ->
+            list.addView(TextView(this).apply {
+                text = stat(p.label, p.detail)
+                textSize = 14f
+                setPadding(pad, pad, pad, pad)
+                isClickable = true
+                setBackgroundResource(android.R.drawable.list_selector_background)
+                setOnClickListener {
+                    close()
+                    if (follow) setFollow(false)
+                    if (locating) map?.locationComponent?.cameraMode = CameraMode.NONE
+                    map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(p.lat, p.lon), p.zoom), 1500)
+                    refreshLocateButton()
+                }
+            })
+        }
+        if (message != null) list.addView(TextView(this).apply {
+            text = message; textSize = 13f; setPadding(pad, pad, pad, pad)
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
+        })
+        val maxH = (resources.displayMetrics.heightPixels * 0.5).toInt()
+        val scroll = findViewById<View>(R.id.searchScroll)
+        scroll.post { scroll.updateLayoutParams { height = if (list.height > maxH) maxH else android.view.ViewGroup.LayoutParams.WRAP_CONTENT } }
     }
 
     // ---------- Me localiser ----------

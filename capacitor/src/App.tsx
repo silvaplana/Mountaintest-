@@ -18,6 +18,7 @@ import { downloadTiles, getTileStore, type DownloadProgress } from './tiles/offl
 import { registerIgnProtocol } from './tiles/protocol';
 import { tilesForBbox } from './tiles/tileMath';
 import { parseGpx, type TrackPoint } from './track/gpx';
+import { SearchBar } from './SearchBar';
 import { TrackRecorder } from './track/recorder';
 import { computeStats, formatDuration, formatKm } from './track/stats';
 
@@ -32,6 +33,7 @@ export function App() {
   const [open, setOpen] = useState(true);
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [visible, setVisible] = useState(true);
 
   // Sortie
@@ -229,12 +231,21 @@ export function App() {
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} />
 
+      {searching ? (
+        <SearchBar onClose={() => setSearching(false)} onPick={(p) => {
+          setSearching(false);
+          setFollow(false);
+          map?.flyTo({ center: [p.lon, p.lat], zoom: p.zoom, duration: 1500 });
+        }} />
+      ) : (
       <div className="layers">
+        <button className="icon" onClick={() => setSearching(true)} aria-label="Rechercher un lieu">🔍</button>
         <select value={baseLayer} onChange={(e) => setBaseLayer(e.target.value as BaseMode)}>
           {(Object.keys(BASE_MODES) as BaseMode[]).map((k) => <option key={k} value={k}>{BASE_MODES[k]}</option>)}
         </select>
         <label><input type="checkbox" checked={showSlopes} onChange={(e) => setShowSlopes(e.target.checked)} /> Pentes</label>
       </div>
+      )}
 
       <section className={`sheet ${open ? 'open' : ''}`}>
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />

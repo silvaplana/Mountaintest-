@@ -58,3 +58,17 @@ progress { width: 100%; }
 .maplibregl-ctrl-top-right { top: env(safe-area-inset-top); }
 .maplibregl-ctrl-group button { width: 44px; height: 44px; }
 .maplibregl-ctrl-geolocate .maplibregl-ctrl-icon { background-size: 26px; }
+
+/* Recherche de lieux */
+.layers button.icon { min-height: 36px; padding: 4px 8px; border: 0; font-size: 18px; }
+.search {
+  position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 64px; z-index: 2;
+  background: var(--bg); border-radius: 10px; box-shadow: 0 1px 6px #0003; overflow: hidden;
+}
+.search-row { display: flex; gap: 6px; padding: 6px; }
+.search-row input { flex: 1; min-width: 0; }
+.search-results { list-style: none; margin: 0; padding: 0; max-height: 50vh; overflow-y: auto; border-top: 1px solid var(--line); }
+.search-results li { border-bottom: 1px solid var(--line); }
+.search-results li.hint { padding: 10px 12px; }
+.search-results button { width: 100%; text-align: left; border: 0; border-radius: 0; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; }
+.search-results button span { font-size: 13px; color: var(--muted); }

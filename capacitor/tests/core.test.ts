@@ -102,3 +102,19 @@ describe('traces', () => {
     expect(back.points).toEqual(t.points.map((p) => ({ ...p, lat: +p.lat.toFixed(6), lon: +p.lon.toFixed(6), ele: +p.ele!.toFixed(1) })));
   });
 });
+
+import { parseCompletion } from '../src/search';
+describe('recherche de lieux', () => {
+  it('lit la réponse de la Géoplateforme et choisit le zoom', () => {
+    const places = parseCompletion({ results: [
+      { x: 6.315573, y: 43.217366, fulltext: 'Var', kind: 'administratif', poiType: ['administratif', 'département'] },
+      { x: 5.605625, y: 43.161201, fulltext: "Bec de l'Aigle, 13600 La Ciotat", kind: 'pic', poiType: ['pic', 'élément topographique ou forestier', 'détail orographique'] },
+      { x: 0.35, y: 44.43, fulltext: 'Varès, 47400', kind: 'administratif', poiType: ['administratif', 'commune'] },
+      { x: -4.54, y: 48.2, fulltext: 'Var Poull, 29160 Crozon', kind: 'street', country: 'StreetAddress' },
+    ] });
+    expect(places.map((p) => p.zoom)).toEqual([9, 15, 13, 16]);
+    expect(places[1]).toMatchObject({ lon: 5.605625, lat: 43.161201, detail: 'pic' });
+    expect(places[3].detail).toBe('adresse');
+    expect(places[0].detail).toBe('département');
+  });
+});
