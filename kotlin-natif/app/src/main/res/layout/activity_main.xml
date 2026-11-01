@@ -373,6 +373,33 @@
                     </LinearLayout>
 
                     <TextView android:id="@+id/trailsInfo" style="@style/Hint" android:visibility="gone" />
+                    <TextView android:id="@+id/webInfo" style="@style/Hint" android:visibility="gone" />
+
+                    <!-- Rando trouvée sur le web par Claude (point orange) -->
+                    <LinearLayout
+                        android:id="@+id/hikeCard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/hike_card"
+                        android:orientation="vertical"
+                        android:padding="10dp"
+                        android:visibility="gone">
+
+                        <TextView android:id="@+id/hikeName" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:textSize="16sp" android:textStyle="bold"
+                            android:textColor="#1D2421" />
+                        <TextView android:id="@+id/hikeDetail" style="@style/Hint" android:layout_marginTop="2dp" />
+                        <TextView android:id="@+id/hikeResume" android:layout_width="match_parent"
+                            android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textSize="14sp"
+                            android:textColor="#1D2421" />
+
+                        <LinearLayout style="@style/Row">
+                            <Button android:id="@+id/btnHikeOpen" style="@style/Btn.Primary" android:text="Ouvrir la page" />
+                            <Button android:id="@+id/btnHikeGo" style="@style/Btn" android:text="Y aller" />
+                            <Button android:id="@+id/btnHikeClose" style="@style/Btn" android:text="Fermer" />
+                        </LinearLayout>
+                    </LinearLayout>
 
                     <LinearLayout
                         android:id="@+id/trailCard"
@@ -418,8 +445,19 @@
                         android:layout_marginTop="6dp"
                         android:orientation="vertical" />
 
+                    <LinearLayout
+                        android:id="@+id/hikeList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
                     <Button android:id="@+id/btnTrailsClear" style="@style/Btn" android:layout_width="match_parent"
                         android:layout_weight="0" android:text="Effacer les randos de la carte" android:visibility="gone" />
+
+                    <TextView style="@style/Hint" android:text="Mot de passe IA (recherche des randos sur le web par Claude)" />
+                    <EditText android:id="@+id/editIaPassword" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:inputType="textPassword"
+                        android:importantForAutofill="no" />
                 </LinearLayout>
 
                 <!-- Onglet Hors ligne -->

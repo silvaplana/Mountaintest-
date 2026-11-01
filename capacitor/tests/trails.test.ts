@@ -66,3 +66,20 @@ describe('randos OSM', () => {
     expect(back.points[0].ele).toBe(10);
   });
 });
+
+describe('randos trouvées par Claude', async () => {
+  const { parseWebHikes, hikeDetail, webHikesGeoJson, costLine } = await import('../src/trails/webHikes');
+  it('affiche le coût et les cumuls', () => {
+    expect(costLine({ cout: 0.0834, mois: 0.4, total: 1.234 }, false)).toBe('Coût : 0,083 $ (ce mois-ci 0,40 $, total 1,23 $).');
+    expect(costLine({ cout: 0, mois: 0.4, total: 1.234 }, true)).toContain('gratuit');
+  });
+  it('garde les randos avec coordonnées et lien web, et les met en points', () => {
+    const h = parseWebHikes({ randos: [
+      { nom: 'Bec de l’Aigle', lat: 43.165, lon: 5.61, url: 'https://www.visorando.com/x', site: 'Visorando', distance_km: 8.5, denivele_m: 320, resume: 'Boucle.' },
+      { nom: 'Sans lien', lat: 43.1, lon: 5.6, url: 'javascript:alert(1)', site: 'X', distance_km: null, denivele_m: null, resume: '' },
+    ] });
+    expect(h).toHaveLength(1);
+    expect(hikeDetail(h[0])).toBe('Visorando · 8,5 km · D+ 320 m');
+    expect(webHikesGeoJson(h).features[0].geometry).toEqual({ type: 'Point', coordinates: [5.61, 43.165] });
+  });
+});

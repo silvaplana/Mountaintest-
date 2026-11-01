@@ -31,6 +31,7 @@ import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
+import { costLine, fetchWebHikes, hikeDetail, type WebHike } from './trails/webHikes';
 import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
 import { computeStats, formatDuration, formatKm } from './track/stats';
 
@@ -45,6 +46,11 @@ function openDirections(lat: number, lon: number) {
   const url = `https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lon.toFixed(6)}&travelmode=driving`;
   // Dans l'appli, Capacitor confie les liens externes à Android, qui ouvre Google Maps.
   if (Capacitor.isNativePlatform()) window.location.href = url; else window.open(url, '_blank');
+}
+
+/** Ouvre une page web dans le navigateur du téléphone (pas dans l'appli). */
+function openLink(url: string) {
+  if (Capacitor.isNativePlatform()) window.location.href = url; else window.open(url, '_blank', 'noopener');
 }
 
 /** Au-delà, le téléchargement serait long et lourd : on demande de zoomer (même limite côté Kotlin). */
@@ -109,6 +115,12 @@ export function App() {
   const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
   const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
   const trailsAbort = useRef<AbortController | null>(null);
+  // Randos trouvées sur le web par Claude (via le relais du VPS) : un point par rando.
+  const [iaPassword, setIaPassword] = useState('');
+  const [webHikes, setWebHikes] = useState<WebHike[]>([]);
+  const [webMsg, setWebMsg] = useState('');
+  const [hikeSel, setHikeSel] = useState<number | null>(null);
+  const webAbort = useRef<AbortController | null>(null);
 
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
@@ -119,6 +131,7 @@ export function App() {
     (async () => {
       const k = (await Preferences.get({ key: 'apiKey' })).value;
       if (k) { prefs.apiKey = k; setApiKey(k); }
+      setIaPassword((await Preferences.get({ key: 'iaPassword' })).value ?? '');
       await refreshStored();
       if (await recorder.current.restore()) {
         // Si le système a tué l'appli pendant la sortie, le service natif a continué à noter les positions.
@@ -307,7 +320,9 @@ export function App() {
       return;
     }
     setFrame(b);
-    setTrails([]); setSelected(null); setElevated(null);
+    void searchWebHikes(b);
+    setTrails((prev) => prev.filter((x) => x.id === DRAWN_ID));
+    if (selected?.id !== DRAWN_ID) { setSelected(null); setElevated(null); }
     setTrailsMsg('Recherche des randos dans OpenStreetMap…');
     trailsAbort.current?.abort();
     const ctrl = new AbortController();
@@ -316,12 +331,44 @@ export function App() {
     try {
       const found = await fetchTrails(b, ctrl.signal);
       bench('trails-search', { found: found.length, ms: Math.round(performance.now() - t0) });
-      setTrails(found);
+      setTrails((prev) => [...prev.filter((x) => x.id === DRAWN_ID), ...found]);
       setTrailsMsg(found.length ? `${found.length} rando${found.length > 1 ? 's' : ''} balisée${found.length > 1 ? 's' : ''} trouvée${found.length > 1 ? 's' : ''}. Touche-en une (liste ou carte).`
         : 'Aucune rando balisée dans OpenStreetMap sur cette zone.');
     } catch (e) {
       if (!ctrl.signal.aborted) setTrailsMsg(`Recherche impossible (pas de réseau ? serveur saturé ?) : ${(e as Error).message}`);
     }
+  }
+
+  async function searchWebHikes(b: Bbox) {
+    webAbort.current?.abort();
+    setWebHikes([]); setHikeSel(null);
+    if (!iaPassword) { setWebMsg('Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous.'); return; }
+    const ctrl = new AbortController();
+    webAbort.current = ctrl;
+    setWebMsg('Claude cherche des randos sur le web (1 à 2 minutes)…');
+    const t0 = performance.now();
+    try {
+      const r = await fetchWebHikes(b, iaPassword, ctrl.signal);
+      bench('web-hikes', { found: r.hikes.length, cache: r.cache, ms: Math.round(performance.now() - t0) });
+      setWebHikes(r.hikes);
+      setWebMsg((r.hikes.length ? `${r.hikes.length} rando${r.hikes.length > 1 ? 's' : ''} trouvée${r.hikes.length > 1 ? 's' : ''} sur le web (points orange). Touche un point pour ouvrir sa page.`
+        : 'Claude n’a trouvé aucune page de rando sur cette zone.') + ' ' + costLine(r.cost, r.cache));
+    } catch (e) {
+      if (!ctrl.signal.aborted) setWebMsg(`Recherche web impossible : ${(e as Error).message}`);
+    }
+  }
+
+  function selectHike(i: number | null) {
+    setHikeSel(i);
+    if (i == null) return;
+    const h = webHikes[i];
+    setOpen(true); setTab('randos'); setFollow(false);
+    map?.easeTo({ center: [h.lon, h.lat], duration: 600 });
+  }
+
+  async function saveIaPassword(p: string) {
+    setIaPassword(p);
+    await Preferences.set({ key: 'iaPassword', value: p });
   }
 
   async function selectTrail(t: Trail | null) {
@@ -381,7 +428,8 @@ export function App() {
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} trails={trails} selectedTrail={selected} frame={frame}
-        onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)} />
+        onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)}
+        webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike} />
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined} />}
@@ -469,7 +517,7 @@ export function App() {
 
         {open && tab === 'randos' && (
           <div className="pane">
-            <p className="hint">Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. {OSM_ATTRIBUTION}.</p>
+            <p className="hint">Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés ({OSM_ATTRIBUTION}), et celles que Claude trouve sur le web en points orange, avec le lien de leur page.</p>
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
               <button disabled={!map} onClick={startDrawing}>✏ Tracer au doigt</button>
@@ -479,6 +527,18 @@ export function App() {
               }}>Zone affichée</button>
             </div>
             {trailsMsg && <p className="hint">{trailsMsg}</p>}
+            {webMsg && <p className="hint">{webMsg}</p>}
+            {hikeSel != null && webHikes[hikeSel] && (() => { const h = webHikes[hikeSel]; return (
+              <div className="trail-card hike-card">
+                <b>{h.nom}</b>
+                <span className="hint">{hikeDetail(h)}</span>
+                {h.resume && <span>{h.resume}</span>}
+                <div className="row">
+                  <button className="primary" onClick={() => openLink(h.url)}>Ouvrir la page</button>
+                  <button onClick={() => setTarget({ lon: h.lon, lat: h.lat, label: `Départ de « ${h.nom} »` })}>Y aller</button>
+                  <button onClick={() => setHikeSel(null)}>Fermer</button>
+                </div>
+              </div>); })()}
             {selected && (
               <div className="trail-card">
                 <b>{selected.name}</b>
@@ -510,7 +570,25 @@ export function App() {
                 ))}
               </ul>
             )}
-            {trails.length > 0 && <button onClick={() => { setTrails([]); setFrame(null); void selectTrail(null); setTrailsMsg(''); }}>Effacer les randos de la carte</button>}
+            {webHikes.length > 0 && (
+              <ul className="trail-list">
+                {webHikes.map((h, i) => (
+                  <li key={h.url + i}>
+                    <button className={hikeSel === i ? 'active' : ''} onClick={() => selectHike(i)}>
+                      <i style={{ background: '#f28c28' }} />
+                      <span><b>{h.nom}</b><small>{hikeDetail(h)}</small></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {(trails.length > 0 || webHikes.length > 0) && <button onClick={() => {
+              webAbort.current?.abort();
+              setTrails([]); setFrame(null); void selectTrail(null); setTrailsMsg(''); setWebHikes([]); setHikeSel(null); setWebMsg('');
+            }}>Effacer les randos de la carte</button>}
+            <label className="field">Mot de passe IA (recherche des randos sur le web par Claude)
+              <input type="password" value={iaPassword} onChange={(e) => void saveIaPassword(e.target.value)} autoCapitalize="off" autoCorrect="off" />
+            </label>
           </div>
         )}
 

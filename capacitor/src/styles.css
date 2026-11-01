@@ -145,3 +145,4 @@ progress { width: 100%; }
 .profile text { font-size: 9px; fill: var(--muted); }
 .profile-line { fill: none; stroke: #e4572e; stroke-width: 1.8; }
 .profile-area { fill: #e4572e33; }
+.hike-card { border-color: #f28c28; }

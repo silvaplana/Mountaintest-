@@ -163,9 +163,12 @@ class MainActivity : AppCompatActivity() {
             m.addOnMapLongClickListener { p -> setTarget(p.latitude, p.longitude, "Point choisi sur la carte"); true }
             // Appui sur une rando affichée : on la choisit (zone de 20 dp autour du doigt).
             m.addOnMapClickListener { p ->
-                if (trails.isEmpty()) return@addOnMapClickListener false
+                if (trails.isEmpty() && webHikes.isEmpty()) return@addOnMapClickListener false
                 val pt = m.projection.toScreenLocation(p)
                 val r = 20 * resources.displayMetrics.density
+                // Point orange d'une rando trouvée sur le web : prioritaire sur les tracés.
+                m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), LAYER_WEB_HIKES)
+                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectHike(it); return@addOnMapClickListener true }
                 val hit = m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), LAYER_TRAILS)
                 val id = hit.firstOrNull()?.getNumberProperty("id")?.toLong() ?: return@addOnMapClickListener false
                 trails.firstOrNull { it.id == id }?.let { selectTrail(it) }
@@ -321,6 +324,9 @@ class MainActivity : AppCompatActivity() {
                 lineColor(Expression.get("color")), lineWidth(3f), lineOpacity(0.75f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel-casing", SRC_TRAIL_SEL).withProperties(lineColor("#ffffff"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor("#7b3fe4"), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
+            style.addSource(GeoJsonSource(SRC_WEB_HIKES))
+            style.addLayer(CircleLayer(LAYER_WEB_HIKES, SRC_WEB_HIKES).withProperties(
+                circleRadius(8f), circleColor(WebHikes.COLOR), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             style.addSource(GeoJsonSource(SRC_IMPORT))
             style.addSource(GeoJsonSource(SRC_TRACK))
             style.addSource(GeoJsonSource(SRC_POS))
@@ -334,6 +340,7 @@ class MainActivity : AppCompatActivity() {
             applySlopes()
             drawImported(fit = false)
             drawTrails(fit = false)
+            drawWebHikes()
             drawTarget()
             render()
             if (locating) startLocate()
@@ -765,7 +772,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupTrails() {
         findViewById<TextView>(R.id.trailsAttribution).text =
-            "Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. ${Trails.OSM_ATTRIBUTION}."
+            "Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés (${Trails.OSM_ATTRIBUTION}), " +
+            "et celles que Claude trouve sur le web en points orange, avec le lien de leur page."
+        findViewById<EditText>(R.id.editIaPassword).apply {
+            setText(prefs.getString("iaPassword", ""))
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: Editable?) { prefs.edit().putString("iaPassword", s.toString()).apply() }
+            })
+        }
+        findViewById<Button>(R.id.btnHikeOpen).setOnClickListener {
+            hikeSel?.let { webHikes.getOrNull(it) }?.let { h ->
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(h.url))) }.onFailure { toast("Impossible d'ouvrir la page") }
+            }
+        }
+        findViewById<Button>(R.id.btnHikeGo).setOnClickListener {
+            hikeSel?.let { webHikes.getOrNull(it) }?.let { h -> setTarget(h.lat, h.lon, "Départ de « ${h.nom} »") }
+        }
+        findViewById<Button>(R.id.btnHikeClose).setOnClickListener { selectHike(null) }
         val draw = findViewById<FrameDrawView>(R.id.frameDraw)
         draw.onFrame = { a, b ->
             val proj = map?.projection
@@ -811,7 +836,8 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnTrailClose).setOnClickListener { selectTrail(null) }
         findViewById<Button>(R.id.btnTrailsClear).setOnClickListener {
-            trailsJob?.cancel()
+            trailsJob?.cancel(); webJob?.cancel()
+            webHikes = emptyList(); hikeSel = null; webMessage = ""; drawWebHikes()
             trails = emptyList(); frame = null; trailsMessage = ""
             selectTrail(null); drawTrails(fit = false)
         }
@@ -843,7 +869,9 @@ class MainActivity : AppCompatActivity() {
             refreshTrails(); return
         }
         frame = z
-        trails = emptyList(); selectedTrail = null; elevated = null; elevJob?.cancel()
+        searchWebHikes(z)
+        trails = trails.filter { it.id == Trails.DRAWN_ID }
+        if (selectedTrail?.id != Trails.DRAWN_ID) { selectedTrail = null; elevated = null; elevJob?.cancel() }
         trailsMessage = "Recherche des randos dans OpenStreetMap…"
         drawTrails(fit = false); refreshTrails()
         trailsJob?.cancel()
@@ -852,7 +880,7 @@ class MainActivity : AppCompatActivity() {
             val r = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(z) } }
             r.onSuccess { found ->
                 Log.i(Scenario.BENCH_TAG, "{\"event\":\"trails-search\",\"found\":${found.size},\"ms\":${SystemClock.elapsedRealtime() - t0}}")
-                trails = found
+                trails = trails.filter { it.id == Trails.DRAWN_ID } + found
                 val n = found.size; val s = if (n > 1) "s" else ""
                 trailsMessage = if (n > 0) "$n rando$s balisée$s trouvée$s. Touche-en une (liste ou carte)."
                     else "Aucune rando balisée dans OpenStreetMap sur cette zone."
@@ -861,6 +889,105 @@ class MainActivity : AppCompatActivity() {
                 trailsMessage = "Recherche impossible (pas de réseau ? serveur saturé ?) : ${e.message}"
             }
             drawTrails(fit = false); refreshTrails()
+        }
+    }
+
+    // ---------- Randos trouvées sur le web par Claude (relais du VPS) ----------
+
+    private var webHikes: List<WebHike> = emptyList()
+    private var hikeSel: Int? = null
+    private var webMessage = ""
+    private var webJob: kotlinx.coroutines.Job? = null
+
+    private fun searchWebHikes(z: Zone) {
+        webJob?.cancel()
+        webHikes = emptyList(); hikeSel = null; drawWebHikes()
+        val password = prefs.getString("iaPassword", "").orEmpty()
+        if (password.isEmpty()) {
+            webMessage = "Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous."
+            refreshTrails(); return
+        }
+        webMessage = "Claude cherche des randos sur le web (1 à 2 minutes)…"
+        refreshTrails()
+        webJob = lifecycleScope.launch {
+            val t0 = SystemClock.elapsedRealtime()
+            val r = withContext(Dispatchers.IO) { runCatching { WebHikes.fetch(z, password) } }
+            r.onSuccess { res ->
+                Log.i(Scenario.BENCH_TAG, "{\"event\":\"web-hikes\",\"found\":${res.hikes.size},\"cache\":${res.cache},\"ms\":${SystemClock.elapsedRealtime() - t0}}")
+                webHikes = res.hikes
+                val n = res.hikes.size; val s = if (n > 1) "s" else ""
+                webMessage = (if (n > 0) "$n rando$s trouvée$s sur le web (points orange). Touche un point pour ouvrir sa page."
+                    else "Claude n'a trouvé aucune page de rando sur cette zone.") + " " + WebHikes.costLine(res.cost, res.cache)
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+                webMessage = "Recherche web impossible : ${e.message}"
+            }
+            drawWebHikes(); refreshTrails()
+        }
+    }
+
+    private fun selectHike(i: Int?) {
+        hikeSel = i
+        drawWebHikes(); refreshTrails()
+        val h = i?.let { webHikes.getOrNull(it) } ?: return
+        if (follow) setFollow(false)
+        if (locating) map?.locationComponent?.cameraMode = CameraMode.NONE
+        tab = Tab.RANDOS; sheetOpen = true; refreshTabs()
+        map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(h.lat, h.lon)), 600)
+    }
+
+    private fun drawWebHikes() {
+        val style = map?.style ?: return
+        if (!style.isFullyLoaded) return
+        style.getSourceAs<GeoJsonSource>(SRC_WEB_HIKES)?.setGeoJson(FeatureCollection.fromFeatures(webHikes.mapIndexed { i, h ->
+            Feature.fromGeometry(Point.fromLngLat(h.lon, h.lat)).apply { addNumberProperty("i", i) }
+        }))
+        val sel = (hikeSel ?: -1).toDouble()
+        style.getLayer(LAYER_WEB_HIKES)?.setProperties(
+            circleColor(Expression.switchCase(Expression.eq(Expression.get("i"), Expression.literal(sel)),
+                Expression.color(Color.parseColor("#7b3fe4")), Expression.color(Color.parseColor(WebHikes.COLOR)))),
+            circleRadius(Expression.switchCase(Expression.eq(Expression.get("i"), Expression.literal(sel)),
+                Expression.literal(11f), Expression.literal(8f))))
+    }
+
+    private fun refreshWebHikes() {
+        findViewById<TextView>(R.id.webInfo).apply {
+            text = webMessage; visibility = if (webMessage.isEmpty()) View.GONE else View.VISIBLE
+        }
+        val h = hikeSel?.let { webHikes.getOrNull(it) }
+        findViewById<View>(R.id.hikeCard).visibility = if (h != null) View.VISIBLE else View.GONE
+        if (h != null) {
+            findViewById<TextView>(R.id.hikeName).text = h.nom
+            findViewById<TextView>(R.id.hikeDetail).text = WebHikes.detail(h)
+            findViewById<TextView>(R.id.hikeResume).apply { text = h.resume; visibility = if (h.resume.isEmpty()) View.GONE else View.VISIBLE }
+        }
+        val list = findViewById<android.widget.LinearLayout>(R.id.hikeList)
+        list.removeAllViews()
+        val d = resources.displayMetrics.density
+        webHikes.forEachIndexed { i, w ->
+            list.addView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                setPadding((4 * d).toInt(), (8 * d).toInt(), (4 * d).toInt(), (8 * d).toInt())
+                isClickable = true
+                if (i == hikeSel) setBackgroundColor(Color.parseColor("#1AF28C28"))
+                else setBackgroundResource(android.R.drawable.list_selector_background)
+                addView(View(this@MainActivity).apply { setBackgroundColor(Color.parseColor(WebHikes.COLOR)) },
+                    android.widget.LinearLayout.LayoutParams((6 * d).toInt(), android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                        .apply { marginEnd = (10 * d).toInt() })
+                addView(TextView(this@MainActivity).apply {
+                    val sub = WebHikes.detail(w)
+                    text = android.text.SpannableString("${w.nom}\n$sub").apply {
+                        setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, w.nom.length, 0)
+                        setSpan(android.text.style.ForegroundColorSpan(Color.parseColor("#1D2421")), 0, w.nom.length, 0)
+                        setSpan(android.text.style.RelativeSizeSpan(0.85f), w.nom.length + 1, w.nom.length + 1 + sub.length, 0)
+                    }
+                    textSize = 15f
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
+                })
+                setOnClickListener { selectHike(i) }
+            })
+            list.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.line)) },
+                android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1))
         }
     }
 
@@ -992,7 +1119,8 @@ class MainActivity : AppCompatActivity() {
             list.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.line)) },
                 android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1))
         }
-        findViewById<View>(R.id.btnTrailsClear).visibility = if (trails.isNotEmpty()) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnTrailsClear).visibility = if (trails.isNotEmpty() || webHikes.isNotEmpty()) View.VISIBLE else View.GONE
+        refreshWebHikes()
     }
 
     private fun exportTrailTo(uri: Uri) {
@@ -1126,6 +1254,8 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRAIL_SEL = "trail-sel-src"
         private const val SRC_FRAME = "frame-src"
         private const val LAYER_TRAILS = "trails"
+        private const val SRC_WEB_HIKES = "web-hikes-src"
+        private const val LAYER_WEB_HIKES = "web-hikes"
         private const val LAYER_SLOPES = "slopes"
     }
 }

@@ -6,6 +6,7 @@ import { AUTO_PLAN_UNTIL, AUTO_SCAN_FROM, DISPLAY_MAX_ZOOM, LA_CIOTAT_CENTER, LA
 import { bench, metrics } from './metrics';
 import { toLineString, type TrackPoint } from './track/gpx';
 import { bboxPolygon, trailsGeoJson, type Trail } from './trails/osmTrails';
+import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 
 export interface MapViewProps {
@@ -25,6 +26,10 @@ export interface MapViewProps {
   selectedTrail: Trail | null;
   frame: Bbox | null;
   onTrailClick?: (id: number) => void;
+  /** Randos trouvées sur le web par Claude : un point par rando, celle choisie en surbrillance. */
+  webHikes: WebHike[];
+  selectedHike: number | null;
+  onHikeClick?: (i: number) => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -52,6 +57,8 @@ export function MapView(props: MapViewProps) {
   const [ready, setReady] = useState(false);
   const onTrailClick = useRef(props.onTrailClick);
   onTrailClick.current = props.onTrailClick;
+  const onHikeClick = useRef(props.onHikeClick);
+  onHikeClick.current = props.onHikeClick;
 
   useEffect(() => {
     const m = new maplibregl.Map({
@@ -67,7 +74,8 @@ export function MapView(props: MapViewProps) {
         version: 8,
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
-          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY } },
+          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
+          webHikes: { type: 'geojson', data: EMPTY } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
           // Plan IGN sous le SCAN 25 : en mode Auto, le SCAN 25 apparaît en fondu par-dessus en zoomant.
@@ -82,6 +90,7 @@ export function MapView(props: MapViewProps) {
           { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#7b3fe4', 'line-width': 5 } },
           { id: 'imported', type: 'line', source: 'imported', paint: { 'line-color': '#7b3fe4', 'line-width': 4, 'line-opacity': 0.8 } },
           { id: 'recorded', type: 'line', source: 'recorded', paint: { 'line-color': '#e4572e', 'line-width': 4 } },
+          { id: 'web-hikes', type: 'circle', source: 'webHikes', paint: { 'circle-radius': 8, 'circle-color': '#f28c28', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
         ],
       },
@@ -105,6 +114,10 @@ export function MapView(props: MapViewProps) {
     m.once('idle', () => {
       metrics.firstMapRenderMs = Math.round(performance.now() - metrics.appStart);
       bench('startup', { startup: 'map_idle', ms: metrics.firstMapRenderMs });
+    });
+    m.on('click', 'web-hikes', (e) => {
+      const i = e.features?.[0]?.properties?.i;
+      if (i != null) onHikeClick.current?.(Number(i));
     });
     m.on('click', 'trails-hit', (e) => {
       const id = e.features?.[0]?.properties?.id;
@@ -157,6 +170,15 @@ export function MapView(props: MapViewProps) {
     (m.getSource('trails') as GeoJSONSource).setData(trailsGeoJson(props.trails));
     (m.getSource('frame') as GeoJSONSource).setData(props.frame ? bboxPolygon(props.frame) : EMPTY);
   }, [props.trails, props.frame, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    (m.getSource('webHikes') as GeoJSONSource).setData(webHikesGeoJson(props.webHikes));
+    m.setPaintProperty('web-hikes', 'circle-color',
+      ['case', ['==', ['get', 'i'], props.selectedHike ?? -1], '#7b3fe4', '#f28c28']);
+    m.setPaintProperty('web-hikes', 'circle-radius', ['case', ['==', ['get', 'i'], props.selectedHike ?? -1], 11, 8]);
+  }, [props.webHikes, props.selectedHike, ready]);
 
   useEffect(() => {
     if (!ready) return;
