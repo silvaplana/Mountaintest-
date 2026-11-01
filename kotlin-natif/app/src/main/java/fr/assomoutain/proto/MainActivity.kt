@@ -787,7 +787,12 @@ class MainActivity : AppCompatActivity() {
             isChecked = prefs.getBoolean("recaler", false)
             setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("recaler", c).apply() }
         }
-        findViewById<Button>(R.id.btnDrawPath).setOnClickListener { framingForOffline = false; setFraming(true, freehand = true) }
+        findViewById<Button>(R.id.btnDrawPath).setOnClickListener {
+            // Nouveau tracé : l'ancien disparaît tout de suite.
+            trails = trails.filter { it.id != Trails.DRAWN_ID }
+            if (selectedTrail?.id == Trails.DRAWN_ID) selectTrail(null) else drawTrails(fit = false)
+            framingForOffline = false; setFraming(true, freehand = true)
+        }
         draw.onLine = { pts ->
             val proj = map?.projection
             setFraming(false)

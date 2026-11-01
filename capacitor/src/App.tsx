@@ -465,7 +465,12 @@ export function App() {
             <p className="hint">Randos balisées libres de droits (GR, PR, boucles locales) trouvées dans OpenStreetMap. {OSM_ATTRIBUTION}.</p>
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
-              <button disabled={!map} onClick={() => { setDrawing(true); setOpen(false); setSearching(false); }}>✏ Tracer au doigt</button>
+              <button disabled={!map} onClick={() => {
+                // Nouveau tracé : l'ancien disparaît tout de suite.
+                setTrails((prev) => prev.filter((x) => x.id !== DRAWN_ID));
+                if (selected?.id === DRAWN_ID) void selectTrail(null);
+                setDrawing(true); setOpen(false); setSearching(false);
+              }}>✏ Tracer au doigt</button>
               <button disabled={!map} onClick={() => {
                 const b = map!.getBounds();
                 void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
