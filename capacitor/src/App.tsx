@@ -33,9 +33,10 @@ import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
 import { costLine, fetchWebHikes, hikeDetail, type WebHike } from './trails/webHikes';
 import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
+import { BDFORET_ATTRIBUTION, fetchForests, forestZoneTooBig, formatHa, groupByEssence, MAX_FOREST_DEG, type Forest } from './forests/bdForet';
 import { computeStats, formatDuration, formatKm } from './track/stats';
 
-type Tab = 'sortie' | 'randos' | 'horsligne' | 'mesures' | 'versions';
+type Tab = 'sortie' | 'randos' | 'forets' | 'horsligne' | 'mesures' | 'versions';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
 
 const prefs = { apiKey: DEFAULT_SCAN_KEY, cacheViewed: true };
@@ -103,7 +104,7 @@ export function App() {
   // Randos libres (OpenStreetMap) d'une zone encadrée
   const [framing, setFraming] = useState(false);
   /** Le même outil rectangle sert aux randos OSM et au téléchargement hors ligne. */
-  const [framingFor, setFramingFor] = useState<'randos' | 'horsligne'>('randos');
+  const [framingFor, setFramingFor] = useState<'randos' | 'forets' | 'horsligne'>('randos');
   const [frame, setFrame] = useState<Bbox | null>(null);
   const [trails, setTrails] = useState<Trail[]>([]);
   const [trailsMsg, setTrailsMsg] = useState('');
@@ -121,6 +122,13 @@ export function App() {
   const [webMsg, setWebMsg] = useState('');
   const [hikeSel, setHikeSel] = useState<number | null>(null);
   const webAbort = useRef<AbortController | null>(null);
+
+  // Forêts par essence (BD Forêt IGN) d'une zone
+  const [forests, setForests] = useState<Forest[]>([]);
+  const [forestsMsg, setForestsMsg] = useState('');
+  /** Essences choisies dans la liste ; vide : toutes les forêts sont dessinées. */
+  const [forestFilter, setForestFilter] = useState<Set<string>>(new Set());
+  const forestsAbort = useRef<AbortController | null>(null);
 
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
@@ -371,6 +379,49 @@ export function App() {
     await Preferences.set({ key: 'iaPassword', value: p });
   }
 
+  async function searchForests(b: Bbox) {
+    setFraming(false);
+    setOpen(true);
+    setTab('forets');
+    if (forestZoneTooBig(b)) {
+      setForestsMsg(`Zone trop grande : zoome ou encadre au plus ${Math.round(MAX_FOREST_DEG * 100)} km de côté environ.`);
+      return;
+    }
+    setFrame(b);
+    setForests([]); setForestFilter(new Set());
+    setForestsMsg('Recherche des forêts dans la carte forestière IGN…');
+    forestsAbort.current?.abort();
+    const ctrl = new AbortController();
+    forestsAbort.current = ctrl;
+    const t0 = performance.now();
+    try {
+      const found = await fetchForests(b, ctrl.signal);
+      bench('forests-search', { found: found.length, ms: Math.round(performance.now() - t0) });
+      setForests(found);
+      const n = groupByEssence(found).length;
+      setForestsMsg(!found.length ? 'Aucune forêt dans la carte forestière IGN sur cette zone.'
+        : `${found.length} massifs, ${n} essence${n > 1 ? 's' : ''}. Touche une essence pour ne voir qu'elle (plusieurs possibles).`
+          + (found.length >= 5000 ? ' Zone très boisée : tout n\'a pas pu être chargé, zoome pour être complet.' : ''));
+    } catch (e) {
+      if (!ctrl.signal.aborted) setForestsMsg(`Recherche impossible (pas de réseau ?) : ${(e as Error).message}`);
+    }
+  }
+
+  /** Choisit ou retire une essence, puis cadre la carte sur les forêts choisies. */
+  function toggleEssence(essence: string) {
+    const next = new Set(forestFilter);
+    if (next.has(essence)) next.delete(essence); else next.add(essence);
+    setForestFilter(next);
+    if (!map || !next.size) return;
+    const b = new maplibregl.LngLatBounds();
+    forests.filter((f) => next.has(f.essence)).forEach((f) => f.polygons.forEach((p) => p[0].forEach((c) => b.extend(c))));
+    if (b.isEmpty()) return;
+    setFollow(false);
+    const sheet = document.querySelector('.sheet')?.getBoundingClientRect().height ?? 0;
+    const h = map.getContainer().clientHeight;
+    map.fitBounds(b, { padding: { top: 140, left: 30, right: 70, bottom: Math.max(20, Math.min(sheet + 20, h - 200)) }, duration: 800, maxZoom: 16 });
+  }
+
   async function selectTrail(t: Trail | null) {
     setSelected(t);
     setElevated(t ? 'loading' : null);
@@ -429,7 +480,9 @@ export function App() {
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)}
-        webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike} />
+        webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike}
+        forests={forests} forestFilter={forestFilter}
+        onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined} />}
@@ -438,6 +491,7 @@ export function App() {
       {framing && map && <FrameOverlay map={map}
         onDone={(b) => {
           if (framingFor === 'randos') { void searchTrails(b); return; }
+          if (framingFor === 'forets') { void searchForests(b); return; }
           setFraming(false); setTab('horsligne'); setOpen(true);
           void downloadZone(b);
         }}
@@ -471,9 +525,9 @@ export function App() {
       <section className={`sheet ${open ? 'open' : ''}`}>
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
-          {(['sortie', 'randos', 'horsligne', 'mesures', 'versions'] as Tab[]).map((t) => (
+          {(['sortie', 'randos', 'forets', 'horsligne', 'mesures', 'versions'] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setOpen(true); void refreshStored(); }}>
-              {{ sortie: 'Sortie', randos: 'Randos', horsligne: 'Hors ligne', mesures: 'Mesures', versions: 'Versions' }[t]}
+              {{ sortie: 'Sortie', randos: 'Randos', forets: 'Forêts', horsligne: 'Hors ligne', mesures: 'Mesures', versions: 'Versions' }[t]}
             </button>
           ))}
           <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
@@ -589,6 +643,38 @@ export function App() {
             <label className="field">Mot de passe IA (recherche des randos sur le web par Claude)
               <input type="password" value={iaPassword} onChange={(e) => void saveIaPassword(e.target.value)} autoCapitalize="off" autoCorrect="off" />
             </label>
+          </div>
+        )}
+
+        {open && tab === 'forets' && (
+          <div className="pane">
+            <p className="hint">Forêts par essence (hêtraies, pinèdes, chênaies…) de la carte forestière IGN. Touche une forêt sur la carte pour son détail. {BDFORET_ATTRIBUTION}.</p>
+            <div className="row">
+              <button className="primary" disabled={!map} onClick={() => {
+                const b = map!.getBounds();
+                void searchForests([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+              }}>Zone affichée</button>
+              <button disabled={!map} onClick={() => { setFramingFor('forets'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
+            </div>
+            {forestsMsg && <p className="hint">{forestsMsg}</p>}
+            {forests.length > 0 && (
+              <ul className="trail-list">
+                {groupByEssence(forests).map((g) => (
+                  <li key={g.essence}>
+                    <button className={forestFilter.has(g.essence) ? 'active' : ''} onClick={() => toggleEssence(g.essence)}>
+                      <i style={{ background: g.color }} />
+                      <span><b>{forestFilter.has(g.essence) ? '✓ ' : ''}{g.essence}</b><small>{formatHa(g.areaHa)} · {g.count} massif{g.count > 1 ? 's' : ''}</small></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {forests.length > 0 && (
+              <div className="row">
+                {forestFilter.size > 0 && <button onClick={() => setForestFilter(new Set())}>Toutes les essences</button>}
+                <button onClick={() => { forestsAbort.current?.abort(); setForests([]); setForestFilter(new Set()); if (!trails.length) setFrame(null); setForestsMsg(''); }}>Effacer les forêts</button>
+              </div>
+            )}
           </div>
         )}
 

@@ -8,6 +8,7 @@ import { toLineString, type TrackPoint } from './track/gpx';
 import { bboxPolygon, trailsGeoJson, type Trail } from './trails/osmTrails';
 import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
+import { forestsGeoJson, type Forest } from './forests/bdForet';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -30,6 +31,10 @@ export interface MapViewProps {
   webHikes: WebHike[];
   selectedHike: number | null;
   onHikeClick?: (i: number) => void;
+  /** Forêts par essence (BD Forêt IGN) et essences choisies (vide : toutes). */
+  forests: Forest[];
+  forestFilter: Set<string>;
+  onForestClick?: (f: { essence: string; type: string; ha: number }) => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -59,6 +64,8 @@ export function MapView(props: MapViewProps) {
   onTrailClick.current = props.onTrailClick;
   const onHikeClick = useRef(props.onHikeClick);
   onHikeClick.current = props.onHikeClick;
+  const onForestClick = useRef(props.onForestClick);
+  onForestClick.current = props.onForestClick;
 
   useEffect(() => {
     const m = new maplibregl.Map({
@@ -75,13 +82,17 @@ export function MapView(props: MapViewProps) {
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
-          webHikes: { type: 'geojson', data: EMPTY } },
+          webHikes: { type: 'geojson', data: EMPTY },
+          forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
           // Plan IGN sous le SCAN 25 : en mode Auto, le SCAN 25 apparaît en fondu par-dessus en zoomant.
           { id: 'planign', type: 'raster', source: 'planign' },
           { id: 'scan25', type: 'raster', source: 'scan25' },
           { id: 'slopes', type: 'raster', source: 'slopes', paint: { 'raster-opacity': 0.6 }, layout: { visibility: 'none' } },
+          // Forêts sous les randos : couleur par essence, contour plus soutenu.
+          { id: 'forests', type: 'fill', source: 'forests', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 } },
+          { id: 'forests-line', type: 'line', source: 'forests', paint: { 'line-color': ['get', 'color'], 'line-width': 1.2 } },
           { id: 'frame', type: 'line', source: 'frame', paint: { 'line-color': '#1d2421', 'line-width': 2, 'line-dasharray': [3, 2] } },
           { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': 0.75 } },
           // Couche invisible plus large : le doigt n'a pas besoin de tomber pile sur le trait.
@@ -122,6 +133,12 @@ export function MapView(props: MapViewProps) {
     m.on('click', 'trails-hit', (e) => {
       const id = e.features?.[0]?.properties?.id;
       if (id != null) onTrailClick.current?.(Number(id));
+    });
+    m.on('click', 'forests', (e) => {
+      // Une rando touchée passe avant la forêt dessous.
+      if (m.queryRenderedFeatures(e.point, { layers: ['trails-hit', 'web-hikes'] }).length) return;
+      const p = e.features?.[0]?.properties;
+      if (p) onForestClick.current?.({ essence: String(p.essence), type: String(p.type ?? ''), ha: Number(p.ha) });
     });
     m.on('mouseenter', 'trails-hit', () => { m.getCanvas().style.cursor = 'pointer'; });
     m.on('mouseleave', 'trails-hit', () => { m.getCanvas().style.cursor = ''; });
@@ -170,6 +187,11 @@ export function MapView(props: MapViewProps) {
     (m.getSource('trails') as GeoJSONSource).setData(trailsGeoJson(props.trails));
     (m.getSource('frame') as GeoJSONSource).setData(props.frame ? bboxPolygon(props.frame) : EMPTY);
   }, [props.trails, props.frame, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    (map.current!.getSource('forests') as GeoJSONSource).setData(forestsGeoJson(props.forests, props.forestFilter));
+  }, [props.forests, props.forestFilter, ready]);
 
   useEffect(() => {
     if (!ready) return;

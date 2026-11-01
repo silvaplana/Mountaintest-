@@ -47,12 +47,15 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.layers.PropertyFactory.fillColor
+import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
@@ -69,6 +72,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.MultiLineString
+import org.maplibre.geojson.MultiPolygon
 import org.maplibre.geojson.Polygon
 import org.maplibre.geojson.Point
 import java.net.HttpURLConnection
@@ -84,7 +88,7 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private enum class Source(val label: String) { GPS("GPS réel"), SIM10("Simulation ×10"), SIM60("Simulation ×60") }
-    private enum class Tab { SORTIE, RANDOS, OFFLINE, MESURES, VERSIONS }
+    private enum class Tab { SORTIE, RANDOS, FORETS, OFFLINE, MESURES, VERSIONS }
 
     private lateinit var mapView: MapView
     private var map: MapLibreMap? = null
@@ -163,16 +167,26 @@ class MainActivity : AppCompatActivity() {
             m.addOnMapLongClickListener { p -> setTarget(p.latitude, p.longitude, "Point choisi sur la carte"); true }
             // Appui sur une rando affichée : on la choisit (zone de 20 dp autour du doigt).
             m.addOnMapClickListener { p ->
-                if (trails.isEmpty() && webHikes.isEmpty()) return@addOnMapClickListener false
                 val pt = m.projection.toScreenLocation(p)
                 val r = 20 * resources.displayMetrics.density
+                val box = android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r)
                 // Point orange d'une rando trouvée sur le web : prioritaire sur les tracés.
-                m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), LAYER_WEB_HIKES)
+                if (webHikes.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_WEB_HIKES)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectHike(it); return@addOnMapClickListener true }
-                val hit = m.queryRenderedFeatures(android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), LAYER_TRAILS)
-                val id = hit.firstOrNull()?.getNumberProperty("id")?.toLong() ?: return@addOnMapClickListener false
-                trails.firstOrNull { it.id == id }?.let { selectTrail(it) }
-                true
+                if (trails.isNotEmpty()) {
+                    val id = m.queryRenderedFeatures(box, LAYER_TRAILS).firstOrNull()?.getNumberProperty("id")?.toLong()
+                    if (id != null) { trails.firstOrNull { it.id == id }?.let { selectTrail(it) }; return@addOnMapClickListener true }
+                }
+                // Appui sur une forêt : son essence, son type et sa surface (la rando passe avant).
+                if (forests.isNotEmpty()) {
+                    val f = m.queryRenderedFeatures(pt, LAYER_FORESTS).firstOrNull() ?: return@addOnMapClickListener false
+                    val essence = f.getStringProperty("essence") ?: return@addOnMapClickListener false
+                    val type = f.getStringProperty("type").orEmpty()
+                    val ha = f.getNumberProperty("ha")?.toDouble() ?: 0.0
+                    toast("🌲 $essence" + (if (type.isNotEmpty() && type != essence) " · $type" else "") + " · ${Forests.formatHa(ha)}")
+                    return@addOnMapClickListener true
+                }
+                false
             }
             loadStyle()
         }
@@ -198,6 +212,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.handle).setOnClickListener { sheetOpen = !sheetOpen; refreshTabs() }
         findViewById<Button>(R.id.tabSortie).setOnClickListener { showTab(Tab.SORTIE) }
         findViewById<Button>(R.id.tabRandos).setOnClickListener { showTab(Tab.RANDOS) }
+        findViewById<Button>(R.id.tabForets).setOnClickListener { showTab(Tab.FORETS) }
         findViewById<Button>(R.id.tabOffline).setOnClickListener { showTab(Tab.OFFLINE) }
         findViewById<Button>(R.id.tabMesures).setOnClickListener { showTab(Tab.MESURES) }
         findViewById<Button>(R.id.tabVersions).setOnClickListener { showTab(Tab.VERSIONS) }
@@ -231,6 +246,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
 
         setupTrails()
+        setupForests()
 
         // Onglet Hors ligne
         val editKey = findViewById<EditText>(R.id.editKey)
@@ -250,7 +266,7 @@ class MainActivity : AppCompatActivity() {
             MapLibre.setConnected(online)
             refreshOffline()
         }
-        findViewById<Button>(R.id.btnDownload).setOnClickListener { framingForOffline = true; setFraming(true) }
+        findViewById<Button>(R.id.btnDownload).setOnClickListener { framingForOffline = true; framingForForests = false; setFraming(true) }
         findViewById<Button>(R.id.btnCancel).setOnClickListener { offline.cancel(); setStatus("Téléchargement annulé.") }
         findViewById<Button>(R.id.btnClear).setOnClickListener {
             offline.clear { runOnUiThread { findViewById<ProgressBar>(R.id.progress).visibility = View.GONE; refreshOffline() } }
@@ -316,6 +332,10 @@ class MainActivity : AppCompatActivity() {
                 maxZoom = slopesLayer.maxNativeZoom.toFloat()
             }, 256))
             style.addLayer(RasterLayer(LAYER_SLOPES, SRC_SLOPES).withProperties(rasterOpacity(0.6f), visibility(Property.NONE)))
+            // Forêts sous les randos : couleur par essence, contour plus soutenu.
+            style.addSource(GeoJsonSource(SRC_FORESTS))
+            style.addLayer(FillLayer(LAYER_FORESTS, SRC_FORESTS).withProperties(fillColor(Expression.get("color")), fillOpacity(0.45f)))
+            style.addLayer(LineLayer("forests-line", SRC_FORESTS).withProperties(lineColor(Expression.get("color")), lineWidth(1.2f)))
             style.addSource(GeoJsonSource(SRC_FRAME))
             style.addSource(GeoJsonSource(SRC_TRAILS))
             style.addSource(GeoJsonSource(SRC_TRAIL_SEL))
@@ -341,6 +361,7 @@ class MainActivity : AppCompatActivity() {
             drawImported(fit = false)
             drawTrails(fit = false)
             drawWebHikes()
+            drawForests()
             drawTarget()
             render()
             if (locating) startLocate()
@@ -558,6 +579,7 @@ class MainActivity : AppCompatActivity() {
         when (t) {
             Tab.SORTIE -> refreshSortie()
             Tab.RANDOS -> refreshTrails()
+            Tab.FORETS -> refreshForests()
             Tab.OFFLINE -> refreshOffline()
             Tab.MESURES -> refreshMesures()
             Tab.VERSIONS -> showVersions()
@@ -567,13 +589,14 @@ class MainActivity : AppCompatActivity() {
     private fun refreshTabs() {
         val accent = ContextCompat.getColor(this, R.color.accent)
         val muted = ContextCompat.getColor(this, R.color.muted)
-        mapOf(Tab.SORTIE to R.id.tabSortie, Tab.RANDOS to R.id.tabRandos, Tab.OFFLINE to R.id.tabOffline, Tab.MESURES to R.id.tabMesures,
+        mapOf(Tab.SORTIE to R.id.tabSortie, Tab.RANDOS to R.id.tabRandos, Tab.FORETS to R.id.tabForets, Tab.OFFLINE to R.id.tabOffline, Tab.MESURES to R.id.tabMesures,
             Tab.VERSIONS to R.id.tabVersions).forEach { (t, id) ->
             findViewById<Button>(id).setTextColor(if (t == tab && sheetOpen) accent else muted)
         }
         findViewById<View>(R.id.content).visibility = if (sheetOpen) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneSortie).visibility = if (tab == Tab.SORTIE) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneRandos).visibility = if (tab == Tab.RANDOS) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.paneForets).visibility = if (tab == Tab.FORETS) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneOffline).visibility = if (tab == Tab.OFFLINE) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneMesures).visibility = if (tab == Tab.MESURES) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneVersions).visibility = if (tab == Tab.VERSIONS) View.VISIBLE else View.GONE
@@ -802,11 +825,15 @@ class MainActivity : AppCompatActivity() {
                     showTab(Tab.OFFLINE)
                     downloadZone(LatLngBounds.from(maxOf(p.latitude, q.latitude), maxOf(p.longitude, q.longitude),
                         minOf(p.latitude, q.latitude), minOf(p.longitude, q.longitude)))
+                } else if (framingForForests) {
+                    framingForForests = false
+                    searchForests(Zone(minOf(p.longitude, q.longitude), minOf(p.latitude, q.latitude),
+                        maxOf(p.longitude, q.longitude), maxOf(p.latitude, q.latitude)))
                 } else searchTrails(Zone(minOf(p.longitude, q.longitude), minOf(p.latitude, q.latitude),
                     maxOf(p.longitude, q.longitude), maxOf(p.latitude, q.latitude)))
             }
         }
-        findViewById<Button>(R.id.btnFrame).setOnClickListener { framingForOffline = false; setFraming(true) }
+        findViewById<Button>(R.id.btnFrame).setOnClickListener { framingForOffline = false; framingForForests = false; setFraming(true) }
         // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
         findViewById<CheckBox>(R.id.chkOnPaths).apply {
             isChecked = prefs.getBoolean("recaler", false)
@@ -816,7 +843,7 @@ class MainActivity : AppCompatActivity() {
             // Nouveau tracé : l'ancien disparaît tout de suite.
             trails = trails.filter { it.id != Trails.DRAWN_ID }
             if (selectedTrail?.id == Trails.DRAWN_ID) selectTrail(null) else drawTrails(fit = false)
-            framingForOffline = false; setFraming(true, freehand = true)
+            framingForOffline = false; framingForForests = false; setFraming(true, freehand = true)
         }
         findViewById<Button>(R.id.btnDrawPath).setOnClickListener(startDrawing)
         findViewById<Button>(R.id.btnQuickDraw).setOnClickListener(startDrawing)
@@ -825,7 +852,7 @@ class MainActivity : AppCompatActivity() {
             setFraming(false)
             if (proj != null) drawDone(pts.map { val ll = proj.fromScreenLocation(it); LonLat(ll.longitude, ll.latitude) })
         }
-        findViewById<Button>(R.id.btnFrameCancel).setOnClickListener { setFraming(false); framingForOffline = false; sheetOpen = true; refreshTabs() }
+        findViewById<Button>(R.id.btnFrameCancel).setOnClickListener { setFraming(false); framingForOffline = false; framingForForests = false; sheetOpen = true; refreshTabs() }
         findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
             map?.projection?.visibleRegion?.latLngBounds?.let {
                 searchTrails(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth))
@@ -1131,6 +1158,138 @@ class MainActivity : AppCompatActivity() {
             .onFailure { setStatus("Export impossible : ${it.message}") }
     }
 
+    // ---------- Forêts par essence (BD Forêt IGN) d'une zone ----------
+
+    private var forests: List<Forest> = emptyList()
+    /** Essences choisies dans la liste ; vide : toutes les forêts sont dessinées. */
+    private val forestFilter = mutableSetOf<String>()
+    private var forestsMessage = ""
+    private var forestsJob: kotlinx.coroutines.Job? = null
+    /** Le rectangle tracé sert aux forêts. */
+    private var framingForForests = false
+
+    private fun setupForests() {
+        findViewById<TextView>(R.id.forestsAttribution).text =
+            "Forêts par essence (hêtraies, pinèdes, chênaies…) de la carte forestière IGN. Touche une forêt sur la carte pour son détail. ${Forests.ATTRIBUTION}."
+        findViewById<Button>(R.id.btnForestsView).setOnClickListener {
+            map?.projection?.visibleRegion?.latLngBounds?.let {
+                searchForests(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth))
+            }
+        }
+        findViewById<Button>(R.id.btnForestsFrame).setOnClickListener { framingForOffline = false; framingForForests = true; setFraming(true) }
+        findViewById<Button>(R.id.btnForestsAll).setOnClickListener { forestFilter.clear(); drawForests(); refreshForests() }
+        findViewById<Button>(R.id.btnForestsClear).setOnClickListener {
+            forestsJob?.cancel()
+            forests = emptyList(); forestFilter.clear(); forestsMessage = ""
+            if (trails.isEmpty()) { frame = null; drawTrails(fit = false) }
+            drawForests(); refreshForests()
+        }
+        refreshForests()
+    }
+
+    private fun searchForests(z: Zone) {
+        setFraming(false)
+        tab = Tab.FORETS; sheetOpen = true; refreshTabs()
+        if (Forests.zoneTooBig(z)) {
+            forestsMessage = "Zone trop grande : zoome ou encadre au plus ${(Forests.MAX_ZONE_DEG * 100).toInt()} km de côté environ."
+            refreshForests(); return
+        }
+        frame = z; drawTrails(fit = false)
+        forests = emptyList(); forestFilter.clear()
+        forestsMessage = "Recherche des forêts dans la carte forestière IGN…"
+        drawForests(); refreshForests()
+        forestsJob?.cancel()
+        forestsJob = lifecycleScope.launch {
+            val t0 = SystemClock.elapsedRealtime()
+            val r = withContext(Dispatchers.IO) { runCatching { Forests.fetchForests(z) } }
+            r.onSuccess { found ->
+                Log.i(Scenario.BENCH_TAG, "{\"event\":\"forests-search\",\"found\":${found.size},\"ms\":${SystemClock.elapsedRealtime() - t0}}")
+                forests = found
+                val n = Forests.groupByEssence(found).size
+                forestsMessage = if (found.isEmpty()) "Aucune forêt dans la carte forestière IGN sur cette zone."
+                    else "${found.size} massifs, $n essence${if (n > 1) "s" else ""}. Touche une essence pour ne voir qu'elle (plusieurs possibles)." +
+                        (if (found.size >= Forests.MAX_FORESTS) " Zone très boisée : tout n'a pas pu être chargé, zoome pour être complet." else "")
+            }.onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) return@launch
+                forestsMessage = "Recherche impossible (pas de réseau ?) : ${e.message}"
+            }
+            drawForests(); refreshForests()
+        }
+    }
+
+    /** Choisit ou retire une essence, puis cadre la carte sur les forêts choisies. */
+    private fun toggleEssence(essence: String) {
+        if (!forestFilter.remove(essence)) forestFilter.add(essence)
+        drawForests(); refreshForests()
+        if (forestFilter.isEmpty()) return
+        val b = LatLngBounds.Builder()
+        var any = false
+        forests.filter { it.essence in forestFilter }.forEach { f -> f.polygons.forEach { p -> p[0].forEach { b.include(LatLng(it.lat, it.lon)); any = true } } }
+        if (!any) return
+        if (follow) setFollow(false)
+        if (locating) map?.locationComponent?.cameraMode = CameraMode.NONE
+        val d = resources.displayMetrics.density
+        val sheet = findViewById<View>(R.id.sheet)
+        sheet.post {
+            val h = mapView.height
+            val bottom = (sheet.height + 20 * d).toInt().coerceAtMost(h - (200 * d).toInt()).coerceAtLeast((20 * d).toInt())
+            runCatching {
+                map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(),
+                    (30 * d).toInt(), (140 * d).toInt(), (70 * d).toInt(), bottom), 800)
+            }
+        }
+    }
+
+    private fun drawForests() {
+        val style = map?.style ?: return
+        if (!style.isFullyLoaded) return
+        val shown = forests.filter { forestFilter.isEmpty() || it.essence in forestFilter }
+        style.getSourceAs<GeoJsonSource>(SRC_FORESTS)?.setGeoJson(FeatureCollection.fromFeatures(shown.map { f ->
+            Feature.fromGeometry(MultiPolygon.fromLngLats(f.polygons.map { p -> p.map { r -> r.map { Point.fromLngLat(it.lon, it.lat) } } })).apply {
+                addStringProperty("essence", f.essence); addStringProperty("type", f.type); addStringProperty("color", f.color)
+                addNumberProperty("ha", Math.round(f.areaHa * 10) / 10.0)
+            }
+        }))
+    }
+
+    private fun refreshForests() {
+        findViewById<TextView>(R.id.forestsInfo).apply {
+            text = forestsMessage; visibility = if (forestsMessage.isEmpty()) View.GONE else View.VISIBLE
+        }
+        val list = findViewById<android.widget.LinearLayout>(R.id.forestList)
+        list.removeAllViews()
+        val d = resources.displayMetrics.density
+        Forests.groupByEssence(forests).forEach { g ->
+            val on = g.essence in forestFilter
+            list.addView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                setPadding((4 * d).toInt(), (8 * d).toInt(), (4 * d).toInt(), (8 * d).toInt())
+                isClickable = true
+                if (on) setBackgroundColor(Color.parseColor("#1A7B3FE4"))
+                else setBackgroundResource(android.R.drawable.list_selector_background)
+                addView(View(this@MainActivity).apply { setBackgroundColor(Color.parseColor(g.color)) },
+                    android.widget.LinearLayout.LayoutParams((6 * d).toInt(), android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                        .apply { marginEnd = (10 * d).toInt() })
+                addView(TextView(this@MainActivity).apply {
+                    val name = (if (on) "✓ " else "") + g.essence
+                    val sub = "${Forests.formatHa(g.areaHa)} · ${g.count} massif${if (g.count > 1) "s" else ""}"
+                    text = android.text.SpannableString("$name\n$sub").apply {
+                        setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, name.length, 0)
+                        setSpan(android.text.style.ForegroundColorSpan(Color.parseColor("#1D2421")), 0, name.length, 0)
+                        setSpan(android.text.style.RelativeSizeSpan(0.85f), name.length + 1, name.length + 1 + sub.length, 0)
+                    }
+                    textSize = 15f
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
+                })
+                setOnClickListener { toggleEssence(g.essence) }
+            })
+            list.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.line)) },
+                android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1))
+        }
+        findViewById<View>(R.id.btnForestsAll).visibility = if (forestFilter.isNotEmpty()) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnForestsClear).visibility = if (forests.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
     // ---------- Hors ligne ----------
 
     private fun refreshOffline() {
@@ -1253,6 +1412,8 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRAILS = "trails-src"
         private const val SRC_TRAIL_SEL = "trail-sel-src"
         private const val SRC_FRAME = "frame-src"
+        private const val SRC_FORESTS = "forests-src"
+        private const val LAYER_FORESTS = "forests"
         private const val LAYER_TRAILS = "trails"
         private const val SRC_WEB_HIKES = "web-hikes-src"
         private const val LAYER_WEB_HIKES = "web-hikes"
