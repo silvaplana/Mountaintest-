@@ -7,8 +7,9 @@ android {
         applicationId "fr.assomoutain.rando"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Numéro de build GitHub Actions (-PversionCode=…) : sert à détecter les mises à jour (Updater.java).
+        versionCode project.hasProperty('versionCode') ? project.property('versionCode').toInteger() : 1
+        versionName "0.1." + (project.hasProperty('versionCode') ? project.property('versionCode') : '1')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,11 +17,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Clé fixe d'une version à l'autre (sinon Android refuse la mise à jour), voir signing/README.md.
+    // Sans clé (build local), signature debug.
+    signingConfigs {
+        proto {
+            if (System.getenv('SIGNING_STORE')) {
+                storeFile file(System.getenv('SIGNING_STORE'))
+                storePassword System.getenv('SIGNING_PASSWORD')
+                keyAlias 'proto'
+                keyPassword System.getenv('SIGNING_PASSWORD')
+                storeType 'pkcs12'
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
-            // Signée avec la clé debug pour pouvoir l'installer directement sur le téléphone (prototype).
-            signingConfig signingConfigs.debug
+            signingConfig System.getenv('SIGNING_STORE') ? signingConfigs.proto : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
@@ -35,6 +48,7 @@ repositories {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.work:work-runtime:2.10.1"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')

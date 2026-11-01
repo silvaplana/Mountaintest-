@@ -212,6 +212,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         refreshTabs(); refreshSortie(); refreshOffline()
+        // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
+        Updater.init(this, "kotlin")
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {

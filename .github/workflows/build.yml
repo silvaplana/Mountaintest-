@@ -27,11 +27,53 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: web, path: capacitor/dist }
 
-  apk-capacitor:
-    name: APK Capacitor (React)
+  cle:
+    # Clé de signature fixe (sinon chaque APK a une clé différente et Android refuse la mise à jour).
+    # Créée au premier passage avec le mot de passe du secret SIGNING_PASSWORD, puis rangée dans
+    # signing/prototypes.p12 (fichier chiffré par ce mot de passe). Sans secret : signature debug.
+    name: Clé de signature
     runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.cle.outputs.ok }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - id: cle
+        env: { SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}' }
+        run: |
+          if [ -z "$SIGNING_PASSWORD" ]; then
+            echo "::warning::Secret SIGNING_PASSWORD absent : APK signés avec une clé jetable, les mises à jour demanderont de désinstaller."
+            echo "ok=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ ! -f signing/prototypes.p12 ]; then
+            mkdir -p signing
+            keytool -genkeypair -storetype pkcs12 -keystore signing/prototypes.p12 -alias proto \
+              -storepass "$SIGNING_PASSWORD" -keypass "$SIGNING_PASSWORD" \
+              -keyalg RSA -keysize 3072 -validity 10000 -dname "CN=Assomountain prototypes"
+            git config user.name github-actions; git config user.email actions@github.com
+            git add signing/prototypes.p12
+            git commit -m "Clé de signature des prototypes (chiffrée par le secret SIGNING_PASSWORD)"
+            git push origin HEAD:main
+          fi
+          echo "ok=1" >> "$GITHUB_OUTPUT"
+      - if: steps.cle.outputs.ok == '1'
+        uses: actions/upload-artifact@v4
+        with: { name: cle, path: signing/prototypes.p12, retention-days: 1 }
+
+  apk-capacitor:
+    name: APK Capacitor (React)
+    needs: cle
+    runs-on: ubuntu-latest
+    env:
+      SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}'
+    steps:
+      - uses: actions/checkout@v4
+      - if: needs.cle.outputs.ok
+        uses: actions/download-artifact@v4
+        with: { name: cle, path: signing }
+      - if: needs.cle.outputs.ok
+        run: echo "SIGNING_STORE=$GITHUB_WORKSPACE/signing/prototypes.p12" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: capacitor/package-lock.json }
       - uses: actions/setup-java@v4
@@ -42,7 +84,8 @@ jobs:
           npx vite build
           npx cap sync android
       - working-directory: capacitor/android
-        run: ./gradlew --no-daemon assembleRelease
+        run: |
+          ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
       - name: Renommer l'APK
         run: |
           cp capacitor/android/app/build/outputs/apk/release/*.apk assomoutain-capacitor.apk
@@ -51,13 +94,22 @@ jobs:
 
   apk-kotlin:
     name: APK Kotlin natif
+    needs: cle
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: kotlin-natif } }
+    env:
+      SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}'
     steps:
       - uses: actions/checkout@v4
+      - if: needs.cle.outputs.ok
+        uses: actions/download-artifact@v4
+        with: { name: cle, path: signing }
+      - if: needs.cle.outputs.ok
+        run: echo "SIGNING_STORE=$GITHUB_WORKSPACE/signing/prototypes.p12" >> "$GITHUB_ENV"
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
-      - run: ./gradlew --no-daemon assembleRelease
+      - run: |
+          ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
       - run: cp app/build/outputs/apk/release/*.apk ../assomoutain-kotlin.apk
       - uses: actions/upload-artifact@v4
         with: { name: apk-kotlin, path: assomoutain-kotlin.apk }
@@ -68,12 +120,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
-        with: { merge-multiple: true }
+        with: { pattern: apk-*, merge-multiple: true }
       - name: Publier la release « latest »
         env: { GH_TOKEN: '${{ github.token }}', GH_REPO: '${{ github.repository }}' }
         run: |
+          u=https://github.com/${{ github.repository }}/releases/latest/download
+          printf '{"build": %s, "apk": {"capacitor": "%s/assomoutain-capacitor.apk", "kotlin": "%s/assomoutain-kotlin.apk"}}\n' \
+            "${{ github.run_number }}" "$u" "$u" > version.json
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest assomoutain-capacitor.apk assomoutain-kotlin.apk \
+          gh release create latest assomoutain-capacitor.apk assomoutain-kotlin.apk version.json \
             --title "Dernière version des prototypes" \
             --notes "APK construits automatiquement depuis le commit ${{ github.sha }}. À ouvrir depuis le téléphone pour installer."
 
@@ -97,6 +152,10 @@ jobs:
               -e "s/@CAP@/$(du -m site/apk/assomoutain-capacitor.apk | cut -f1)/" \
               -e "s/@KOT@/$(du -m site/apk/assomoutain-kotlin.apk | cut -f1)/" \
               deploy/apk-index.html > site/apk/index.html
+          # Lu par les applis pour proposer la mise à jour (Updater.java).
+          u=https://silvaplana.cloud/mountaintest/apk
+          printf '{"build": %s, "apk": {"capacitor": "%s/assomoutain-capacitor.apk", "kotlin": "%s/assomoutain-kotlin.apk"}}\n' \
+            "${{ github.run_number }}" "$u" "$u" > site/apk/version.json
       - name: Pousser la branche site
         run: |
           cd site
