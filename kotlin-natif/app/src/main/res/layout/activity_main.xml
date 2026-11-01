@@ -433,7 +433,9 @@
                             <TextView android:id="@+id/trailTime" style="@style/Stat" />
                         </LinearLayout>
 
-                        <!-- Profil en coupe (ProfileView, même dessin que Profile.tsx) -->
+                        <!-- Profil en coupe (ProfileView, même dessin que Profile.tsx) et pente sous le doigt -->
+                        <TextView android:id="@+id/trailSlope" style="@style/Hint" android:layout_marginTop="6dp"
+                            android:visibility="gone" />
                         <fr.assomoutain.proto.ProfileView android:id="@+id/trailProfile"
                             android:layout_width="match_parent" android:layout_height="120dp"
                             android:layout_marginTop="6dp" android:visibility="gone" />

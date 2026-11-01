@@ -146,3 +146,9 @@ progress { width: 100%; }
 .profile-line { fill: none; stroke: #e4572e; stroke-width: 1.8; }
 .profile-area { fill: #e4572e33; }
 .hike-card { border-color: #f28c28; }
+.profile { touch-action: none; }
+.profile-info { margin: 0; font-size: 13px; color: var(--muted); }
+.profile-info b { color: var(--fg); }
+.profile-cursor { stroke: var(--fg); stroke-width: 1; stroke-dasharray: 3 2; }
+.profile-dot { fill: #e4572e; stroke: #fff; stroke-width: 1.5; }
+.slope-marker { width: 16px; height: 16px; border-radius: 50%; background: #e4572e; border: 3px solid #fff; box-shadow: 0 0 4px #0008; }

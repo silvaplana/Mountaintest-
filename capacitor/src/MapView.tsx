@@ -26,7 +26,9 @@ export interface MapViewProps {
   trails: Trail[];
   selectedTrail: Trail | null;
   frame: Bbox | null;
-  onTrailClick?: (id: number) => void;
+  onTrailClick?: (id: number, at: { lon: number; lat: number }) => void;
+  /** Point du profil sous le doigt (pente), affiché sur le tracé. */
+  cursor?: { lon: number; lat: number } | null;
   /** Randos trouvées sur le web par Claude : un point par rando, celle choisie en surbrillance. */
   webHikes: WebHike[];
   selectedHike: number | null;
@@ -132,7 +134,7 @@ export function MapView(props: MapViewProps) {
     });
     m.on('click', 'trails-hit', (e) => {
       const id = e.features?.[0]?.properties?.id;
-      if (id != null) onTrailClick.current?.(Number(id));
+      if (id != null) onTrailClick.current?.(Number(id), { lon: e.lngLat.lng, lat: e.lngLat.lat });
     });
     m.on('click', 'forests', (e) => {
       // Une rando touchée passe avant la forêt dessous.
@@ -217,6 +219,20 @@ export function MapView(props: MapViewProps) {
       m.fitBounds(b, { padding: { top: 140, left: 30, right: 70, bottom: Math.max(20, bottom) }, duration: 800 });
     }
   }, [props.selectedTrail, ready]);
+
+  const cursorMarker = useRef<maplibregl.Marker | null>(null);
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const c = props.cursor;
+    if (!c) { cursorMarker.current?.remove(); cursorMarker.current = null; return; }
+    if (!cursorMarker.current) {
+      const el = document.createElement('div');
+      el.className = 'slope-marker';
+      cursorMarker.current = new maplibregl.Marker({ element: el });
+    }
+    cursorMarker.current.setLngLat([c.lon, c.lat]).addTo(m);
+  }, [props.cursor]);
 
   useEffect(() => {
     const p = props.position;

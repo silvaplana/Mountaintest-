@@ -80,6 +80,7 @@ import java.net.URL
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Même écran que le prototype Capacitor : carte plein écran, fond de carte (Auto / SCAN 25 / Plan IGN)
@@ -175,7 +176,16 @@ class MainActivity : AppCompatActivity() {
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectHike(it); return@addOnMapClickListener true }
                 if (trails.isNotEmpty()) {
                     val id = m.queryRenderedFeatures(box, LAYER_TRAILS).firstOrNull()?.getNumberProperty("id")?.toLong()
-                    if (id != null) { trails.firstOrNull { it.id == id }?.let { selectTrail(it) }; return@addOnMapClickListener true }
+                    if (id != null) {
+                        // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
+                        val prof = findViewById<ProfileView>(R.id.trailProfile)
+                        val pd = prof.profile
+                        if (selectedTrail?.id == id && pd != null) {
+                            prof.cursor = pd.nearestD(p.longitude, p.latitude)
+                            sheetOpen = true; refreshTabs(); showSlopeCursor()
+                        } else trails.firstOrNull { it.id == id }?.let { selectTrail(it) }
+                        return@addOnMapClickListener true
+                    }
                 }
                 // Appui sur une forêt : son essence, son type et sa surface (la rando passe avant).
                 if (forests.isNotEmpty()) {
@@ -344,6 +354,10 @@ class MainActivity : AppCompatActivity() {
                 lineColor(Expression.get("color")), lineWidth(3f), lineOpacity(0.75f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel-casing", SRC_TRAIL_SEL).withProperties(lineColor("#ffffff"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor("#7b3fe4"), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
+            // Point du profil sous le doigt (pente), sur le tracé.
+            style.addSource(GeoJsonSource(SRC_SLOPE_CURSOR))
+            style.addLayer(CircleLayer("slope-cursor", SRC_SLOPE_CURSOR).withProperties(
+                circleRadius(7f), circleColor("#e4572e"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             style.addSource(GeoJsonSource(SRC_WEB_HIKES))
             style.addLayer(CircleLayer(LAYER_WEB_HIKES, SRC_WEB_HIKES).withProperties(
                 circleRadius(8f), circleColor(WebHikes.COLOR), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
@@ -794,6 +808,7 @@ class MainActivity : AppCompatActivity() {
     private var elevJob: kotlinx.coroutines.Job? = null
 
     private fun setupTrails() {
+        findViewById<ProfileView>(R.id.trailProfile).onCursor = { showSlopeCursor() }
         findViewById<TextView>(R.id.trailsAttribution).text =
             "Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés (${Trails.OSM_ATTRIBUTION}), " +
             "et celles que Claude trouve sur le web en points orange, avec le lien de leur page."
@@ -1091,12 +1106,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Texte de pente et point sur la carte pour le curseur du profil. */
+    private fun showSlopeCursor() {
+        val prof = findViewById<ProfileView>(R.id.trailProfile)
+        val pd = prof.profile
+        val c = prof.cursor
+        val txt = findViewById<TextView>(R.id.trailSlope)
+        txt.visibility = if (pd != null) View.VISIBLE else View.GONE
+        val at = if (pd != null && c != null) pd.pointAt(c) else null
+        txt.text = if (pd != null && at != null) stat(ProfileData.format(pd.slopeAt(at.d)),
+            String.format(Locale.FRANCE, "%.2f km · %d m", at.d / 1000, at.z.roundToInt()))
+            else "Glisse le doigt sur le profil (ou touche le tracé) : pente moyenne sur ${ProfileData.SLOPE_WINDOW_M.toInt()} m."
+        map?.style?.getSourceAs<GeoJsonSource>(SRC_SLOPE_CURSOR)?.setGeoJson(
+            if (at == null) FeatureCollection.fromFeatures(emptyList<Feature>())
+            else FeatureCollection.fromFeature(Feature.fromGeometry(Point.fromLngLat(at.lon, at.lat))))
+    }
+
     private fun refreshTrails() {
         findViewById<TextView>(R.id.trailsInfo).apply {
             text = trailsMessage; visibility = if (trailsMessage.isEmpty()) View.GONE else View.VISIBLE
         }
         val sel = selectedTrail
         findViewById<View>(R.id.trailCard).visibility = if (sel != null) View.VISIBLE else View.GONE
+        if (sel == null) { findViewById<ProfileView>(R.id.trailProfile).setData(null); showSlopeCursor() }
         if (sel != null) {
             findViewById<TextView>(R.id.trailName).text = sel.name
             findViewById<TextView>(R.id.trailKind).text = sel.kind +
@@ -1115,6 +1147,7 @@ class MainActivity : AppCompatActivity() {
                 setData(e?.segments)
                 visibility = if (e != null) View.VISIBLE else View.GONE
             }
+            showSlopeCursor()
             findViewById<View>(R.id.trailAltError).visibility = if (elevated?.isFailure == true) View.VISIBLE else View.GONE
             findViewById<Button>(R.id.btnTrailExport).isEnabled = elevated != null
         }
@@ -1411,6 +1444,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_SLOPES = "slopes-src"
         private const val SRC_TRAILS = "trails-src"
         private const val SRC_TRAIL_SEL = "trail-sel-src"
+        private const val SRC_SLOPE_CURSOR = "slope-cursor-src"
         private const val SRC_FRAME = "frame-src"
         private const val SRC_FORESTS = "forests-src"
         private const val LAYER_FORESTS = "forests"

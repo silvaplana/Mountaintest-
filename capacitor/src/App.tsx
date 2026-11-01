@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
 import type { Map as MlMap } from 'maplibre-gl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BASE_MODES, type Bbox, DEFAULT_SCAN_KEY, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
 import { decideSettings, sameSettings } from './gps/adaptive';
 import { EcoLocation } from './gps/ecoLocation';
@@ -26,6 +26,7 @@ import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { Profile } from './Profile';
+import { buildProfile, nearestD, pointAt } from './trails/profile';
 import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
@@ -113,6 +114,10 @@ export function App() {
   /** Tracé au doigt en cours, et recalage sur les chemins (IGN) ou ligne libre. */
   const [drawing, setDrawing] = useState(false);
   // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
+  /** Curseur de pente : distance le long de la rando affichée. */
+  const [profCursor, setProfCursor] = useState<number | null>(null);
+  const profile = useMemo(() => (elevated && typeof elevated === 'object' ? buildProfile(elevated.segments) : null), [elevated]);
+  useEffect(() => setProfCursor(null), [elevated]);
   const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
   const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
   const trailsAbort = useRef<AbortController | null>(null);
@@ -479,7 +484,12 @@ export function App() {
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} trails={trails} selectedTrail={selected} frame={frame}
-        onTrailClick={(id) => void selectTrail(trails.find((t) => t.id === id) ?? null)}
+        onTrailClick={(id, at) => {
+          // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
+          if (selected?.id === id && profile) { setProfCursor(nearestD(profile, at.lon, at.lat)); setOpen(true); return; }
+          void selectTrail(trails.find((t) => t.id === id) ?? null);
+        }}
+        cursor={profile && profCursor != null ? pointAt(profile, profCursor) : null}
         webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike}
         forests={forests} forestFilter={forestFilter}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
@@ -604,7 +614,7 @@ export function App() {
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.lossM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D−</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? formatHours(walkingHours(selected.distanceM, elevated.gainM, elevated.lossM)) : elevated === 'loading' ? '…' : '—'}</b><span>marche</span></div>
                 </div>
-                {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} />}
+                {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} cursor={profCursor} onCursor={setProfCursor} />}
                 {elevated === 'error' && <p className="hint">Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude.</p>}
                 <div className="row">
                   <button className="primary" onClick={exportTrail} disabled={elevated === 'loading'}>Exporter GPX</button>
