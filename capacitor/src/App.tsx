@@ -105,7 +105,9 @@ export function App() {
   const [elevated, setElevated] = useState<ElevatedTrail | 'loading' | 'error' | null>(null);
   /** Tracé au doigt en cours, et recalage sur les chemins (IGN) ou ligne libre. */
   const [drawing, setDrawing] = useState(false);
-  const [onPaths, setOnPaths] = useState(true);
+  // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
+  const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
+  const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
   const trailsAbort = useRef<AbortController | null>(null);
 
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)

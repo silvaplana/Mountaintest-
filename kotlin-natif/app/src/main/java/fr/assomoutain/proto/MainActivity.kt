@@ -782,6 +782,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<Button>(R.id.btnFrame).setOnClickListener { framingForOffline = false; setFraming(true) }
+        // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
+        findViewById<CheckBox>(R.id.chkOnPaths).apply {
+            isChecked = prefs.getBoolean("recaler", false)
+            setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("recaler", c).apply() }
+        }
         findViewById<Button>(R.id.btnDrawPath).setOnClickListener { framingForOffline = false; setFraming(true, freehand = true) }
         draw.onLine = { pts ->
             val proj = map?.projection

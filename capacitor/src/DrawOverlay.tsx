@@ -41,7 +41,7 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel }: {
       }}>
       <div className="frame-banner" onPointerDown={(e) => e.stopPropagation()}>
         <span>Trace ton parcours du doigt</span>
-        <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> chemins</label>
+        <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
         <button onClick={onCancel}>Annuler</button>
       </div>
       <svg className="draw-svg"><path d={path} /></svg>
