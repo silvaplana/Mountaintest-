@@ -23,7 +23,7 @@ import android.widget.TextView;
 /**
  * Mode poche (copie identique dans les deux prototypes, voir shared/).
  *
- * Téléphone debout et capteur de proximité couvert (dans la poche) pendant 3 s : écran noir, luminosité au minimum, appuis ignorés,
+ * Téléphone debout (vertical, dans la poche ou à la main) pendant 3 s : écran noir, luminosité au minimum, appuis ignorés,
  * puis Android éteint vraiment l'écran au bout de sa mise en veille habituelle.
  * Téléphone tenu à plat (écran vers le haut) ou deux secousses : l'écran se rallume sur la carte,
  * par-dessus l'écran de verrouillage, sans toucher aucun bouton.
@@ -47,8 +47,6 @@ public final class PocketMode implements SensorEventListener {
     private PowerManager.WakeLock cpuLock;
     private boolean enabled, listening, black;
     private View overlay;
-    private Sensor proximity;
-    private boolean covered = true; // sans capteur de proximité, on se fie à l'orientation seule
     private long uprightSince, flatSince, lastShake, firstShake;
 
     private PocketMode(Activity a) {
@@ -110,10 +108,6 @@ public final class PocketMode implements SensorEventListener {
         Sensor acc = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         if (acc == null) return;
         sensors.registerListener(this, acc, SensorManager.SENSOR_DELAY_NORMAL);
-        // Capteur de proximité (près de l'écouteur) : couvert = dans la poche, pas dans la main.
-        proximity = sensors.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-        if (proximity != null) sensors.registerListener(this, proximity, SensorManager.SENSOR_DELAY_NORMAL);
-        covered = proximity == null;
         listening = true;
         uprightSince = flatSince = 0;
         if (cpuLock == null) {
@@ -132,10 +126,6 @@ public final class PocketMode implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent e) {
-        if (e.sensor.getType() == Sensor.TYPE_PROXIMITY) {
-            covered = e.values[0] < Math.min(e.sensor.getMaximumRange(), 5f);
-            return;
-        }
         float x = e.values[0], y = e.values[1], z = e.values[2];
         long now = SystemClock.elapsedRealtime();
         double g = Math.sqrt(x * x + y * y + z * z);
@@ -148,7 +138,7 @@ public final class PocketMode implements SensorEventListener {
         }
         if (g < 7 || g > 13) return; // en mouvement brusque : on ne juge pas l'orientation
 
-        boolean upright = covered && Math.abs(y) > 7.5 && Math.abs(z) < 5;  // debout et couvert : dans la poche
+        boolean upright = Math.abs(y) > 7.5 && Math.abs(z) < 5;  // debout (à ~40° près), comme dans la poche
         boolean flat = z > 6.5;                                    // écran vers le ciel (jusqu'à ~45°)
 
         uprightSince = upright ? (uprightSince == 0 ? now : uprightSince) : 0;

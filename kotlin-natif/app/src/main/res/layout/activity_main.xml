@@ -358,7 +358,7 @@
                     <!-- Mode poche (PocketMode.java) -->
                     <CheckBox android:id="@+id/chkPoche"
                         android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="Mode poche : écran éteint dans la poche, rallumé à plat ou par 2 secousses" />
+                        android:text="Mode poche : écran noir dès que le téléphone est vertical 3 s, rallumé à plat ou par 2 secousses" />
 
                     <LinearLayout style="@style/Row">
                         <Button android:id="@+id/btnExport" style="@style/Btn" android:text="Exporter GPX" />

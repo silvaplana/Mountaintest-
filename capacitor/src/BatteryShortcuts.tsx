@@ -25,7 +25,7 @@ export function BatteryShortcuts() {
       <label className="row">
         <input type="checkbox" checked={pocket} disabled={!native}
           onChange={(e) => { const on = e.target.checked; setPocket(on); void PocketMode.set({ on }); }} />
-        Mode poche : écran éteint dans la poche, rallumé à plat ou par 2 secousses
+        Mode poche : écran noir dès que le téléphone est vertical 3 s, rallumé à plat ou par 2 secousses
       </label>
       {!native && <p className="hint">(Disponible dans l'appli Android seulement.)</p>}
     </div>
