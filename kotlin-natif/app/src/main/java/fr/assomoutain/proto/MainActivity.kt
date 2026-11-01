@@ -202,6 +202,8 @@ class MainActivity : AppCompatActivity() {
             exportLauncher.launch("sortie-$stamp.gpx")
         }
         findViewById<Button>(R.id.btnImport).setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
+        mapOf(R.id.btnAvion to "avion", R.id.btnWifi to "wifi", R.id.btnDonnees to "donnees", R.id.btnBluetooth to "bluetooth")
+            .forEach { (id, what) -> findViewById<Button>(id).setOnClickListener { BatterySettings.open(this, what) } }
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
 
         setupTrails()

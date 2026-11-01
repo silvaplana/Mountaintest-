@@ -312,6 +312,16 @@
 
                     <TextView android:id="@+id/gpsReasons" style="@style/Hint" android:visibility="gone" />
 
+                    <!-- Économie batterie : Android interdit de couper soi-même, on ouvre le réglage (BatterySettings.java) -->
+                    <TextView style="@style/Hint"
+                        android:text="Économie batterie : le mode avion coupe tout, le GPS et les cartes téléchargées continuent de marcher." />
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnAvion" style="@style/Btn" android:text="✈ Avion" />
+                        <Button android:id="@+id/btnWifi" style="@style/Btn" android:text="Wi-Fi" />
+                        <Button android:id="@+id/btnDonnees" style="@style/Btn" android:text="Données" />
+                        <Button android:id="@+id/btnBluetooth" style="@style/Btn" android:text="Bluetooth" />
+                    </LinearLayout>
+
                     <LinearLayout style="@style/Row">
                         <Button android:id="@+id/btnExport" style="@style/Btn" android:text="Exporter GPX" />
                         <Button android:id="@+id/btnImport" style="@style/Btn" android:text="Importer GPX" />

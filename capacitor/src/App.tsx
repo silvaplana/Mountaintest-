@@ -23,6 +23,7 @@ import { SearchBar } from './SearchBar';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { Versions } from './Versions';
+import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
 import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
 import { computeStats, formatDuration, formatKm } from './track/stats';
@@ -416,6 +417,7 @@ export function App() {
               <label><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> Suivre</label>
             </div>
             {recording && reasons.length > 0 && <p className="hint">Économie active : {reasons.join(', ')}</p>}
+            <BatteryShortcuts />
             <div className="row">
               <button onClick={exportGpx} disabled={!recorded.length}>Exporter GPX</button>
               <label className="file">Importer GPX<input type="file" accept=".gpx,application/gpx+xml" onChange={(e) => e.target.files?.[0] && importGpx(e.target.files[0])} /></label>
