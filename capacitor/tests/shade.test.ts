@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { sunPosition, compass } from '../src/shade/sun';
 import { CAST_SHADOW, computeShade, LIT, NIGHT, SELF_SHADE } from '../src/shade/shadow';
 import { decodeBil, gridFor, mntTileUrl, tileBounds3857, TILE, TILE_BYTES } from '../src/shade/dem';
-import { filmTimes, framePixels, hhmm } from '../src/shade/film';
+import { computeFrame, filmTimes, framePixels, hhmm, startIndex } from '../src/shade/film';
 
 describe('position du soleil (NOAA)', () => {
   it('midi solaire au solstice à La Ciotat : plein sud, ~70°', () => {
@@ -117,10 +117,23 @@ describe('relief IGN', () => {
 });
 
 describe('film', () => {
-  it('9 images de 8 h à midi toutes les 30 min', () => {
+  it('48 images sur 24 h toutes les 30 min', () => {
     const t = filmTimes('2026-11-02');
-    expect(t.map(hhmm)).toEqual(['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00']);
-    expect(t[0].getDate()).toBe(2);
+    expect(t).toHaveLength(48);
+    expect(hhmm(t[0])).toBe('00:00');
+    expect(hhmm(t[16])).toBe('08:00');
+    expect(hhmm(t[47])).toBe('23:30');
+    expect(t.every((d) => d.getDate() === 2)).toBe(true);
+  });
+  it('image de départ : maintenant aujourd\'hui, 8 h un autre jour', () => {
+    const now = new Date(2026, 10, 2, 14, 40);
+    expect(startIndex('2026-11-02', now)).toBe(29);
+    expect(startIndex('2026-11-03', now)).toBe(16);
+  });
+  it('nuit : pas de calcul d\'ombre', () => {
+    const grid = { spec: { z: 14, x0: 8447, y0: 6000, nx: 1, ny: 1 }, w: 2, h: 2, dem: new Float32Array(4), missing: 0 };
+    expect(computeFrame(grid, new Date(2026, 10, 2, 2, 0)).codes).toBeNull();
+    expect(computeFrame(grid, new Date(2026, 10, 2, 12, 0)).codes).not.toBeNull();
   });
   it('pixels transparents au soleil', () => {
     const px = framePixels(new Uint8Array([LIT, CAST_SHADOW]));

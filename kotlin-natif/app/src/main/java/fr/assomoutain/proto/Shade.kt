@@ -159,8 +159,17 @@ object ShadeCalc {
     private val SHADE_ARGB = (115 shl 24) or (20 shl 16) or (30 shl 8) or 85
     private val NIGHT_ARGB = (150 shl 24) or (10 shl 16) or (15 shl 8) or 40
 
-    fun pixels(codes: ByteArray, into: IntArray) {
-        for (i in codes.indices) into[i] = when (codes[i]) { LIT -> 0; NIGHT -> NIGHT_ARGB; else -> SHADE_ARGB }
+    /** Un bit par maille (1 = ombre) : 48 images tiennent en mémoire (3 Mo de mailles → 400 Ko). */
+    fun pack(codes: ByteArray): ByteArray {
+        val out = ByteArray((codes.size + 7) / 8)
+        for (i in codes.indices) if (codes[i] != LIT) out[i shr 3] = (out[i shr 3].toInt() or (1 shl (i and 7))).toByte()
+        return out
+    }
+
+    /** Pixels ARGB d'une image : bits d'ombre, ou null la nuit (tout sombre). */
+    fun pixels(bits: ByteArray?, into: IntArray) {
+        if (bits == null) { into.fill(NIGHT_ARGB); return }
+        for (i in into.indices) into[i] = if ((bits[i shr 3].toInt() shr (i and 7)) and 1 != 0) SHADE_ARGB else 0
     }
 }
 
@@ -302,14 +311,21 @@ object Dem {
     fun clear(ctx: Context) { File(ctx.filesDir, "tiles/mnt").deleteRecursively() }
 }
 
-/** Film des ombres : une image toutes les 30 min de 8 h à midi (heure du téléphone), comme film.ts. */
+/** Film des ombres : une image toutes les 30 min sur 24 h (heure du téléphone), comme film.ts. */
 object Film {
-    const val START_H = 8
-    const val END_H = 12
+    const val START_H = 0
+    /** Exclu : la dernière image est 23:30. */
+    const val END_H = 24
     const val STEP_MIN = 30
 
     fun times(day: LocalDate): List<LocalDateTime> =
-        (START_H * 60..END_H * 60 step STEP_MIN).map { day.atStartOfDay().plusMinutes(it.toLong()) }
+        (START_H * 60 until END_H * 60 step STEP_MIN).map { day.atStartOfDay().plusMinutes(it.toLong()) }
+
+    /** Image affichée d'abord : l'heure actuelle si c'est aujourd'hui, sinon 8 h (départ de rando). */
+    fun startIndex(day: LocalDate, now: LocalDateTime = LocalDateTime.now()): Int {
+        val min = if (day == now.toLocalDate()) now.hour * 60 + now.minute else 8 * 60
+        return max(0, (min - START_H * 60) / STEP_MIN)
+    }
 
     fun epochMs(t: LocalDateTime): Long = t.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }

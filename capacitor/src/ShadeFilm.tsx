@@ -2,7 +2,8 @@ import type { ImageSource, Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import type { Bbox } from './config';
 import { gridBbox, gridFor, loadGrid, type DemGrid, type GridSpec } from './shade/dem';
-import { computeFrame, filmTimes, framePixels, hhmm, todayIso } from './shade/film';
+import { computeFrame, filmTimes, framePixels, hhmm, startIndex, todayIso } from './shade/film';
+import { NIGHT } from './shade/shadow';
 import { compass, type SunPos } from './shade/sun';
 
 /** Une image du film prête à l'affichage. */
@@ -73,31 +74,42 @@ export function ShadeFilm({ map, hidden, onClose }: { map: MlMap; hidden?: boole
     return () => { map.off('moveend', onMove); if (timer) clearTimeout(timer); abort.ctl?.abort(); };
   }, [map]);
 
-  // Images du film : recalculées quand le relief ou la date changent.
+  // Images du film (24 h) : recalculées quand le relief ou la date changent. Elles arrivent une à une :
+  // le film se regarde pendant le calcul. Les images de nuit partagent une seule image.
+  const owned = useRef<string[]>([]);
   useEffect(() => {
     const g = grid.current;
     if (!g) return;
     const my = ++run.current;
+    owned.current.forEach((u) => URL.revokeObjectURL(u));
+    owned.current = [];
     const made: Frame[] = [];
+    setFrames([]);
+    setIdx(startIndex(day));
     (async () => {
       const times = filmTimes(day);
       const t0 = performance.now();
+      let nightUrl: string | null = null;
       for (let i = 0; i < times.length; i++) {
         setMsg(`Ombres : ${i + 1}/${times.length}`);
         await pause();
-        if (run.current !== my) break;
+        if (run.current !== my) return;
         const f = computeFrame(g, times[i]);
-        made.push({ time: f.time, sun: f.sun, ratio: f.ratio, url: await toBlobUrl(f.codes, g.w, g.h) });
+        let url: string;
+        if (f.codes) url = await toBlobUrl(f.codes, g.w, g.h);
+        else url = nightUrl ??= await toBlobUrl(new Uint8Array(g.w * g.h).fill(NIGHT), g.w, g.h);
+        if (run.current !== my) { URL.revokeObjectURL(url); return; }
+        if (!owned.current.includes(url)) owned.current.push(url);
+        made.push({ time: f.time, sun: f.sun, ratio: f.ratio, url });
+        setFrames([...made]);
       }
-      if (run.current !== my) { made.forEach((f) => URL.revokeObjectURL(f.url)); return; }
-      setFrames((old) => { old.forEach((f) => URL.revokeObjectURL(f.url)); return made; });
       setMsg(g.missing ? `${g.missing} tuile(s) de relief manquante(s) : ombres incomplètes.` : `Calculé en ${((performance.now() - t0) / 1000).toFixed(1).replace('.', ',')} s sur le téléphone.`);
     })();
   }, [gridVersion, day]);
 
-  // Affichage de l'image courante sur la carte.
+  // Affichage de l'image courante sur la carte (la dernière calculée si elle n'est pas encore prête).
   useEffect(() => {
-    const f = frames[idx] ?? frames[0];
+    const f = frames[idx] ?? frames[frames.length - 1];
     const g = grid.current;
     if (!f || !g) return;
     const [w, s, e, n] = gridBbox(g.spec);
@@ -116,7 +128,7 @@ export function ShadeFilm({ map, hidden, onClose }: { map: MlMap; hidden?: boole
     if (map.getLayer(SRC)) map.removeLayer(SRC);
     if (map.getSource(SRC)) map.removeSource(SRC);
   }, [map]);
-  useEffect(() => () => frames.forEach((f) => URL.revokeObjectURL(f.url)), [frames]);
+  useEffect(() => () => owned.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
@@ -124,7 +136,7 @@ export function ShadeFilm({ map, hidden, onClose }: { map: MlMap; hidden?: boole
     return () => clearInterval(t);
   }, [playing, frames.length]);
 
-  const f = frames[idx];
+  const f = frames[idx] ?? frames[frames.length - 1];
   return (
     <div className="shade-bar" hidden={hidden}>
       <div className="shade-head">
@@ -137,7 +149,7 @@ export function ShadeFilm({ map, hidden, onClose }: { map: MlMap; hidden?: boole
       <div className="row">
         <button className="play" disabled={frames.length < 2} onClick={() => setPlaying(!playing)}
           aria-label={playing ? 'Pause' : 'Lire le film'}>{playing ? '⏸' : '▶'}</button>
-        <input type="range" min={0} max={Math.max(0, frames.length - 1)} value={idx} disabled={!frames.length}
+        <input type="range" min={0} max={Math.max(0, frames.length - 1)} value={Math.min(idx, Math.max(0, frames.length - 1))} disabled={!frames.length}
           onChange={(e) => { setPlaying(false); setIdx(Number(e.target.value)); }} />
         <input type="date" value={day} onChange={(e) => { if (e.target.value) setDay(e.target.value); }} />
       </div>

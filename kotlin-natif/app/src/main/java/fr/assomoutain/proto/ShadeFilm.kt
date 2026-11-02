@@ -38,7 +38,8 @@ class ShadeFilm(
     /** Couche sous laquelle placer les ombres (forêts, tracés au-dessus). */
     private val belowLayer: String,
 ) {
-    private class Frame(val time: LocalDateTime, val sun: SunPos, val ratio: Double, val codes: ByteArray)
+    /** bits : ombre maille par maille (ShadeCalc.pack), null la nuit. */
+    private class Frame(val time: LocalDateTime, val sun: SunPos, val bits: ByteArray?)
 
     private val bar: View = activity.findViewById(R.id.shadeBar)
     private val timeTxt: TextView = activity.findViewById(R.id.shadeTime)
@@ -137,20 +138,24 @@ class ShadeFilm(
             val cell = Dem.cellMeters(g.spec)
             val made = ArrayList<Frame>()
             val times = Film.times(day)
+            // Les images arrivent une à une : le film se regarde pendant le calcul.
+            frames = emptyList(); shownKey = ""
+            val target = Film.startIndex(day)
+            idx = 0
             for ((i, t) in times.withIndex()) {
                 msg("Ombres : ${i + 1}/${times.size}")
                 val f = withContext(Dispatchers.Default) {
                     val sun = Sun.position(Film.epochMs(t), lat, lon)
-                    val codes = ShadeCalc.compute(g.dem, g.spec.w, g.spec.h, cell, sun.azimuth, sun.altitude)
-                    Frame(t, sun, ShadeCalc.ratio(codes), codes)
+                    if (sun.altitude <= 0) Frame(t, sun, null)
+                    else Frame(t, sun, ShadeCalc.pack(ShadeCalc.compute(g.dem, g.spec.w, g.spec.h, cell, sun.azimuth, sun.altitude)))
                 }
                 if (!isActive) return@launch
                 made += f
+                frames = made.toList()
+                seek.max = (made.size - 1).coerceAtLeast(0)
+                // Jusqu'à l'heure de départ (maintenant, ou 8 h un autre jour), on suit le calcul.
+                if (playJob == null && i <= target) show(i)
             }
-            frames = made
-            seek.max = (made.size - 1).coerceAtLeast(0)
-            shownKey = ""
-            show(idx.coerceIn(0, made.size - 1))
             val s = (SystemClock.elapsedRealtime() - t0) / 100 / 10.0
             msg(if (g.missing > 0) "${g.missing} tuile(s) de relief manquante(s) : ombres incomplètes."
                 else "Calculé en ${s.toString().replace('.', ',')} s sur le téléphone.")
@@ -172,7 +177,7 @@ class ShadeFilm(
         if (!style.isFullyLoaded) return
         val w = g.spec.w; val h = g.spec.h
         if (pixels.size != w * h) pixels = IntArray(w * h)
-        ShadeCalc.pixels(f.codes, pixels)
+        ShadeCalc.pixels(f.bits, pixels)
         val bmp = bitmap?.takeIf { it.width == w && it.height == h } ?: Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         bmp.setPixels(pixels, 0, w, 0, 0, w, h)
         bitmap = bmp
