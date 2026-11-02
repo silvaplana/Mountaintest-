@@ -129,6 +129,11 @@ class MainActivity : AppCompatActivity() {
     private val trailExportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/gpx+xml")) { uri ->
         uri?.let { exportTrailTo(it) }
     }
+    /** Appareil photo du téléphone par-dessus l'appli, puis retour direct sur la carte. */
+    private val photoLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val saved = PhotoCapture.finish(this, r.resultCode == RESULT_OK)
+        toast(if (saved) "Photo enregistrée dans la galerie (album Assomoutain)" else "Photo annulée")
+    }
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importFrom(it) }
     }
@@ -265,6 +270,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnQuickSearch).setOnClickListener {
             setNature(false)
             findViewById<ImageButton>(R.id.btnSearch).performClick()
+        }
+        findViewById<Button>(R.id.btnQuickPhoto).setOnClickListener {
+            val i = PhotoCapture.prepare(this)
+            if (i == null) { toast("Photo impossible sur ce téléphone (Android 10 minimum)"); return@setOnClickListener }
+            try { photoLauncher.launch(i) } catch (e: Exception) { PhotoCapture.finish(this, false); toast("Pas d'appareil photo disponible") }
         }
         findViewById<Button>(R.id.btnQuickSlopes).setOnClickListener {
             findViewById<CheckBox>(R.id.chkSlopes).apply { isChecked = !isChecked }

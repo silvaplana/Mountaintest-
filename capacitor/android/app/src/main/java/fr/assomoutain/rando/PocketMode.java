@@ -23,7 +23,7 @@ import android.widget.TextView;
 /**
  * Mode poche (copie identique dans les deux prototypes, voir shared/).
  *
- * Téléphone debout (vertical, dans la poche ou à la main) pendant 3 s : écran noir, luminosité au minimum, appuis ignorés,
+ * Capteur de proximité couvert 2 s (dans la poche), ou téléphone debout (vertical) pendant 3 s : écran noir, luminosité au minimum, appuis ignorés,
  * puis Android éteint vraiment l'écran au bout de sa mise en veille habituelle.
  * Téléphone tenu à plat (écran vers le haut) ou deux secousses : l'écran se rallume sur la carte,
  * par-dessus l'écran de verrouillage, sans toucher aucun bouton.
@@ -37,6 +37,7 @@ public final class PocketMode implements SensorEventListener {
     private static final String PREFS = "poche";
     private static final long POCKET_AFTER_MS = 3_000;
     private static final long FLAT_AFTER_MS = 500;
+    private static final long COVERED_AFTER_MS = 2_000;
     private static final long SHAKE_WINDOW_MS = 1_200;
 
     private static PocketMode instance;
@@ -47,6 +48,10 @@ public final class PocketMode implements SensorEventListener {
     private PowerManager.WakeLock cpuLock;
     private boolean enabled, listening, black;
     private View overlay;
+    private Sensor proximity;
+    /** Capteur de proximité couvert (téléphone dans la poche ou contre une surface). */
+    private boolean covered;
+    private long coveredSince;
     private long uprightSince, flatSince, lastShake, firstShake;
 
     private PocketMode(Activity a) {
@@ -108,6 +113,10 @@ public final class PocketMode implements SensorEventListener {
         Sensor acc = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         if (acc == null) return;
         sensors.registerListener(this, acc, SensorManager.SENSOR_DELAY_NORMAL);
+        // Capteur de proximité (en haut de l'écran) : couvert 2 s = dans la poche, quelle que soit l'orientation.
+        proximity = sensors.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+        if (proximity != null) sensors.registerListener(this, proximity, SensorManager.SENSOR_DELAY_NORMAL);
+        covered = false; coveredSince = 0;
         listening = true;
         uprightSince = flatSince = 0;
         if (cpuLock == null) {
@@ -126,8 +135,13 @@ public final class PocketMode implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent e) {
-        float x = e.values[0], y = e.values[1], z = e.values[2];
         long now = SystemClock.elapsedRealtime();
+        if (e.sensor.getType() == Sensor.TYPE_PROXIMITY) {
+            covered = e.values[0] < Math.min(e.sensor.getMaximumRange(), 5f);
+            coveredSince = covered ? now : 0;
+            return;
+        }
+        float x = e.values[0], y = e.values[1], z = e.values[2];
         double g = Math.sqrt(x * x + y * y + z * z);
 
         // Secousse : pic d'accélération ; deux pics rapprochés = « réveille-toi ».
@@ -144,8 +158,10 @@ public final class PocketMode implements SensorEventListener {
         uprightSince = upright ? (uprightSince == 0 ? now : uprightSince) : 0;
         flatSince = flat ? (flatSince == 0 ? now : flatSince) : 0;
 
-        if (!black && upright && now - uprightSince > POCKET_AFTER_MS) goBlack();
-        else if (black && flat && now - flatSince > FLAT_AFTER_MS) wake();
+        boolean inPocket = covered && now - coveredSince > COVERED_AFTER_MS;
+        if (!black && (inPocket || (upright && now - uprightSince > POCKET_AFTER_MS))) goBlack();
+        // À plat, mais seulement capteur découvert : un téléphone couché au fond d'une poche reste noir.
+        else if (black && !covered && flat && now - flatSince > FLAT_AFTER_MS) wake();
     }
 
     @Override public void onAccuracyChanged(Sensor s, int a) {}

@@ -5,6 +5,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /** Plugins natifs (android/.../PocketMode.java et BatterySettings.java, identiques côté Kotlin). */
 const PocketMode = registerPlugin<{ get(): Promise<{ on: boolean }>; set(o: { on: boolean }): Promise<{ on: boolean }> }>('PocketMode');
+/** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : appareil photo puis retour à la carte. */
+const Photo = registerPlugin<{ take(): Promise<{ saved: boolean }> }>('Photo');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
 
 type WatchState = 'OFF' | 'ACTIVE_LOCK' | 'WAITING_ACTIVE' | 'ACTIVE_ERROR' | 'BACKGROUND' | 'BACKGROUND_ERROR';
@@ -62,6 +64,12 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       <button className={locating ? 'on' : ''} aria-label="Me localiser"
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
       <button aria-label="Rechercher un lieu" onClick={onSearch}>🔍</button>
+      <button disabled={!native} aria-label="Prendre une photo"
+        onClick={() => {
+          Photo.take()
+            .then((r) => onToast(r.saved ? 'Photo enregistrée dans la galerie (album Assomoutain)' : 'Photo annulée'))
+            .catch((e) => onToast(String((e as Error).message ?? e)));
+        }}>📷</button>
       <button aria-label="Changer de fond de carte" onClick={onBaseLayer}>🗺</button>
       <button className={airplane ? 'on' : ''} disabled={!native} aria-label="Mode avion (sans réseau, Wi-Fi ni Bluetooth)"
         onClick={() => {
