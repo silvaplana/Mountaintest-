@@ -30,6 +30,8 @@ import { buildProfile, nearestD, pointAt } from './trails/profile';
 import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
+import { ShadeFilm } from './ShadeFilm';
+import { MNT_LAYER, mntTileUrl, mntTilesForZone } from './shade/dem';
 import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
 import { costLine, fetchWebHikes, hikeDetail, type WebHike } from './trails/webHikes';
@@ -67,6 +69,8 @@ export function App() {
   const [open, setOpen] = useState(true);
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
+  /** Film des ombres du relief (8 h → midi). */
+  const [showShade, setShowShade] = useState(false);
   const [searching, setSearching] = useState(false);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
   const [nature, setNature] = useState(false);
@@ -98,7 +102,7 @@ export function App() {
   // Hors ligne
   const [apiKey, setApiKey] = useState(DEFAULT_SCAN_KEY);
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
-  const [stored, setStored] = useState({ scan25: 0, planign: 0, scan25Bytes: 0, planignBytes: 0 });
+  const [stored, setStored] = useState({ scan25: 0, planign: 0, scan25Bytes: 0, planignBytes: 0, mnt: 0, mntBytes: 0 });
   const [downloading, setDownloading] = useState('');
   const abort = useRef<AbortController | null>(null);
 
@@ -291,7 +295,8 @@ export function App() {
   async function refreshStored() {
     const scan = await getTileStore(LAYERS.scan25);
     const plan = await getTileStore(LAYERS.planign);
-    setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes() });
+    const mnt = await getTileStore(MNT_LAYER);
+    setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes(), mnt: mnt.count(), mntBytes: mnt.bytes() });
   }
 
   /** Télécharge le rectangle choisi sur la carte, pour le fond affiché. */
@@ -314,12 +319,20 @@ export function App() {
       const res = await downloadTiles(store, tiles, (t) => wmtsTileUrl(layer, t.z, t.x, t.y, apiKey), setProgress, abort.current.signal);
       bench('download-end', { layer: layer.id, ...res });
     }
+    // Relief pour les ombres (zooms 10 à 14), pour calculer le film sans réseau.
+    if (!abort.current.signal.aborted) {
+      const store = await getTileStore(MNT_LAYER);
+      const tiles = mntTilesForZone(bbox);
+      setDownloading(`${MNT_LAYER.label}, pour les ombres`);
+      const res = await downloadTiles(store, tiles, mntTileUrl, setProgress, abort.current.signal);
+      bench('download-end', { layer: MNT_LAYER.id, ...res });
+    }
     setDownloading('');
     await refreshStored();
   }
 
   async function clearZone() {
-    for (const id of ['scan25', 'planign']) await (await getTileStore(LAYERS[id])).clear();
+    for (const l of [LAYERS.scan25, LAYERS.planign, MNT_LAYER]) await (await getTileStore(l)).clear();
     await refreshStored();
     setProgress(null);
   }
@@ -497,6 +510,7 @@ export function App() {
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined} />}
       {toast && <div className="toast">{toast}</div>}
+      {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
 
       {framing && map && <FrameOverlay map={map}
         onDone={(b) => {
@@ -521,6 +535,7 @@ export function App() {
           {(Object.keys(BASE_MODES) as BaseMode[]).map((k) => <option key={k} value={k}>{BASE_MODES[k]}</option>)}
         </select>
         <label><input type="checkbox" checked={showSlopes} onChange={(e) => setShowSlopes(e.target.checked)} /> Pentes</label>
+        <label><input type="checkbox" checked={showShade} onChange={(e) => setShowShade(e.target.checked)} /> Ombres</label>
       </div>
       )}
 
@@ -699,8 +714,8 @@ export function App() {
             </div>
             <p className="hint">« Tracer un rectangle » : trace du doigt le coin de la rando sur la carte, ses tuiles se téléchargent. Fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
               .map((p) => `${LAYERS[p.layer].label} z${p.minZoom}-${p.maxZoom}`).join(' + ')}.
-              En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}).</p>
-            <p className="hint"><b>Place prise sur le téléphone : {formatMo(stored.scan25Bytes + stored.planignBytes)}</b>. Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface.</p>
+              En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}), {stored.mnt} tuiles de relief pour les ombres ({formatMo(stored.mntBytes)}).</p>
+            <p className="hint"><b>Place prise sur le téléphone : {formatMo(stored.scan25Bytes + stored.planignBytes + stored.mntBytes)}</b>. Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface.</p>
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('horsligne'); setFraming(true); setOpen(false); }}>Tracer un rectangle</button>
             </div>

@@ -110,6 +110,8 @@ class MainActivity : AppCompatActivity() {
     private var offlineSummary = "—"
     private val replay by lazy { GpxReplay(this) }
     private val offline by lazy { OfflineDownloader(this) }
+    /** Film des ombres du relief (8 h → midi). */
+    private val shade by lazy { ShadeFilm(this, { map }, LAYER_FORESTS) }
     private val prefs by lazy { getSharedPreferences("reglages", MODE_PRIVATE) }
     private var apiKey = ""
 
@@ -214,6 +216,9 @@ class MainActivity : AppCompatActivity() {
         }
         setupSearch()
         findViewById<CheckBox>(R.id.chkSlopes).setOnCheckedChangeListener { _, checked -> slopes = checked; applySlopes() }
+        val chkShade = findViewById<CheckBox>(R.id.chkShade)
+        chkShade.setOnCheckedChangeListener { _, checked -> if (checked) shade.start() else shade.stop() }
+        shade.onClose = { chkShade.isChecked = false }
 
         // Boutons carte
         findViewById<ImageButton>(R.id.btnLocate).setOnClickListener { onLocateClicked() }
@@ -279,6 +284,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnDownload).setOnClickListener { framingForOffline = true; framingForForests = false; setFraming(true) }
         findViewById<Button>(R.id.btnCancel).setOnClickListener { offline.cancel(); setStatus("Téléchargement annulé.") }
         findViewById<Button>(R.id.btnClear).setOnClickListener {
+            Dem.clear(this)
             offline.clear { runOnUiThread { findViewById<ProgressBar>(R.id.progress).visibility = View.GONE; refreshOffline() } }
         }
 
@@ -321,6 +327,9 @@ class MainActivity : AppCompatActivity() {
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             top.forEach { v -> v.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + margin } }
             target.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + targetTop }
+            findViewById<View>(R.id.shadeBar).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
+                topMargin = bars.top + (64 * resources.displayMetrics.density).toInt()
+            }
             sheet.updatePadding(bottom = bars.bottom + margin)
             // Boussole sous les trois boutons permanents (◎ ✈ 👖), à droite.
             map?.uiSettings?.setCompassMargins(0, bars.top + (260 * resources.displayMetrics.density).toInt(), margin, 0)
@@ -372,6 +381,7 @@ class MainActivity : AppCompatActivity() {
             style.addLayer(CircleLayer("target", SRC_TARGET).withProperties(
                 circleRadius(9f), circleColor("#c0392b"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             applySlopes()
+            shade.onStyleLoaded()
             drawImported(fit = false)
             drawTrails(fit = false)
             drawWebHikes()
@@ -900,6 +910,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.frameBanner).visibility = if (on) View.VISIBLE else View.GONE
         findViewById<View>(R.id.topBar).visibility = if (on) View.GONE else View.VISIBLE
         findViewById<View>(R.id.targetBar).visibility = if (!on && target != null) View.VISIBLE else View.GONE
+        shade.setBarVisible(!on)
         if (on) { sheetOpen = false; refreshTabs() }
     }
 
@@ -1327,11 +1338,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshOffline() {
         findViewById<Button>(R.id.btnNetwork).text = if (online) "Réseau : actif" else "Réseau : coupé"
-        offline.summary { s -> runOnUiThread {
+        val (mntTiles, mntBytes) = Dem.stored(this)
+        offline.summary { s0 -> runOnUiThread {
+            val s = "$s0 ; relief pour les ombres : $mntTiles tuiles, ${mo(mntBytes)}"
             offlineSummary = s
             findViewById<TextView>(R.id.offlineHint).text =
                 "« Tracer un rectangle » : trace du doigt le coin de la rando sur la carte, ses tuiles se téléchargent. Fond affiché (${mapMode.label}) : ${mapMode.offlinePlan()}.\nEn stock : $s.\n" +
-                "Place prise sur le téléphone : ${mo(offline.databaseBytes())} (tuiles téléchargées + tuiles vues). " +
+                "Place prise sur le téléphone : ${mo(offline.databaseBytes() + mntBytes)} (tuiles téléchargées + tuiles vues + relief). " +
                 "Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface."
         } }
     }
@@ -1348,13 +1361,34 @@ class MainActivity : AppCompatActivity() {
         val info = findViewById<TextView>(R.id.offlineInfo)
         bar.visibility = View.VISIBLE; bar.progress = 0
         info.text = "Préparation…"
+        var reliefStarted = false
         offline.download(mapMode, apiKey, bounds) { p -> runOnUiThread {
             if (p.error != null) { info.text = "Erreur : ${p.error}"; return@runOnUiThread }
             bar.max = p.total.toInt().coerceAtLeast(1)
             bar.progress = p.done.toInt()
             info.text = "${p.done}/${p.total} éléments, ${p.bytes / 100_000 / 10.0} Mo, ${p.seconds} s" + if (p.finished) " : terminé" else ""
-            if (p.finished) refreshOffline()
+            if (p.finished && !reliefStarted) { reliefStarted = true; downloadRelief(bounds) }
         } }
+    }
+
+    /** Relief pour les ombres (zooms 10 à 14), pour calculer le film sans réseau. */
+    private fun downloadRelief(b: LatLngBounds) {
+        val info = findViewById<TextView>(R.id.offlineInfo)
+        val bar = findViewById<ProgressBar>(R.id.progress)
+        val tiles = Dem.tilesForZone(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth)
+        val before = info.text.toString()
+        bar.max = tiles.size; bar.progress = 0
+        lifecycleScope.launch {
+            var failed = 0
+            tiles.forEachIndexed { i, (z, x, y) ->
+                val ok = withContext(Dispatchers.IO) { Dem.loadTile(this@MainActivity, z, x, y) != null }
+                if (!ok) failed++
+                bar.progress = i + 1
+                info.text = "$before\nRelief pour les ombres : ${i + 1}/${tiles.size} tuiles" + if (failed > 0) ", $failed échecs" else ""
+            }
+            info.text = info.text.toString() + " : terminé"
+            refreshOffline()
+        }
     }
 
     private fun testKey() {

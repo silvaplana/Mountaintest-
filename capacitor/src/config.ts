@@ -38,8 +38,8 @@ export interface LayerDef {
   id: string;
   label: string;
   wmtsLayer: string;
-  format: 'image/jpeg' | 'image/png';
-  ext: 'jpg' | 'png';
+  format: 'image/jpeg' | 'image/png' | 'image/x-bil;bits=32';
+  ext: 'jpg' | 'png' | 'bil';
   /** true : flux privé data.geopf.fr/private/wmts, clé obligatoire. */
   needsKey: boolean;
   maxNativeZoom: number;
