@@ -13,7 +13,21 @@ type WatchState = 'OFF' | 'ACTIVE_LOCK' | 'WAITING_ACTIVE' | 'ACTIVE_ERROR' | 'B
  * Boutons toujours visibles sur la carte, même en mode nature : me localiser, mode avion, mode poche.
  * Android interdit à une appli de basculer le mode avion : le bouton montre son état et ouvre le réglage.
  */
-export function QuickButtons({ geo, onToast, onDraw }: { geo: GeolocateControl | null; onToast: (msg: string) => void; onDraw?: () => void }) {
+export interface QuickProps {
+  geo: GeolocateControl | null;
+  onToast: (msg: string) => void;
+  onDraw?: () => void;
+  onSearch: () => void;
+  slopes: boolean; onSlopes: (on: boolean) => void;
+  shade: boolean; onShade: (on: boolean) => void;
+}
+
+const HIDDEN_KEY = 'iconesCachees';
+
+export function QuickButtons({ geo, onToast, onDraw, onSearch, slopes, onSlopes, shade, onShade }: QuickProps) {
+  // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
+  const [hidden, setHiddenState] = useState(() => { try { return localStorage.getItem(HIDDEN_KEY) === '1'; } catch { return false; } });
+  const setHidden = (v: boolean) => { setHiddenState(v); try { localStorage.setItem(HIDDEN_KEY, v ? '1' : '0'); } catch { /* ignoré */ } };
   const native = Capacitor.isNativePlatform();
   const [watch, setWatch] = useState<WatchState>('OFF');
   const [airplane, setAirplane] = useState(false);
@@ -42,8 +56,11 @@ export function QuickButtons({ geo, onToast, onDraw }: { geo: GeolocateControl |
   const locating = watch !== 'OFF';
   return (
     <div className="quick">
+      <button className="toggle" aria-label={hidden ? 'Afficher les icônes' : 'Cacher les icônes'} onClick={() => setHidden(!hidden)}>{hidden ? '▾' : '▴'}</button>
+      {!hidden && <>
       <button className={locating ? 'on' : ''} aria-label="Me localiser"
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
+      <button aria-label="Rechercher un lieu" onClick={onSearch}>🔍</button>
       <button className={airplane ? 'on' : ''} disabled={!native} aria-label="Mode avion (sans réseau, Wi-Fi ni Bluetooth)"
         onClick={() => {
           onToast(airplane ? 'Désactive le mode avion' : 'Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.');
@@ -57,6 +74,9 @@ export function QuickButtons({ geo, onToast, onDraw }: { geo: GeolocateControl |
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" onClick={onDraw}>✏</button>
+      <button className={slopes ? 'on' : ''} aria-label="Pentes" onClick={() => onSlopes(!slopes)}>⛰</button>
+      <button className={shade ? 'on' : ''} aria-label="Ombres du relief" onClick={() => onShade(!shade)}>🌗</button>
+      </>}
     </div>
   );
 }

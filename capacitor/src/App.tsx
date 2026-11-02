@@ -508,7 +508,9 @@ export function App() {
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
-      {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined} />}
+      {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
+        onSearch={() => { setNature(false); setSearching(true); }}
+        slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade} />}
       {toast && <div className="toast">{toast}</div>}
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
 

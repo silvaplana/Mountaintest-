@@ -146,8 +146,10 @@ class MainActivity : AppCompatActivity() {
             map = m
             m.setMaxZoomPreference(Scenario.MAX_DISPLAY_ZOOM)
             m.uiSettings.isAttributionEnabled = true
-            m.uiSettings.setCompassMargins(0, compassTop.takeIf { it > 0 } ?: (260 * resources.displayMetrics.density).toInt(),
-                (10 * resources.displayMetrics.density).toInt(), 0)
+            findViewById<View>(R.id.quickButtons).let { qb ->
+                m.uiSettings.setCompassMargins(0, qb.bottom + (8 * resources.displayMetrics.density).toInt(),
+                    (10 * resources.displayMetrics.density).toInt(), 0)
+            }
             // Rouvre la carte là où on l'avait laissée (sinon La Ciotat, valeur du layout).
             if (prefs.contains("vueLat")) m.moveCamera(CameraUpdateFactory.newLatLngZoom(
                 LatLng(prefs.getFloat("vueLat", 43.172f).toDouble(), prefs.getFloat("vueLon", 5.6f).toDouble()),
@@ -215,9 +217,9 @@ class MainActivity : AppCompatActivity() {
             loadStyle(); refreshOffline()
         }
         setupSearch()
-        findViewById<CheckBox>(R.id.chkSlopes).setOnCheckedChangeListener { _, checked -> slopes = checked; applySlopes() }
+        findViewById<CheckBox>(R.id.chkSlopes).setOnCheckedChangeListener { _, checked -> slopes = checked; applySlopes(); refreshQuickButtons() }
         val chkShade = findViewById<CheckBox>(R.id.chkShade)
-        chkShade.setOnCheckedChangeListener { _, checked -> if (checked) shade.start() else shade.stop() }
+        chkShade.setOnCheckedChangeListener { _, checked -> if (checked) shade.start() else shade.stop(); refreshQuickButtons() }
         shade.onClose = { chkShade.isChecked = false }
 
         // Boutons carte
@@ -248,6 +250,26 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnImport).setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
         mapOf(R.id.btnAvion to "avion", R.id.btnWifi to "wifi", R.id.btnDonnees to "donnees", R.id.btnBluetooth to "bluetooth")
             .forEach { (id, what) -> findViewById<Button>(id).setOnClickListener { BatterySettings.open(this, what) } }
+        // Flèche en haut à droite : affiche ou cache toutes les icônes (choix retenu).
+        findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
+            prefs.edit().putBoolean("iconesCachees", !prefs.getBoolean("iconesCachees", false)).apply()
+            refreshQuickButtons()
+        }
+        findViewById<Button>(R.id.btnQuickSearch).setOnClickListener {
+            setNature(false)
+            findViewById<ImageButton>(R.id.btnSearch).performClick()
+        }
+        findViewById<Button>(R.id.btnQuickSlopes).setOnClickListener {
+            findViewById<CheckBox>(R.id.chkSlopes).apply { isChecked = !isChecked }
+        }
+        findViewById<Button>(R.id.btnQuickShade).setOnClickListener {
+            findViewById<CheckBox>(R.id.chkShade).apply { isChecked = !isChecked }
+        }
+        // Boussole juste sous la colonne d'icônes, qu'elle soit ouverte ou repliée.
+        findViewById<View>(R.id.quickButtons).addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+            map?.uiSettings?.setCompassMargins(0, v.bottom + (8 * resources.displayMetrics.density).toInt(),
+                (10 * resources.displayMetrics.density).toInt(), 0)
+        }
         findViewById<Button>(R.id.btnQuickAvion).setOnClickListener {
             toast(if (airplaneOn()) "Désactive le mode avion" else "Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.")
             BatterySettings.open(this, "avion")
@@ -314,8 +336,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Android 15 dessine sous les barres système : on décale le haut et le bas de l'interface. */
-    private var compassTop = 0
-
     private fun applyInsets() {
         val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.quickButtons), findViewById<View>(R.id.searchPanel),
             findViewById<View>(R.id.frameBanner))
@@ -331,9 +351,6 @@ class MainActivity : AppCompatActivity() {
                 topMargin = bars.top + (64 * resources.displayMetrics.density).toInt()
             }
             sheet.updatePadding(bottom = bars.bottom + margin)
-            // Boussole sous les trois boutons permanents (◎ ✈ 👖), à droite.
-            map?.uiSettings?.setCompassMargins(0, bars.top + (260 * resources.displayMetrics.density).toInt(), margin, 0)
-            compassTop = bars.top + (260 * resources.displayMetrics.density).toInt()
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
             insets
         }
@@ -1460,6 +1477,11 @@ class MainActivity : AppCompatActivity() {
             setTextColor(if (on) Color.WHITE else Color.parseColor("#1D2421"))
         }
         paint(R.id.btnQuickAvion, airplaneOn())
+        paint(R.id.btnQuickSlopes, slopes)
+        paint(R.id.btnQuickShade, findViewById<CheckBox>(R.id.chkShade).isChecked)
+        val hidden = prefs.getBoolean("iconesCachees", false)
+        findViewById<View>(R.id.quickIcons).visibility = if (hidden) View.GONE else View.VISIBLE
+        findViewById<Button>(R.id.btnQuickToggle).text = if (hidden) "▾" else "▴"
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
     }
     override fun onPause() { mapView.onPause(); super.onPause() }
