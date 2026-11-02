@@ -146,6 +146,9 @@ class MainActivity : AppCompatActivity() {
             map = m
             m.setMaxZoomPreference(Scenario.MAX_DISPLAY_ZOOM)
             m.uiSettings.isAttributionEnabled = true
+            // Carte toujours nord en haut : pas de rotation, donc pas de boussole (demande de Seb).
+            m.uiSettings.isRotateGesturesEnabled = false
+            m.uiSettings.isCompassEnabled = false
             findViewById<View>(R.id.quickButtons).let { qb ->
                 m.uiSettings.setCompassMargins(0, qb.bottom + (8 * resources.displayMetrics.density).toInt(),
                     (10 * resources.displayMetrics.density).toInt(), 0)
@@ -215,6 +218,10 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putString("mapMode", mapMode.name).apply()
             btnLayer.text = "${mapMode.label} ▾"
             loadStyle(); refreshOffline()
+        }
+        findViewById<Button>(R.id.btnQuickLayer).setOnClickListener {
+            btnLayer.performClick()
+            toast("Fond de carte : ${mapMode.label}")
         }
         setupSearch()
         findViewById<CheckBox>(R.id.chkSlopes).setOnCheckedChangeListener { _, checked -> slopes = checked; applySlopes(); refreshQuickButtons() }
@@ -340,7 +347,7 @@ class MainActivity : AppCompatActivity() {
         val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.quickButtons), findViewById<View>(R.id.searchPanel),
             findViewById<View>(R.id.frameBanner))
         val target = findViewById<View>(R.id.targetBar)
-        val targetTop = (66 * resources.displayMetrics.density).toInt()
+        val targetTop = (10 * resources.displayMetrics.density).toInt()
         val sheet = findViewById<View>(R.id.sheet)
         val margin = (10 * resources.displayMetrics.density).toInt()
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
@@ -461,7 +468,7 @@ class MainActivity : AppCompatActivity() {
         val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
         fun close() {
             imm.hideSoftInputFromWindow(text.windowToken, 0)
-            panel.visibility = View.GONE; topBar.visibility = View.VISIBLE
+            panel.visibility = View.GONE // la barre du haut reste cachée (demande de Seb)
             text.setText(""); findViewById<android.widget.LinearLayout>(R.id.searchResults).removeAllViews()
         }
         findViewById<ImageButton>(R.id.btnSearch).setOnClickListener {
@@ -673,7 +680,7 @@ class MainActivity : AppCompatActivity() {
             v.visibility = View.GONE
         } else ids.forEach { id -> findViewById<View>(id).visibility = hiddenInNature[id] ?: View.VISIBLE }
         findViewById<View>(R.id.btnRestore).visibility = if (on) View.VISIBLE else View.GONE
-        map?.uiSettings?.isCompassEnabled = !on
+        map?.uiSettings?.isCompassEnabled = false
     }
 
     // ---------- Versions ----------
@@ -925,7 +932,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.quickButtons).visibility = if (on) View.GONE else View.VISIBLE
         draw.visibility = if (on) View.VISIBLE else View.GONE
         findViewById<View>(R.id.frameBanner).visibility = if (on) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.topBar).visibility = if (on) View.GONE else View.VISIBLE
         findViewById<View>(R.id.targetBar).visibility = if (!on && target != null) View.VISIBLE else View.GONE
         shade.setBarVisible(!on)
         if (on) { sheetOpen = false; refreshTabs() }

@@ -510,6 +510,12 @@ export function App() {
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
         onSearch={() => { setNature(false); setSearching(true); }}
+        onBaseLayer={() => {
+          // Fond de carte : Carte auto → SCAN 25 → Plan IGN → …
+          const keys = Object.keys(BASE_MODES) as BaseMode[];
+          const next = keys[(keys.indexOf(baseLayer) + 1) % keys.length];
+          setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
+        }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade} />}
       {toast && <div className="toast">{toast}</div>}
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
@@ -530,16 +536,7 @@ export function App() {
           map?.flyTo({ center: [p.lon, p.lat], zoom: p.zoom, duration: 1500 });
           setTarget({ lon: p.lon, lat: p.lat, label: p.label });
         }} />
-      ) : (
-      <div className="layers">
-        <button className="icon" onClick={() => setSearching(true)} aria-label="Rechercher un lieu">🔍</button>
-        <select value={baseLayer} onChange={(e) => setBaseLayer(e.target.value as BaseMode)}>
-          {(Object.keys(BASE_MODES) as BaseMode[]).map((k) => <option key={k} value={k}>{BASE_MODES[k]}</option>)}
-        </select>
-        <label><input type="checkbox" checked={showSlopes} onChange={(e) => setShowSlopes(e.target.checked)} /> Pentes</label>
-        <label><input type="checkbox" checked={showShade} onChange={(e) => setShowShade(e.target.checked)} /> Ombres</label>
-      </div>
-      )}
+      ) : null}
 
       {target && !searching && (
         <div className="target">

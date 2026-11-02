@@ -18,13 +18,14 @@ export interface QuickProps {
   onToast: (msg: string) => void;
   onDraw?: () => void;
   onSearch: () => void;
+  onBaseLayer: () => void;
   slopes: boolean; onSlopes: (on: boolean) => void;
   shade: boolean; onShade: (on: boolean) => void;
 }
 
 const HIDDEN_KEY = 'iconesCachees';
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, slopes, onSlopes, shade, onShade }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [hidden, setHiddenState] = useState(() => { try { return localStorage.getItem(HIDDEN_KEY) === '1'; } catch { return false; } });
   const setHidden = (v: boolean) => { setHiddenState(v); try { localStorage.setItem(HIDDEN_KEY, v ? '1' : '0'); } catch { /* ignoré */ } };
@@ -61,6 +62,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, slopes, onSlopes,
       <button className={locating ? 'on' : ''} aria-label="Me localiser"
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
       <button aria-label="Rechercher un lieu" onClick={onSearch}>🔍</button>
+      <button aria-label="Changer de fond de carte" onClick={onBaseLayer}>🗺</button>
       <button className={airplane ? 'on' : ''} disabled={!native} aria-label="Mode avion (sans réseau, Wi-Fi ni Bluetooth)"
         onClick={() => {
           onToast(airplane ? 'Désactive le mode avion' : 'Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.');

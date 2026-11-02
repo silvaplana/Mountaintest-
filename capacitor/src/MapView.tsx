@@ -108,7 +108,9 @@ export function MapView(props: MapViewProps) {
         ],
       },
     });
-    m.addControl(new maplibregl.NavigationControl({ showZoom: false, showCompass: true, visualizePitch: false }), 'top-right');
+    // Carte toujours nord en haut : pas de rotation, donc pas de boussole (demande de Seb).
+    m.dragRotate.disable();
+    m.touchZoomRotate.disableRotation();
     // Bouton « me localiser » : 1er appui centre sur ma position et la suit, 2e appui arrête.
     // Le GPS du téléphone ne tourne que tant que le bouton est actif (et jamais appli en arrière-plan).
     const geo = new maplibregl.GeolocateControl({
