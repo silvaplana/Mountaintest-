@@ -9,6 +9,16 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 /** Expose PocketMode au JavaScript : PocketMode.get() → { on }, PocketMode.set({ on }). */
 @CapacitorPlugin(name = "PocketMode")
 public class PocketModePlugin extends Plugin {
+    /** Écran noir / rallumé : prévient le JavaScript (événement « pocket », { black }). */
+    @Override
+    public void load() {
+        PocketMode.setListener(black -> {
+            JSObject r = new JSObject();
+            r.put("black", black);
+            notifyListeners("pocket", r);
+        });
+    }
+
     @PluginMethod
     public void get(PluginCall call) {
         JSObject r = new JSObject();

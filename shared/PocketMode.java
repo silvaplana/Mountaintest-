@@ -42,6 +42,11 @@ public final class PocketMode implements SensorEventListener {
 
     private static PocketMode instance;
 
+    /** Prévenu quand l'écran passe au noir (true) ou se rallume (false) : l'appli coupe alors le GPS d'affichage. */
+    public interface Listener { void onPocket(boolean black); }
+    private static Listener listener;
+    public static void setListener(Listener l) { listener = l; }
+
     private final Activity activity;
     private final SensorManager sensors;
     private final PowerManager power;
@@ -168,6 +173,7 @@ public final class PocketMode implements SensorEventListener {
 
     private void goBlack() {
         black = true;
+        if (listener != null) listener.onPocket(true);
         if (overlay == null) {
             FrameLayout f = new FrameLayout(activity);
             f.setBackgroundColor(Color.BLACK);
@@ -194,6 +200,7 @@ public final class PocketMode implements SensorEventListener {
     private void wake() {
         if (!black) return;
         black = false;
+        if (listener != null) listener.onPocket(false);
         uprightSince = 0;
         if (overlay != null && overlay.getParent() != null) ((ViewGroup) overlay.getParent()).removeView(overlay);
         WindowManager.LayoutParams lp = activity.getWindow().getAttributes();

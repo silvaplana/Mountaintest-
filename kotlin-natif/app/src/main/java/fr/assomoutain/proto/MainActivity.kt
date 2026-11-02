@@ -101,6 +101,7 @@ class MainActivity : AppCompatActivity() {
     private var gpsRunning = false
     private var follow = true
     private var locating = false
+    private var pocketPausedLocate = false
     private var sheetOpen = false // l'appli démarre menu fermé
     private var tab = Tab.SORTIE
     private var startupMs: Long? = null
@@ -344,6 +345,12 @@ class MainActivity : AppCompatActivity() {
         Updater.init(this, "kotlin")
         // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
         PocketMode.init(this)
+        // Écran noir dans la poche : on coupe le GPS du bouton ◎ (gros consommateur) et on le relance au réveil.
+        // L'enregistrement d'une sortie (service à part) continue, sinon la trace aurait des trous.
+        PocketMode.setListener { black ->
+            if (black && locating) { pocketPausedLocate = true; stopLocate() }
+            else if (!black && pocketPausedLocate) { pocketPausedLocate = false; startLocate() }
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {

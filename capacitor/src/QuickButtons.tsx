@@ -4,7 +4,10 @@ import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
 /** Plugins natifs (android/.../PocketMode.java et BatterySettings.java, identiques côté Kotlin). */
-const PocketMode = registerPlugin<{ get(): Promise<{ on: boolean }>; set(o: { on: boolean }): Promise<{ on: boolean }> }>('PocketMode');
+const PocketMode = registerPlugin<{
+  get(): Promise<{ on: boolean }>; set(o: { on: boolean }): Promise<{ on: boolean }>;
+  addListener(e: 'pocket', f: (r: { black: boolean }) => void): Promise<{ remove: () => Promise<void> }>;
+}>('PocketMode');
 /** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : appareil photo puis retour à la carte. */
 const Photo = registerPlugin<{ take(): Promise<{ saved: boolean }> }>('Photo');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
@@ -44,6 +47,24 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
     read();
     return () => evts.forEach((e) => geo.off(e, read));
   }, [geo]);
+
+  // Écran noir dans la poche : on coupe le GPS du bouton ◎ (gros consommateur) et on le relance au réveil.
+  // L'enregistrement d'une sortie, lui, continue (sinon la trace aurait des trous).
+  useEffect(() => {
+    if (!native || !geo) return;
+    const state = () => (geo as unknown as { _watchState?: WatchState })._watchState ?? 'OFF';
+    let paused = false;
+    const sub = PocketMode.addListener('pocket', ({ black }) => {
+      if (black && state() !== 'OFF') {
+        paused = true;
+        for (let i = 0; i < 2 && state() !== 'OFF'; i++) void geo.trigger();
+      } else if (!black && paused) {
+        paused = false;
+        if (state() === 'OFF') void geo.trigger();
+      }
+    });
+    return () => { void sub.then((s) => s.remove()); };
+  }, [native, geo]);
 
   useEffect(() => {
     if (!native) return;
