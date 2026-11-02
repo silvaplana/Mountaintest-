@@ -1487,7 +1487,7 @@ class MainActivity : AppCompatActivity() {
         paint(R.id.btnQuickShade, findViewById<CheckBox>(R.id.chkShade).isChecked)
         val hidden = prefs.getBoolean("iconesCachees", false)
         findViewById<View>(R.id.quickIcons).visibility = if (hidden) View.GONE else View.VISIBLE
-        findViewById<Button>(R.id.btnQuickToggle).text = if (hidden) "▾" else "▴"
+        findViewById<Button>(R.id.btnQuickToggle).text = if (hidden) "◂" else "▸"
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
     }
     override fun onPause() { mapView.onPause(); super.onPause() }

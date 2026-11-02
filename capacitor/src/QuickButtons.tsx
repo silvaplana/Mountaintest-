@@ -57,7 +57,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   const locating = watch !== 'OFF';
   return (
     <div className="quick">
-      <button className="toggle" aria-label={hidden ? 'Afficher les icônes' : 'Cacher les icônes'} onClick={() => setHidden(!hidden)}>{hidden ? '▾' : '▴'}</button>
+      <button className="toggle" aria-label={hidden ? 'Afficher les icônes' : 'Cacher les icônes'} onClick={() => setHidden(!hidden)}>{hidden ? '◂' : '▸'}</button>
       {!hidden && <>
       <button className={locating ? 'on' : ''} aria-label="Me localiser"
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
