@@ -441,6 +441,11 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
+            <!-- Croix à gauche : à droite elle gênait les icônes de la carte -->
+            <Button android:id="@+id/btnNature" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="40dp" android:layout_height="wrap_content"
+                android:contentDescription="Masquer l'interface (mode nature)" android:text="✕"
+                android:textColor="@color/muted" android:textSize="18sp" />
             <Button android:id="@+id/tabSortie" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="1"
                 android:minWidth="0dp" android:paddingStart="2dp" android:paddingEnd="2dp" android:maxLines="2"
@@ -465,10 +470,6 @@
                 android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="1"
                 android:minWidth="0dp" android:paddingStart="2dp" android:paddingEnd="2dp" android:maxLines="2"
                 android:text="Versions" android:textAllCaps="false" android:textSize="13sp" />
-            <Button android:id="@+id/btnNature" style="@style/Widget.AppCompat.Button.Borderless"
-                android:layout_width="40dp" android:layout_height="wrap_content"
-                android:contentDescription="Masquer l'interface (mode nature)" android:text="✕"
-                android:textColor="@color/muted" android:textSize="18sp" />
         </LinearLayout>
 
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/line" />

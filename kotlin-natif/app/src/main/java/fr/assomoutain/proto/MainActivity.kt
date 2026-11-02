@@ -101,7 +101,7 @@ class MainActivity : AppCompatActivity() {
     private var gpsRunning = false
     private var follow = true
     private var locating = false
-    private var sheetOpen = true
+    private var sheetOpen = false // l'appli démarre menu fermé
     private var tab = Tab.SORTIE
     private var startupMs: Long? = null
     private var drawnPoints = -1

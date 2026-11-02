@@ -66,7 +66,7 @@ function formatMo(bytes: number) { return `${(bytes / 1e6).toFixed(1).replace('.
 
 export function App() {
   const [tab, setTab] = useState<Tab>('sortie');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false); // l'appli démarre menu fermé
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   /** Film des ombres du relief (8 h → midi). */
@@ -549,12 +549,12 @@ export function App() {
       <section className={`sheet ${open ? 'open' : ''}`}>
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
+          <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
           {(['sortie', 'randos', 'forets', 'horsligne', 'mesures', 'versions'] as Tab[]).map((t) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setOpen(true); void refreshStored(); }}>
               {{ sortie: 'Sortie', randos: 'Randos', forets: 'Forêts', horsligne: 'Hors ligne', mesures: 'Mesures', versions: 'Versions' }[t]}
             </button>
           ))}
-          <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
         </nav>
 
         {open && tab === 'sortie' && (
