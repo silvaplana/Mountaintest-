@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gros bouton du curseur des ombres, facile à attraper au doigt -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#2F6F4F" />
+    <stroke android:width="3dp" android:color="#FFFFFF" />
+    <size android:width="32dp" android:height="32dp" />
+</shape>

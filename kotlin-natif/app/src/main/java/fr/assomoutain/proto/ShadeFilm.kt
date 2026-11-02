@@ -70,6 +70,13 @@ class ShadeFilm(
     init {
         activity.findViewById<Button>(R.id.shadeClose).setOnClickListener { onClose?.invoke() }
         play.setOnClickListener { if (playJob != null) stopPlaying() else startPlaying() }
+        // − / + : une image, soit 30 min.
+        activity.findViewById<Button>(R.id.shadeMinus).setOnClickListener {
+            if (frames.isNotEmpty()) { stopPlaying(); show((minOf(idx, frames.size - 1) - 1).coerceAtLeast(0)) }
+        }
+        activity.findViewById<Button>(R.id.shadePlus).setOnClickListener {
+            if (frames.isNotEmpty()) { stopPlaying(); show((idx + 1).coerceAtMost(frames.size - 1)) }
+        }
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { if (fromUser) { stopPlaying(); show(p) } }
             override fun onStartTrackingTouch(sb: SeekBar?) {}

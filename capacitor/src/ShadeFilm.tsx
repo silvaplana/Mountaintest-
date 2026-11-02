@@ -146,11 +146,18 @@ export function ShadeFilm({ map, hidden, onClose }: { map: MlMap; hidden?: boole
           : '☾ soleil couché') : msg}</span>
         <button onClick={onClose} aria-label="Fermer les ombres">✕</button>
       </div>
+      {/* Curseur large, avec − / + pour reculer ou avancer de 30 min (une image). */}
+      <div className="row shade-slider">
+        <button className="step" disabled={!frames.length} aria-label="30 min plus tôt"
+          onClick={() => { setPlaying(false); setIdx((i) => Math.max(0, Math.min(i, frames.length - 1) - 1)); }}>−</button>
+        <input type="range" className="big" min={0} max={Math.max(0, frames.length - 1)} value={Math.min(idx, Math.max(0, frames.length - 1))} disabled={!frames.length}
+          onChange={(e) => { setPlaying(false); setIdx(Number(e.target.value)); }} />
+        <button className="step" disabled={!frames.length} aria-label="30 min plus tard"
+          onClick={() => { setPlaying(false); setIdx((i) => Math.min(frames.length - 1, i + 1)); }}>+</button>
+      </div>
       <div className="row">
         <button className="play" disabled={frames.length < 2} onClick={() => setPlaying(!playing)}
           aria-label={playing ? 'Pause' : 'Lire le film'}>{playing ? '⏸' : '▶'}</button>
-        <input type="range" min={0} max={Math.max(0, frames.length - 1)} value={Math.min(idx, Math.max(0, frames.length - 1))} disabled={!frames.length}
-          onChange={(e) => { setPlaying(false); setIdx(Number(e.target.value)); }} />
         <input type="date" value={day} onChange={(e) => { if (e.target.value) setDay(e.target.value); }} />
       </div>
       {f && msg && <p className="hint">{msg}</p>}
