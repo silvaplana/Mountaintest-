@@ -55,6 +55,7 @@ async function ignRoute(from: [number, number], to: [number, number], optimizati
   });
   if (noMotorway) q.set('constraints', SANS_AUTOROUTE);
   const res = await fetch(`${ITINERAIRE}?${q}`, { signal });
+  if (res.status === 404 || res.status === 400) throw new Error('aucun chemin : le départ et l’arrivée doivent être en France, près d’une route');
   if (!res.ok) throw new Error(`itinéraire IGN : HTTP ${res.status}`);
   return (await res.json()) as IgnRoute;
 }

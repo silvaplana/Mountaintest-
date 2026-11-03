@@ -1585,14 +1585,34 @@ class MainActivity : AppCompatActivity() {
         if (travelPanel != null) return
         sheetOpen = false; refreshTabs()
         val loc = runCatching { map?.locationComponent?.lastKnownLocation }.getOrNull()
-        val c = map?.cameraPosition?.target
-        val here = if (loc != null) Spot("Ma position", loc.longitude, loc.latitude)
-            else Spot("Centre de la carte", c?.longitude ?: 5.6, c?.latitude ?: 43.17)
+        val here = loc?.let { Spot("Ma position", it.longitude, it.latitude) }
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
-        val p = TravelPanel(this, prefs, here, password, onRoutes = { r, i -> drawTravel(r, i) }, onClose = { closeTravel() })
+        val p = TravelPanel(this, prefs, here, password, locate = { cb -> locateOnce(cb) }, onRoutes = { r, i -> drawTravel(r, i) }, onClose = { closeTravel() })
         travelPanel = p
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+    }
+
+    /** Une position GPS pour le départ du voyage : la dernière connue (moins de 10 min), sinon une mesure fraîche. */
+    @SuppressLint("MissingPermission")
+    private fun locateOnce(cb: (Spot?) -> Unit) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            cb(null); return
+        }
+        val lm = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
+        val fresh = listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)
+            .mapNotNull { runCatching { lm.getLastKnownLocation(it) }.getOrNull() }
+            .filter { System.currentTimeMillis() - it.time < 600_000 }.maxByOrNull { it.time }
+        if (fresh != null) { cb(Spot("Ma position", fresh.longitude, fresh.latitude)); return }
+        val provider = if (lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)) android.location.LocationManager.NETWORK_PROVIDER
+            else android.location.LocationManager.GPS_PROVIDER
+        if (Build.VERSION.SDK_INT >= 30) {
+            lm.getCurrentLocation(provider, null, mainExecutor) { l -> cb(l?.let { Spot("Ma position", it.longitude, it.latitude) }) }
+        } else {
+            @Suppress("DEPRECATION")
+            lm.requestSingleUpdate(provider, { l -> cb(Spot("Ma position", l.longitude, l.latitude)) }, mainLooper)
+        }
     }
 
     private fun closeTravel() {

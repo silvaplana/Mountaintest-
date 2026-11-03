@@ -548,8 +548,7 @@ export function App() {
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
         onTravel={() => { setTravel(true); setOpen(false); setSearching(false); }} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
-        here={position ? { label: 'Ma position', lon: position.lon, lat: position.lat }
-          : { label: 'Centre de la carte', lon: map?.getCenter().lng ?? 5.6, lat: map?.getCenter().lat ?? 43.17 }}
+        here={position ? { label: 'Ma position', lon: position.lon, lat: position.lat } : null}
         routes={travelRoutes} selected={travelSel}
         onRoutes={(r, i) => { setTravelRoutes(r); setTravelSel(i); }}
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}

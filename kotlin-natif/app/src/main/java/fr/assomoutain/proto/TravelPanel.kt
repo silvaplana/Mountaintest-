@@ -40,8 +40,10 @@ data class Spot(val label: String, val lon: Double, val lat: Double)
 class TravelPanel(
     private val a: AppCompatActivity,
     private val prefs: SharedPreferences,
-    here: Spot,
+    here: Spot?,
     private val password: String,
+    /** Demande une position GPS (null si introuvable). */
+    private val locate: ((Spot?) -> Unit) -> Unit,
     private val onRoutes: (List<CarRoute>, Int) -> Unit,
     private val onClose: () -> Unit,
 ) {
@@ -99,7 +101,8 @@ class TravelPanel(
     }
 
     /** Champ de lieu avec suggestions (Géoplateforme IGN). */
-    private fun placeField(label: String, initial: Spot?, set: (Spot?) -> Unit) {
+    /** Renvoie de quoi y mettre un lieu par programme (ex. « Ma position »). */
+    private fun placeField(label: String, initial: Spot?, set: (Spot?) -> Unit): (Spot) -> Unit {
         formBox.addView(text(label))
         val box = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
         val input = EditText(a).apply { setText(initial?.label ?: ""); hint = "Ville, adresse, lieu…"; isSingleLine = true }
@@ -127,6 +130,7 @@ class TravelPanel(
             }
         })
         formBox.addView(input, lp(0)); formBox.addView(box)
+        return { sp -> chosen = sp.label; job?.cancel(); box.removeAllViews(); input.setText(sp.label); set(sp) }
     }
 
     private fun save() = prefs.edit().putString("voyageVoiture", car.text.toString())
@@ -148,7 +152,18 @@ class TravelPanel(
                 LinearLayout.LayoutParams(0, -2, 1f))
             addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
         })
-        placeField("Départ", from) { from = it }
+        val setDepart = placeField("Départ", from) { from = it }
+        formBox.addView(Button(a).apply {
+            text = "📍 Partir de ma position"
+            setOnClickListener {
+                text = "Recherche de ma position…"; isEnabled = false; error.text = ""
+                locate { s ->
+                    text = "📍 Partir de ma position"; isEnabled = true
+                    if (s == null) error.text = "Position GPS introuvable : tape le lieu de départ"
+                    else setDepart(s)
+                }
+            }
+        }, LinearLayout.LayoutParams(-2, -2))
         placeField("Arrivée", null) { to = it }
         formBox.addView(CheckBox(a).apply {
             text = "Autoroutes à péage permises"
@@ -249,7 +264,7 @@ class TravelPanel(
         a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { Travel.carRoutes(f.lon, f.lat, t.lon, t.lat, prefs.getBoolean("voyagePeages", true)) } }
                 .onSuccess { routes = it; selected = 0; showRoutes(); fold(true); onRoutes(routes, 0) }
-                .onFailure { error.text = "Itinéraire impossible (pas de réseau ?) : ${it.message}" }
+                .onFailure { error.text = "Itinéraire impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}" }
             btnRoutes.text = "Trouver les itinéraires"; setBusy(false)
         }
     }

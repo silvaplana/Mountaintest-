@@ -65,6 +65,7 @@ object Travel {
     private fun get(url: String): String {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 15_000; c.readTimeout = 30_000
+        if (c.responseCode == 404 || c.responseCode == 400) error("aucun chemin : le départ et l'arrivée doivent être en France, près d'une route")
         if (c.responseCode != 200) error("itinéraire IGN : HTTP ${c.responseCode}")
         return c.inputStream.bufferedReader().use { it.readText() }
     }

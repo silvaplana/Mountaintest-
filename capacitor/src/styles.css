@@ -228,3 +228,4 @@ progress { width: 100%; }
 .travel .error { color: #c0392b; }
 .travel .hint { font-size: 13px; color: var(--muted); margin: 0; }
 .travel .summary { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
+.travel .locate { align-self: flex-start; }

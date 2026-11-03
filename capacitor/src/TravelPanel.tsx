@@ -42,8 +42,8 @@ function PlaceField({ label, value, onChange }: { label: string; value: Spot | n
 }
 
 export interface TravelProps {
-  /** Point de départ proposé : ma position, sinon le centre de la carte. */
-  here: Spot;
+  /** Point de départ proposé : ma position si le GPS l'a déjà (sinon bouton « Ma position »). */
+  here: Spot | null;
   password: string;
   routes: CarRoute[]; selected: number;
   onRoutes: (r: CarRoute[], sel: number) => void;
@@ -79,7 +79,7 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
     if (!from || !to) { setError('Choisis le départ et l’arrivée dans les suggestions'); return; }
     setBusy('routes'); setError(''); setCost(null); onRoutes([], 0);
     try { onRoutes(await carRoutes([from.lon, from.lat], [to.lon, to.lat], s.tolls), 0); setEditing(false); }
-    catch (e) { setError(`Itinéraire impossible (pas de réseau ?) : ${(e as Error).message}`); }
+    catch (e) { setError(`Itinéraire impossible : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`); }
     setBusy('');
   }
 
@@ -115,6 +115,13 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
       </div>}
       {form && <>
       <PlaceField label="Départ" value={from} onChange={setFrom} />
+      <button className="locate" disabled={busy === 'gps'} onClick={() => {
+        setBusy('gps'); setError('');
+        navigator.geolocation.getCurrentPosition(
+          (p) => { setFrom({ label: 'Ma position', lon: p.coords.longitude, lat: p.coords.latitude }); setBusy(''); },
+          () => { setError('Position GPS introuvable : tape le lieu de départ'); setBusy(''); },
+          { enableHighAccuracy: false, timeout: 20_000, maximumAge: 300_000 });
+      }}>{busy === 'gps' ? 'Recherche de ma position…' : '📍 Partir de ma position'}</button>
       <PlaceField label="Arrivée" value={to} onChange={setTo} />
       <label className="check"><input type="checkbox" checked={s.tolls} onChange={(e) => save({ tolls: e.target.checked })} /> Autoroutes à péage permises</label>
       <label className="field">Voiture (marque, modèle, année…)
