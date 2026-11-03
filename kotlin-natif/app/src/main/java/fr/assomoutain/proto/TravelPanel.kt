@@ -286,11 +286,19 @@ class TravelPanel(
         val f = from ?: return; val t = to ?: return
         val c = conso.text.toString().replace(',', '.').toDoubleOrNull()
         if (c == null || c <= 0) { error.text = "Indique la consommation"; return }
-        setBusy(true); btnCost.text = "Claude calcule le coût…"; error.text = ""; result.removeAllViews()
+        setBusy(true); error.text = ""; result.removeAllViews()
+        // Claude cherche les prix sur le web (30 s à 2 min) : temps écoulé sur le bouton.
+        val t0 = System.currentTimeMillis()
+        val tick = a.lifecycleScope.launch {
+            while (true) { btnCost.text = "Claude calcule le coût… ${(System.currentTimeMillis() - t0) / 1000} s"; delay(1000) }
+        }
+        result.addView(text("Claude cherche le prix du carburant et des péages sur le web : 30 s à 2 min."))
+        (view as ScrollView).post { view.fullScroll(View.FOCUS_DOWN) }
         a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) {
                 Travel.tripCost(f.label, t.label, r, car.text.toString(), energyKeys[energy.selectedItemPosition], c, password) } }
                 .onSuccess { k ->
+                    result.removeAllViews()
                     result.addView(TextView(a).apply { text = Travel.euros(k.total); textSize = 28f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.parseColor("#1D2421")) })
                     val en = Travel.ENERGIES[energyKeys[energy.selectedItemPosition]].orEmpty().lowercase(Locale.FRANCE)
                     result.addView(text(String.format(Locale.FRANCE, "⛽ Prix moyen %s : %.2f %s", en, k.prixUnitaire, k.unitePrix), 15f, Color.parseColor("#1D2421")))
@@ -300,7 +308,8 @@ class TravelPanel(
                     result.addView(text(WebHikes.costLine(k.cost, k.cache).replace("Zone déjà cherchée", "Déjà calculé")))
                     (view as ScrollView).post { view.fullScroll(View.FOCUS_DOWN) }
                 }
-                .onFailure { error.text = "Calcul impossible : ${it.message}" }
+                .onFailure { result.removeAllViews(); error.text = "Calcul impossible : ${it.message ?: it}"; (view as ScrollView).post { view.fullScroll(View.FOCUS_DOWN) } }
+            tick.cancel()
             btnCost.text = "Calculer le coût (IA)"; setBusy(false)
         }
     }

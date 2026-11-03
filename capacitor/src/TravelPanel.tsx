@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { searchPlaces, type Place } from './search';
 import { costLine } from './trails/webHikes';
 import {
@@ -83,13 +83,26 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
     setBusy('');
   }
 
+  // Calcul du coût : Claude cherche les prix sur le web (30 s à 2 min) ; on affiche le temps écoulé, abandon à 4 min.
+  const [elapsed, setElapsed] = useState(0);
+  const bottom = useRef<HTMLDivElement>(null);
+  const reveal = () => setTimeout(() => bottom.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 50);
   async function computeCost() {
     const r = routes[selected];
-    if (!r || !from || !to) return;
-    setBusy('cout'); setError(''); setCost(null);
-    try { setCost(await tripCost({ depart: from.label, arrivee: to.label, route: r, voiture: s.car, energie: s.energy, conso: s.conso }, password)); }
-    catch (e) { setError(`Calcul impossible : ${(e as Error).message}`); }
-    setBusy('');
+    if (!r || !from || !to) { setError('Choisis d’abord un itinéraire'); reveal(); return; }
+    if (!(s.conso > 0)) { setError('Indique la consommation (bouton Modifier)'); reveal(); return; }
+    setBusy('cout'); setError(''); setCost(null); setElapsed(0); reveal();
+    const t0 = Date.now();
+    const tick = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    const ctrl = new AbortController();
+    const stop = setTimeout(() => ctrl.abort(), 240_000);
+    try { setCost(await tripCost({ depart: from.label, arrivee: to.label, route: r, voiture: s.car, energie: s.energy, conso: s.conso }, password, ctrl.signal)); }
+    catch (e) {
+      const m = (e as Error).name === 'AbortError' ? 'pas de réponse en 4 minutes' : (e as Error).message || String(e);
+      setError(`Calcul impossible : ${m}`);
+    }
+    clearInterval(tick); clearTimeout(stop);
+    setBusy(''); reveal();
   }
 
   const unit = unitFor(s.energy);
@@ -137,8 +150,9 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
               <i style={{ background: r.color }} /><b>{r.name}</b><span>{routeLine(r)}</span></button></li>
           ))}
         </ul>
-        <button className="primary" disabled={!!busy || !password || !(s.conso > 0)} onClick={() => void computeCost()}>
-          {busy === 'cout' ? 'Claude calcule le coût…' : 'Calculer le coût (IA)'}</button>
+        <button className="primary" disabled={!!busy || !password} onClick={() => void computeCost()}>
+          {busy === 'cout' ? `Claude calcule le coût… ${elapsed} s` : 'Calculer le coût (IA)'}</button>
+        {busy === 'cout' && <p className="hint">Claude cherche le prix du carburant et des péages sur le web : 30 s à 2 min.</p>}
       </>}
       {!password && <p className="hint">Mot de passe IA manquant (onglet Randos) : la recherche de voiture et le coût sont indisponibles.</p>}
       {error && <p className="error">{error}</p>}
@@ -150,6 +164,7 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
         <p className="hint">{cost.explication}</p>
         <p className="hint">{costLine({ cout: cost.cout_usd ?? 0, mois: cost.cumul_mois_usd ?? 0, total: cost.cumul_total_usd ?? 0 }, !!cost.cache).replace('Zone déjà cherchée', 'Déjà calculé')}</p>
       </div>}
+      <div ref={bottom} />
     </div>
   );
 }
