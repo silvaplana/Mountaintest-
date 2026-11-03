@@ -76,7 +76,7 @@ export function formatDuration(min: number) {
 }
 
 export const routeLine = (r: CarRoute) =>
-  `${Math.round(r.km)} km · ${formatDuration(r.minutes)}${r.motorways.length ? ` · ${r.motorways.map((m) => m.numero).join(', ')}` : ''}`;
+  `${Math.round(r.km)} km · ${formatDuration(r.minutes)}${r.motorways.length ? ` · ${r.motorways.map((m) => `${m.numero} ${Math.round(m.km)} km`).join(', ')}` : ''}`;
 
 // ---------- Relais IA ----------
 
@@ -88,6 +88,8 @@ async function post<T>(path: string, body: unknown, password: string, signal?: A
   });
   let json: T & { erreur?: string } = {} as T & { erreur?: string };
   try { json = await res.json(); } catch { /* réponse non JSON */ }
+  // 404 « inconnu » : le relais du VPS tourne encore l'ancienne version (mise à jour toutes les 5 à 10 min).
+  if (res.status === 404) throw new Error('le serveur IA n’est pas encore à jour, réessaie dans quelques minutes');
   if (!res.ok) throw new Error(json.erreur ?? `relais HTTP ${res.status}`);
   return json;
 }

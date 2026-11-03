@@ -356,7 +356,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage"], **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")

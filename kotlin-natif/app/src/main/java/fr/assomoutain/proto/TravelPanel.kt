@@ -292,7 +292,9 @@ class TravelPanel(
                 Travel.tripCost(f.label, t.label, r, car.text.toString(), energyKeys[energy.selectedItemPosition], c, password) } }
                 .onSuccess { k ->
                     result.addView(TextView(a).apply { text = Travel.euros(k.total); textSize = 28f; setTypeface(typeface, Typeface.BOLD); setTextColor(Color.parseColor("#1D2421")) })
-                    result.addView(text("${r.km.roundToInt()} km · énergie ${Travel.euros(k.coutEnergie)} (${k.prixUnitaire.toString().replace('.', ',')} ${k.unitePrix}) · péages ${Travel.euros(k.peages)}", 14f, Color.parseColor("#1D2421")))
+                    val en = Travel.ENERGIES[energyKeys[energy.selectedItemPosition]].orEmpty().lowercase(Locale.FRANCE)
+                    result.addView(text(String.format(Locale.FRANCE, "⛽ Prix moyen %s : %.2f %s", en, k.prixUnitaire, k.unitePrix), 15f, Color.parseColor("#1D2421")))
+                    result.addView(text("${r.km.roundToInt()} km · $en ${Travel.euros(k.coutEnergie)} · péages ${Travel.euros(k.peages)}", 14f, Color.parseColor("#1D2421")))
                     if (k.peagesDetail.isNotEmpty()) result.addView(text(k.peagesDetail))
                     result.addView(text(k.explication))
                     result.addView(text(WebHikes.costLine(k.cost, k.cache).replace("Zone déjà cherchée", "Déjà calculé")))

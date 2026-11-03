@@ -97,7 +97,7 @@ object Travel {
     }
 
     fun routeLine(r: CarRoute) = "${r.km.roundToInt()} km · ${formatDuration(r.minutes)}" +
-        if (r.motorways.isNotEmpty()) " · ${r.motorways.joinToString(", ") { it.numero }}" else ""
+        if (r.motorways.isNotEmpty()) " · ${r.motorways.joinToString(", ") { "${it.numero} ${it.km.roundToInt()} km" }}" else ""
 
     fun euros(v: Double) = String.format(Locale.FRANCE, if (v < 10) "%.2f €" else "%.0f €", v)
 
@@ -112,6 +112,8 @@ object Travel {
         c.outputStream.use { it.write(body.toString().toByteArray()) }
         val code = c.responseCode
         val text = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
+        // 404 « inconnu » : le relais du VPS tourne encore l'ancienne version (mise à jour toutes les 5 à 10 min).
+        if (code == 404) error("le serveur IA n'est pas encore à jour, réessaie dans quelques minutes")
         if (code !in 200..299) error(runCatching { JSONObject(text).optString("erreur") }.getOrNull()?.ifEmpty { null } ?: "relais HTTP $code")
         return JSONObject(text)
     }

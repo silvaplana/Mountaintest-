@@ -144,7 +144,8 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
       {error && <p className="error">{error}</p>}
       {cost && <div className="cost">
         <p className="total">{euros(cost.total)}</p>
-        <p>{routes[selected] ? `${Math.round(routes[selected].km)} km` : ''} · énergie {euros(cost.cout_energie)} ({String(cost.prix_unitaire).replace('.', ',')} {cost.unite_prix}) · péages {euros(cost.peages)}</p>
+        <p>⛽ Prix moyen {ENERGIES[s.energy].toLowerCase()} : <b>{cost.prix_unitaire.toFixed(2).replace('.', ',')} {cost.unite_prix}</b></p>
+        <p>{routes[selected] ? `${Math.round(routes[selected].km)} km` : ''} · {ENERGIES[s.energy].toLowerCase()} {euros(cost.cout_energie)} · péages {euros(cost.peages)}</p>
         {cost.peages_detail && <p className="hint">{cost.peages_detail}</p>}
         <p className="hint">{cost.explication}</p>
         <p className="hint">{costLine({ cout: cost.cout_usd ?? 0, mois: cost.cumul_mois_usd ?? 0, total: cost.cumul_total_usd ?? 0 }, !!cost.cache).replace('Zone déjà cherchée', 'Déjà calculé')}</p>
