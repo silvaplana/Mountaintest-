@@ -14,7 +14,7 @@ if [ ! -f "$M/ia.env" ]; then
   CLE=""
   for f in "$HOME"/*/.env "$HOME"/*/*.env "$HOME"/*/*/.env; do
     [ -f "$f" ] || continue
-    k=$(grep -hs '^ANTHROPIC_API_KEY=' "$f" | head -1 | cut -d= -f2- | tr -d '"'"'"' ')
+    k=$(grep -hs '^ANTHROPIC_API_KEY=' "$f" | head -1 | cut -d= -f2- | tr -d '"'"'"' ') || true
     if [ -n "$k" ]; then
       read -r -p "Clé Anthropic trouvée dans $f (…${k: -4}). La réutiliser ? [O/n] " R
       case "$R" in n|N) ;; *) CLE="$k"; break ;; esac

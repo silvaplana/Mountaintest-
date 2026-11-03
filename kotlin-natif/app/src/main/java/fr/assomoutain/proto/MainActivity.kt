@@ -922,6 +922,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.trailsAttribution).text =
             "Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés (${Trails.OSM_ATTRIBUTION}), " +
             "et celles que Claude trouve sur le web en points orange, avec le lien de leur page."
+        // Mot de passe intégré par la CI : le champ ne sert plus, on le cache.
+        if (BuildConfig.IA_MOT_DE_PASSE.isNotEmpty()) {
+            findViewById<View>(R.id.hintIaPassword).visibility = View.GONE
+            findViewById<View>(R.id.editIaPassword).visibility = View.GONE
+        }
         findViewById<EditText>(R.id.editIaPassword).apply {
             setText(prefs.getString("iaPassword", ""))
             addTextChangedListener(object : TextWatcher {
@@ -1054,7 +1059,7 @@ class MainActivity : AppCompatActivity() {
     private fun searchWebHikes(z: Zone) {
         webJob?.cancel()
         webHikes = emptyList(); hikeSel = null; drawWebHikes()
-        val password = prefs.getString("iaPassword", "").orEmpty()
+        val password = prefs.getString("iaPassword", "").orEmpty().ifEmpty { BuildConfig.IA_MOT_DE_PASSE }
         if (password.isEmpty()) {
             webMessage = "Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous."
             refreshTrails(); return

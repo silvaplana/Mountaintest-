@@ -14,6 +14,9 @@ android {
         // Numéro de build GitHub Actions (-PversionCode=…) : sert à détecter les mises à jour (Updater.java).
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = "0.1.$versionCode"
+        // Mot de passe du relais IA intégré par la CI (secret IA_MOT_DE_PASSE) : rien à taper dans l'appli.
+        val iaMdp = (System.getenv("IA_MOT_DE_PASSE") ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
+        buildConfigField("String", "IA_MOT_DE_PASSE", "\"$iaMdp\"")
         buildConfigField("String", "IGN_SCAN_KEY", "\"${project.findProperty("ignScanKey") ?: "ign_scan_ws"}\"")
     }
 
