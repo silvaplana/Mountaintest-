@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
@@ -86,36 +86,48 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   }, [native]);
 
   const locating = watch !== 'OFF';
+  // Appui long sur la flèche : aide (une étiquette à gauche de chaque icône) ; toucher n'importe où la ferme.
+  const [help, setHelp] = useState(false);
+  const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
+  const show = help ? 0 : mode;
   return (
-    <div className="quick">
-      <button className="toggle" aria-label={mode === 2 ? 'Afficher les icônes' : 'Cacher les icônes'} onClick={nextMode}>{mode === 2 ? '◂' : '▸'}</button>
-      {mode === 0 && <>
-      <button className={locating ? 'on' : ''} aria-label="Me localiser"
+    <>
+    {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
+    <div className={help ? 'quick help' : 'quick'}>
+      <button className="toggle" aria-label={mode === 2 ? 'Afficher les icônes' : 'Cacher les icônes'} data-help="Appui : moins d’icônes · appui long : aide"
+        onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
+        onPointerUp={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
+        onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
+        onContextMenu={(e) => e.preventDefault()}
+        onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } nextMode(); }}>{mode === 2 ? '◂' : '▸'}</button>
+      {show === 0 && <>
+      <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser"
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
-      <button aria-label="Rechercher un lieu" onClick={onSearch}>🔍</button>
+      <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" onClick={onSearch}>🔍</button>
       </>}
-      {mode < 2 && <button disabled={!native} aria-label="Prendre une photo"
+      {show < 2 && <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo"
         onClick={() => {
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
         }}>📷</button>}
-      {mode === 0 && <>
-      <button aria-label="Changer de fond de carte" onClick={onBaseLayer}>🗺</button>
-      <button className={airplane ? 'on' : ''} disabled={!native} aria-label="Mode avion (sans réseau, Wi-Fi ni Bluetooth)"
+      {show === 0 && <>
+      <button aria-label="Changer de fond de carte" data-help="Fond de carte" onClick={onBaseLayer}>🗺</button>
+      <button className={airplane ? 'on' : ''} disabled={!native} aria-label="Mode avion (sans réseau, Wi-Fi ni Bluetooth)" data-help="Mode avion"
         onClick={() => {
           onToast(airplane ? 'Désactive le mode avion' : 'Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.');
           void BatterySettings.open({ what: 'avion' });
         }}>✈</button>
-      <button className={pocket ? 'on' : ''} disabled={!native} aria-label="Mode poche (écran noir quand le téléphone est vertical)"
+      <button className={pocket ? 'on' : ''} disabled={!native} aria-label="Mode poche (écran noir quand le téléphone est vertical)" data-help="Mode poche (écran noir)"
         onClick={() => {
           const on = !pocket;
           setPocket(on);
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>
-      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" onClick={onDraw}>✏</button>
-      <button className={slopes ? 'on' : ''} aria-label="Pentes" onClick={() => onSlopes(!slopes)}>⛰</button>
-      <button className={shade ? 'on' : ''} aria-label="Ombres du relief" onClick={() => onShade(!shade)}>🌗</button>
+      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" onClick={onDraw}>✏</button>
+      <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" onClick={() => onSlopes(!slopes)}>⛰</button>
+      <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" onClick={() => onShade(!shade)}>🌗</button>
       </>}
     </div>
+    </>
   );
 }

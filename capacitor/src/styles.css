@@ -180,3 +180,20 @@ progress { width: 100%; }
   -webkit-appearance: none; appearance: none; width: 32px; height: 32px; margin-top: -11px;
   border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 1px 4px #0006;
 }
+
+/* Aide des icônes : appui long sur la flèche, une étiquette à gauche de chaque icône */
+.quick button { position: relative; }
+.quick.help { z-index: 4; pointer-events: none; }
+.quick.help button.toggle { pointer-events: auto; }
+.quick.help button::before {
+  content: attr(data-help); position: absolute; right: 52px; top: 50%; transform: translateY(-50%);
+  background: rgba(29, 36, 33, 0.88); color: #fff; font-size: 13px; line-height: 1.2; font-weight: 400;
+  padding: 6px 10px; border-radius: 8px; white-space: nowrap; pointer-events: none;
+}
+.help-close { position: absolute; inset: 0; z-index: 3; }
+.help-close p {
+  position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 24px); margin: 0;
+  background: rgba(29, 36, 33, 0.88); color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 13px; text-align: center;
+}
+.quick.help button:disabled { opacity: 1; }
+.help-close p { bottom: calc(env(safe-area-inset-bottom) + 64px); }

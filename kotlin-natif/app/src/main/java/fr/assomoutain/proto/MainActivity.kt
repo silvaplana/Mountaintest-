@@ -259,7 +259,10 @@ class MainActivity : AppCompatActivity() {
         mapOf(R.id.btnAvion to "avion", R.id.btnWifi to "wifi", R.id.btnDonnees to "donnees", R.id.btnBluetooth to "bluetooth")
             .forEach { (id, what) -> findViewById<Button>(id).setOnClickListener { BatterySettings.open(this, what) } }
         // Flèche en haut à droite : affiche ou cache toutes les icônes (choix retenu).
+        // Appui long sur la flèche : aide, une étiquette à gauche de chaque icône.
+        findViewById<Button>(R.id.btnQuickToggle).setOnLongClickListener { showIconHelp(); true }
         findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
+            if (helpOverlay != null) { hideIconHelp(); return@setOnClickListener }
             // 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = aucune, puis retour à 0.
             prefs.edit().putInt("iconesMode", (prefs.getInt("iconesMode", 0) + 1) % 3).apply()
             refreshQuickButtons()
@@ -1487,6 +1490,66 @@ class MainActivity : AppCompatActivity() {
     /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
     private fun airplaneOn() =
         android.provider.Settings.Global.getInt(contentResolver, android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) == 1
+
+    private var helpOverlay: View? = null
+
+    /** Aide des icônes : toutes affichées, chacune avec son étiquette ; toucher n'importe où ferme. */
+    private fun showIconHelp() {
+        if (helpOverlay != null) return
+        val root = findViewById<android.widget.FrameLayout>(R.id.root)
+        val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
+        icons.visibility = View.VISIBLE
+        for (i in 0 until icons.childCount) icons.getChildAt(i).visibility = View.VISIBLE
+        val labels = linkedMapOf(
+            R.id.btnQuickToggle to "Appui : moins d'icônes · appui long : aide",
+            R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
+            R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
+            R.id.btnQuickAvion to "Mode avion", R.id.btnPoche to "Mode poche (écran noir)",
+            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes", R.id.btnQuickShade to "Ombres",
+        )
+        val d = resources.displayMetrics.density
+        val overlay = android.widget.FrameLayout(this).apply {
+            isClickable = true
+            elevation = 20 * d
+            setOnClickListener { hideIconHelp() }
+        }
+        fun bubble(text: String) = TextView(this).apply {
+            this.text = text
+            setTextColor(Color.WHITE); textSize = 13f
+            setPadding((10 * d).toInt(), (6 * d).toInt(), (10 * d).toInt(), (6 * d).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#E01D2421")); cornerRadius = 8 * d
+            }
+        }
+        root.addView(overlay, android.widget.FrameLayout.LayoutParams(-1, -1))
+        helpOverlay = overlay
+        // Positions des icônes une fois la colonne déployée.
+        root.post {
+            val rootPos = IntArray(2).also { root.getLocationInWindow(it) }
+            labels.forEach { (id, text) ->
+                val b = findViewById<View>(id) ?: return@forEach
+                val pos = IntArray(2).also { b.getLocationInWindow(it) }
+                val tv = bubble(text)
+                tv.measure(0, 0)
+                overlay.addView(tv, android.widget.FrameLayout.LayoutParams(-2, -2).apply {
+                    gravity = android.view.Gravity.TOP or android.view.Gravity.END
+                    topMargin = pos[1] - rootPos[1] + (b.height - tv.measuredHeight) / 2
+                    marginEnd = root.width - (pos[0] - rootPos[0]) + (8 * d).toInt()
+                })
+            }
+            overlay.addView(bubble("Touche n'importe où pour fermer l'aide").apply { gravity = android.view.Gravity.CENTER },
+                android.widget.FrameLayout.LayoutParams(-1, -2).apply {
+                    gravity = android.view.Gravity.BOTTOM
+                    setMargins((16 * d).toInt(), 0, (16 * d).toInt(), (80 * d).toInt())
+                })
+        }
+    }
+
+    private fun hideIconHelp() {
+        helpOverlay?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
+        helpOverlay = null
+        refreshQuickButtons()
+    }
 
     /** Icône « allumée » (fond vert, symbole blanc) quand le mode est actif. */
     private fun refreshQuickButtons() {
