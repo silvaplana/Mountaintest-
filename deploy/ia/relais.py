@@ -238,6 +238,46 @@ la voiture, l'énergie et la consommation aux 100 km.
 Termine en appelant l'outil donner_le_cout."""
 
 
+OUTIL_HEBERGEMENTS = {
+    "name": "donner_les_hebergements",
+    "description": "Renvoie les hébergements trouvés. À appeler une seule fois, à la fin.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "hebergements": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "nom": {"type": "string"},
+                        "type": {"type": "string", "description": "hôtel, gîte, chambre d'hôtes, refuge, camping, appartement…"},
+                        "prix_nuit": {"type": ["number", "null"], "description": "Prix indicatif pour la nuit et le groupe, en euros"},
+                        "adresse": {"type": "string"},
+                        "url": {"type": "string", "description": "Page de l'établissement ou de réservation, vue pendant la recherche"},
+                        "resume": {"type": "string", "description": "Une phrase : points forts, capacité, pourquoi il convient"},
+                    },
+                    "required": ["nom", "type", "prix_nuit", "adresse", "url", "resume"],
+                    "additionalProperties": False,
+                },
+            },
+            "conseil": {"type": "string", "description": "Une phrase : disponibilité à vérifier, période chargée, etc."},
+        },
+        "required": ["hebergements", "conseil"],
+        "additionalProperties": False,
+    },
+}
+
+CONSIGNE_HEBERGEMENTS = """Tu aides un randonneur à trouver où dormir. On te donne une ville (ou un lieu), le nombre de personnes,
+le prix maximum de la chambre par nuit et la date d'arrivée avec le nombre de nuits.
+Cherche sur le web 3 à 8 hébergements réels dans ce lieu ou tout près (hôtels, gîtes, chambres d'hôtes, refuges…)
+qui peuvent loger ce nombre de personnes sous ce prix. Donne pour chacun un lien vers une page réellement vue
+(site de l'établissement de préférence, sinon une page de réservation). Tu ne peux pas vérifier les disponibilités en
+temps réel : dis-le dans le conseil.
+Cherche les meilleurs prix : compare plusieurs sources (site de l'établissement, Booking, Gîtes de France, Airbnb…)
+et garde pour chacun le prix le plus bas trouvé. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
+
+
 def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4):
     """Un échange avec Claude (recherche web permise) jusqu'à l'appel de l'outil final. Renvoie (entrée de l'outil, coût, jetons)."""
     messages = [{"role": "user", "content": demande}]
@@ -387,17 +427,17 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation"], "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement"], "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
         if chemin.endswith("/invitation"):
             return self._invitation()
-        if chemin.endswith(("/voiture", "/voyage")):
+        if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         try:
             z = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 10_000)))
@@ -471,6 +511,14 @@ class Relais(BaseHTTPRequestHandler):
                     raise ValueError
                 cle, demande = "voiture:" + q.lower(), f"Voiture tapée : « {q} »"
                 consigne, outil, rech, garde = CONSIGNE_VOITURES, OUTIL_VOITURES, 2, 30
+            elif quoi == "hebergement":
+                v = {"ville": " ".join(str(d["ville"]).split())[:80], "personnes": int(d["personnes"]),
+                     "prix_max_nuit": float(d["prix_max"]), "arrivee": str(d.get("arrivee", ""))[:10], "nuits": int(d.get("nuits", 1))}
+                if len(v["ville"]) < 2 or not (1 <= v["personnes"] <= 30 and 0 < v["prix_max_nuit"] < 5000 and 1 <= v["nuits"] <= 30):
+                    raise ValueError
+                cle = "hebergement:" + hashlib.sha1(json.dumps(v, sort_keys=True).encode()).hexdigest()
+                demande = json.dumps(v, ensure_ascii=False)
+                consigne, outil, rech, garde = CONSIGNE_HEBERGEMENTS, OUTIL_HEBERGEMENTS, 8, 1
             else:
                 v = lire_voyage(d)
                 cle = "voyage:" + hashlib.sha1(json.dumps(v, sort_keys=True).encode()).hexdigest()

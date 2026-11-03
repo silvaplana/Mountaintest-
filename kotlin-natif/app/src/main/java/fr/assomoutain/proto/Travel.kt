@@ -105,7 +105,7 @@ object Travel {
     // ---------- Relais IA ----------
 
     /** password : un ou plusieurs mots de passe séparés par un retour à la ligne (intégré, puis tapé) ; le suivant si refusé. */
-    private fun post(path: String, body: JSONObject, password: String): JSONObject {
+    fun post(path: String, body: JSONObject, password: String): JSONObject {
         val tries = password.split('\n').filter { it.isNotEmpty() }
         for ((i, p) in tries.withIndex()) {
             try { return post1(path, body, p) } catch (e: Refused) { if (i == tries.lastIndex) error("Mot de passe IA incorrect") }

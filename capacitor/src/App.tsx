@@ -15,6 +15,7 @@ import { MapView } from './MapView';
 import { QuickButtons } from './QuickButtons';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
+import { LodgingPanel } from './Lodging';
 import type { CarRoute } from './travel/travel';
 import type { GeolocateControl } from 'maplibre-gl';
 import { runCameraBench, type CameraBenchResult } from './cameraBench';
@@ -78,6 +79,7 @@ export function App() {
   // Menu Voyage : panneau ouvert, itinéraires trouvés et celui choisi.
   const [travel, setTravel] = useState(false);
   const [expenses, setExpenses] = useState(false);
+  const [lodging, setLodging] = useState(false);
   const [travelRoutes, setTravelRoutes] = useState<CarRoute[]>([]);
   const [travelSel, setTravelSel] = useState(0);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
@@ -548,8 +550,10 @@ export function App() {
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
-        onTravel={() => { setTravel(true); setOpen(false); setSearching(false); }}
-        onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }} />}
+        onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
+        onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
+        onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
+      {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         here={position ? { label: 'Ma position', lon: position.lon, lat: position.lat } : null}

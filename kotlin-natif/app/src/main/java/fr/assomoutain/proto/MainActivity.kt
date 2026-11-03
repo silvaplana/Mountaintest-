@@ -276,6 +276,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnWeatherMountain).setOnClickListener { if (!Weather.open(this, true)) toast("Impossible d'ouvrir Météo-France") }
         findViewById<Button>(R.id.btnTravel).setOnClickListener { openTravel() }
         findViewById<ImageButton>(R.id.btnExpenses).setOnClickListener { openExpenses() }
+        findViewById<Button>(R.id.btnLodging).setOnClickListener { openLodging() }
         findViewById<Button>(R.id.btnQuickSearch).setOnClickListener {
             setNature(false)
             findViewById<ImageButton>(R.id.btnSearch).performClick()
@@ -384,6 +385,7 @@ class MainActivity : AppCompatActivity() {
             // Fenêtres du bas remontées au-dessus de la barre de gestes (demande de Seb : boutons durs à toucher).
             navBottom = bars.bottom; navTop = bars.top
             expensesPanel?.insets(bars.top, bars.bottom)
+            lodgingPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             sheet.updatePadding(bottom = bars.bottom + 4 * margin)
             travelPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
@@ -1584,6 +1586,22 @@ class MainActivity : AppCompatActivity() {
     private var navBottom = 0
     private var navTop = 0
 
+    // ---------- Hébergement ----------
+    private var lodgingPanel: LodgingPanel? = null
+    private fun openLodging() {
+        if (lodgingPanel != null) return
+        closeTravel(); sheetOpen = false; refreshTabs()
+        val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
+        val p = LodgingPanel(this, prefs, password) { closeLodging() }
+        lodgingPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
+    }
+    private fun closeLodging() {
+        lodgingPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        lodgingPanel = null
+    }
+
     // ---------- Partage des frais ----------
     private var expensesPanel: ExpensesPanel? = null
     private fun openExpenses() {
@@ -1607,6 +1625,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openTravel() {
         if (travelPanel != null) return
+        closeLodging()
         sheetOpen = false; refreshTabs()
         val loc = runCatching { map?.locationComponent?.lastKnownLocation }.getOrNull()
         val here = loc?.let { Spot("Ma position", it.longitude, it.latitude) }
@@ -1685,7 +1704,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickAvion to "Mode avion", R.id.btnPoche to "Mode poche (écran noir)",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes", R.id.btnQuickShade to "Ombres",
             R.id.btnWeather to "Météo (Météo-France)", R.id.btnWeatherMountain to "Météo montagne",
-            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
+            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
         )
         val d = resources.displayMetrics.density
         val overlay = android.widget.FrameLayout(this).apply {
@@ -1743,7 +1762,7 @@ class MainActivity : AppCompatActivity() {
         val mode = prefs.getInt("iconesMode", 0)
         val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
         icons.visibility = if (mode == 3) View.GONE else View.VISIBLE
-        val voyage = setOf(R.id.btnWeather, R.id.btnWeatherMountain, R.id.btnTravel, R.id.btnExpenses)
+        val voyage = setOf(R.id.btnWeather, R.id.btnWeatherMountain, R.id.btnTravel, R.id.btnLodging, R.id.btnExpenses)
         for (i in 0 until icons.childCount) {
             val v = icons.getChildAt(i)
             v.visibility = if (when (mode) { 0 -> v.id !in voyage; 1 -> v.id == R.id.btnQuickPhoto; else -> v.id in voyage }) View.VISIBLE else View.GONE

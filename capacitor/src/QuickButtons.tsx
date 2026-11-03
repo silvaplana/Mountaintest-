@@ -31,13 +31,14 @@ export interface QuickProps {
   shade: boolean; onShade: (on: boolean) => void;
   onTravel: () => void;
   onExpenses: () => void;
+  onLodging: () => void;
 }
 
 const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -142,6 +143,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       <button aria-label="Météo" data-help="Météo (Météo-France)" onClick={() => openWeather(false)}>🌦</button>
       <button aria-label="Météo montagne" data-help="Météo montagne" onClick={() => openWeather(true)}>🏔</button>
       <button aria-label="Préparer un voyage en voiture" data-help="Voyage en voiture (km, coût, péages)" onClick={onTravel}>🚗</button>
+      <button aria-label="Trouver un hébergement" data-help="Hébergement (meilleurs prix, IA)" onClick={onLodging}>🏨</button>
       <button aria-label="Partage des frais" data-help="Partage des frais (façon Tricount)" onClick={onExpenses}><ShareIcon /></button>
       </>}
     </div>

@@ -84,7 +84,7 @@ export const routeLine = (r: CarRoute) =>
 const relay = (path: string) => RELAIS_URL.replace(/\/randos$/, `/${path}`);
 
 /** password : un ou plusieurs mots de passe séparés par un retour à la ligne (intégré à l'APK, puis tapé) ; on essaie le suivant si refusé. */
-async function post<T>(path: string, body: unknown, password: string, signal?: AbortSignal): Promise<T> {
+export async function relayPost<T>(path: string, body: unknown, password: string, signal?: AbortSignal): Promise<T> {
   const tries = password.split('\n').filter(Boolean);
   let res!: Response;
   for (const p of tries) {
@@ -104,7 +104,7 @@ async function post<T>(path: string, body: unknown, password: string, signal?: A
 export interface Car { nom: string; energies: { energie: Energy; conso: number; unite: string }[] }
 
 export async function searchCars(text: string, password: string, signal?: AbortSignal): Promise<Car[]> {
-  const r = await post<{ voitures?: Car[] }>('voiture', { recherche: text }, password, signal);
+  const r = await relayPost<{ voitures?: Car[] }>('voiture', { recherche: text }, password, signal);
   return (r.voitures ?? []).filter((c) => c.nom && c.energies?.length);
 }
 
@@ -115,7 +115,7 @@ export interface TripCost {
 
 export function tripCost(t: { depart: string; arrivee: string; route: CarRoute; voiture: string; energie: Energy; conso: number },
   password: string, signal?: AbortSignal): Promise<TripCost> {
-  return post<TripCost>('voyage', {
+  return relayPost<TripCost>('voyage', {
     depart: t.depart, arrivee: t.arrivee, km: Math.round(t.route.km * 10) / 10, duree_min: Math.round(t.route.minutes),
     autoroutes: t.route.motorways, voiture: t.voiture, energie: t.energie, conso: t.conso, unite: unitFor(t.energie),
   }, password, signal);
