@@ -15,6 +15,10 @@ la réponse donne son coût et les cumuls du mois et depuis le début, affichés
 """
 import hashlib
 import hmac
+import re
+import smtplib
+from email.mime.text import MIMEText
+from email.utils import formataddr
 import json
 import os
 import threading
@@ -280,6 +284,33 @@ def lire_voyage(d: dict) -> dict:
     return v
 
 
+# ---------- Invitation par e-mail (partage des frais) ----------
+# Même envoi que contretemps : SMTP de Brevo, variables SMTP_* copiées dans ia.env (deploy/ia/activer-mail.sh).
+
+LIEN_APK = "https://silvaplana.cloud/mountaintest/apk/"
+SMTP = {k: os.environ.get(k, "") for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM_EMAIL", "SMTP_REPLY_TO")}
+MAIL_ACTIF = bool(SMTP["SMTP_HOST"] and SMTP["SMTP_USER"] and SMTP["SMTP_PASSWORD"])
+MAX_MAILS_PAR_JOUR = 30
+
+
+def envoyer_invitation(email: str, nom: str, groupe: str, de: str) -> None:
+    corps = (f"Bonjour {nom},\n\n{de or 'Un ami'} t'invite à partager les frais du groupe « {groupe} » "
+             f"dans l'appli de randonnée Assomoutain.\n\n"
+             f"Pour l'installer sur un téléphone Android : {LIEN_APK}\n"
+             f"(choisis l'une des deux versions, puis autorise l'installation quand le téléphone le demande).\n\n"
+             f"À bientôt sur les sentiers !")
+    m = MIMEText(corps, "plain", "utf-8")
+    m["Subject"] = f"{de or 'Un ami'} t'invite : partage des frais « {groupe} »"
+    m["From"] = formataddr(("Assomoutain", SMTP["SMTP_FROM_EMAIL"] or SMTP["SMTP_USER"]))
+    m["To"] = email
+    if SMTP["SMTP_REPLY_TO"]:
+        m["Reply-To"] = SMTP["SMTP_REPLY_TO"]
+    with smtplib.SMTP(SMTP["SMTP_HOST"], int(SMTP["SMTP_PORT"] or 587), timeout=20) as s:
+        s.starttls()
+        s.login(SMTP["SMTP_USER"], SMTP["SMTP_PASSWORD"])
+        s.send_message(m)
+
+
 # ---------- Cache et quota ----------
 
 def _fichier(nom):
@@ -356,14 +387,16 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage"], **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation"], "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
+        if chemin.endswith("/invitation"):
+            return self._invitation()
         if chemin.endswith(("/voiture", "/voyage")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         try:
@@ -403,6 +436,30 @@ class Relais(BaseHTTPRequestHandler):
               f"{r['cout_usd']:.3f} $ (cumul {totaux['cumul_total_usd']:.2f} $)", flush=True)
         self._json(200, {**r, **totaux})
 
+
+    def _invitation(self):
+        if not MAIL_ACTIF:
+            return self._json(503, {"erreur": "envoi de mail pas encore activé sur le serveur"})
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 5_000)))
+            email = str(d["email"]).strip()[:120]
+            if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+                raise ValueError
+            nom, groupe, de = (" ".join(str(d.get(k, "")).split())[:60] for k in ("nom", "groupe", "de"))
+        except (ValueError, KeyError, TypeError):
+            return self._json(400, {"erreur": "adresse e-mail invalide"})
+        jour = time.strftime("%Y-%m-%d")
+        with verrou:
+            q = _lire("mails.json", {})
+            if q.get(jour, 0) >= MAX_MAILS_PAR_JOUR:
+                return self._json(429, {"erreur": f"Limite de {MAX_MAILS_PAR_JOUR} invitations par jour atteinte"})
+            _ecrire("mails.json", {jour: q.get(jour, 0) + 1})
+        try:
+            envoyer_invitation(email, nom, groupe, de)
+        except Exception as e:  # noqa: BLE001
+            return self._json(502, {"erreur": f"envoi impossible : {e}"})
+        print(f"{jour} invitation envoyée", flush=True)
+        self._json(200, {"ok": True})
 
     def _voyage(self, quoi):
         """/voiture : modèles et consommations d'après le texte tapé ; /voyage : coût d'un trajet (énergie + péages)."""

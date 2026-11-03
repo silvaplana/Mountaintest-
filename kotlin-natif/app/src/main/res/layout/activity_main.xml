@@ -503,6 +503,16 @@
                 android:textColor="#1D2421"
                 android:textSize="20sp" />
 
+            <ImageButton
+                android:id="@+id/btnExpenses"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/round_btn"
+                android:contentDescription="Partage des frais"
+                android:elevation="4dp"
+                android:src="@drawable/ic_partage" />
+
         </LinearLayout>
     </LinearLayout>
 

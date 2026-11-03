@@ -159,7 +159,7 @@ jobs:
         run: |
           rm -f site/*.map site/assets/*.map
           # Relais IA (randos trouvées par Claude) : le VPS le fait tourner, voir deploy/ia/README.md.
-          mkdir -p site/ia && cp deploy/ia/relais.py deploy/ia/installer-ia.sh site/ia/
+          mkdir -p site/ia && cp deploy/ia/relais.py deploy/ia/installer-ia.sh deploy/ia/activer-mail.sh site/ia/
           sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" \
               -e "s/@CAP@/$(du -m site/apk/assomoutain-capacitor.apk | cut -f1)/" \
               -e "s/@KOT@/$(du -m site/apk/assomoutain-kotlin.apk | cut -f1)/" \

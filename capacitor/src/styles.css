@@ -134,7 +134,7 @@ progress { width: 100%; }
 .quick button.toggle { height: 30px; border-radius: 15px; font-size: 16px; }
 .quick button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .toast {
-  position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 70px); z-index: 4;
+  position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 70px); z-index: 8;
   background: #1d2421e6; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 14px; text-align: center;
 }
 
@@ -229,3 +229,47 @@ progress { width: 100%; }
 .travel .hint { font-size: 13px; color: var(--muted); margin: 0; }
 .travel .summary { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
 .travel .locate { align-self: flex-start; }
+
+/* Partage des frais (façon Tricount) : plein écran par-dessus la carte. */
+.expenses {
+  position: absolute; inset: 0; z-index: 6; overflow-y: auto; background: var(--bg);
+  padding: calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 110px);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.expenses h2, .expenses h3 { margin: 4px 0; }
+.expenses .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.expenses .hint { font-size: 13px; color: var(--muted); margin: 0; }
+.xp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.xp-head > span { width: 44px; }
+.xp-title { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.xp-title small { color: var(--muted); }
+.xp-emoji { font-size: 34px; }
+.xp-group { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; text-align: left; font-size: 17px; }
+.xp-group b { flex: 1; }
+.xp-tabs { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.xp-tabs button { flex: 1; border: 0; border-radius: 0; }
+.xp-tabs button.on { background: var(--accent); color: #fff; }
+.xp-totals { display: flex; justify-content: space-around; text-align: center; }
+.xp-totals div { display: flex; flex-direction: column; }
+.xp-totals small { color: var(--muted); }
+.xp-totals b { font-size: 20px; }
+.xp-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; text-align: left; }
+.xp-row.static { border: 1px solid var(--line); }
+.xp-row span { display: flex; flex-direction: column; gap: 2px; }
+.xp-row small { color: var(--muted); }
+.xp-bal { display: flex; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid var(--line); }
+.xp-bal .plus { color: #2f9e44; } .xp-bal .minus { color: #c0392b; }
+.xp-add {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 40px); z-index: 7;
+  width: 64px; height: 64px; border-radius: 50%; font-size: 32px; background: var(--accent); color: #fff; border: 0; box-shadow: 0 2px 10px #0005;
+}
+.xp-emojis { display: flex; flex-wrap: wrap; gap: 6px; }
+.xp-emojis button { font-size: 22px; width: 44px; height: 44px; padding: 0; }
+.xp-emojis button.on { outline: 3px solid var(--accent); }
+.xp-member { display: flex; gap: 8px; align-items: center; }
+.xp-member > div:first-of-type { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.xp-member-btns { display: flex; flex-direction: column; gap: 4px; }
+.xp-for { display: flex; gap: 8px; align-items: center; }
+.xp-for span { flex: 1; }
+.expenses .danger { color: #c0392b; }
+.xp-row.static span { display: block; }
