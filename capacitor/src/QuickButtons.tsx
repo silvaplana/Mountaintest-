@@ -32,13 +32,14 @@ export interface QuickProps {
   onTravel: () => void;
   onExpenses: () => void;
   onLodging: () => void;
+  onSki: () => void;
 }
 
 const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSki }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -138,6 +139,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" onClick={onDraw}>✏</button>
       <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" onClick={() => onSlopes(!slopes)}>⛰</button>
       <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" onClick={() => onShade(!shade)}>🌗</button>
+      <button aria-label="Sorties ski de rando (skitour.fr)" data-help="Sorties ski de rando (skitour.fr)" onClick={onSki}>⛷</button>
       </>}
       {(show === 2 || help) && <>
       <button aria-label="Météo" data-help="Météo (Météo-France)" onClick={() => openWeather(false)}>🌦</button>

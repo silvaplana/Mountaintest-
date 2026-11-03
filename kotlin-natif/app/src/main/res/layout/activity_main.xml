@@ -463,6 +463,19 @@
                 android:text="🌗"
                 android:textColor="#1D2421"
                 android:textSize="20sp" />
+
+            <Button
+                android:id="@+id/btnSki"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/round_btn"
+                android:contentDescription="Sorties ski de rando (skitour.fr)"
+                android:elevation="4dp"
+                android:padding="0dp"
+                android:text="⛷"
+                android:textColor="#1D2421"
+                android:textSize="20sp" />
             <!-- Menu Voyage -->
             <Button
                 android:id="@+id/btnWeather"

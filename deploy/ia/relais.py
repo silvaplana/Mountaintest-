@@ -15,6 +15,8 @@ la réponse donne son coût et les cumuls du mois et depuis le début, affichés
 """
 import hashlib
 import hmac
+import urllib.parse
+import urllib.request
 import re
 import smtplib
 from email.mime.text import MIMEText
@@ -314,6 +316,39 @@ def lire_facture(image_b64: str, media: str):
     return appel.input, round(cout, 4), {"entree": u.input_tokens or 0, "sortie": u.output_tokens or 0, "recherches_web": 0}
 
 
+# ---------- Sorties de ski de rando (API officielle skitour.fr, clé gardée ici) ----------
+# Conditions : lien vers chaque sortie sur skitour.fr, pas de photos hors contexte ; 1000 requêtes / 24 h.
+
+SKITOUR_CLE = os.environ.get("SKITOUR_CLE", "")
+
+
+def sorties_skitour(o: float, s: float, e: float, n: float, jours: int) -> list:
+    q = urllib.parse.urlencode({"ll": f"{(s + n) / 2:.5f},{(o + e) / 2:.5f}", "j": jours, "c": 1, "l": 1000})
+    req = urllib.request.Request(f"https://skitour.fr/api/sorties?{q}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = json.loads(r.read())
+    if isinstance(data, dict):
+        raise RuntimeError(f"skitour : {data.get('ERROR', 'erreur')}")
+    out = []
+    for x in data:
+        pts = [sm for sm in (x.get("sommets") or []) if isinstance(sm.get("latlon"), list) and len(sm["latlon"]) == 2]
+        dedans = [sm for sm in pts if s <= float(sm["latlon"][0]) <= n and o <= float(sm["latlon"][1]) <= e]
+        if not dedans:
+            continue
+        sm = dedans[0]
+        out.append({
+            "id": x.get("id"), "titre": x.get("titre", ""), "date": x.get("date"),
+            "massif": (x.get("massif") or {}).get("nom", ""),
+            "sommet": sm.get("nom", ""), "altitude": sm.get("altitude"),
+            "lat": float(sm["latlon"][0]), "lon": float(sm["latlon"][1]),
+            "denivele": x.get("denivele"), "dif_ski": x.get("dif_ski"), "orientation": x.get("orientation", ""),
+            "conditions": str(x.get("conditions") or "")[:400],
+            "auteur": (x.get("auteur") or {}).get("pseudo", ""),
+            "url": f"https://skitour.fr/sorties/{x.get('id')}",
+        })
+    return out
+
+
 def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domaines: list | None = None):
     """Un échange avec Claude (recherche web permise) jusqu'à l'appel de l'outil final. Renvoie (entrée de l'outil, coût, jetons)."""
     messages = [{"role": "user", "content": demande}]
@@ -464,11 +499,11 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture"], "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour"], "skitour": bool(SKITOUR_CLE), "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -476,6 +511,8 @@ class Relais(BaseHTTPRequestHandler):
             return self._invitation()
         if chemin.endswith("/facture"):
             return self._facture()
+        if chemin.endswith("/skitour"):
+            return self._skitour()
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         try:
@@ -515,6 +552,33 @@ class Relais(BaseHTTPRequestHandler):
               f"{r['cout_usd']:.3f} $ (cumul {totaux['cumul_total_usd']:.2f} $)", flush=True)
         self._json(200, {**r, **totaux})
 
+
+    def _skitour(self):
+        if not SKITOUR_CLE:
+            return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)))
+            o, s, e, n = (float(d[k]) for k in ("ouest", "sud", "est", "nord"))
+            jours = max(1, min(int(d.get("jours", 30)), 400))
+            if not (o < e and s < n and e - o <= 2 and n - s <= 2):
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            return self._json(400, {"erreur": "zone invalide (2° au plus)"})
+        cle = f"skitour:{o:.3f},{s:.3f},{e:.3f},{n:.3f},{jours}"
+        with verrou:
+            cache = _lire("cache-skitour.json", {})
+            c = cache.get(cle)
+            if c and time.time() - c["t"] < 3600:
+                return self._json(200, {"sorties": c["r"], "cache": True})
+        try:
+            r = sorties_skitour(o, s, e, n, jours)
+        except Exception as ex:  # noqa: BLE001
+            return self._json(502, {"erreur": str(ex)})
+        with verrou:
+            cache = {k: x for k, x in _lire("cache-skitour.json", {}).items() if time.time() - x["t"] < 3600}
+            cache[cle] = {"t": time.time(), "r": r}
+            _ecrire("cache-skitour.json", cache)
+        self._json(200, {"sorties": r})
 
     def _facture(self):
         try:

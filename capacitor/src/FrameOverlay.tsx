@@ -6,7 +6,7 @@ import type { Bbox } from './config';
  * Encadrer une zone : un calque posé sur la carte capte le doigt, on trace un rectangle,
  * et au lâcher on le convertit en coordonnées (même principe côté Kotlin, FrameDrawView).
  */
-export function FrameOverlay({ map, onDone, onCancel }: { map: MlMap; onDone: (b: Bbox) => void; onCancel: () => void }) {
+export function FrameOverlay({ map, onDone, onCancel, label }: { map: MlMap; onDone: (b: Bbox) => void; onCancel: () => void; label?: string }) {
   const el = useRef<HTMLDivElement>(null);
   const start = useRef<[number, number] | null>(null);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -35,7 +35,7 @@ export function FrameOverlay({ map, onDone, onCancel }: { map: MlMap; onDone: (b
         onDone([Math.min(a.lng, b.lng), Math.min(a.lat, b.lat), Math.max(a.lng, b.lng), Math.max(a.lat, b.lat)]);
       }}>
       <div className="frame-banner" onPointerDown={(e) => e.stopPropagation()}>
-        <span>Trace un rectangle du doigt sur la zone</span>
+        <span>{label ?? 'Trace un rectangle du doigt sur la zone'}</span>
         <button onClick={onCancel}>Annuler</button>
       </div>
       {rect && <div className="frame-rect" style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }} />}

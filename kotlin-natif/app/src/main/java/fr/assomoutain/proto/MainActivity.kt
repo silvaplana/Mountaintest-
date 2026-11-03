@@ -206,6 +206,9 @@ class MainActivity : AppCompatActivity() {
                 val pt = m.projection.toScreenLocation(p)
                 val r = 20 * resources.displayMetrics.density
                 val box = android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r)
+                // Point d'une sortie skitour : on la choisit.
+                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI)
+                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { skiPanel?.select(it); return@addOnMapClickListener true }
                 // Trait d'un itinéraire du voyage : on le choisit.
                 if (travelPanel?.routes?.isNotEmpty() == true) m.queryRenderedFeatures(box, LAYER_TRAVEL)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { travelPanel?.select(it); return@addOnMapClickListener true }
@@ -412,6 +415,7 @@ class MainActivity : AppCompatActivity() {
             // Fenêtres du bas remontées au-dessus de la barre de gestes (demande de Seb : boutons durs à toucher).
             navBottom = bars.bottom; navTop = bars.top
             expensesPanel?.insets(bars.top, bars.bottom)
+            skiPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             lodgingPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             sheet.updatePadding(bottom = bars.bottom + 4 * margin)
             travelPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
@@ -457,6 +461,11 @@ class MainActivity : AppCompatActivity() {
             style.addSource(GeoJsonSource(SRC_WEB_HIKES))
             style.addLayer(CircleLayer(LAYER_WEB_HIKES, SRC_WEB_HIKES).withProperties(
                 circleRadius(8f), circleColor(WebHikes.COLOR), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
+            style.addSource(GeoJsonSource(SRC_SKI))
+            style.addLayer(CircleLayer(LAYER_SKI, SRC_SKI).withProperties(
+                circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(11f), Expression.literal(8f))),
+                circleColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
+                circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             style.addSource(GeoJsonSource(SRC_TRAVEL))
             style.addLayer(LineLayer("travel-casing", SRC_TRAVEL).withProperties(lineColor("#ffffff"),
                 lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(9f), Expression.literal(6f))),
@@ -997,7 +1006,10 @@ class MainActivity : AppCompatActivity() {
             val proj = map?.projection
             if (proj != null) {
                 val p = proj.fromScreenLocation(a); val q = proj.fromScreenLocation(b)
-                if (framingForOffline) {
+                if (framingForSki) {
+                    framingForSki = false; setFraming(false)
+                    openSki(Zone(minOf(p.longitude, q.longitude), minOf(p.latitude, q.latitude), maxOf(p.longitude, q.longitude), maxOf(p.latitude, q.latitude)))
+                } else if (framingForOffline) {
                     // Même outil rectangle que pour les randos : ici, on télécharge ses tuiles.
                     setFraming(false); framingForOffline = false
                     showTab(Tab.OFFLINE)
@@ -1030,7 +1042,15 @@ class MainActivity : AppCompatActivity() {
             setFraming(false)
             if (proj != null) drawDone(pts.map { val ll = proj.fromScreenLocation(it); LonLat(ll.longitude, ll.latitude) })
         }
-        findViewById<Button>(R.id.btnFrameCancel).setOnClickListener { setFraming(false); framingForOffline = false; framingForForests = false; sheetOpen = true; refreshTabs() }
+        findViewById<Button>(R.id.btnFrameCancel).setOnClickListener {
+            val ski = framingForSki
+            setFraming(false); framingForOffline = false; framingForForests = false; framingForSki = false
+            if (!ski) { sheetOpen = true; refreshTabs() }
+        }
+        findViewById<Button>(R.id.btnSki).setOnClickListener {
+            closeTravel(); closeLodging(); closeSki()
+            framingForOffline = false; framingForForests = false; framingForSki = true; setFraming(true)
+        }
         findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
             map?.projection?.visibleRegion?.latLngBounds?.let {
                 searchTrails(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth))
@@ -1051,12 +1071,42 @@ class MainActivity : AppCompatActivity() {
 
     /** Le rectangle tracé sert au hors ligne (true) ou aux randos OSM (false). */
     private var framingForOffline = false
+    private var framingForSki = false
+
+    // ---------- ⛷ Sorties skitour.fr ----------
+    private var skiPanel: SkiPanel? = null
+    private var skiOutings: List<Outing> = emptyList()
+    private fun openSki(z: Zone) {
+        closeSki()
+        val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
+        val p = SkiPanel(this, z, password, onOutings = { o, sel -> drawSki(o, sel) },
+            onReframe = { closeSki(); framingForSki = true; setFraming(true) }, onClose = { closeSki() })
+        skiPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
+    }
+    private fun closeSki() {
+        skiPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        skiPanel = null; drawSki(emptyList(), null)
+    }
+    private fun drawSki(o: List<Outing>, sel: Int?) {
+        skiOutings = o
+        val style = map?.style ?: return
+        style.getSourceAs<GeoJsonSource>(SRC_SKI)?.setGeoJson(FeatureCollection.fromFeatures(o.mapIndexed { i, x ->
+            Feature.fromGeometry(Point.fromLngLat(x.lon, x.lat)).apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel) }
+        }))
+        o.getOrNull(sel ?: -1)?.let { map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(it.lat, it.lon)), 600) }
+    }
 
     private fun setFraming(on: Boolean, freehand: Boolean = false) {
         val draw = findViewById<FrameDrawView>(R.id.frameDraw)
         draw.reset()
         draw.freehand = freehand
-        findViewById<TextView>(R.id.frameText).text = if (freehand) "Trace ton parcours du doigt" else "Trace un rectangle du doigt sur la zone"
+        findViewById<TextView>(R.id.frameText).text = when {
+            freehand -> "Trace ton parcours du doigt"
+            framingForSki -> "Encadre la zone dans laquelle tu veux chercher les sorties"
+            else -> "Trace un rectangle du doigt sur la zone"
+        }
         findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
         findViewById<View>(R.id.quickButtons).visibility = if (on) View.GONE else View.VISIBLE
         draw.visibility = if (on) View.VISIBLE else View.GONE
@@ -1729,7 +1779,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
             R.id.btnQuickAvion to "Mode avion", R.id.btnPoche to "Mode poche (écran noir)",
-            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes", R.id.btnQuickShade to "Ombres",
+            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes", R.id.btnQuickShade to "Ombres", R.id.btnSki to "Sorties ski de rando (skitour.fr)",
             R.id.btnWeather to "Météo (Météo-France)", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
         )
@@ -1821,6 +1871,8 @@ class MainActivity : AppCompatActivity() {
         private const val LAYER_TRAILS = "trails"
         private const val SRC_WEB_HIKES = "web-hikes-src"
         private const val SRC_TRAVEL = "travel-src"
+        private const val SRC_SKI = "ski-src"
+        private const val LAYER_SKI = "ski"
         private const val LAYER_TRAVEL = "travel"
         private const val LAYER_WEB_HIKES = "web-hikes"
         private const val LAYER_SLOPES = "slopes"

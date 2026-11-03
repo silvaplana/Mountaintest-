@@ -10,6 +10,7 @@ import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
+import type { Outing } from './ski/skitour';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -44,6 +45,10 @@ export interface MapViewProps {
   travelRoutes?: CarRoute[];
   travelSel?: number;
   onTravelClick?: (i: number) => void;
+  /** Sorties skitour.fr : un point bleu par sortie, celle choisie en violet. */
+  skiOutings?: Outing[];
+  skiSel?: number | null;
+  onSkiClick?: (i: number) => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -75,6 +80,8 @@ export function MapView(props: MapViewProps) {
   onHikeClick.current = props.onHikeClick;
   const onForestClick = useRef(props.onForestClick);
   onForestClick.current = props.onForestClick;
+  const onSkiClick = useRef(props.onSkiClick);
+  onSkiClick.current = props.onSkiClick;
   const onTravelClick = useRef(props.onTravelClick);
   onTravelClick.current = props.onTravelClick;
 
@@ -93,7 +100,7 @@ export function MapView(props: MapViewProps) {
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
-          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY },
+          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
@@ -116,6 +123,7 @@ export function MapView(props: MapViewProps) {
           { id: 'travel-casing', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': ['case', ['get', 'sel'], 9, 6] } },
           { id: 'travel', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 6, 3], 'line-opacity': ['case', ['get', 'sel'], 1, 0.6] } },
           { id: 'travel-hit', type: 'line', source: 'travel', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
+          { id: 'ski', type: 'circle', source: 'ski', paint: { 'circle-radius': 8, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
         ],
       },
@@ -145,6 +153,10 @@ export function MapView(props: MapViewProps) {
     m.on('click', 'web-hikes', (e) => {
       const i = e.features?.[0]?.properties?.i;
       if (i != null) onHikeClick.current?.(Number(i));
+    });
+    m.on('click', 'ski', (e) => {
+      const i = e.features?.[0]?.properties?.i;
+      if (i != null) onSkiClick.current?.(Number(i));
     });
     m.on('click', 'travel-hit', (e) => {
       const i = e.features?.[0]?.properties?.i;
@@ -257,6 +269,18 @@ export function MapView(props: MapViewProps) {
     const h = map.current!.getContainer().clientHeight;
     map.current!.fitBounds(b, { padding: { top: 30, left: 30, right: 70, bottom: Math.max(30, Math.min(panel + 20, h - 220)) }, duration: 800 });
   }, [props.travelRoutes, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    (m.getSource('ski') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).map((o, i) => ({
+      type: 'Feature', properties: { i }, geometry: { type: 'Point', coordinates: [o.lon, o.lat] } })) });
+    const sel = props.skiSel ?? -1;
+    m.setPaintProperty('ski', 'circle-color', ['case', ['==', ['get', 'i'], sel], '#7b3fe4', '#1d6fe0']);
+    m.setPaintProperty('ski', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
+    const o = props.skiOutings?.[sel];
+    if (o) m.easeTo({ center: [o.lon, o.lat], duration: 600 });
+  }, [props.skiOutings, props.skiSel, ready]);
 
   const slopeMarkers = useRef<maplibregl.Marker[]>([]);
   useEffect(() => {
