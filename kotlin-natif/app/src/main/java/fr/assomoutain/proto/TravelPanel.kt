@@ -156,10 +156,10 @@ class TravelPanel(
         formBox.addView(Button(a).apply {
             text = "📍 Partir de ma position"
             setOnClickListener {
-                text = "Recherche de ma position…"; isEnabled = false; error.text = ""
+                text = "Recherche de ma position…"; isEnabled = false; this@TravelPanel.error.text = ""
                 locate { s ->
                     text = "📍 Partir de ma position"; isEnabled = true
-                    if (s == null) error.text = "Position GPS introuvable : tape le lieu de départ"
+                    if (s == null) this@TravelPanel.error.text = "Position GPS introuvable : tape le lieu de départ"
                     else setDepart(s)
                 }
             }
