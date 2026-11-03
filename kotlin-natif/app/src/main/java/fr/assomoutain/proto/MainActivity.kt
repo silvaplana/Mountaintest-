@@ -380,7 +380,10 @@ class MainActivity : AppCompatActivity() {
             findViewById<View>(R.id.shadeBar).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
                 topMargin = bars.top + (64 * resources.displayMetrics.density).toInt()
             }
-            sheet.updatePadding(bottom = bars.bottom + margin)
+            // Fenêtres du bas remontées au-dessus de la barre de gestes (demande de Seb : boutons durs à toucher).
+            navBottom = bars.bottom
+            sheet.updatePadding(bottom = bars.bottom + 4 * margin)
+            travelPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
             insets
         }
@@ -1578,6 +1581,7 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- Menu Voyage ----------
     private var travelPanel: TravelPanel? = null
+    private var navBottom = 0
 
     private fun openTravel() {
         if (travelPanel != null) return
@@ -1589,6 +1593,7 @@ class MainActivity : AppCompatActivity() {
         val password = prefs.getString("iaPassword", "").orEmpty().ifEmpty { BuildConfig.IA_MOT_DE_PASSE }
         val p = TravelPanel(this, prefs, here, password, onRoutes = { r, i -> drawTravel(r, i) }, onClose = { closeTravel() })
         travelPanel = p
+        p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
     }
 
