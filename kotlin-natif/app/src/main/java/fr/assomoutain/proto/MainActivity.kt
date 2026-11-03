@@ -942,10 +942,8 @@ class MainActivity : AppCompatActivity() {
             "Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés (${Trails.OSM_ATTRIBUTION}), " +
             "et celles que Claude trouve sur le web en points orange, avec le lien de leur page."
         // Mot de passe intégré par la CI : le champ ne sert plus, on le cache.
-        if (BuildConfig.IA_MOT_DE_PASSE.isNotEmpty()) {
-            findViewById<View>(R.id.hintIaPassword).visibility = View.GONE
-            findViewById<View>(R.id.editIaPassword).visibility = View.GONE
-        }
+        if (BuildConfig.IA_MOT_DE_PASSE.isNotEmpty())
+            findViewById<TextView>(R.id.hintIaPassword).text = "Mot de passe IA de secours (vide : celui intégré à l'appli)"
         findViewById<EditText>(R.id.editIaPassword).apply {
             setText(prefs.getString("iaPassword", ""))
             addTextChangedListener(object : TextWatcher {
@@ -1078,7 +1076,7 @@ class MainActivity : AppCompatActivity() {
     private fun searchWebHikes(z: Zone) {
         webJob?.cancel()
         webHikes = emptyList(); hikeSel = null; drawWebHikes()
-        val password = prefs.getString("iaPassword", "").orEmpty().ifEmpty { BuildConfig.IA_MOT_DE_PASSE }
+        val password = BuildConfig.IA_MOT_DE_PASSE.ifEmpty { prefs.getString("iaPassword", "").orEmpty() }
         if (password.isEmpty()) {
             webMessage = "Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous."
             refreshTrails(); return
@@ -1590,7 +1588,7 @@ class MainActivity : AppCompatActivity() {
         val c = map?.cameraPosition?.target
         val here = if (loc != null) Spot("Ma position", loc.longitude, loc.latitude)
             else Spot("Centre de la carte", c?.longitude ?: 5.6, c?.latitude ?: 43.17)
-        val password = prefs.getString("iaPassword", "").orEmpty().ifEmpty { BuildConfig.IA_MOT_DE_PASSE }
+        val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         val p = TravelPanel(this, prefs, here, password, onRoutes = { r, i -> drawTravel(r, i) }, onClose = { closeTravel() })
         travelPanel = p
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())

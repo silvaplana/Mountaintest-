@@ -82,10 +82,16 @@ export const routeLine = (r: CarRoute) =>
 
 const relay = (path: string) => RELAIS_URL.replace(/\/randos$/, `/${path}`);
 
+/** password : un ou plusieurs mots de passe séparés par un retour à la ligne (intégré à l'APK, puis tapé) ; on essaie le suivant si refusé. */
 async function post<T>(path: string, body: unknown, password: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(relay(path), {
-    method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'X-Mot-De-Passe': password }, body: JSON.stringify(body),
-  });
+  const tries = password.split('\n').filter(Boolean);
+  let res!: Response;
+  for (const p of tries) {
+    res = await fetch(relay(path), {
+      method: 'POST', signal, headers: { 'Content-Type': 'application/json', 'X-Mot-De-Passe': p }, body: JSON.stringify(body),
+    });
+    if (res.status !== 401) break;
+  }
   let json: T & { erreur?: string } = {} as T & { erreur?: string };
   try { json = await res.json(); } catch { /* réponse non JSON */ }
   // 404 « inconnu » : le relais du VPS tourne encore l'ancienne version (mise à jour toutes les 5 à 10 min).

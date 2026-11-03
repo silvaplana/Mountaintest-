@@ -394,7 +394,7 @@ export function App() {
   async function searchWebHikes(b: Bbox) {
     webAbort.current?.abort();
     setWebHikes([]); setHikeSel(null);
-    const pwd = iaPassword || IA_MOT_DE_PASSE_INTEGRE;
+    const pwd = IA_MOT_DE_PASSE_INTEGRE || iaPassword;
     if (!pwd) { setWebMsg('Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous.'); return; }
     const ctrl = new AbortController();
     webAbort.current = ctrl;
@@ -547,7 +547,7 @@ export function App() {
         }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
         onTravel={() => { setTravel(true); setOpen(false); setSearching(false); }} />}
-      {travel && <TravelPanel password={iaPassword || IA_MOT_DE_PASSE_INTEGRE}
+      {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         here={position ? { label: 'Ma position', lon: position.lon, lat: position.lat }
           : { label: 'Centre de la carte', lon: map?.getCenter().lng ?? 5.6, lat: map?.getCenter().lat ?? 43.17 }}
         routes={travelRoutes} selected={travelSel}
@@ -700,7 +700,7 @@ export function App() {
               webAbort.current?.abort();
               setTrails([]); setFrame(null); void selectTrail(null); setTrailsMsg(''); setWebHikes([]); setHikeSel(null); setWebMsg('');
             }}>Effacer les randos de la carte</button>}
-            {!IA_MOT_DE_PASSE_INTEGRE && <label className="field">Mot de passe IA (recherche des randos sur le web par Claude)
+            {<label className="field">{IA_MOT_DE_PASSE_INTEGRE ? 'Mot de passe IA de secours (vide : celui intégré à l’appli)' : 'Mot de passe IA (recherche des randos sur le web par Claude)'}
               <input type="password" value={iaPassword} onChange={(e) => void saveIaPassword(e.target.value)} autoCapitalize="off" autoCorrect="off" />
             </label>}
           </div>

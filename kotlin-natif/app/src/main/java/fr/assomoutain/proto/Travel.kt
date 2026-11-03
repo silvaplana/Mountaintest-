@@ -103,7 +103,18 @@ object Travel {
 
     // ---------- Relais IA ----------
 
+    /** password : un ou plusieurs mots de passe séparés par un retour à la ligne (intégré, puis tapé) ; le suivant si refusé. */
     private fun post(path: String, body: JSONObject, password: String): JSONObject {
+        val tries = password.split('\n').filter { it.isNotEmpty() }
+        for ((i, p) in tries.withIndex()) {
+            try { return post1(path, body, p) } catch (e: Refused) { if (i == tries.lastIndex) error("Mot de passe IA incorrect") }
+        }
+        error("Mot de passe IA manquant")
+    }
+
+    private class Refused : Exception()
+
+    private fun post1(path: String, body: JSONObject, password: String): JSONObject {
         val c = URL(WebHikes.RELAIS_URL.removeSuffix("/randos") + "/" + path).openConnection() as HttpURLConnection
         c.requestMethod = "POST"; c.doOutput = true
         c.connectTimeout = 15_000; c.readTimeout = 240_000
@@ -113,6 +124,7 @@ object Travel {
         val code = c.responseCode
         val text = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
         // 404 « inconnu » : le relais du VPS tourne encore l'ancienne version (mise à jour toutes les 5 à 10 min).
+        if (code == 401) throw Refused()
         if (code == 404) error("le serveur IA n'est pas encore à jour, réessaie dans quelques minutes")
         if (code !in 200..299) error(runCatching { JSONObject(text).optString("erreur") }.getOrNull()?.ifEmpty { null } ?: "relais HTTP $code")
         return JSONObject(text)
