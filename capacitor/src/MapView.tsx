@@ -29,6 +29,8 @@ export interface MapViewProps {
   onTrailClick?: (id: number, at: { lon: number; lat: number }) => void;
   /** Point du profil sous le doigt (pente), affiché sur le tracé. */
   cursor?: { lon: number; lat: number } | null;
+  /** Étiquettes de pente le long des tracés (case Pentes cochée). */
+  slopeTags?: { lon: number; lat: number; deg: number; text: string }[];
   /** Randos trouvées sur le web par Claude : un point par rando, celle choisie en surbrillance. */
   webHikes: WebHike[];
   selectedHike: number | null;
@@ -221,6 +223,21 @@ export function MapView(props: MapViewProps) {
       m.fitBounds(b, { padding: { top: 140, left: 30, right: 70, bottom: Math.max(20, bottom) }, duration: 800 });
     }
   }, [props.selectedTrail, ready]);
+
+  const slopeMarkers = useRef<maplibregl.Marker[]>([]);
+  useEffect(() => {
+    const m = map.current;
+    slopeMarkers.current.forEach((k) => k.remove());
+    slopeMarkers.current = [];
+    if (!m) return;
+    for (const t of props.slopeTags ?? []) {
+      const el = document.createElement('div');
+      const a = Math.abs(t.deg);
+      el.className = `slope-tag ${a >= 17 ? 'steep' : a >= 9 ? 'mid' : ''}`; // ≥ 30 % rouge, ≥ 16 % orange
+      el.textContent = t.text;
+      slopeMarkers.current.push(new maplibregl.Marker({ element: el }).setLngLat([t.lon, t.lat]).addTo(m));
+    }
+  }, [props.slopeTags]);
 
   const cursorMarker = useRef<maplibregl.Marker | null>(null);
   useEffect(() => {

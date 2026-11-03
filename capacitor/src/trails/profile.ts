@@ -62,3 +62,27 @@ export function formatSlope(s: { deg: number; pct: number }) {
   const sign = s.deg > 0.5 ? '↗ ' : s.deg < -0.5 ? '↘ ' : '';
   return `${sign}${Math.round(Math.abs(s.deg))}° (${Math.round(Math.abs(s.pct))} %)`;
 }
+
+export interface SlopeLabel { lon: number; lat: number; deg: number; pct: number; text: string }
+
+/** Pas « rond » entre deux étiquettes de pente, pour en avoir au plus ~maxLabels sur le parcours. */
+export function labelStep(total: number, maxLabels = 20) {
+  const nice = [100, 200, 250, 500, 1000, 2000, 2500, 5000];
+  return nice.find((s) => total / s <= maxLabels) ?? 10000;
+}
+
+/**
+ * Étiquettes de pente régulières le long du parcours (au milieu de chaque tronçon).
+ * window : 50 m sur le relief IGN ; plus large (100 m) sur des altitudes GPS, plus bruitées.
+ */
+export function slopeLabels(p: ProfileData, window = SLOPE_WINDOW_M, maxLabels = 20): SlopeLabel[] {
+  if (p.d.length < 2) return [];
+  const start = p.d[0], end = p.d[p.d.length - 1];
+  const step = labelStep(end - start, maxLabels);
+  const out: SlopeLabel[] = [];
+  for (let x = start + step / 2; x < end; x += step) {
+    const at = pointAt(p, x), s = slopeAt(p, x, window);
+    out.push({ lon: at.lon, lat: at.lat, deg: s.deg, pct: s.pct, text: formatSlope(s).replace(' (', ' · ').replace(')', '') });
+  }
+  return out;
+}

@@ -402,6 +402,12 @@ class MainActivity : AppCompatActivity() {
                 lineColor(Expression.get("color")), lineWidth(3f), lineOpacity(0.75f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel-casing", SRC_TRAIL_SEL).withProperties(lineColor("#ffffff"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor("#7b3fe4"), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
+            // Étiquettes de pente le long des tracés.
+            style.addSource(GeoJsonSource(SRC_SLOPE_TAGS))
+            style.addLayer(org.maplibre.android.style.layers.SymbolLayer("slope-tags", SRC_SLOPE_TAGS).withProperties(
+                org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)))
             // Point du profil sous le doigt (pente), sur le tracé.
             style.addSource(GeoJsonSource(SRC_SLOPE_CURSOR))
             style.addLayer(CircleLayer("slope-cursor", SRC_SLOPE_CURSOR).withProperties(
@@ -444,6 +450,60 @@ class MainActivity : AppCompatActivity() {
 
     private fun applySlopes() {
         map?.style?.getLayer(LAYER_SLOPES)?.setProperties(visibility(if (slopes) Property.VISIBLE else Property.NONE))
+        refreshSlopeTags()
+    }
+
+    // ---------- Étiquettes de pente le long des tracés (case Pentes cochée) ----------
+
+    /** Profil du GPX importé : altitudes du fichier (gps = true) ou relief IGN. */
+    private var importProfile: Pair<ProfileData, Boolean>? = null
+    private var importProfileOf: List<Fix>? = null
+    private var importProfileJob: kotlinx.coroutines.Job? = null
+
+    private fun refreshSlopeTags() {
+        val style = map?.style ?: return
+        if (!style.isFullyLoaded) return
+        val imp = imported
+        if (slopes && imp.size >= 2 && importProfileOf !== imp) {
+            importProfileOf = imp; importProfile = null
+            importProfileJob?.cancel()
+            if (imp.count { it.ele != null } >= imp.size * 0.8) {
+                importProfile = ProfileData.build(listOf(imp.map { LonLat(it.lon, it.lat) to it.ele })) to true
+            } else {
+                val t = Trails.drawnTrail(imp.map { LonLat(it.lon, it.lat) }, false)
+                importProfileJob = lifecycleScope.launch {
+                    val el = withContext(Dispatchers.IO) { runCatching { Trails.elevate(t) }.getOrNull() } ?: return@launch
+                    if (importProfileOf === imp) { importProfile = ProfileData.build(el.segments) to false; refreshSlopeTags() }
+                }
+            }
+        }
+        val labels = if (!slopes) emptyList() else
+            (findViewById<ProfileView>(R.id.trailProfile).profile?.slopeLabels() ?: emptyList()) +
+            (importProfile?.takeIf { imp.size >= 2 }?.let { (p, gps) -> p.slopeLabels(if (gps) 100.0 else 50.0) } ?: emptyList())
+        val feats = labels.map { l ->
+            val img = "slope:" + l.text + ":" + (if (Math.abs(l.deg) >= 17) 2 else if (Math.abs(l.deg) >= 9) 1 else 0)
+            if (style.getImage(img) == null) style.addImage(img, slopeTagBitmap(l.text, Math.abs(l.deg)))
+            Feature.fromGeometry(Point.fromLngLat(l.lon, l.lat)).apply { addStringProperty("img", img) }
+        }
+        style.getSourceAs<GeoJsonSource>(SRC_SLOPE_TAGS)?.setGeoJson(FeatureCollection.fromFeatures(feats))
+    }
+
+    /** Pastille « ↗ 12° · 21 % » : sombre, orange dès 16 %, rouge dès 30 % (même code couleur que Capacitor). */
+    private fun slopeTagBitmap(text: String, absDeg: Double): android.graphics.Bitmap {
+        val d = resources.displayMetrics.density
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 11 * d }
+        val w = (paint.measureText(text) + 12 * d).toInt(); val h = (20 * d).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(w + 2, h + 2, android.graphics.Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(bmp)
+        val r = android.graphics.RectF(1f, 1f, w + 1f, h + 1f)
+        val bg = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor(if (absDeg >= 17) "#E8B3261E" else if (absDeg >= 9) "#E8C45A00" else "#E01D2421")
+        }
+        c.drawRoundRect(r, 6 * d, 6 * d, bg)
+        c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE; color = Color.WHITE; strokeWidth = d })
+        c.drawText(text, 1 + 6 * d, 1 + h / 2f - (paint.descent() + paint.ascent()) / 2, paint)
+        return bmp
     }
 
     private fun render() {
@@ -462,6 +522,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun drawImported(fit: Boolean = true) {
         val style = map?.style ?: return
+        refreshSlopeTags()
         val pts = imported.map { Point.fromLngLat(it.lon, it.lat) }
         style.getSourceAs<GeoJsonSource>(SRC_IMPORT)?.setGeoJson(LineString.fromLngLats(if (pts.size >= 2) pts else emptyList()))
         if (fit && imported.size >= 2) {
@@ -1177,7 +1238,7 @@ class MainActivity : AppCompatActivity() {
         }
         val sel = selectedTrail
         findViewById<View>(R.id.trailCard).visibility = if (sel != null) View.VISIBLE else View.GONE
-        if (sel == null) { findViewById<ProfileView>(R.id.trailProfile).setData(null); showSlopeCursor() }
+        if (sel == null) { findViewById<ProfileView>(R.id.trailProfile).setData(null); showSlopeCursor(); refreshSlopeTags() }
         if (sel != null) {
             findViewById<TextView>(R.id.trailName).text = sel.name
             findViewById<TextView>(R.id.trailKind).text = sel.kind +
@@ -1197,6 +1258,7 @@ class MainActivity : AppCompatActivity() {
                 visibility = if (e != null) View.VISIBLE else View.GONE
             }
             showSlopeCursor()
+            refreshSlopeTags()
             findViewById<View>(R.id.trailAltError).visibility = if (elevated?.isFailure == true) View.VISIBLE else View.GONE
             findViewById<Button>(R.id.btnTrailExport).isEnabled = elevated != null
         }
@@ -1587,6 +1649,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRAILS = "trails-src"
         private const val SRC_TRAIL_SEL = "trail-sel-src"
         private const val SRC_SLOPE_CURSOR = "slope-cursor-src"
+        private const val SRC_SLOPE_TAGS = "slope-tags-src"
         private const val SRC_FRAME = "frame-src"
         private const val SRC_FORESTS = "forests-src"
         private const val LAYER_FORESTS = "forests"

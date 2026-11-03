@@ -49,8 +49,32 @@ class ProfileData(val d: DoubleArray, val z: DoubleArray, val lon: DoubleArray, 
         return best
     }
 
+    data class Label(val lon: Double, val lat: Double, val deg: Double, val text: String)
+
+    /**
+     * Étiquettes de pente régulières le long du parcours (au milieu de chaque tronçon), au plus ~maxLabels.
+     * window : 50 m sur le relief IGN ; plus large (100 m) sur des altitudes GPS, plus bruitées.
+     */
+    fun slopeLabels(window: Double = SLOPE_WINDOW_M, maxLabels: Int = 20): List<Label> {
+        if (size < 2) return emptyList()
+        val start = d.first(); val end = d.last()
+        val step = labelStep(end - start, maxLabels)
+        val out = ArrayList<Label>()
+        var x = start + step / 2
+        while (x < end) {
+            val at = pointAt(x); val s = slopeAt(x, window)
+            out += Label(at.lon, at.lat, s.deg, format(s).replace(" (", " · ").replace(")", ""))
+            x += step
+        }
+        return out
+    }
+
     companion object {
         const val SLOPE_WINDOW_M = 50.0
+
+        /** Pas « rond » entre deux étiquettes (même règle que labelStep côté Capacitor). */
+        fun labelStep(total: Double, maxLabels: Int = 20): Double =
+            listOf(100.0, 200.0, 250.0, 500.0, 1000.0, 2000.0, 2500.0, 5000.0).firstOrNull { total / it <= maxLabels } ?: 10000.0
 
         fun build(segments: List<List<Pair<LonLat, Double?>>>): ProfileData {
             val d = ArrayList<Double>(); val z = ArrayList<Double>(); val lo = ArrayList<Double>(); val la = ArrayList<Double>()

@@ -26,7 +26,7 @@ import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { Profile } from './Profile';
-import { buildProfile, nearestD, pointAt } from './trails/profile';
+import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
 import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
@@ -122,6 +122,26 @@ export function App() {
   const [profCursor, setProfCursor] = useState<number | null>(null);
   const profile = useMemo(() => (elevated && typeof elevated === 'object' ? buildProfile(elevated.segments) : null), [elevated]);
   useEffect(() => setProfCursor(null), [elevated]);
+  // Pentes cochées + tracé affiché (rando ou tracé au doigt, GPX importé) : étiquettes de pente régulières.
+  const [importProfile, setImportProfile] = useState<{ prof: ProfileData; gps: boolean } | null>(null);
+  useEffect(() => {
+    setImportProfile(null);
+    if (!showSlopes || imported.length < 2) return;
+    const pts = imported.map((p) => ({ lon: p.lon, lat: p.lat, ele: p.ele }));
+    // Altitudes du GPX si elles y sont, sinon relief IGN (réseau).
+    if (pts.filter((p) => p.ele != null).length >= pts.length * 0.8) { setImportProfile({ prof: buildProfile([pts]), gps: true }); return; }
+    let live = true;
+    const t = drawnTrail(pts, false);
+    elevate(t).then((el) => { if (live) setImportProfile({ prof: buildProfile(el.segments), gps: false }); }).catch(() => {});
+    return () => { live = false; };
+  }, [imported, showSlopes]);
+  const slopeTags = useMemo(() => {
+    if (!showSlopes) return [];
+    return [
+      ...(profile ? slopeLabels(profile) : []),
+      ...(importProfile ? slopeLabels(importProfile.prof, importProfile.gps ? 100 : 50) : []),
+    ];
+  }, [showSlopes, profile, importProfile]);
   const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
   const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
   const trailsAbort = useRef<AbortController | null>(null);
@@ -502,6 +522,7 @@ export function App() {
           if (selected?.id === id && profile) { setProfCursor(nearestD(profile, at.lon, at.lat)); setOpen(true); return; }
           void selectTrail(trails.find((t) => t.id === id) ?? null);
         }}
+        slopeTags={slopeTags}
         cursor={profile && profCursor != null ? pointAt(profile, profCursor) : null}
         webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike}
         forests={forests} forestFilter={forestFilter}

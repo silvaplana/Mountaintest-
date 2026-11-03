@@ -197,3 +197,11 @@ progress { width: 100%; }
 }
 .quick.help button:disabled { opacity: 1; }
 .help-close p { bottom: calc(env(safe-area-inset-bottom) + 64px); }
+
+/* Étiquettes de pente le long des tracés */
+.slope-tag {
+  background: #1d2421e0; color: #fff; font-size: 11px; line-height: 1; padding: 4px 6px; border-radius: 6px;
+  white-space: nowrap; pointer-events: none; border: 1px solid #fff; font-variant-numeric: tabular-nums;
+}
+.slope-tag.mid { background: #c45a00e8; }
+.slope-tag.steep { background: #b3261ee8; }
