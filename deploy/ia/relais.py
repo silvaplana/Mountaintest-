@@ -275,10 +275,11 @@ qui peuvent loger ce nombre de personnes sous ce prix. Donne pour chacun un lien
 (site de l'établissement de préférence, sinon une page de réservation). Tu ne peux pas vérifier les disponibilités en
 temps réel : dis-le dans le conseil.
 Cherche les meilleurs prix : compare plusieurs sources (site de l'établissement, Booking, Gîtes de France, Airbnb…)
-et garde pour chacun le prix le plus bas trouvé. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
+et garde pour chacun le prix le plus bas trouvé. Si une liste « sites » est donnée, ne cherche et ne propose QUE des
+hébergements trouvés sur ces sites. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
 
 
-def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4):
+def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domaines: list | None = None):
     """Un échange avec Claude (recherche web permise) jusqu'à l'appel de l'outil final. Renvoie (entrée de l'outil, coût, jetons)."""
     messages = [{"role": "user", "content": demande}]
     cout, jetons = 0.0, {"entree": 0, "sortie": 0, "recherches_web": 0}
@@ -289,7 +290,8 @@ def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4):
             output_config={"effort": "low"},
             system=consigne,
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": recherches,
-                    "user_location": {"type": "approximate", "country": "FR"}}, outil],
+                    "user_location": {"type": "approximate", "country": "FR"},
+                    **({"allowed_domains": domaines} if domaines else {})}, outil],
             messages=messages,
         )
         u = r.usage
@@ -513,7 +515,12 @@ class Relais(BaseHTTPRequestHandler):
                 consigne, outil, rech, garde = CONSIGNE_VOITURES, OUTIL_VOITURES, 2, 30
             elif quoi == "hebergement":
                 v = {"ville": " ".join(str(d["ville"]).split())[:80], "personnes": int(d["personnes"]),
-                     "prix_max_nuit": float(d["prix_max"]), "arrivee": str(d.get("arrivee", ""))[:10], "nuits": int(d.get("nuits", 1))}
+                     "prix_max_nuit": float(d["prix_max"]), "arrivee": str(d.get("arrivee", ""))[:10], "nuits": int(d.get("nuits", 1)),
+                     # Sites cochés dans l'appli : la recherche web ne regarde qu'eux (vide : tout le web).
+                     "sites": sorted({str(x).lower().strip().removeprefix("https://").removeprefix("http://").removeprefix("www.").strip("/")
+                                      for x in (d.get("sites") or [])[:10]})}
+                if any(not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", x) for x in v["sites"]):
+                    raise ValueError
                 if len(v["ville"]) < 2 or not (1 <= v["personnes"] <= 30 and 0 < v["prix_max_nuit"] < 5000 and 1 <= v["nuits"] <= 30):
                     raise ValueError
                 cle = "hebergement:" + hashlib.sha1(json.dumps(v, sort_keys=True).encode()).hexdigest()
@@ -537,7 +544,7 @@ class Relais(BaseHTTPRequestHandler):
                 return self._json(429, {"erreur": f"Limite de {MAX_PAR_JOUR} demandes par jour atteinte"})
             _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
         try:
-            r, cout, jetons = appeler(consigne, demande, outil, rech)
+            r, cout, jetons = appeler(consigne, demande, outil, rech, (v.get("sites") or None) if quoi == "hebergement" else None)
         except anthropic.APIError as e:
             return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
         except Exception as e:  # noqa: BLE001 - on renvoie l'erreur à l'appli

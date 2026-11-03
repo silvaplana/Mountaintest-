@@ -56,6 +56,25 @@ class LodgingPanel(
         InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_DATE)
     private val nights = input(prefs.getString("hebNuits", "1")!!, InputType.TYPE_CLASS_NUMBER)
     private val btn = Button(a)
+    /** Sites à cocher (on peut en ajouter) : cochés, Claude ne cherche que là ; aucun coché, tout le web. */
+    private val defaultSites = listOf("gites-refuges.com", "capverb.org")
+    private val sites = (prefs.getString("hebSites", null)?.split(',')?.filter { it.isNotBlank() } ?: defaultSites).toMutableList()
+    private val checked = prefs.getString("hebCoches", "")!!.split(',').filter { it.isNotBlank() }.toMutableSet()
+    private val siteBox = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
+    private fun saveSites() = prefs.edit().putString("hebSites", sites.joinToString(",")).putString("hebCoches", checked.joinToString(",")).apply()
+    private fun showSites() {
+        siteBox.removeAllViews()
+        sites.forEach { x ->
+            siteBox.addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(android.widget.CheckBox(a).apply {
+                    text = x; isChecked = x in checked
+                    setOnCheckedChangeListener { _, on -> if (on) checked += x else checked -= x; saveSites() }
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                if (x !in defaultSites) addView(Button(a).apply { text = "✕"; setOnClickListener { sites -= x; checked -= x; saveSites(); showSites() } })
+            })
+        }
+    }
     private val error = text("", 13f, Color.parseColor("#C0392B"))
     private val result = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
 
@@ -73,6 +92,17 @@ class LodgingPanel(
         col.addView(LinearLayout(a).apply {
             addView(labelled("Arrivée (AAAA-MM-JJ)", date), LinearLayout.LayoutParams(0, -2, 1f))
             addView(labelled("Nuits", nights), LinearLayout.LayoutParams(0, -2, 1f))
+        })
+        col.addView(text("Chercher seulement sur (rien de coché : tout le web)"))
+        showSites(); col.addView(siteBox)
+        val add = EditText(a).apply { hint = "ajouter un site (ex. booking.com)"; isSingleLine = true; inputType = InputType.TYPE_TEXT_VARIATION_URI }
+        col.addView(LinearLayout(a).apply {
+            addView(add, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(Button(a).apply { text = "Ajouter"; setOnClickListener {
+                val x = add.text.toString().trim().lowercase().removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore('/')
+                if (Regex("[a-z0-9-]+(\\.[a-z0-9-]+)+").matches(x) && x !in sites) { sites += x; checked += x; saveSites(); showSites() }
+                add.setText("")
+            } })
         })
         btn.apply { text = "Chercher (IA)"; isEnabled = password.isNotEmpty(); setOnClickListener { search() } }
         col.addView(btn)
@@ -100,7 +130,8 @@ class LodgingPanel(
         view.post { view.fullScroll(View.FOCUS_DOWN) }
         a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) {
-                Travel.post("hebergement", JSONObject().put("ville", v).put("personnes", p).put("prix_max", m).put("arrivee", day).put("nuits", n), password)
+                Travel.post("hebergement", JSONObject().put("ville", v).put("personnes", p).put("prix_max", m).put("arrivee", day).put("nuits", n)
+                    .put("sites", org.json.JSONArray(checked.filter { it in sites })), password)
             } }.onSuccess { o -> show(o) }
                 .onFailure { result.removeAllViews(); error.text = "Recherche impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}" }
             tick.cancel(); btn.text = "Chercher (IA)"; btn.isEnabled = true

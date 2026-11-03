@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  balances, EMOJIS, loadGroups, memberName, money, newId, paidBy, saveGroups, settlements, total,
+  balances, loadGroups, memberName, money, newId, paidBy, saveGroups, settlements, total,
   type Expense, type Group, type Member,
 } from './expenses/expenses';
 import { RELAIS_URL } from './trails/webHikes';
@@ -68,7 +68,7 @@ export function Expenses({ password, onClose, onToast }: { password: string; onC
     return (
       <div className="expenses">
         <div className="xp-head"><button onClick={() => setScreen({ k: 'list' })} aria-label="Retour">←</button><span /><button onClick={() => setScreen({ k: 'edit', id: g.id })}>Modifier</button></div>
-        <div className="xp-title"><span className="xp-emoji">{g.emoji}</span><h2>{g.name}</h2>
+        <div className="xp-title"><h2>{g.name}</h2>
           <small>{g.members.map((m) => m.name).join(', ')}</small></div>
         <div className="xp-tabs">
           <button className={screen.tab === 'dep' ? 'on' : ''} onClick={() => setScreen({ ...screen, tab: 'dep' })}>Dépenses</button>
@@ -103,7 +103,7 @@ export function Expenses({ password, onClose, onToast }: { password: string; onC
       {groups.length === 0 && <p className="hint">Aucun groupe de dépenses : touche + pour en créer un (un voyage, une sortie…).</p>}
       {groups.map((g) => (
         <button key={g.id} className="xp-group" onClick={() => setScreen({ k: 'group', id: g.id, tab: 'dep' })}>
-          <span className="xp-emoji">{g.emoji}</span><b>{g.name}</b><span>›</span>
+          <b>{g.name}</b><span>›</span>
         </button>
       ))}
       <button className="xp-add" onClick={() => setScreen({ k: 'edit', id: null })} aria-label="Nouveau groupe de dépenses">+</button>
@@ -114,21 +114,23 @@ export function Expenses({ password, onClose, onToast }: { password: string; onC
 function GroupForm({ initial, onSave, onCancel, onDelete, onInvite }: {
   initial?: Group; onSave: (g: Group) => void; onCancel: () => void; onDelete?: () => void; onInvite: (m: Member, g: Group) => Promise<void>;
 }) {
-  const [g, setG] = useState<Group>(() => initial ?? { id: newId(), name: '', emoji: EMOJIS[0], members: [{ id: newId(), name: '' }, { id: newId(), name: '' }], me: '', expenses: [] });
+  const [g, setG] = useState<Group>(() => initial ?? { id: newId(), name: '', emoji: '💰', members: [{ id: newId(), name: '' }, { id: newId(), name: '' }], me: '', expenses: [] });
   const [sending, setSending] = useState('');
   const me = g.me || g.members[0]?.id;
   const setM = (id: string, v: Partial<Member>) => setG({ ...g, members: g.members.map((m) => (m.id === id ? { ...m, ...v } : m)) });
+  const [err, setErr] = useState('');
+  // Toujours enregistrable : sans titre, le groupe prend la date du jour ; il faut juste au moins un nom.
   const clean = (): Group | null => {
     const members = g.members.map((m) => ({ ...m, name: m.name.trim(), email: m.email?.trim() || undefined })).filter((m) => m.name);
-    if (!g.name.trim() || !members.length) return null;
-    return { ...g, name: g.name.trim(), members, me: members.some((m) => m.id === me) ? me : members[0].id };
+    if (!members.length) { setErr('Écris au moins un nom de participant'); return null; }
+    const name = g.name.trim() || `Dépenses du ${new Date().toLocaleDateString('fr-FR')}`;
+    return { ...g, name, members, me: members.some((m) => m.id === me) ? me : members[0].id };
   };
   const used = new Set(g.expenses.flatMap((e) => [e.paidBy, ...e.forIds]));
   return (
     <div className="expenses">
       <div className="xp-head"><button onClick={onCancel}>Annuler</button><b>{initial ? 'Modifier le groupe' : 'Nouveau groupe'}</b><span /></div>
       <label className="field">Titre<input value={g.name} onChange={(e) => setG({ ...g, name: e.target.value })} placeholder="ex. Ski 2026" /></label>
-      <div className="xp-emojis">{EMOJIS.map((e) => <button key={e} className={g.emoji === e ? 'on' : ''} onClick={() => setG({ ...g, emoji: e })}>{e}</button>)}</div>
       <h3>Participants</h3>
       <p className="hint">Pour l'instant juste un nom. L'e-mail sert à inviter la personne (lien pour installer l'appli). « Moi » : coche-toi.</p>
       {g.members.map((m, i) => (
@@ -148,7 +150,8 @@ function GroupForm({ initial, onSave, onCancel, onDelete, onInvite }: {
         </div>
       ))}
       <button onClick={() => setG({ ...g, members: [...g.members, { id: newId(), name: '' }] })}>+ Ajouter un participant</button>
-      <button className="primary" onClick={() => { const n = clean(); if (n) onSave(n); }} disabled={!g.name.trim() || !g.members.some((m) => m.name.trim())}>Enregistrer</button>
+      {err && <p className="error">{err}</p>}
+      <button className="primary" onClick={() => { const n = clean(); if (n) onSave(n); }}>Enregistrer</button>
       {onDelete && <button className="danger" onClick={onDelete}>Supprimer le groupe</button>}
     </div>
   );
@@ -163,7 +166,7 @@ function ExpenseForm({ g, initial, onSave, onCancel, onDelete }: {
   const [forIds, setFor] = useState<string[]>(initial?.forIds ?? g.members.map((m) => m.id));
   const [date, setDate] = useState(initial?.date ?? new Date().toISOString().slice(0, 10));
   const value = Number(amount.replace(',', '.').replace(/\s/g, ''));
-  const ok = title.trim() && value > 0 && forIds.length > 0;
+  const [err, setErr] = useState('');
   return (
     <div className="expenses">
       <div className="xp-head"><button onClick={onCancel}>Annuler</button><b>{initial ? 'Modifier la dépense' : 'Nouvelle dépense'}</b><span /></div>
@@ -179,7 +182,12 @@ function ExpenseForm({ g, initial, onSave, onCancel, onDelete }: {
           <span>{m.name}</span><small>{forIds.includes(m.id) && value > 0 ? money(value / forIds.length) : ''}</small>
         </label>
       ))}
-      <button className="primary" disabled={!ok} onClick={() => onSave({ id: initial?.id ?? newId(), title: title.trim(), amount: Math.round(value * 100) / 100, paidBy: by, forIds, date })}>Enregistrer</button>
+      {err && <p className="error">{err}</p>}
+      <button className="primary" onClick={() => {
+        if (!(value > 0)) { setErr('Indique le montant'); return; }
+        if (!forIds.length) { setErr('Coche au moins une personne'); return; }
+        onSave({ id: initial?.id ?? newId(), title: title.trim() || 'Dépense', amount: Math.round(value * 100) / 100, paidBy: by, forIds, date });
+      }}>Enregistrer</button>
       {onDelete && <button className="danger" onClick={() => { if (confirm('Supprimer cette dépense ?')) onDelete(); }}>Supprimer la dépense</button>}
     </div>
   );

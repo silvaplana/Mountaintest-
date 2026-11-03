@@ -9,6 +9,9 @@ interface Answer { hebergements?: Lodging[]; conseil?: string; cache?: boolean; 
 export const sortByPrice = (l: Lodging[]) => [...l].sort((x, y) => (x.prix_nuit ?? Infinity) - (y.prix_nuit ?? Infinity));
 
 const KEY = 'hebergement';
+/** Sites proposés à cocher (on peut en ajouter) : cochés, Claude ne cherche que là ; aucun coché, tout le web. */
+export const SITES = ['gites-refuges.com', 'capverb.org'];
+export const cleanSite = (s: string) => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
 export function LodgingPanel({ password, onClose }: { password: string; onClose: () => void }) {
@@ -18,6 +21,9 @@ export function LodgingPanel({ password, onClose }: { password: string; onClose:
   const [max, setMax] = useState(saved.max ?? '100');
   const [date, setDate] = useState(saved.date && saved.date >= new Date().toISOString().slice(0, 10) ? saved.date : tomorrow());
   const [nights, setNights] = useState(saved.nights ?? '1');
+  const [sites, setSites] = useState<string[]>(() => { try { return JSON.parse(saved.sites ?? 'null') ?? SITES; } catch { return SITES; } });
+  const [checked, setChecked] = useState<string[]>(() => { try { return JSON.parse(saved.checked ?? '[]'); } catch { return []; } });
+  const [newSite, setNewSite] = useState('');
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
@@ -27,14 +33,14 @@ export function LodgingPanel({ password, onClose }: { password: string; onClose:
   async function search() {
     const p = Number(people), m = Number(max.replace(',', '.')), n = Number(nights);
     if (city.trim().length < 2 || !(p >= 1) || !(m > 0) || !(n >= 1)) { setError('Indique la ville, le nombre de personnes, le prix maxi et les nuits'); return; }
-    try { localStorage.setItem(KEY, JSON.stringify({ city, people, max, date, nights })); } catch { /* ignoré */ }
+    try { localStorage.setItem(KEY, JSON.stringify({ city, people, max, date, nights, sites: JSON.stringify(sites), checked: JSON.stringify(checked) })); } catch { /* ignoré */ }
     setBusy(true); setError(''); setAnswer(null); setElapsed(0);
     const t0 = Date.now();
     const tick = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
     const ctrl = new AbortController();
     const stop = setTimeout(() => ctrl.abort(), 240_000);
     try {
-      const r = await relayPost<Answer>('hebergement', { ville: city.trim(), personnes: p, prix_max: m, arrivee: date, nuits: n }, password, ctrl.signal);
+      const r = await relayPost<Answer>('hebergement', { ville: city.trim(), personnes: p, prix_max: m, arrivee: date, nuits: n, sites: checked.filter((x) => sites.includes(x)) }, password, ctrl.signal);
       setAnswer({ ...r, hebergements: sortByPrice(r.hebergements ?? []) });
     } catch (e) {
       setError(`Recherche impossible : ${(e as Error).name === 'AbortError' ? 'pas de réponse en 4 minutes' : e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`);
@@ -54,6 +60,16 @@ export function LodgingPanel({ password, onClose }: { password: string; onClose:
       <span className="row">
         <label className="field">Arrivée<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
         <label className="field">Nuits<input type="number" inputMode="numeric" min="1" value={nights} onChange={(e) => setNights(e.target.value)} /></label>
+      </span>
+      <p className="hint">Chercher seulement sur (rien de coché : tout le web)</p>
+      {sites.map((x) => (
+        <label key={x} className="check"><input type="checkbox" checked={checked.includes(x)}
+          onChange={(e) => setChecked(e.target.checked ? [...checked, x] : checked.filter((y) => y !== x))} /> {x}
+          {!SITES.includes(x) && <button onClick={(e) => { e.preventDefault(); setSites(sites.filter((y) => y !== x)); }} aria-label="Retirer ce site">✕</button>}</label>
+      ))}
+      <span className="row">
+        <input value={newSite} onChange={(e) => setNewSite(e.target.value)} placeholder="ajouter un site (ex. booking.com)" autoCapitalize="off" />
+        <button onClick={() => { const x = cleanSite(newSite); if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x) && !sites.includes(x)) { setSites([...sites, x]); setChecked([...checked, x]); } setNewSite(''); }}>Ajouter</button>
       </span>
       <button className="primary" disabled={busy || !password} onClick={() => void search()}>
         {busy ? `Claude cherche les meilleurs prix… ${elapsed} s` : 'Chercher (IA)'}</button>

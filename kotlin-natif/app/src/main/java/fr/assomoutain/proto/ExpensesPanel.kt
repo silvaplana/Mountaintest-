@@ -102,8 +102,7 @@ class ExpensesPanel(
         if (groups.isEmpty()) col.addView(text("Aucun groupe de dépenses : touche + pour en créer un (un voyage, une sortie…).", 13f, muted), lp())
         groups.forEach { g ->
             col.addView(card {
-                addView(text(g.emoji, 30f))
-                addView(text(g.name, 17f, bold = true).apply { setPadding(dp(14), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text(g.name, 17f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
                 addView(text("›", 22f, muted))
                 setOnClickListener { showGroup(g, false) }
             }, lp(10))
@@ -120,13 +119,7 @@ class ExpensesPanel(
         fab.visibility = View.GONE
         head("Annuler", if (orig == null) "Nouveau groupe" else "Modifier le groupe", { if (orig == null) showList() else showGroup(orig, false) })
         val name = field("Titre", g.name, "ex. Ski 2026")
-        val emojiRow = LinearLayout(a)
-        var emoji = g.emoji
-        fun paintEmojis() {
-            for (i in 0 until emojiRow.childCount) (emojiRow.getChildAt(i) as Button).alpha = if (Expenses.EMOJIS[i] == emoji) 1f else 0.4f
-        }
-        Expenses.EMOJIS.forEach { e -> emojiRow.addView(Button(a).apply { text = e; textSize = 20f; setOnClickListener { emoji = e; paintEmojis() } }, LinearLayout.LayoutParams(0, dp(48), 1f)) }
-        paintEmojis(); col.addView(emojiRow, lp())
+        val emoji = g.emoji
         col.addView(text("Participants", 16f, bold = true), lp(14))
         col.addView(text("Pour l'instant juste un nom. L'e-mail sert à inviter la personne (lien pour installer l'appli). Coche « moi ».", 13f, muted))
         val used = g.expenses.flatMap { listOf(it.paidBy) + it.forIds }.toSet()
@@ -170,8 +163,9 @@ class ExpensesPanel(
                     val m = n.tag as Member
                     n.text.toString().trim().ifEmpty { null }?.let { Member(m.id, it, e.text.toString().trim().ifEmpty { null }) }
                 }
-                val title = name.text.toString().trim()
-                if (title.isEmpty() || members.isEmpty()) { toast("Donne un titre et au moins un participant"); return@setOnClickListener }
+                // Toujours enregistrable : sans titre, la date du jour ; il faut juste au moins un nom.
+                val title = name.text.toString().trim().ifEmpty { "Dépenses du " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
+                if (members.isEmpty()) { toast("Écris au moins un nom de participant"); return@setOnClickListener }
                 g.name = title; g.emoji = emoji; g.members = members.toMutableList()
                 if (members.none { it.id == g.me }) g.me = members.first().id
                 val i = groups.indexOfFirst { it.id == g.id }
@@ -218,7 +212,6 @@ class ExpensesPanel(
     // ---------- un groupe : dépenses et équilibres ----------
     private fun showGroup(g: Group, balancesTab: Boolean) {
         head("←", "", { showList() }, "Modifier") { editGroup(g) }
-        col.addView(text(g.emoji, 34f).apply { gravity = Gravity.CENTER }, lp(0))
         col.addView(text(g.name, 22f, bold = true).apply { gravity = Gravity.CENTER }, lp(0))
         col.addView(text(g.members.joinToString(", ") { it.name }, 13f, muted).apply { gravity = Gravity.CENTER }, lp(0))
         col.addView(LinearLayout(a).apply {
@@ -298,9 +291,10 @@ class ExpensesPanel(
             setOnClickListener {
                 val v = amount.text.toString().replace(',', '.').replace(" ", "").toDoubleOrNull() ?: 0.0
                 val forIds = g.members.filterIndexed { i, _ -> checks[i].isChecked }.map { it.id }
-                if (title.text.isBlank() || v <= 0 || forIds.isEmpty()) { toast("Titre, montant et au moins une personne"); return@setOnClickListener }
+                if (v <= 0) { toast("Indique le montant"); return@setOnClickListener }
+                if (forIds.isEmpty()) { toast("Coche au moins une personne"); return@setOnClickListener }
                 val day = runCatching { LocalDate.parse(date.text.toString().trim()).toString() }.getOrDefault(LocalDate.now().toString())
-                val e = Expense(orig?.id ?: Expenses.newId(), title.text.toString().trim(), Math.round(v * 100) / 100.0,
+                val e = Expense(orig?.id ?: Expenses.newId(), title.text.toString().trim().ifEmpty { "Dépense" }, Math.round(v * 100) / 100.0,
                     g.members[by.selectedItemPosition].id, forIds, day)
                 val i = g.expenses.indexOfFirst { it.id == e.id }
                 if (i >= 0) g.expenses[i] = e else g.expenses.add(0, e)
