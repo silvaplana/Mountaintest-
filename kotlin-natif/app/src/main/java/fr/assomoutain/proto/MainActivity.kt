@@ -260,7 +260,8 @@ class MainActivity : AppCompatActivity() {
             .forEach { (id, what) -> findViewById<Button>(id).setOnClickListener { BatterySettings.open(this, what) } }
         // Flèche en haut à droite : affiche ou cache toutes les icônes (choix retenu).
         findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
-            prefs.edit().putBoolean("iconesCachees", !prefs.getBoolean("iconesCachees", false)).apply()
+            // 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = aucune, puis retour à 0.
+            prefs.edit().putInt("iconesMode", (prefs.getInt("iconesMode", 0) + 1) % 3).apply()
             refreshQuickButtons()
         }
         findViewById<Button>(R.id.btnQuickSearch).setOnClickListener {
@@ -1496,9 +1497,14 @@ class MainActivity : AppCompatActivity() {
         paint(R.id.btnQuickAvion, airplaneOn())
         paint(R.id.btnQuickSlopes, slopes)
         paint(R.id.btnQuickShade, findViewById<CheckBox>(R.id.chkShade).isChecked)
-        val hidden = prefs.getBoolean("iconesCachees", false)
-        findViewById<View>(R.id.quickIcons).visibility = if (hidden) View.GONE else View.VISIBLE
-        findViewById<Button>(R.id.btnQuickToggle).text = if (hidden) "◂" else "▸"
+        val mode = prefs.getInt("iconesMode", 0)
+        val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
+        icons.visibility = if (mode == 2) View.GONE else View.VISIBLE
+        for (i in 0 until icons.childCount) {
+            val v = icons.getChildAt(i)
+            v.visibility = if (mode == 0 || v.id == R.id.btnQuickPhoto) View.VISIBLE else View.GONE
+        }
+        findViewById<Button>(R.id.btnQuickToggle).text = if (mode == 2) "◂" else "▸"
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
     }
     override fun onPause() { mapView.onPause(); super.onPause() }

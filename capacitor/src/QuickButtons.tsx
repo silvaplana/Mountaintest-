@@ -28,12 +28,20 @@ export interface QuickProps {
   shade: boolean; onShade: (on: boolean) => void;
 }
 
-const HIDDEN_KEY = 'iconesCachees';
+const MODE_KEY = 'iconesMode';
+/** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = aucune (puis on revient à 0). */
+type IconsMode = 0 | 1 | 2;
 
 export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
-  const [hidden, setHiddenState] = useState(() => { try { return localStorage.getItem(HIDDEN_KEY) === '1'; } catch { return false; } });
-  const setHidden = (v: boolean) => { setHiddenState(v); try { localStorage.setItem(HIDDEN_KEY, v ? '1' : '0'); } catch { /* ignoré */ } };
+  const [mode, setModeState] = useState<IconsMode>(() => {
+    try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 ? v : 0; } catch { return 0; }
+  });
+  const nextMode = () => {
+    const v = ((mode + 1) % 3) as IconsMode;
+    setModeState(v);
+    try { localStorage.setItem(MODE_KEY, String(v)); } catch { /* ignoré */ }
+  };
   const native = Capacitor.isNativePlatform();
   const [watch, setWatch] = useState<WatchState>('OFF');
   const [airplane, setAirplane] = useState(false);
@@ -80,15 +88,17 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   const locating = watch !== 'OFF';
   return (
     <div className="quick">
-      <button className="toggle" aria-label={hidden ? 'Afficher les icônes' : 'Cacher les icônes'} onClick={() => setHidden(!hidden)}>{hidden ? '◂' : '▸'}</button>
-      {!hidden && <>
+      <button className="toggle" aria-label={mode === 2 ? 'Afficher les icônes' : 'Cacher les icônes'} onClick={nextMode}>{mode === 2 ? '◂' : '▸'}</button>
+      {mode === 0 && <>
       <button className={locating ? 'on' : ''} aria-label="Me localiser"
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
       <button aria-label="Rechercher un lieu" onClick={onSearch}>🔍</button>
-      <button disabled={!native} aria-label="Prendre une photo"
+      </>}
+      {mode < 2 && <button disabled={!native} aria-label="Prendre une photo"
         onClick={() => {
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
-        }}>📷</button>
+        }}>📷</button>}
+      {mode === 0 && <>
       <button aria-label="Changer de fond de carte" onClick={onBaseLayer}>🗺</button>
       <button className={airplane ? 'on' : ''} disabled={!native} aria-label="Mode avion (sans réseau, Wi-Fi ni Bluetooth)"
         onClick={() => {
