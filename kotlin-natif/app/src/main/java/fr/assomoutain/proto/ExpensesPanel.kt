@@ -40,6 +40,8 @@ class ExpensesPanel(
     private val a: AppCompatActivity,
     private val prefs: SharedPreferences,
     private val password: String,
+    /** Photo d'une facture (JPEG réduit), null si annulée. */
+    private val takePhoto: ((ByteArray?) -> Unit) -> Unit,
     private val onClose: () -> Unit,
 ) {
     private val d = a.resources.displayMetrics.density
@@ -275,6 +277,9 @@ class ExpensesPanel(
     private fun editExpense(g: Group, orig: Expense?) {
         fab.visibility = View.GONE
         head("Annuler", if (orig == null) "Nouvelle dépense" else "Modifier la dépense", { showGroup(g, false) })
+        // 📷 Photo de la facture : Claude lit le titre, le montant et la date.
+        val photo = Button(a).apply { text = "📷 Photo de la facture (remplit titre et montant)"; isEnabled = password.isNotEmpty() }
+        col.addView(photo, lp())
         val title = field("Titre", orig?.title ?: "", "ex. Courses, essence, gîte…")
         val amount = field("Montant (€)", orig?.amount?.toString()?.replace('.', ',') ?: "", "0,00", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL)
         col.addView(text("Payé par", 13f, muted))
@@ -284,6 +289,23 @@ class ExpensesPanel(
         }
         col.addView(by)
         val date = field("Date (AAAA-MM-JJ)", orig?.date ?: LocalDate.now().toString(), "2026-11-03", InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_DATE)
+        photo.setOnClickListener {
+            takePhoto { bytes ->
+                if (bytes == null) return@takePhoto
+                photo.isEnabled = false; photo.text = "Claude lit la facture…"
+                a.lifecycleScope.launch {
+                    runCatching { withContext(Dispatchers.IO) {
+                        Travel.post("facture", JSONObject().put("image", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)).put("type", "image/jpeg"), password)
+                    } }.onSuccess { o ->
+                        o.optString("titre").takeIf { it.isNotEmpty() }?.let { title.setText(it) }
+                        if (!o.isNull("montant")) amount.setText(o.optDouble("montant").toString().replace('.', ','))
+                        else toast("Montant illisible sur la photo : tape-le")
+                        if (!o.isNull("date")) runCatching { date.setText(LocalDate.parse(o.optString("date")).toString()) }
+                    }.onFailure { toast("Lecture impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}") }
+                    photo.isEnabled = true; photo.text = "📷 Photo de la facture (remplit titre et montant)"
+                }
+            }
+        }
         col.addView(text("Pour qui", 16f, bold = true), lp(14))
         val checks = g.members.map { m -> CheckBox(a).apply { text = m.name; isChecked = orig?.forIds?.contains(m.id) ?: true }.also { col.addView(it) } }
         col.addView(Button(a).apply {

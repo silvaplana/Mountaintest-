@@ -26,6 +26,16 @@ export function addToGroup(groupId: string, title: string, amount: number, paidB
   saveGroups(gs);
 }
 
+/** Photo → JPEG réduit (1600 px max) en base64, assez lisible pour une facture et léger à envoyer. */
+export async function shrinkPhoto(file: File): Promise<string> {
+  const img = await createImageBitmap(file);
+  const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.8).split(',')[1];
+}
+
 /** Centimes, pour éviter les erreurs d'arrondi. */
 const c = (v: number) => Math.round(v * 100);
 

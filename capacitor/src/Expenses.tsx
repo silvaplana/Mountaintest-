@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   balances, loadGroups, memberName, money, newId, paidBy, saveGroups, settlements, total,
   type Expense, type Group, type Member,
 } from './expenses/expenses';
 import { RELAIS_URL } from './trails/webHikes';
+import { relayPost } from './travel/travel';
+import { shrinkPhoto } from './expenses/expenses';
 
 export const ShareIcon = () => (
   <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
@@ -57,7 +59,7 @@ export function Expenses({ password, onClose, onToast }: { password: string; onC
     const g = groups.find((x) => x.id === screen.gid)!;
     const e = g.expenses.find((x) => x.id === screen.id);
     const back = () => setScreen({ k: 'group', id: g.id, tab: 'dep' });
-    return <ExpenseForm g={g} initial={e} onCancel={back}
+    return <ExpenseForm g={g} initial={e} onCancel={back} password={password}
       onDelete={e ? () => { put({ ...g, expenses: g.expenses.filter((x) => x.id !== e.id) }); back(); } : undefined}
       onSave={(n) => { put({ ...g, expenses: e ? g.expenses.map((x) => (x.id === n.id ? n : x)) : [n, ...g.expenses] }); back(); }} />;
   }
@@ -157,8 +159,8 @@ function GroupForm({ initial, onSave, onCancel, onDelete, onInvite }: {
   );
 }
 
-function ExpenseForm({ g, initial, onSave, onCancel, onDelete }: {
-  g: Group; initial?: Expense; onSave: (e: Expense) => void; onCancel: () => void; onDelete?: () => void;
+function ExpenseForm({ g, initial, onSave, onCancel, onDelete, password }: {
+  g: Group; initial?: Expense; password: string; onSave: (e: Expense) => void; onCancel: () => void; onDelete?: () => void;
 }) {
   const [title, setTitle] = useState(initial?.title ?? '');
   const [amount, setAmount] = useState(initial ? String(initial.amount).replace('.', ',') : '');
@@ -167,9 +169,25 @@ function ExpenseForm({ g, initial, onSave, onCancel, onDelete }: {
   const [date, setDate] = useState(initial?.date ?? new Date().toISOString().slice(0, 10));
   const value = Number(amount.replace(',', '.').replace(/\s/g, ''));
   const [err, setErr] = useState('');
+  // 📷 Photo d'une facture : Claude lit le titre, le montant et la date.
+  const file = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState(false);
+  async function readBill(f: File) {
+    setReading(true); setErr('');
+    try {
+      const r = await relayPost<{ titre?: string; montant?: number | null; date?: string | null }>('facture', { image: await shrinkPhoto(f), type: 'image/jpeg' }, password);
+      if (r.titre) setTitle(r.titre);
+      if (r.montant != null) setAmount(String(r.montant).replace('.', ','));
+      if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) setDate(r.date);
+      if (r.montant == null) setErr('Montant illisible sur la photo : tape-le');
+    } catch (e) { setErr(`Lecture impossible : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`); }
+    setReading(false);
+  }
   return (
     <div className="expenses">
       <div className="xp-head"><button onClick={onCancel}>Annuler</button><b>{initial ? 'Modifier la dépense' : 'Nouvelle dépense'}</b><span /></div>
+      <input ref={file} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void readBill(f); }} />
+      <button disabled={reading || !password} onClick={() => file.current?.click()}>{reading ? 'Claude lit la facture…' : '📷 Photo de la facture (remplit titre et montant)'}</button>
       <label className="field">Titre<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ex. Courses, essence, gîte…" /></label>
       <label className="field">Montant (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></label>
       <label className="field">Payé par<select value={by} onChange={(e) => setBy(e.target.value)}>

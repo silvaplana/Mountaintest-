@@ -124,6 +124,33 @@ class MainActivity : AppCompatActivity() {
     private val askLocatePermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.any { it }) startLocate() else toast("Permission de localisation refusée")
     }
+    // 📷 Photo d'une facture (partage des frais) : l'appli Appareil photo écrit dans le cache, on réduit à 1600 px.
+    private var billCallback: ((ByteArray?) -> Unit)? = null
+    private val billFile by lazy { java.io.File(cacheDir, "photos").apply { mkdirs() }.resolve("facture.jpg") }
+    private val billLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val cb = billCallback; billCallback = null
+        if (!ok) { cb?.invoke(null); return@registerForActivityResult }
+        lifecycleScope.launch {
+            val bytes = withContext(Dispatchers.Default) {
+                runCatching {
+                    val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeFile(billFile.path, o)
+                    var s = 1; while (maxOf(o.outWidth, o.outHeight) / (s * 2) >= 1600) s *= 2
+                    val b0 = android.graphics.BitmapFactory.decodeFile(billFile.path, android.graphics.BitmapFactory.Options().apply { inSampleSize = s })
+                    val k = minOf(1.0, 1600.0 / maxOf(b0.width, b0.height))
+                    val b = if (k < 1) android.graphics.Bitmap.createScaledBitmap(b0, (b0.width * k).toInt(), (b0.height * k).toInt(), true) else b0
+                    java.io.ByteArrayOutputStream().also { b.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it) }.toByteArray()
+                }.getOrNull()
+            }
+            cb?.invoke(bytes)
+        }
+    }
+    private fun takeBillPhoto(cb: (ByteArray?) -> Unit) {
+        billCallback = cb
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.fileprovider", billFile)
+        runCatching { billLauncher.launch(uri) }.onFailure { billCallback = null; cb(null); toast("Pas d'appareil photo disponible") }
+    }
+
     private val exportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/gpx+xml")) { uri ->
         uri?.let { exportTo(it) }
     }
@@ -1608,7 +1635,7 @@ class MainActivity : AppCompatActivity() {
         if (expensesPanel != null) return
         sheetOpen = false; refreshTabs()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
-        val p = ExpensesPanel(this, prefs, password) { closeExpenses() }
+        val p = ExpensesPanel(this, prefs, password, { cb -> takeBillPhoto(cb) }) { closeExpenses() }
         expensesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)

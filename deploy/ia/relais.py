@@ -279,6 +279,41 @@ et garde pour chacun le prix le plus bas trouvé. Si une liste « sites » est d
 hébergements trouvés sur ces sites. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
 
 
+OUTIL_FACTURE = {
+    "name": "donner_la_facture",
+    "description": "Renvoie ce qui est lu sur la facture ou le ticket.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "titre": {"type": "string", "description": "Court : commerce ou nature de la dépense (ex. « Carrefour courses », « Gîte du Queyras »)"},
+            "montant": {"type": ["number", "null"], "description": "Total TTC payé, en euros ; null si illisible"},
+            "date": {"type": ["string", "null"], "description": "Date de la facture au format AAAA-MM-JJ, null si absente"},
+        },
+        "required": ["titre", "montant", "date"],
+        "additionalProperties": False,
+    },
+}
+
+
+def lire_facture(image_b64: str, media: str):
+    """Une photo de facture → titre, montant, date (Claude, vision). Renvoie (résultat, coût, jetons)."""
+    r = client.messages.create(
+        model=MODELE, max_tokens=1000,
+        tools=[OUTIL_FACTURE], tool_choice={"type": "tool", "name": OUTIL_FACTURE["name"]},
+        messages=[{"role": "user", "content": [
+            {"type": "image", "source": {"type": "base64", "media_type": media, "data": image_b64}},
+            {"type": "text", "text": "Lis cette facture ou ce ticket de caisse : titre court, total payé TTC en euros, date."},
+        ]}],
+    )
+    u = r.usage
+    cout = ((u.input_tokens or 0) * PRIX["entree"] + (u.output_tokens or 0) * PRIX["sortie"]) / 1e6
+    appel = next((b for b in r.content if b.type == "tool_use"), None)
+    if not appel:
+        raise RuntimeError("facture illisible")
+    return appel.input, round(cout, 4), {"entree": u.input_tokens or 0, "sortie": u.output_tokens or 0, "recherches_web": 0}
+
+
 def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domaines: list | None = None):
     """Un échange avec Claude (recherche web permise) jusqu'à l'appel de l'outil final. Renvoie (entrée de l'outil, coût, jetons)."""
     messages = [{"role": "user", "content": demande}]
@@ -429,16 +464,18 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement"], "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture"], "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
         if chemin.endswith("/invitation"):
             return self._invitation()
+        if chemin.endswith("/facture"):
+            return self._facture()
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         try:
@@ -478,6 +515,35 @@ class Relais(BaseHTTPRequestHandler):
               f"{r['cout_usd']:.3f} $ (cumul {totaux['cumul_total_usd']:.2f} $)", flush=True)
         self._json(200, {**r, **totaux})
 
+
+    def _facture(self):
+        try:
+            n = int(self.headers.get("Content-Length", 0))
+            if n > 8_000_000:
+                return self._json(413, {"erreur": "photo trop lourde"})
+            d = json.loads(self.rfile.read(n))
+            img = str(d["image"])
+            media = str(d.get("type", "image/jpeg"))
+            if media not in ("image/jpeg", "image/png", "image/webp") or len(img) < 100:
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            return self._json(400, {"erreur": "photo invalide"})
+        jour = time.strftime("%Y-%m-%d")
+        with verrou:
+            quota = _lire("quota.json", {})
+            if quota.get(jour, 0) >= MAX_PAR_JOUR:
+                return self._json(429, {"erreur": f"Limite de {MAX_PAR_JOUR} demandes par jour atteinte"})
+            _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
+        try:
+            r, cout, jetons = lire_facture(img, media)
+        except anthropic.APIError as e:
+            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
+        except Exception as e:  # noqa: BLE001
+            return self._json(502, {"erreur": str(e)})
+        with verrou:
+            with open(_fichier("couts.jsonl"), "a") as f:
+                f.write(json.dumps({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "type": "facture", "cout_usd": cout, **jetons}) + "\n")
+        self._json(200, {**r, "cout_usd": cout, **cumuls()})
 
     def _invitation(self):
         if not MAIL_ACTIF:
