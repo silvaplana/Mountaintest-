@@ -296,6 +296,20 @@ class TravelPanel(
         }
     }
 
+    /** « Ajouter au partage des frais » : quel groupe, puis qui a payé ; partagé entre tous les participants. */
+    private fun toGroup(title: String, amount: Double, done: (String) -> Unit) {
+        val groups = Expenses.load(prefs)
+        if (groups.isEmpty()) { error.text = "Aucun groupe de dépenses : crée-en un avec l'icône partage des frais du menu Voyage."; return }
+        android.app.AlertDialog.Builder(a).setTitle("Dans quel groupe ?").setItems(groups.map { it.name }.toTypedArray()) { _, gi ->
+            val g = groups[gi]
+            android.app.AlertDialog.Builder(a).setTitle("Qui a payé ${Expenses.money(amount)} ?")
+                .setItems(g.members.map { it.name + if (it.id == g.me) " (moi)" else "" }.toTypedArray()) { _, mi ->
+                    Expenses.addToGroup(prefs, g.id, title, amount, g.members[mi].id)
+                    done("${Expenses.money(amount)} ajoutés à « ${g.name} », partagés entre tous")
+                }.show()
+        }.show()
+    }
+
     private fun computeCost() {
         val r = routes.getOrNull(selected) ?: return
         val f = from ?: return; val t = to ?: return
@@ -321,6 +335,10 @@ class TravelPanel(
                     if (k.peagesDetail.isNotEmpty()) result.addView(text(k.peagesDetail))
                     result.addView(text(k.explication))
                     result.addView(text(WebHikes.costLine(k.cost, k.cache).replace("Zone déjà cherchée", "Déjà calculé")))
+                    result.addView(Button(a).apply {
+                        text = "💰 Ajouter au partage des frais"
+                        setOnClickListener { toGroup("🚗 ${f.label} → ${t.label}", Math.round(k.total * 100) / 100.0) { msg -> text = "✓ $msg"; isEnabled = false } }
+                    })
                     (view as ScrollView).post { view.fullScroll(View.FOCUS_DOWN) }
                 }
                 .onFailure { result.removeAllViews(); error.text = "Calcul impossible : ${it.message ?: it}"; (view as ScrollView).post { view.fullScroll(View.FOCUS_DOWN) } }

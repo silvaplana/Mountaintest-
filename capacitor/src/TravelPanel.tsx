@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { searchPlaces, type Place } from './search';
 import { costLine } from './trails/webHikes';
+import { addToGroup, loadGroups, money } from './expenses/expenses';
 import {
   carRoutes, DEFAULT_CONSO, ENERGIES, euros, routeLine, searchCars, tripCost, unitFor,
   type Car, type CarRoute, type Energy, type TripCost,
@@ -170,8 +171,33 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
         {cost.peages_detail && <p className="hint">{cost.peages_detail}</p>}
         <p className="hint">{cost.explication}</p>
         <p className="hint">{costLine({ cout: cost.cout_usd ?? 0, mois: cost.cumul_mois_usd ?? 0, total: cost.cumul_total_usd ?? 0 }, !!cost.cache).replace('Zone déjà cherchée', 'Déjà calculé')}</p>
+        <ToGroup title={`🚗 ${from?.label ?? ''} → ${to?.label ?? ''}`} amount={Math.round(cost.total * 100) / 100} />
       </div>}
       <div ref={bottom} />
+    </div>
+  );
+}
+
+/** Après le calcul : « Ajouter au partage des frais ? » → quel groupe → qui a payé. Partagé entre tous les participants. */
+function ToGroup({ title, amount }: { title: string; amount: number }) {
+  const groups = loadGroups();
+  const [open, setOpen] = useState(false);
+  const [gid, setGid] = useState(groups[0]?.id ?? '');
+  const g = groups.find((x) => x.id === gid);
+  const [by, setBy] = useState('');
+  const [done, setDone] = useState('');
+  if (done) return <p className="hint">✓ {done}</p>;
+  if (!open) return <button onClick={() => setOpen(true)}>💰 Ajouter au partage des frais</button>;
+  if (!groups.length) return <p className="hint">Aucun groupe de dépenses : crée-en un avec l’icône partage des frais du menu Voyage.</p>;
+  const payer = by && g?.members.some((m) => m.id === by) ? by : g?.me ?? '';
+  return (
+    <div className="to-group">
+      <label className="field">Dans quel groupe<select value={gid} onChange={(e) => setGid(e.target.value)}>
+        {groups.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
+      <label className="field">Qui a payé<select value={payer} onChange={(e) => setBy(e.target.value)}>
+        {g?.members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.id === g.me ? ' (moi)' : ''}</option>)}</select></label>
+      <button className="primary" onClick={() => { addToGroup(gid, title, amount, payer); setDone(`${money(amount)} ajoutés à « ${g?.name} », partagés entre tous`); }}>
+        Ajouter {money(amount)}</button>
     </div>
   );
 }

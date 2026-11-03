@@ -17,6 +17,15 @@ export function saveGroups(g: Group[]) {
   try { localStorage.setItem(KEY, JSON.stringify(g)); } catch { /* stockage plein ou indisponible */ }
 }
 
+/** Ajoute une dépense, partagée entre tous les participants (ex. un trajet en voiture calculé dans Voyage). */
+export function addToGroup(groupId: string, title: string, amount: number, paidBy: string) {
+  const gs = loadGroups();
+  const g = gs.find((x) => x.id === groupId);
+  if (!g) return;
+  g.expenses.unshift({ id: newId(), title, amount: Math.round(amount * 100) / 100, paidBy, forIds: g.members.map((m) => m.id), date: new Date().toISOString().slice(0, 10) });
+  saveGroups(gs);
+}
+
 /** Centimes, pour éviter les erreurs d'arrondi. */
 const c = (v: number) => Math.round(v * 100);
 

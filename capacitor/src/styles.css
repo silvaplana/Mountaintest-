@@ -277,3 +277,4 @@ progress { width: 100%; }
 .travel .lodgings button span { grid-column: 1 / span 2; }
 .travel .lodgings button em { font-style: normal; font-weight: 700; }
 .expenses .error { color: #c0392b; margin: 0; }
+.travel .to-group { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }

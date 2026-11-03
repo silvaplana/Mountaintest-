@@ -51,6 +51,14 @@ object Expenses {
         p.edit().putString(KEY, a.toString()).apply()
     }
 
+    /** Ajoute une dépense partagée entre tous les participants (ex. un trajet calculé dans Voyage). */
+    fun addToGroup(p: SharedPreferences, groupId: String, title: String, amount: Double, paidBy: String) {
+        val gs = load(p)
+        val g = gs.firstOrNull { it.id == groupId } ?: return
+        g.expenses.add(0, Expense(newId(), title, Math.round(amount * 100) / 100.0, paidBy, g.members.map { it.id }, java.time.LocalDate.now().toString()))
+        save(p, gs)
+    }
+
     private fun c(v: Double) = (v * 100).roundToLong()
 
     /** Solde de chacun en euros : payé − sa part (positif : on lui doit ; négatif : il doit). */
