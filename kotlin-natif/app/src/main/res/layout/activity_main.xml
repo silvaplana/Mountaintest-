@@ -673,7 +673,7 @@
                     <Button android:id="@+id/btnTrailsClear" style="@style/Btn" android:layout_width="match_parent"
                         android:layout_weight="0" android:text="Effacer les randos de la carte" android:visibility="gone" />
 
-                    <TextView style="@style/Hint" android:text="Mot de passe IA (recherche des randos sur le web par Claude)" />
+                    <TextView android:id="@+id/hintIaPassword" style="@style/Hint" android:text="Mot de passe IA (recherche des randos sur le web par Claude)" />
                     <EditText android:id="@+id/editIaPassword" android:layout_width="match_parent"
                         android:layout_height="wrap_content" android:inputType="textPassword"
                         android:importantForAutofill="no" />

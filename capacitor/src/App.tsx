@@ -34,7 +34,7 @@ import { ShadeFilm } from './ShadeFilm';
 import { MNT_LAYER, mntTileUrl, mntTilesForZone } from './shade/dem';
 import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
-import { costLine, fetchWebHikes, hikeDetail, type WebHike } from './trails/webHikes';
+import { costLine, fetchWebHikes, hikeDetail, IA_MOT_DE_PASSE_INTEGRE, type WebHike } from './trails/webHikes';
 import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
 import { BDFORET_ATTRIBUTION, fetchForests, forestZoneTooBig, formatHa, groupByEssence, MAX_FOREST_DEG, type Forest } from './forests/bdForet';
 import { computeStats, formatDuration, formatKm } from './track/stats';
@@ -388,13 +388,14 @@ export function App() {
   async function searchWebHikes(b: Bbox) {
     webAbort.current?.abort();
     setWebHikes([]); setHikeSel(null);
-    if (!iaPassword) { setWebMsg('Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous.'); return; }
+    const pwd = iaPassword || IA_MOT_DE_PASSE_INTEGRE;
+    if (!pwd) { setWebMsg('Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous.'); return; }
     const ctrl = new AbortController();
     webAbort.current = ctrl;
     setWebMsg('Claude cherche des randos sur le web (1 à 2 minutes)…');
     const t0 = performance.now();
     try {
-      const r = await fetchWebHikes(b, iaPassword, ctrl.signal);
+      const r = await fetchWebHikes(b, pwd, ctrl.signal);
       bench('web-hikes', { found: r.hikes.length, cache: r.cache, ms: Math.round(performance.now() - t0) });
       setWebHikes(r.hikes);
       setWebMsg((r.hikes.length ? `${r.hikes.length} rando${r.hikes.length > 1 ? 's' : ''} trouvée${r.hikes.length > 1 ? 's' : ''} sur le web (points orange). Touche un point pour ouvrir sa page.`
@@ -685,9 +686,9 @@ export function App() {
               webAbort.current?.abort();
               setTrails([]); setFrame(null); void selectTrail(null); setTrailsMsg(''); setWebHikes([]); setHikeSel(null); setWebMsg('');
             }}>Effacer les randos de la carte</button>}
-            <label className="field">Mot de passe IA (recherche des randos sur le web par Claude)
+            {!IA_MOT_DE_PASSE_INTEGRE && <label className="field">Mot de passe IA (recherche des randos sur le web par Claude)
               <input type="password" value={iaPassword} onChange={(e) => void saveIaPassword(e.target.value)} autoCapitalize="off" autoCorrect="off" />
-            </label>
+            </label>}
           </div>
         )}
 

@@ -88,6 +88,8 @@ jobs:
           npm ci
           npx vite build
           npx cap sync android
+        # Mot de passe IA intégré à l'APK seulement (jamais au site web public).
+        env: { VITE_IA_MOT_DE_PASSE: '${{ secrets.IA_MOT_DE_PASSE }}' }
       - working-directory: capacitor/android
         run: |
           ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
@@ -104,6 +106,7 @@ jobs:
     defaults: { run: { working-directory: kotlin-natif } }
     env:
       SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}'
+      IA_MOT_DE_PASSE: '${{ secrets.IA_MOT_DE_PASSE }}'
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

@@ -4,6 +4,9 @@ import type { Bbox } from '../config';
 
 export const RELAIS_URL = 'https://silvaplana.cloud/mountaintest-ia/randos';
 
+/** Mot de passe du relais intégré à l'APK par la CI (secret IA_MOT_DE_PASSE), vide pour le site web public. */
+export const IA_MOT_DE_PASSE_INTEGRE: string = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_IA_MOT_DE_PASSE ?? '';
+
 export interface WebHike {
   nom: string; lat: number; lon: number; url: string; site: string;
   distance_km: number | null; denivele_m: number | null; resume: string;
