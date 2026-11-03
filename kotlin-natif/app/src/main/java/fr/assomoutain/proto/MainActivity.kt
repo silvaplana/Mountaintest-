@@ -179,6 +179,9 @@ class MainActivity : AppCompatActivity() {
                 val pt = m.projection.toScreenLocation(p)
                 val r = 20 * resources.displayMetrics.density
                 val box = android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r)
+                // Trait d'un itinéraire du voyage : on le choisit.
+                if (travelPanel?.routes?.isNotEmpty() == true) m.queryRenderedFeatures(box, LAYER_TRAVEL)
+                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { travelPanel?.select(it); return@addOnMapClickListener true }
                 // Point orange d'une rando trouvée sur le web : prioritaire sur les tracés.
                 if (webHikes.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_WEB_HIKES)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectHike(it); return@addOnMapClickListener true }
@@ -263,10 +266,15 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnQuickToggle).setOnLongClickListener { showIconHelp(); true }
         findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
             if (helpOverlay != null) { hideIconHelp(); return@setOnClickListener }
-            // 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = aucune, puis retour à 0.
-            prefs.edit().putInt("iconesMode", (prefs.getInt("iconesMode", 0) + 1) % 3).apply()
+            // 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage, 3 = aucune, puis retour à 0.
+            prefs.edit().putInt("iconesMode", (prefs.getInt("iconesMode", 0) + 1) % 4).apply()
             refreshQuickButtons()
         }
+        // Croix au-dessus de la flèche : quitte l'appli (l'enregistrement d'une sortie, service à part, continue).
+        findViewById<Button>(R.id.btnQuickClose).setOnClickListener { finishAndRemoveTask() }
+        findViewById<Button>(R.id.btnWeather).setOnClickListener { if (!Weather.open(this, false)) toast("Impossible d'ouvrir Météo-France") }
+        findViewById<Button>(R.id.btnWeatherMountain).setOnClickListener { if (!Weather.open(this, true)) toast("Impossible d'ouvrir Météo-France") }
+        findViewById<Button>(R.id.btnTravel).setOnClickListener { openTravel() }
         findViewById<Button>(R.id.btnQuickSearch).setOnClickListener {
             setNature(false)
             findViewById<ImageButton>(R.id.btnSearch).performClick()
@@ -415,6 +423,14 @@ class MainActivity : AppCompatActivity() {
             style.addSource(GeoJsonSource(SRC_WEB_HIKES))
             style.addLayer(CircleLayer(LAYER_WEB_HIKES, SRC_WEB_HIKES).withProperties(
                 circleRadius(8f), circleColor(WebHikes.COLOR), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
+            style.addSource(GeoJsonSource(SRC_TRAVEL))
+            style.addLayer(LineLayer("travel-casing", SRC_TRAVEL).withProperties(lineColor("#ffffff"),
+                lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(9f), Expression.literal(6f))),
+                lineCap(Property.LINE_CAP_ROUND), org.maplibre.android.style.layers.PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND)))
+            style.addLayer(LineLayer(LAYER_TRAVEL, SRC_TRAVEL).withProperties(lineColor(Expression.get("color")),
+                lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(6f), Expression.literal(3f))),
+                lineOpacity(Expression.switchCase(Expression.get("sel"), Expression.literal(1f), Expression.literal(0.6f))),
+                lineCap(Property.LINE_CAP_ROUND), org.maplibre.android.style.layers.PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND)))
             style.addSource(GeoJsonSource(SRC_IMPORT))
             style.addSource(GeoJsonSource(SRC_TRACK))
             style.addSource(GeoJsonSource(SRC_POS))
@@ -1560,6 +1576,53 @@ class MainActivity : AppCompatActivity() {
 
     private var helpOverlay: View? = null
 
+    // ---------- Menu Voyage ----------
+    private var travelPanel: TravelPanel? = null
+
+    private fun openTravel() {
+        if (travelPanel != null) return
+        sheetOpen = false; refreshTabs()
+        val loc = runCatching { map?.locationComponent?.lastKnownLocation }.getOrNull()
+        val c = map?.cameraPosition?.target
+        val here = if (loc != null) Spot("Ma position", loc.longitude, loc.latitude)
+            else Spot("Centre de la carte", c?.longitude ?: 5.6, c?.latitude ?: 43.17)
+        val password = prefs.getString("iaPassword", "").orEmpty().ifEmpty { BuildConfig.IA_MOT_DE_PASSE }
+        val p = TravelPanel(this, prefs, here, password, onRoutes = { r, i -> drawTravel(r, i) }, onClose = { closeTravel() })
+        travelPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+    }
+
+    private fun closeTravel() {
+        travelPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        travelPanel = null
+        drawTravel(emptyList(), 0)
+    }
+
+    /** Itinéraires trouvés, celui choisi par-dessus ; la carte se cadre sur tous quand ils arrivent. */
+    private var travelShown: List<CarRoute> = emptyList()
+    private fun drawTravel(routes: List<CarRoute>, sel: Int) {
+        val style = map?.style ?: return
+        val order = routes.indices.sortedBy { if (it == sel) 1 else 0 }
+        style.getSourceAs<GeoJsonSource>(SRC_TRAVEL)?.setGeoJson(FeatureCollection.fromFeatures(order.map { i ->
+            val r = routes[i]
+            Feature.fromGeometry(LineString.fromLngLats(r.coords.map { Point.fromLngLat(it[0], it[1]) })).apply {
+                addNumberProperty("i", i); addStringProperty("color", r.color); addBooleanProperty("sel", i == sel)
+            }
+        }))
+        if (routes.isNotEmpty() && routes !== travelShown) {
+            val b = LatLngBounds.Builder()
+            routes.forEach { r -> r.coords.forEach { b.include(LatLng(it[1], it[0])) } }
+            val d = resources.displayMetrics.density
+            val panel = travelPanel?.view
+            mapView.post {
+                val h = mapView.height
+                val bottom = ((panel?.height ?: 0) + 20 * d).toInt().coerceAtMost(h - (220 * d).toInt()).coerceAtLeast((30 * d).toInt())
+                runCatching { map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(), (30 * d).toInt(), (30 * d).toInt(), (70 * d).toInt(), bottom), 800) }
+            }
+        }
+        travelShown = routes
+    }
+
     /** Aide des icônes : toutes affichées, chacune avec son étiquette ; toucher n'importe où ferme. */
     private fun showIconHelp() {
         if (helpOverlay != null) return
@@ -1568,11 +1631,14 @@ class MainActivity : AppCompatActivity() {
         icons.visibility = View.VISIBLE
         for (i in 0 until icons.childCount) icons.getChildAt(i).visibility = View.VISIBLE
         val labels = linkedMapOf(
-            R.id.btnQuickToggle to "Appui : moins d'icônes · appui long : aide",
+            R.id.btnQuickClose to "Quitter l'appli",
+            R.id.btnQuickToggle to "Appui : icônes suivantes · appui long : aide",
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
             R.id.btnQuickAvion to "Mode avion", R.id.btnPoche to "Mode poche (écran noir)",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes", R.id.btnQuickShade to "Ombres",
+            R.id.btnWeather to "Météo (Météo-France)", R.id.btnWeatherMountain to "Météo montagne",
+            R.id.btnTravel to "Voyage en voiture (km, coût, péages)",
         )
         val d = resources.displayMetrics.density
         val overlay = android.widget.FrameLayout(this).apply {
@@ -1629,12 +1695,13 @@ class MainActivity : AppCompatActivity() {
         paint(R.id.btnQuickShade, findViewById<CheckBox>(R.id.chkShade).isChecked)
         val mode = prefs.getInt("iconesMode", 0)
         val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
-        icons.visibility = if (mode == 2) View.GONE else View.VISIBLE
+        icons.visibility = if (mode == 3) View.GONE else View.VISIBLE
+        val voyage = setOf(R.id.btnWeather, R.id.btnWeatherMountain, R.id.btnTravel)
         for (i in 0 until icons.childCount) {
             val v = icons.getChildAt(i)
-            v.visibility = if (mode == 0 || v.id == R.id.btnQuickPhoto) View.VISIBLE else View.GONE
+            v.visibility = if (when (mode) { 0 -> v.id !in voyage; 1 -> v.id == R.id.btnQuickPhoto; else -> v.id in voyage }) View.VISIBLE else View.GONE
         }
-        findViewById<Button>(R.id.btnQuickToggle).text = if (mode == 2) "◂" else "▸"
+        findViewById<Button>(R.id.btnQuickToggle).text = if (mode == 3) "◂" else "▸"
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
     }
     override fun onPause() { mapView.onPause(); super.onPause() }
@@ -1660,6 +1727,8 @@ class MainActivity : AppCompatActivity() {
         private const val LAYER_FORESTS = "forests"
         private const val LAYER_TRAILS = "trails"
         private const val SRC_WEB_HIKES = "web-hikes-src"
+        private const val SRC_TRAVEL = "travel-src"
+        private const val LAYER_TRAVEL = "travel"
         private const val LAYER_WEB_HIKES = "web-hikes"
         private const val LAYER_SLOPES = "slopes"
     }

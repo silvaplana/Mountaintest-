@@ -9,6 +9,7 @@ import { bboxPolygon, trailsGeoJson, type Trail } from './trails/osmTrails';
 import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
+import type { CarRoute } from './travel/travel';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -39,6 +40,10 @@ export interface MapViewProps {
   forests: Forest[];
   forestFilter: Set<string>;
   onForestClick?: (f: { essence: string; type: string; ha: number }) => void;
+  /** Voyage en voiture : itinéraires trouvés (un trait de couleur chacun) et celui choisi. */
+  travelRoutes?: CarRoute[];
+  travelSel?: number;
+  onTravelClick?: (i: number) => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -70,6 +75,8 @@ export function MapView(props: MapViewProps) {
   onHikeClick.current = props.onHikeClick;
   const onForestClick = useRef(props.onForestClick);
   onForestClick.current = props.onForestClick;
+  const onTravelClick = useRef(props.onTravelClick);
+  onTravelClick.current = props.onTravelClick;
 
   useEffect(() => {
     const m = new maplibregl.Map({
@@ -86,7 +93,7 @@ export function MapView(props: MapViewProps) {
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
-          webHikes: { type: 'geojson', data: EMPTY },
+          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
@@ -106,6 +113,9 @@ export function MapView(props: MapViewProps) {
           { id: 'imported', type: 'line', source: 'imported', paint: { 'line-color': '#7b3fe4', 'line-width': 4, 'line-opacity': 0.8 } },
           { id: 'recorded', type: 'line', source: 'recorded', paint: { 'line-color': '#e4572e', 'line-width': 4 } },
           { id: 'web-hikes', type: 'circle', source: 'webHikes', paint: { 'circle-radius': 8, 'circle-color': '#f28c28', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
+          { id: 'travel-casing', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': ['case', ['get', 'sel'], 9, 6] } },
+          { id: 'travel', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 6, 3], 'line-opacity': ['case', ['get', 'sel'], 1, 0.6] } },
+          { id: 'travel-hit', type: 'line', source: 'travel', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
         ],
       },
@@ -135,6 +145,10 @@ export function MapView(props: MapViewProps) {
     m.on('click', 'web-hikes', (e) => {
       const i = e.features?.[0]?.properties?.i;
       if (i != null) onHikeClick.current?.(Number(i));
+    });
+    m.on('click', 'travel-hit', (e) => {
+      const i = e.features?.[0]?.properties?.i;
+      if (i != null) onTravelClick.current?.(Number(i));
     });
     m.on('click', 'trails-hit', (e) => {
       const id = e.features?.[0]?.properties?.id;
@@ -223,6 +237,26 @@ export function MapView(props: MapViewProps) {
       m.fitBounds(b, { padding: { top: 140, left: 30, right: 70, bottom: Math.max(20, bottom) }, duration: 800 });
     }
   }, [props.selectedTrail, ready]);
+
+  // Itinéraires du voyage : le choisi par-dessus ; on cadre la carte sur tous quand ils arrivent.
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    const rs = props.travelRoutes ?? [];
+    const sel = props.travelSel ?? 0;
+    const order = rs.map((r, i) => ({ r, i })).sort((a, b) => Number(a.i === sel) - Number(b.i === sel));
+    (m.getSource('travel') as GeoJSONSource).setData({ type: 'FeatureCollection', features: order.map(({ r, i }) => ({
+      type: 'Feature', properties: { i, color: r.color, sel: i === sel }, geometry: { type: 'LineString', coordinates: r.coords } })) });
+  }, [props.travelRoutes, props.travelSel, ready]);
+  useEffect(() => {
+    const rs = props.travelRoutes ?? [];
+    if (!ready || !rs.length) return;
+    const b = new maplibregl.LngLatBounds();
+    rs.forEach((r) => r.coords.forEach((c) => b.extend(c)));
+    const panel = document.querySelector('.travel')?.getBoundingClientRect().height ?? 0;
+    const h = map.current!.getContainer().clientHeight;
+    map.current!.fitBounds(b, { padding: { top: 30, left: 30, right: 70, bottom: Math.max(30, Math.min(panel + 20, h - 220)) }, duration: 800 });
+  }, [props.travelRoutes, ready]);
 
   const slopeMarkers = useRef<maplibregl.Marker[]>([]);
   useEffect(() => {

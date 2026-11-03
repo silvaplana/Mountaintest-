@@ -10,6 +10,8 @@ const PocketMode = registerPlugin<{
 }>('PocketMode');
 /** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : ouvre l'application Appareil photo. */
 const Photo = registerPlugin<{ open(): Promise<void> }>('Photo');
+/** Plugin natif (shared/Weather.java) : ouvre l'appli Météo-France, ou sa page Météo montagne. */
+const Weather = registerPlugin<{ open(o: { mountain: boolean }): Promise<void> }>('Weather');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
 
 type WatchState = 'OFF' | 'ACTIVE_LOCK' | 'WAITING_ACTIVE' | 'ACTIVE_ERROR' | 'BACKGROUND' | 'BACKGROUND_ERROR';
@@ -26,19 +28,20 @@ export interface QuickProps {
   onBaseLayer: () => void;
   slopes: boolean; onSlopes: (on: boolean) => void;
   shade: boolean; onShade: (on: boolean) => void;
+  onTravel: () => void;
 }
 
 const MODE_KEY = 'iconesMode';
-/** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = aucune (puis on revient à 0). */
-type IconsMode = 0 | 1 | 2;
+/** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
+type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
-    try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 ? v : 0; } catch { return 0; }
+    try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
   });
   const nextMode = () => {
-    const v = ((mode + 1) % 3) as IconsMode;
+    const v = ((mode + 1) % 4) as IconsMode;
     setModeState(v);
     try { localStorage.setItem(MODE_KEY, String(v)); } catch { /* ignoré */ }
   };
@@ -86,6 +89,10 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   }, [native]);
 
   const locating = watch !== 'OFF';
+  const openWeather = (mountain: boolean) => {
+    if (native) Weather.open({ mountain }).catch((e) => onToast(String((e as Error).message ?? e)));
+    else window.open(mountain ? 'https://meteofrance.com/meteo-montagne' : 'https://meteofrance.com/', '_blank');
+  };
   // Appui long sur la flèche : aide (une étiquette à gauche de chaque icône) ; toucher n'importe où la ferme.
   const [help, setHelp] = useState(false);
   const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
@@ -94,12 +101,14 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
     <>
     {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
     <div className={help ? 'quick help' : 'quick'}>
-      <button className="toggle" aria-label={mode === 2 ? 'Afficher les icônes' : 'Cacher les icônes'} data-help="Appui : moins d’icônes · appui long : aide"
+      <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli"
+        onClick={() => { if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
+      <button className="toggle" aria-label={mode === 3 ? 'Afficher les icônes' : 'Changer les icônes'} data-help="Appui : icônes suivantes · appui long : aide"
         onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
         onPointerUp={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onContextMenu={(e) => e.preventDefault()}
-        onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } nextMode(); }}>{mode === 2 ? '◂' : '▸'}</button>
+        onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } nextMode(); }}>{mode === 3 ? '◂' : '▸'}</button>
       {show === 0 && <>
       <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser"
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
@@ -126,6 +135,11 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" onClick={onDraw}>✏</button>
       <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" onClick={() => onSlopes(!slopes)}>⛰</button>
       <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" onClick={() => onShade(!shade)}>🌗</button>
+      </>}
+      {(show === 2 || help) && <>
+      <button aria-label="Météo" data-help="Météo (Météo-France)" onClick={() => openWeather(false)}>🌦</button>
+      <button aria-label="Météo montagne" data-help="Météo montagne" onClick={() => openWeather(true)}>🏔</button>
+      <button aria-label="Préparer un voyage en voiture" data-help="Voyage en voiture (km, coût, péages)" onClick={onTravel}>🚗</button>
       </>}
     </div>
     </>

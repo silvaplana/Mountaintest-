@@ -13,6 +13,8 @@ import { defaultSource, ReplaySource, type LocationSource } from './gps/sources'
 import type { GpsFix, GpsMode, GpsSettings } from './gps/types';
 import { MapView } from './MapView';
 import { QuickButtons } from './QuickButtons';
+import { TravelPanel } from './TravelPanel';
+import type { CarRoute } from './travel/travel';
 import type { GeolocateControl } from 'maplibre-gl';
 import { runCameraBench, type CameraBenchResult } from './cameraBench';
 import { bench, metrics } from './metrics';
@@ -72,6 +74,10 @@ export function App() {
   /** Film des ombres du relief (8 h → midi). */
   const [showShade, setShowShade] = useState(false);
   const [searching, setSearching] = useState(false);
+  // Menu Voyage : panneau ouvert, itinéraires trouvés et celui choisi.
+  const [travel, setTravel] = useState(false);
+  const [travelRoutes, setTravelRoutes] = useState<CarRoute[]>([]);
+  const [travelSel, setTravelSel] = useState(0);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
   const [nature, setNature] = useState(false);
   const [geo, setGeo] = useState<GeolocateControl | null>(null);
@@ -527,6 +533,7 @@ export function App() {
         cursor={profile && profCursor != null ? pointAt(profile, profCursor) : null}
         webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike}
         forests={forests} forestFilter={forestFilter}
+        travelRoutes={travelRoutes} travelSel={travelSel} onTravelClick={setTravelSel}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
@@ -538,7 +545,14 @@ export function App() {
           const next = keys[(keys.indexOf(baseLayer) + 1) % keys.length];
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
-        slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade} />}
+        slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
+        onTravel={() => { setTravel(true); setOpen(false); setSearching(false); }} />}
+      {travel && <TravelPanel password={iaPassword || IA_MOT_DE_PASSE_INTEGRE}
+        here={position ? { label: 'Ma position', lon: position.lon, lat: position.lat }
+          : { label: 'Centre de la carte', lon: map?.getCenter().lng ?? 5.6, lat: map?.getCenter().lat ?? 43.17 }}
+        routes={travelRoutes} selected={travelSel}
+        onRoutes={(r, i) => { setTravelRoutes(r); setTravelSel(i); }}
+        onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       {toast && <div className="toast">{toast}</div>}
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
 

@@ -157,6 +157,129 @@ def chercher(zone: dict) -> dict:
     return {"randos": gardees, "ecartees": ecartees, "modele": MODELE, "cout_usd": round(cout, 4), "jetons": jetons}
 
 
+# ---------- Voyage en voiture : recherche du modèle, puis coût du trajet ----------
+
+OUTIL_VOITURES = {
+    "name": "donner_les_voitures",
+    "description": "Renvoie les modèles de voiture correspondant à la recherche. À appeler une seule fois, à la fin.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "voitures": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "nom": {"type": "string", "description": "Marque, modèle, génération ou années, motorisation courante"},
+                        "energies": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "energie": {"type": "string", "enum": ["essence", "diesel", "electrique", "hybride", "gpl"]},
+                                    "conso": {"type": "number", "description": "Consommation mixte réelle moyenne"},
+                                    "unite": {"type": "string", "enum": ["L/100 km", "kWh/100 km"]},
+                                },
+                                "required": ["energie", "conso", "unite"],
+                                "additionalProperties": False,
+                            },
+                        },
+                    },
+                    "required": ["nom", "energies"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["voitures"],
+        "additionalProperties": False,
+    },
+}
+
+CONSIGNE_VOITURES = """On te donne ce qu'un conducteur a tapé pour décrire sa voiture (marque, modèle, parfois l'année ou le moteur),
+n'importe où dans le monde. Propose 1 à 8 modèles qui correspondent, du plus probable au moins probable.
+Pour chacun, les énergies disponibles et la consommation mixte réelle moyenne (pas la valeur d'homologation optimiste) :
+L/100 km pour essence, diesel, hybride et GPL, kWh/100 km pour l'électrique. Cherche sur le web si tu as un doute.
+Termine en appelant l'outil donner_les_voitures."""
+
+OUTIL_COUT = {
+    "name": "donner_le_cout",
+    "description": "Renvoie le coût du trajet. À appeler une seule fois, à la fin.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "prix_unitaire": {"type": "number", "description": "Prix moyen actuel de l'énergie en France, en euros par litre ou par kWh"},
+            "unite_prix": {"type": "string", "enum": ["€/L", "€/kWh"]},
+            "cout_energie": {"type": "number", "description": "Euros d'énergie pour le trajet"},
+            "peages": {"type": "number", "description": "Euros de péage, classe 1 (voiture), 0 si aucun"},
+            "peages_detail": {"type": "string", "description": "Une phrase : quelles sections sont payantes, et combien"},
+            "total": {"type": "number"},
+            "explication": {"type": "string", "description": "Deux phrases au plus : hypothèses (prix, conso, péages)"},
+        },
+        "required": ["prix_unitaire", "unite_prix", "cout_energie", "peages", "peages_detail", "total", "explication"],
+        "additionalProperties": False,
+    },
+}
+
+CONSIGNE_COUT = """Tu chiffres un trajet en voiture en France pour un randonneur. On te donne le départ, l'arrivée, les kilomètres
+déjà calculés par l'itinéraire IGN (ne les recalcule pas), la liste des autoroutes empruntées avec leurs kilomètres,
+la voiture, l'énergie et la consommation aux 100 km.
+1. Cherche sur le web le prix moyen actuel de cette énergie en France (carburant à la pompe, ou électricité pour une
+   recharge : prends un mélange réaliste maison et borne rapide, dis-le).
+2. Coût de l'énergie = km × conso / 100 × prix.
+3. Péages, classe 1 : cherche les tarifs des sections d'autoroute réellement payantes entre ces points
+   (certaines portions sont gratuites, notamment autour des grandes villes). 0 si aucune autoroute.
+4. Total = énergie + péages. Arrondis à l'euro près pour les péages et le total, aux 10 centimes pour le prix unitaire.
+Termine en appelant l'outil donner_le_cout."""
+
+
+def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4):
+    """Un échange avec Claude (recherche web permise) jusqu'à l'appel de l'outil final. Renvoie (entrée de l'outil, coût, jetons)."""
+    messages = [{"role": "user", "content": demande}]
+    cout, jetons = 0.0, {"entree": 0, "sortie": 0, "recherches_web": 0}
+    for _ in range(5):
+        r = client.beta.messages.create(
+            model=MODELE, max_tokens=8000,
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+            output_config={"effort": "low"},
+            system=consigne,
+            tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": recherches,
+                    "user_location": {"type": "approximate", "country": "FR"}}, outil],
+            messages=messages,
+        )
+        u = r.usage
+        ent, sor = u.input_tokens or 0, u.output_tokens or 0
+        lec, ecr = getattr(u, "cache_read_input_tokens", 0) or 0, getattr(u, "cache_creation_input_tokens", 0) or 0
+        stu = getattr(u, "server_tool_use", None)
+        rech = (getattr(stu, "web_search_requests", 0) or 0) if stu else 0
+        cout += (ent * PRIX["entree"] + sor * PRIX["sortie"] + lec * PRIX["cache_lecture"] + ecr * PRIX["cache_ecriture"]) / 1e6 \
+            + rech * PRIX["recherche_web"]
+        jetons["entree"] += ent + lec + ecr; jetons["sortie"] += sor; jetons["recherches_web"] += rech
+        appel = next((b for b in r.content if b.type == "tool_use" and b.name == outil["name"]), None)
+        if appel:
+            return appel.input, round(cout, 4), jetons
+        if r.stop_reason == "refusal":
+            raise RuntimeError("Claude a refusé la demande")
+        messages.append({"role": "assistant", "content": r.content})
+        if r.stop_reason != "pause_turn":
+            messages.append({"role": "user", "content": f"Appelle maintenant l'outil {outil['name']}."})
+    raise RuntimeError("pas de réponse exploitable")
+
+
+def lire_voyage(d: dict) -> dict:
+    """Valide et borne la demande de coût (texte court, nombres raisonnables)."""
+    t = lambda k, n=120: str(d.get(k, ""))[:n]
+    autoroutes = [{"numero": str(a.get("numero", ""))[:12], "km": float(a.get("km", 0))}
+                  for a in (d.get("autoroutes") or [])[:20] if isinstance(a, dict)]
+    v = {"depart": t("depart"), "arrivee": t("arrivee"), "km": float(d["km"]), "duree_min": float(d.get("duree_min", 0)),
+         "autoroutes": autoroutes, "voiture": t("voiture"), "energie": t("energie", 20),
+         "conso": float(d["conso"]), "unite": t("unite", 12)}
+    if not (0 < v["km"] < 5000 and 0 < v["conso"] < 100):
+        raise ValueError("valeurs hors limites")
+    return v
+
+
 # ---------- Cache et quota ----------
 
 def _fichier(nom):
@@ -236,10 +359,13 @@ class Relais(BaseHTTPRequestHandler):
         self._json(200, {"ok": True, "modele": MODELE, **cumuls()})
 
     def do_POST(self):
-        if not self.path.rstrip("/").endswith("/randos"):
+        chemin = self.path.rstrip("/")
+        if not chemin.endswith(("/randos", "/voiture", "/voyage")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
+        if chemin.endswith(("/voiture", "/voyage")):
+            return self._voyage(chemin.rsplit("/", 1)[1])
         try:
             z = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 10_000)))
             z = {k: float(z[k]) for k in ("ouest", "sud", "est", "nord")}
@@ -276,6 +402,52 @@ class Relais(BaseHTTPRequestHandler):
         print(f"{jour} zone {cle[:8]} : {len(r['randos'])} randos ({r['ecartees']} écartées), {r['secondes']} s, "
               f"{r['cout_usd']:.3f} $ (cumul {totaux['cumul_total_usd']:.2f} $)", flush=True)
         self._json(200, {**r, **totaux})
+
+
+    def _voyage(self, quoi):
+        """/voiture : modèles et consommations d'après le texte tapé ; /voyage : coût d'un trajet (énergie + péages)."""
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 20_000)))
+            if quoi == "voiture":
+                q = " ".join(str(d["recherche"]).split())[:80]
+                if len(q) < 2:
+                    raise ValueError
+                cle, demande = "voiture:" + q.lower(), f"Voiture tapée : « {q} »"
+                consigne, outil, rech, garde = CONSIGNE_VOITURES, OUTIL_VOITURES, 2, 30
+            else:
+                v = lire_voyage(d)
+                cle = "voyage:" + hashlib.sha1(json.dumps(v, sort_keys=True).encode()).hexdigest()
+                demande = json.dumps(v, ensure_ascii=False)
+                consigne, outil, rech, garde = CONSIGNE_COUT, OUTIL_COUT, 5, 1
+        except (ValueError, KeyError, TypeError):
+            return self._json(400, {"erreur": "demande invalide"})
+        jour = time.strftime("%Y-%m-%d")
+        with verrou:
+            cache = _lire("cache-voyage.json", {})
+            c = cache.get(cle)
+            if c and time.time() - c["t"] < garde * 86400:
+                return self._json(200, {**c["r"], "cache": True, "cout_usd": 0, **cumuls()})
+            quota = _lire("quota.json", {})
+            if quota.get(jour, 0) >= MAX_PAR_JOUR:
+                return self._json(429, {"erreur": f"Limite de {MAX_PAR_JOUR} demandes par jour atteinte"})
+            _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
+        try:
+            r, cout, jetons = appeler(consigne, demande, outil, rech)
+        except anthropic.APIError as e:
+            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
+        except Exception as e:  # noqa: BLE001 - on renvoie l'erreur à l'appli
+            return self._json(502, {"erreur": str(e)})
+        r = {**r, "modele": MODELE, "cout_usd": cout}
+        with verrou:
+            cache = _lire("cache-voyage.json", {})
+            cache = {k: x for k, x in cache.items() if time.time() - x["t"] < 30 * 86400}
+            cache[cle] = {"t": time.time(), "r": r}
+            _ecrire("cache-voyage.json", cache)
+            ligne = {"date": time.strftime("%Y-%m-%d %H:%M:%S"), "type": quoi, "cout_usd": cout, **jetons}
+            with open(_fichier("couts.jsonl"), "a") as f:
+                f.write(json.dumps(ligne) + "\n")
+        print(f"{jour} {quoi} : {cout:.3f} $", flush=True)
+        self._json(200, {**r, **cumuls()})
 
 
 if __name__ == "__main__":

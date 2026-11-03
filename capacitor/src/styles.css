@@ -205,3 +205,26 @@ progress { width: 100%; }
 }
 .slope-tag.mid { background: #c45a00e8; }
 .slope-tag.steep { background: #b3261ee8; }
+
+/* Menu Voyage : panneau du bas, défilant, la carte reste visible au-dessus. */
+.travel {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; max-height: 58vh; overflow-y: auto;
+  background: var(--bg, #fff); border-radius: 14px 14px 0 0; box-shadow: 0 -2px 12px rgba(0,0,0,.25);
+  padding: 8px 12px 16px; display: flex; flex-direction: column; gap: 8px;
+}
+.travel-head { display: flex; justify-content: space-between; align-items: center; }
+.travel .row { display: flex; gap: 8px; align-items: flex-end; }
+.travel .row > * { flex: 1; min-width: 0; }
+.travel .row > button { flex: 0 0 auto; }
+.travel .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.travel .check { display: flex; gap: 8px; align-items: center; }
+.travel .routes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.travel .routes button { width: 100%; display: grid; grid-template-columns: 16px 1fr; column-gap: 8px; text-align: left; padding: 8px; }
+.travel .routes button span { grid-column: 2; font-size: 13px; color: var(--muted); }
+.travel .routes button i { width: 16px; height: 6px; border-radius: 3px; align-self: center; grid-row: 1 / span 2; }
+.travel .routes button.sel { outline: 3px solid var(--accent); }
+.travel .cost .total { font-size: 28px; font-weight: 700; margin: 0; }
+.travel .cost p { margin: 2px 0; }
+.travel .error { color: #c0392b; }
+.travel .hint { font-size: 13px; color: var(--muted); margin: 0; }
+.travel .summary { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
