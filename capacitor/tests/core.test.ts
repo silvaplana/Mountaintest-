@@ -9,7 +9,7 @@ import { parseCapabilities } from '../src/tiles/capabilities';
 import { tilesForBbox } from '../src/tiles/tileMath';
 import { parseGpx, toGpx } from '../src/track/gpx';
 import { computeStats } from '../src/track/stats';
-import { MAX_POINTS, forecastUrl, gridPoints, gridStep, hourIndex, parseForecast, pointKey, sliderHours, weatherIcon, windArrow, windColor, windRotation } from '../src/weather/openMeteo';
+import { MAX_POINTS, forecastUrl, gridPoints, gridStep, hourIndex, parseForecast, pointKey, sliderHours, weatherIcon, windArrow, windColor, windRotation, momentTime, momentAvailable, dayLabel } from '../src/weather/openMeteo';
 import { CITIES, CITY_MIN_ZOOM } from '../src/weather/cities';
 
 const fix = (o: Partial<GpsFix>): GpsFix => ({ lat: 43.17, lon: 5.6, alt: 0, accuracy: 5, speed: 0, time: 0, ...o });
@@ -167,5 +167,19 @@ describe('météo : vent et villes', () => {
     expect(new Set(CITIES.map((c) => c[0])).size).toBe(CITIES.length);
     expect(CITIES.every(([, lat, lon]) => lat > 41 && lat < 51.5 && lon > -5 && lon < 10)).toBe(true);
     expect(CITY_MIN_ZOOM[1]).toBeLessThan(CITY_MIN_ZOOM[3]);
+  });
+});
+
+describe('météo : moments de la journée', () => {
+  it('matin 9 h, nuit = 2 h le lendemain, passé et au-delà de la prévision indisponibles', () => {
+    const now = new Date('2026-11-04T18:30').getTime();
+    expect(new Date(momentTime(0, 9, now)).getHours()).toBe(9);
+    expect(new Date(momentTime(0, 26, now)).toISOString()).toBe(new Date('2026-11-05T02:00').toISOString());
+    expect(momentAvailable(0, 9, now)).toBe(false);
+    expect(momentAvailable(0, 20, now)).toBe(true);
+    expect(momentAvailable(0, 26, now)).toBe(true);
+    expect(momentAvailable(3, 20, now)).toBe(true);
+    expect(momentAvailable(3, 26, now)).toBe(false);
+    expect(dayLabel(1, now)).toBe('Jeudi 5 novembre');
   });
 });

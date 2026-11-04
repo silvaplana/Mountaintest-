@@ -196,3 +196,28 @@ export function windColor(kmh: number): string {
 export function windRotation(dirFrom: number): number {
   return (((dirFrom + 180 - 90) % 360) + 360) % 360;
 }
+
+/** Moments de la journée proposés (façon appli Météo-France) : heure locale de chaque moment. La nuit est celle qui suit (2 h le lendemain). */
+export const MOMENTS: { key: string; label: string; hour: number }[] = [
+  { key: 'matin', label: 'Matin', hour: 9 }, { key: 'apresmidi', label: 'Après-midi', hour: 15 },
+  { key: 'soir', label: 'Soir', hour: 20 }, { key: 'nuit', label: 'Nuit', hour: 26 },
+];
+
+/** Heure (ms) du moment `m` du jour `dayOffset` (0 = aujourd'hui). */
+export function momentTime(dayOffset: number, hour: number, now = Date.now()): number {
+  const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + dayOffset);
+  return d.getTime() + hour * 3_600_000;
+}
+
+/** Un moment est proposable s'il n'est pas passé (plus d'une heure) et s'il est encore dans la prévision. */
+export function momentAvailable(dayOffset: number, hour: number, now = Date.now()): boolean {
+  const t = momentTime(dayOffset, hour, now);
+  const end = momentTime(DAYS, 0, now);
+  return t >= now - 3_600_000 && t < end;
+}
+
+export function dayLabel(dayOffset: number, now = Date.now()): string {
+  const d = new Date(momentTime(dayOffset, 0, now));
+  const s = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
