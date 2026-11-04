@@ -185,6 +185,13 @@ object OpenMeteo {
         return arrows[(d / 45).roundToInt() % 8]
     }
 
+    /** Couleur d'une flèche de vent selon la vitesse (km/h) : vert, orange, rouge, violet. */
+    fun windColor(kmh: Double): Int = android.graphics.Color.parseColor(when {
+        kmh >= 60 -> "#7b3fe4"; kmh >= 40 -> "#e4572e"; kmh >= 20 -> "#e0a100"; else -> "#2f9e44" })
+
+    /** Rotation (degrés, sens horaire) d'une flèche qui pointe vers le haut, pour montrer où va le vent. */
+    fun windRotation(dirFrom: Double): Float = ((((dirFrom + 180) % 360) + 360) % 360).toFloat()
+
     /** Heures du curseur : de l'heure courante jusqu'à la fin des prévisions. */
     fun sliderHours(now: LocalDateTime = LocalDateTime.now()): List<LocalDateTime> {
         val start = now.withMinute(0).withSecond(0).withNano(0)

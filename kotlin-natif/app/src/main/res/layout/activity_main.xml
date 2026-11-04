@@ -356,6 +356,24 @@
             <Button android:id="@+id/weatherDay3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textAllCaps="false" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/weatherModeTemps" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textAllCaps="false" android:text="🌤 Temps" />
+            <Button android:id="@+id/weatherModeVent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:textAllCaps="false" android:text="➤ Vent" android:contentDescription="Vent : flèche, vitesse et rafales en km/h" />
+            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+            <CheckBox android:id="@+id/weatherSimple" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:text="Carte simple" android:textSize="13sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/weatherWindHint"
+            style="@style/Hint"
+            android:text="Flèche : où va le vent · vitesse / rafales en km/h · vert &lt; 20, orange, rouge ≥ 40, violet ≥ 60"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/weatherMsg"
             style="@style/Hint" />

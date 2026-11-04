@@ -9,7 +9,8 @@ import { parseCapabilities } from '../src/tiles/capabilities';
 import { tilesForBbox } from '../src/tiles/tileMath';
 import { parseGpx, toGpx } from '../src/track/gpx';
 import { computeStats } from '../src/track/stats';
-import { MAX_POINTS, forecastUrl, gridPoints, gridStep, hourIndex, parseForecast, pointKey, sliderHours, weatherIcon, windArrow } from '../src/weather/openMeteo';
+import { MAX_POINTS, forecastUrl, gridPoints, gridStep, hourIndex, parseForecast, pointKey, sliderHours, weatherIcon, windArrow, windColor, windRotation } from '../src/weather/openMeteo';
+import { CITIES, CITY_MIN_ZOOM } from '../src/weather/cities';
 
 const fix = (o: Partial<GpsFix>): GpsFix => ({ lat: 43.17, lon: 5.6, alt: 0, accuracy: 5, speed: 0, time: 0, ...o });
 
@@ -150,5 +151,21 @@ describe('météo sur la carte', () => {
     expect(windArrow(270)).toBe('→');
     expect(windArrow(0)).toBe('↓');
     expect(sliderHours(new Date('2026-11-04T15:22').getTime())[0]).toBe(new Date('2026-11-04T15:00').getTime());
+  });
+});
+
+describe('météo : vent et villes', () => {
+  it('couleur et rotation des flèches de vent', () => {
+    expect(windColor(10)).toBe('#2f9e44');
+    expect(windColor(45)).toBe('#e4572e');
+    expect(windColor(70)).toBe('#7b3fe4');
+    // Vent d'ouest (270) : il va vers l'est, la flèche ➤ pointe déjà à l'est → 0°.
+    expect(windRotation(270)).toBe(0);
+    expect(windRotation(0)).toBe(90);
+  });
+  it('villes : noms uniques, coordonnées en France ou proche, zoom mini par rang', () => {
+    expect(new Set(CITIES.map((c) => c[0])).size).toBe(CITIES.length);
+    expect(CITIES.every(([, lat, lon]) => lat > 41 && lat < 51.5 && lon > -5 && lon < 10)).toBe(true);
+    expect(CITY_MIN_ZOOM[1]).toBeLessThan(CITY_MIN_ZOOM[3]);
   });
 });

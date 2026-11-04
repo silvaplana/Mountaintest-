@@ -113,7 +113,7 @@ class MainActivity : AppCompatActivity() {
     private val offline by lazy { OfflineDownloader(this) }
     /** Film des ombres du relief (8 h → midi). */
     private val shade by lazy { ShadeFilm(this, { map }, LAYER_FORESTS) }
-    private val weather by lazy { WeatherLayer(this, { map }, { shade.active }) }
+    private val weather by lazy { WeatherLayer(this, { map }, { shade.active }, LAYER_FORESTS) }
     private val prefs by lazy { getSharedPreferences("reglages", MODE_PRIVATE) }
     private var apiKey = ""
 
