@@ -192,6 +192,23 @@ object OpenMeteo {
     /** Rotation (degrés, sens horaire) d'une flèche qui pointe vers le haut, pour montrer où va le vent. */
     fun windRotation(dirFrom: Double): Float = ((((dirFrom + 180) % 360) + 360) % 360).toFloat()
 
+    /** Moments de la journée proposés (façon appli Météo-France) : heure locale de chaque moment. La nuit est celle qui suit (2 h le lendemain). */
+    class Moment(val label: String, val hour: Int)
+    val MOMENTS = listOf(Moment("Matin", 9), Moment("Après-midi", 15), Moment("Soir", 20), Moment("Nuit", 26))
+
+    /** Heure du moment `hour` du jour `dayOffset` (0 = aujourd'hui). */
+    fun momentTime(dayOffset: Int, hour: Int, now: LocalDateTime = LocalDateTime.now()): LocalDateTime =
+        now.toLocalDate().plusDays(dayOffset.toLong()).atStartOfDay().plusHours(hour.toLong())
+
+    /** Un moment est proposable s'il n'est pas passé (plus d'une heure) et s'il est encore dans la prévision. */
+    fun momentAvailable(dayOffset: Int, hour: Int, now: LocalDateTime = LocalDateTime.now()): Boolean {
+        val t = momentTime(dayOffset, hour, now)
+        return !t.isBefore(now.minusHours(1)) && t.isBefore(momentTime(DAYS, 0, now))
+    }
+
+    fun dayLabel(dayOffset: Int, now: LocalDateTime = LocalDateTime.now()): String =
+        momentTime(dayOffset, 0, now).format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.FRANCE)).replaceFirstChar { it.uppercase() }
+
     /** Heures du curseur : de l'heure courante jusqu'à la fin des prévisions. */
     fun sliderHours(now: LocalDateTime = LocalDateTime.now()): List<LocalDateTime> {
         val start = now.withMinute(0).withSecond(0).withNano(0)

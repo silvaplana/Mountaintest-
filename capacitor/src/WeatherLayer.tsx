@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Bbox } from './config';
 import { CITIES, CITY_MIN_ZOOM } from './weather/cities';
 import {
-  ATTRIBUTION, forecastFor, gridPoints, hourIndex, hourLabel, pointKey, sliderHours, weatherIcon, weatherText, windArrow, windColor, windRotation,
+  ATTRIBUTION, DAYS, MOMENTS, dayLabel, forecastFor, gridPoints, hourIndex, hourLabel, momentAvailable, momentTime, pointKey, weatherIcon, weatherText, windArrow, windColor, windRotation,
   type PointForecast,
 } from './weather/openMeteo';
 
@@ -29,8 +29,10 @@ const WORLD: GeoJSON.Feature = { type: 'Feature', properties: {}, geometry: { ty
  * Carte simplifiée (fond pâle, quelques villes) tant que la météo est affichée, si la case est cochée.
  */
 export function WeatherLayer({ map, hidden, below, onToast, onClose }: { map: MlMap; hidden?: boolean; below?: boolean; onToast: (m: string) => void; onClose: () => void }) {
-  const [hours] = useState(() => sliderHours());
-  const [idx, setIdx] = useState(0);
+  // Moment choisi : jour (0 = aujourd'hui) et moment de la journée, comme dans l'appli Météo-France.
+  const firstMoment = (d: number) => MOMENTS.findIndex((m) => momentAvailable(d, m.hour));
+  const [day, setDay] = useState(() => (firstMoment(0) < 0 ? 1 : 0));
+  const [moment, setMoment] = useState(() => firstMoment(firstMoment(0) < 0 ? 1 : 0));
   const [points, setPoints] = useState<PointForecast[]>([]);
   const [msg, setMsg] = useState('Météo…');
   const [loading, setLoading] = useState(false);
@@ -99,9 +101,9 @@ export function WeatherLayer({ map, hidden, below, onToast, onClose }: { map: Ml
     };
   }, [map, simple, hidden]);
 
-  // Un marqueur HTML par point (les emoji ne passent pas par les glyphes MapLibre) : créé une fois, mis à jour à chaque heure.
+  const t = momentTime(day, MOMENTS[Math.max(0, moment)]?.hour ?? 9);
+  // Un marqueur HTML par point (les emoji ne passent pas par les glyphes MapLibre) : créé une fois, mis à jour à chaque moment.
   useEffect(() => {
-    const t = hours[idx];
     const keep = new Set<string>();
     for (const p of points) {
       const i = hourIndex(p, t);
@@ -143,11 +145,15 @@ export function WeatherLayer({ map, hidden, below, onToast, onClose }: { map: Ml
       el.style.display = hidden ? 'none' : '';
     }
     for (const [k, m] of markers.current) if (!keep.has(k)) { m.remove(); markers.current.delete(k); }
-  }, [points, idx, hours, map, hidden, mode]);
+  }, [points, t, map, hidden, mode]);
 
   useEffect(() => () => { markers.current.forEach((m) => m.remove()); markers.current.clear(); }, []);
 
-  const t = hours[idx];
+  const goDay = (d: number) => {
+    setDay(d);
+    // Si le moment choisi n'existe pas ce jour-là (déjà passé, ou au-delà de la prévision), on prend le premier possible.
+    if (!momentAvailable(d, MOMENTS[moment]?.hour ?? 9)) setMoment(firstMoment(d));
+  };
   return (
     <div className={`shade-bar wx-bar ${below ? 'wx-below' : ''}`} hidden={hidden}>
       <div className="shade-head">
@@ -155,20 +161,15 @@ export function WeatherLayer({ map, hidden, below, onToast, onClose }: { map: Ml
         <span className="shade-sun">{loading ? 'Météo…' : ''}</span>
         <button onClick={onClose} aria-label="Fermer la météo">✕</button>
       </div>
-      <div className="row shade-slider">
-        <button className="step" aria-label="1 h plus tôt" onClick={() => setIdx((i) => Math.max(0, i - 1))}>−</button>
-        <input type="range" className="big" min={0} max={hours.length - 1} value={idx} onChange={(e) => setIdx(Number(e.target.value))} />
-        <button className="step" aria-label="1 h plus tard" onClick={() => setIdx((i) => Math.min(hours.length - 1, i + 1))}>+</button>
+      <div className="row wx-day">
+        <button className="step" disabled={day <= 0} aria-label="Jour précédent" onClick={() => goDay(day - 1)}>‹</button>
+        <b className="wx-day-label">{dayLabel(day)}</b>
+        <button className="step" disabled={day >= DAYS - 1} aria-label="Jour suivant" onClick={() => goDay(day + 1)}>›</button>
       </div>
       <div className="row wx-days">
-        {[0, 1, 2, 3].map((d) => {
-          const day = new Date(hours[0]); day.setHours(0, 0, 0, 0); day.setDate(day.getDate() + d);
-          const first = hours.findIndex((h) => h >= day.getTime());
-          const cur = new Date(t).toDateString() === day.toDateString();
-          return <button key={d} className={cur ? 'on' : ''} disabled={first < 0}
-            onClick={() => setIdx(Math.max(first, hours.findIndex((h) => new Date(h).getHours() === 12 && new Date(h).toDateString() === day.toDateString())))}>
-            {d === 0 ? "Auj." : day.toLocaleDateString('fr-FR', { weekday: 'short' })}</button>;
-        })}
+        {MOMENTS.map((m, i) => (
+          <button key={m.key} className={moment === i ? 'on' : ''} disabled={!momentAvailable(day, m.hour)} onClick={() => setMoment(i)}>{m.label}</button>
+        ))}
       </div>
       <div className="row wx-modes">
         <button className={mode === 'temps' ? 'on' : ''} onClick={() => setMode('temps')}>🌤 Temps</button>

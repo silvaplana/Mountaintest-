@@ -9,7 +9,6 @@ import android.graphics.RectF
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
-import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -37,6 +36,7 @@ import org.maplibre.geojson.Point
 import org.maplibre.geojson.Polygon
 import java.time.Instant
 import java.time.ZoneId
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -58,8 +58,10 @@ class WeatherLayer(
     private val timeTxt: TextView = activity.findViewById(R.id.weatherTime)
     private val stateTxt: TextView = activity.findViewById(R.id.weatherState)
     private val msgTxt: TextView = activity.findViewById(R.id.weatherMsg)
-    private val seek: SeekBar = activity.findViewById(R.id.weatherSeek)
-    private val dayBtns = listOf(R.id.weatherDay0, R.id.weatherDay1, R.id.weatherDay2, R.id.weatherDay3).map { activity.findViewById<Button>(it) }
+    private val dayLabel: TextView = activity.findViewById(R.id.weatherDayLabel)
+    private val prevDay: Button = activity.findViewById(R.id.weatherPrevDay)
+    private val nextDay: Button = activity.findViewById(R.id.weatherNextDay)
+    private val momentBtns = listOf(R.id.weatherMoment0, R.id.weatherMoment1, R.id.weatherMoment2, R.id.weatherMoment3).map { activity.findViewById<Button>(it) }
     private val modeTemps: Button = activity.findViewById(R.id.weatherModeTemps)
     private val modeVent: Button = activity.findViewById(R.id.weatherModeVent)
     private val simpleChk: CheckBox = activity.findViewById(R.id.weatherSimple)
@@ -71,8 +73,9 @@ class WeatherLayer(
 
     var active = false; private set
     var onClose: (() -> Unit)? = null
-    private var hours = OpenMeteo.sliderHours()
-    private var idx = 0
+    /** Moment choisi : jour (0 = aujourd'hui) et moment de la journée, comme dans l'appli Météo-France. */
+    private var day = 0
+    private var moment = 0
     private var points: List<OpenMeteo.Forecast> = emptyList()
     private var job: Job? = null
     private var pendingMove: Job? = null
@@ -83,42 +86,23 @@ class WeatherLayer(
 
     init {
         activity.findViewById<Button>(R.id.weatherClose).setOnClickListener { onClose?.invoke() }
-        activity.findViewById<Button>(R.id.weatherMinus).setOnClickListener { show((idx - 1).coerceAtLeast(0)) }
-        activity.findViewById<Button>(R.id.weatherPlus).setOnClickListener { show((idx + 1).coerceAtMost(hours.size - 1)) }
-        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) { if (fromUser) show(p) }
-            override fun onStartTrackingTouch(sb: SeekBar?) {}
-            override fun onStopTrackingTouch(sb: SeekBar?) {}
-        })
-        windMode = prefs.getBoolean("vent", false)
-        simple = prefs.getBoolean("carteSimple", true)
-        simpleChk.isChecked = simple
-        modeTemps.setOnClickListener { setWind(false) }
-        modeVent.setOnClickListener { setWind(true) }
-        simpleChk.setOnCheckedChangeListener { _, c -> simple = c; prefs.edit().putBoolean("carteSimple", c).apply(); applySimple() }
-        dayBtns.forEachIndexed { d, b ->
-            b.setOnClickListener {
-                val day = hours[0].toLocalDate().plusDays(d.toLong())
-                val first = hours.indexOfFirst { !it.toLocalDate().isBefore(day) }
-                val noon = hours.indexOfFirst { it.toLocalDate() == day && it.hour == 12 }
-                if (first >= 0) show(maxOf(first, noon))
-            }
-        }
+        prevDay.setOnClickListener { goDay(day - 1) }
+        nextDay.setOnClickListener { goDay(day + 1) }
+        momentBtns.forEachIndexed { i, b -> b.text = OpenMeteo.MOMENTS[i].label; b.setOnClickListener { moment = i; show() } }
     }
 
     fun start() {
         if (active) return
         active = true
-        hours = OpenMeteo.sliderHours(); idx = 0
-        seek.max = hours.size - 1
+        day = if (firstMoment(0) < 0) 1 else 0
+        moment = firstMoment(day).coerceAtLeast(0)
         placeBar()
         bar.visibility = View.VISIBLE
-        dayBtns.forEachIndexed { d, b -> b.text = if (d == 0) "Auj." else hours[0].toLocalDate().plusDays(d.toLong()).format(DateTimeFormatter.ofPattern("EEE", Locale.FRANCE)) }
         ensureLayer()
         applySimple()
         refreshModeButtons()
         mapProvider()?.addOnCameraIdleListener(onIdle)
-        show(0)
+        show()
         refresh()
     }
 
@@ -246,13 +230,25 @@ class WeatherLayer(
         }
     }
 
-    private fun show(i: Int) {
-        idx = i.coerceIn(0, hours.size - 1)
-        seek.progress = idx
-        timeTxt.text = OpenMeteo.hourLabel(hours[idx])
-        val day = hours[idx].toLocalDate()
-        dayBtns.forEachIndexed { d, b ->
-            val on = hours[0].toLocalDate().plusDays(d.toLong()) == day
+    private fun firstMoment(d: Int) = OpenMeteo.MOMENTS.indexOfFirst { OpenMeteo.momentAvailable(d, it.hour) }
+
+    private fun goDay(d: Int) {
+        day = d.coerceIn(0, OpenMeteo.DAYS - 1)
+        // Si le moment choisi n'existe pas ce jour-là (déjà passé, ou au-delà de la prévision), on prend le premier possible.
+        if (!OpenMeteo.momentAvailable(day, OpenMeteo.MOMENTS[moment].hour)) moment = firstMoment(day).coerceAtLeast(0)
+        show()
+    }
+
+    private fun current(): LocalDateTime = OpenMeteo.momentTime(day, OpenMeteo.MOMENTS[moment].hour)
+
+    private fun show() {
+        timeTxt.text = OpenMeteo.hourLabel(current())
+        dayLabel.text = OpenMeteo.dayLabel(day)
+        prevDay.isEnabled = day > 0; nextDay.isEnabled = day < OpenMeteo.DAYS - 1
+        momentBtns.forEachIndexed { i, b ->
+            val on = i == moment
+            b.isEnabled = OpenMeteo.momentAvailable(day, OpenMeteo.MOMENTS[i].hour)
+            b.alpha = if (b.isEnabled) 1f else 0.4f
             b.backgroundTintList = if (on) android.content.res.ColorStateList.valueOf(Color.parseColor("#2F6F4F")) else null
             b.setTextColor(if (on) Color.WHITE else Color.parseColor("#1D2421"))
         }
@@ -263,8 +259,8 @@ class WeatherLayer(
     private fun draw() {
         val st = mapProvider()?.style ?: return
         if (!active || st.getSource(SRC) == null) return
-        val t = OpenMeteo.millis(hours[idx])
-        val label = OpenMeteo.hourLabel(hours[idx])
+        val t = OpenMeteo.millis(current())
+        val label = OpenMeteo.hourLabel(current())
         val features = points.mapNotNull { p ->
             val i = p.hourIndex(t)
             if (i < 0) return@mapNotNull null
