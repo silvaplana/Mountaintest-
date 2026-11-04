@@ -186,3 +186,13 @@ export function hourLabel(t: number): string {
   const day = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
   return `${day} ${d.getHours()} h`;
 }
+
+/** Couleur d'une flèche de vent selon la vitesse (km/h) : vert, orange, rouge, violet. */
+export function windColor(kmh: number): string {
+  return kmh >= 60 ? '#7b3fe4' : kmh >= 40 ? '#e4572e' : kmh >= 20 ? '#e0a100' : '#2f9e44';
+}
+
+/** Rotation CSS (degrés) d'une flèche « ➤ » (qui pointe vers l'est) pour montrer où va le vent. */
+export function windRotation(dirFrom: number): number {
+  return (((dirFrom + 180 - 90) % 360) + 360) % 360;
+}

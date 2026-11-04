@@ -4,9 +4,11 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -19,7 +21,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.FillLayer
+import org.maplibre.android.style.layers.PropertyFactory.fillColor
+import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
+import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.SymbolLayer
@@ -27,6 +34,7 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -43,6 +51,8 @@ class WeatherLayer(
     private val mapProvider: () -> MapLibreMap?,
     /** Vrai quand le bandeau des ombres est affiché : le nôtre se place dessous. */
     private val below: () -> Boolean,
+    /** Couche sous laquelle poser le voile de la carte simplifiée (forêts, tracés au-dessus). */
+    private val belowLayer: String,
 ) {
     private val bar: View = activity.findViewById(R.id.weatherBar)
     private val timeTxt: TextView = activity.findViewById(R.id.weatherTime)
@@ -50,6 +60,14 @@ class WeatherLayer(
     private val msgTxt: TextView = activity.findViewById(R.id.weatherMsg)
     private val seek: SeekBar = activity.findViewById(R.id.weatherSeek)
     private val dayBtns = listOf(R.id.weatherDay0, R.id.weatherDay1, R.id.weatherDay2, R.id.weatherDay3).map { activity.findViewById<Button>(it) }
+    private val modeTemps: Button = activity.findViewById(R.id.weatherModeTemps)
+    private val modeVent: Button = activity.findViewById(R.id.weatherModeVent)
+    private val simpleChk: CheckBox = activity.findViewById(R.id.weatherSimple)
+    private val windHint: TextView = activity.findViewById(R.id.weatherWindHint)
+    private val prefs by lazy { activity.getSharedPreferences("meteo", android.content.Context.MODE_PRIVATE) }
+    /** Ce que montrent les icônes : le temps (soleil, pluie…) ou le vent (flèche colorée, vitesse / rafales). */
+    private var windMode = false
+    private var simple = true
 
     var active = false; private set
     var onClose: (() -> Unit)? = null
@@ -72,6 +90,12 @@ class WeatherLayer(
             override fun onStartTrackingTouch(sb: SeekBar?) {}
             override fun onStopTrackingTouch(sb: SeekBar?) {}
         })
+        windMode = prefs.getBoolean("vent", false)
+        simple = prefs.getBoolean("carteSimple", true)
+        simpleChk.isChecked = simple
+        modeTemps.setOnClickListener { setWind(false) }
+        modeVent.setOnClickListener { setWind(true) }
+        simpleChk.setOnCheckedChangeListener { _, c -> simple = c; prefs.edit().putBoolean("carteSimple", c).apply(); applySimple() }
         dayBtns.forEachIndexed { d, b ->
             b.setOnClickListener {
                 val day = hours[0].toLocalDate().plusDays(d.toLong())
@@ -91,6 +115,8 @@ class WeatherLayer(
         bar.visibility = View.VISIBLE
         dayBtns.forEachIndexed { d, b -> b.text = if (d == 0) "Auj." else hours[0].toLocalDate().plusDays(d.toLong()).format(DateTimeFormatter.ofPattern("EEE", Locale.FRANCE)) }
         ensureLayer()
+        applySimple()
+        refreshModeButtons()
         mapProvider()?.addOnCameraIdleListener(onIdle)
         show(0)
         refresh()
@@ -103,7 +129,7 @@ class WeatherLayer(
         mapProvider()?.removeOnCameraIdleListener(onIdle)
         pendingMove?.cancel(); job?.cancel()
         points = emptyList()
-        mapProvider()?.style?.let { st -> st.removeLayer(LAYER); st.removeSource(SRC) }
+        mapProvider()?.style?.let { st -> st.removeLayer(LAYER); st.removeSource(SRC); removeSimple(st) }
     }
 
     /** Masqué en mode nature ou pendant un tracé. */
@@ -116,7 +142,70 @@ class WeatherLayer(
     }
 
     /** Le style est rechargé (changement de fond) : on remet la couche et les icônes. */
-    fun onStyleLoaded() { if (active) { ensureLayer(); draw() } }
+    fun onStyleLoaded() { if (active) { ensureLayer(); applySimple(); draw() } }
+
+    private fun setWind(on: Boolean) {
+        windMode = on; prefs.edit().putBoolean("vent", on).apply()
+        refreshModeButtons(); draw()
+    }
+
+    private fun refreshModeButtons() {
+        fun paint(b: Button, on: Boolean) {
+            b.backgroundTintList = if (on) android.content.res.ColorStateList.valueOf(Color.parseColor("#2F6F4F")) else null
+            b.setTextColor(if (on) Color.WHITE else Color.parseColor("#1D2421"))
+        }
+        paint(modeTemps, !windMode); paint(modeVent, windMode)
+        windHint.visibility = if (windMode) View.VISIBLE else View.GONE
+    }
+
+    // ---------- Carte simplifiée : voile clair sur le fond (sous les forêts) et quelques villes ----------
+    private fun applySimple() {
+        val st = mapProvider()?.style ?: return
+        if (!active || !simple) { removeSimple(st); return }
+        if (st.getSource(SRC_VEIL) == null) st.addSource(GeoJsonSource(SRC_VEIL, Polygon.fromLngLats(listOf(listOf(
+            Point.fromLngLat(-180.0, -85.0), Point.fromLngLat(180.0, -85.0), Point.fromLngLat(180.0, 85.0), Point.fromLngLat(-180.0, 85.0), Point.fromLngLat(-180.0, -85.0))))))
+        if (st.getLayer(LAYER_VEIL) == null) {
+            val veil = FillLayer(LAYER_VEIL, SRC_VEIL).withProperties(fillColor("#f6f4ee"), fillOpacity(0.8f))
+            if (st.getLayer(belowLayer) != null) st.addLayerBelow(veil, belowLayer) else st.addLayer(veil)
+        }
+        if (st.getSource(SRC_CITIES) == null) st.addSource(GeoJsonSource(SRC_CITIES, FeatureCollection.fromFeatures(Cities.ALL.map { c ->
+            val img = "ville:${c.rank}:${c.name}"
+            if (st.getImage(img) == null) st.addImage(img, cityBitmap(c))
+            Feature.fromGeometry(Point.fromLngLat(c.lon, c.lat)).apply { addStringProperty("img", img); addNumberProperty("rang", c.rank) }
+        })))
+        for (rank in 1..3) {
+            val id = "$LAYER_CITIES$rank"
+            if (st.getLayer(id) != null) continue
+            st.addLayerBelow(SymbolLayer(id, SRC_CITIES).withProperties(
+                iconImage(Expression.get("img")), iconAllowOverlap(true), iconIgnorePlacement(true), iconAnchor(Property.ICON_ANCHOR_LEFT))
+                .withFilter(Expression.eq(Expression.get("rang"), rank)).apply { minZoom = Cities.MIN_ZOOM[rank] ?: 5f }, LAYER)
+        }
+    }
+
+    private fun removeSimple(st: org.maplibre.android.maps.Style) {
+        for (rank in 1..3) st.removeLayer("$LAYER_CITIES$rank")
+        st.removeSource(SRC_CITIES)
+        st.removeLayer(LAYER_VEIL); st.removeSource(SRC_VEIL)
+    }
+
+    /** Point noir cerclé de blanc + nom de la ville (plus gros pour les grandes villes). */
+    private fun cityBitmap(c: City): Bitmap {
+        val d = activity.resources.displayMetrics.density
+        val size = when (c.rank) { 1 -> 15f; 2 -> 13f; else -> 12f } * d
+        val txt = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; color = Color.parseColor("#1D2421"); isFakeBoldText = c.rank < 3 }
+        val halo = Paint(txt).apply { style = Paint.Style.STROKE; strokeWidth = 3 * d; color = Color.WHITE }
+        val dot = if (c.rank == 3) 6 * d else 8 * d
+        val w = (dot + 6 * d + txt.measureText(c.name) + 4 * d).toInt() + 2
+        val h = (size * 1.6f).toInt().coerceAtLeast((dot + 6 * d).toInt()) + 2
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val cv = Canvas(bmp)
+        val cy = h / 2f
+        cv.drawCircle(1 + dot / 2 + d, cy, dot / 2 + d, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE })
+        cv.drawCircle(1 + dot / 2 + d, cy, dot / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1D2421") })
+        val x = 1 + dot + 6 * d; val y = cy - (txt.descent() + txt.ascent()) / 2
+        cv.drawText(c.name, x, y, halo); cv.drawText(c.name, x, y, txt)
+        return bmp
+    }
 
     /** Détail d'un point touché (toast), à partir de la propriété « info » de la feature. */
     fun describe(f: Feature): String? = f.getStringProperty("info")
@@ -179,11 +268,19 @@ class WeatherLayer(
         val features = points.mapNotNull { p ->
             val i = p.hourIndex(t)
             if (i < 0) return@mapNotNull null
-            val ico = OpenMeteo.icon(p.code[i], p.day[i])
-            val txt = "${p.temp[i].roundToInt()}° ${p.wind[i].roundToInt()}${OpenMeteo.windArrow(p.dir[i])}"
             val strong = p.gust[i] >= 60
-            val img = "wx:$ico|$txt|$strong"
-            if (st.getImage(img) == null) st.addImage(img, bitmap(ico, txt, strong))
+            val img: String
+            if (windMode) {
+                val rot = (OpenMeteo.windRotation(p.dir[i]) / 5).roundToInt() * 5
+                val txt = "${p.wind[i].roundToInt()} / ${p.gust[i].roundToInt()}"
+                img = "wind:$rot|${OpenMeteo.windColor(p.wind[i])}|$txt|$strong"
+                if (st.getImage(img) == null) st.addImage(img, windBitmap(rot.toFloat(), OpenMeteo.windColor(p.wind[i]), txt, strong))
+            } else {
+                val ico = OpenMeteo.icon(p.code[i], p.day[i])
+                val txt = "${p.temp[i].roundToInt()}° ${p.wind[i].roundToInt()}${OpenMeteo.windArrow(p.dir[i])}"
+                img = "wx:$ico|$txt|$strong"
+                if (st.getImage(img) == null) st.addImage(img, bitmap(ico, txt, strong))
+            }
             val rain = if (p.rain[i] >= 0.1) " · ${String.format(Locale.FRANCE, "%.1f", p.rain[i])} mm/h" else ""
             Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat)).apply {
                 addStringProperty("img", img)
@@ -197,12 +294,12 @@ class WeatherLayer(
     /** Icône emoji avec, dessous, une pastille « 12° 25↗ » (rouge si rafales ≥ 60 km/h). */
     private fun bitmap(ico: String, txt: String, strong: Boolean): Bitmap {
         val d = activity.resources.displayMetrics.density
-        val icoPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 30 * d; textAlign = Paint.Align.CENTER }
+        val icoPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 46 * d; textAlign = Paint.Align.CENTER }
         val txtPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = 11 * d; textAlign = Paint.Align.CENTER; isFakeBoldText = true
+            textSize = 13 * d; textAlign = Paint.Align.CENTER; isFakeBoldText = true
             color = if (strong) Color.WHITE else Color.parseColor("#1D2421")
         }
-        val icoH = 34 * d; val pillH = 16 * d
+        val icoH = 52 * d; val pillH = 18 * d
         val w = maxOf(icoPaint.measureText(ico), txtPaint.measureText(txt) + 8 * d) + 4 * d
         val bmp = Bitmap.createBitmap(w.toInt() + 2, (icoH + pillH + 2 * d).toInt() + 2, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
@@ -215,8 +312,40 @@ class WeatherLayer(
         return bmp
     }
 
+    /** Flèche colorée (vers où va le vent) avec, dessous, « vitesse / rafales ». */
+    private fun windBitmap(rotation: Float, color: Int, txt: String, strong: Boolean): Bitmap {
+        val d = activity.resources.displayMetrics.density
+        val txtPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 13 * d; textAlign = Paint.Align.CENTER; isFakeBoldText = true
+            color = if (strong) Color.WHITE else Color.parseColor("#1D2421")
+        }
+        val icoH = 46 * d; val pillH = 18 * d
+        val w = maxOf(icoH, txtPaint.measureText(txt) + 8 * d) + 4 * d
+        val bmp = Bitmap.createBitmap(w.toInt() + 2, (icoH + pillH + 2 * d).toInt() + 2, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val cx = bmp.width / 2f; val cy = icoH / 2
+        // Flèche qui pointe vers le haut, tournée dans le sens du vent.
+        val r = 19 * d
+        val path = Path().apply {
+            moveTo(0f, -r); lineTo(r * 0.7f, r * 0.35f); lineTo(0f, r * 0.05f); lineTo(-r * 0.7f, r * 0.35f); close()
+        }
+        c.save(); c.translate(cx, cy); c.rotate(rotation)
+        c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3 * d; this.color = Color.WHITE; strokeJoin = Paint.Join.ROUND })
+        c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color })
+        c.restore()
+        val pw = txtPaint.measureText(txt) + 8 * d
+        val rect = RectF(cx - pw / 2, icoH + d, cx + pw / 2, icoH + d + pillH)
+        c.drawRoundRect(rect, 6 * d, 6 * d, Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = Color.parseColor(if (strong) "#E4572E" else "#DDFFFFFF") })
+        c.drawText(txt, cx, rect.centerY() - (txtPaint.descent() + txtPaint.ascent()) / 2, txtPaint)
+        return bmp
+    }
+
     companion object {
         const val SRC = "wx-src"
         const val LAYER = "wx"
+        private const val SRC_VEIL = "wx-veil-src"
+        private const val LAYER_VEIL = "wx-veil"
+        private const val SRC_CITIES = "wx-villes-src"
+        private const val LAYER_CITIES = "wx-villes-"
     }
 }
