@@ -317,7 +317,7 @@ class WeatherLayer(
         val d = activity.resources.displayMetrics.density
         val txtPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = 13 * d; textAlign = Paint.Align.CENTER; isFakeBoldText = true
-            color = if (strong) Color.WHITE else Color.parseColor("#1D2421")
+            this.color = if (strong) Color.WHITE else Color.parseColor("#1D2421")
         }
         val icoH = 46 * d; val pillH = 18 * d
         val w = maxOf(icoH, txtPaint.measureText(txt) + 8 * d) + 4 * d
