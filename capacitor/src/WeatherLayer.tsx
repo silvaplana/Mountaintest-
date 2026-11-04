@@ -1,0 +1,121 @@
+import * as maplibregl from 'maplibre-gl';
+import type { Map as MlMap } from 'maplibre-gl';
+import { useEffect, useRef, useState } from 'react';
+import type { Bbox } from './config';
+import {
+  ATTRIBUTION, forecastFor, gridPoints, hourIndex, hourLabel, pointKey, sliderHours, weatherIcon, weatherText, windArrow,
+  type PointForecast,
+} from './weather/openMeteo';
+
+function viewBbox(m: MlMap): Bbox {
+  const b = m.getBounds();
+  return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+}
+
+const fmtTime = (t: number) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+/**
+ * Météo posée sur la carte : une grille d'icônes (temps, température, vent) par-dessus la carte,
+ * et un bandeau avec un curseur d'heure sur 4 jours. Données Météo-France (AROME, ARPEGE) via Open-Meteo.
+ */
+export function WeatherLayer({ map, hidden, below, onToast, onClose }: { map: MlMap; hidden?: boolean; below?: boolean; onToast: (m: string) => void; onClose: () => void }) {
+  const [hours] = useState(() => sliderHours());
+  const [idx, setIdx] = useState(0);
+  const [points, setPoints] = useState<PointForecast[]>([]);
+  const [msg, setMsg] = useState('Météo…');
+  const [loading, setLoading] = useState(false);
+  const markers = useRef(new Map<string, maplibregl.Marker>());
+  const onToastRef = useRef(onToast);
+  onToastRef.current = onToast;
+
+  // Points de la vue : rechargés à l'ouverture et 600 ms après chaque déplacement de la carte (cache 1 h).
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let ctl: AbortController | null = null;
+    const refresh = async () => {
+      ctl?.abort();
+      const my = new AbortController();
+      ctl = my;
+      setLoading(true);
+      try {
+        const { list, error } = await forecastFor(gridPoints(viewBbox(map)), my.signal);
+        if (my.signal.aborted) return;
+        setPoints(list);
+        const newest = list.reduce((m, p) => Math.max(m, p.fetched), 0);
+        if (error) setMsg(list.length ? `Sans réseau : météo reçue à ${fmtTime(newest)}` : `Météo indisponible : ${error}`);
+        else setMsg(list.length ? `Prévision reçue à ${fmtTime(newest)} · ${ATTRIBUTION}` : 'Aucune prévision ici (modèles Météo-France : France et Europe proche)');
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setMsg(`Météo indisponible : ${(e as Error).message}`);
+      } finally {
+        if (!my.signal.aborted) setLoading(false);
+      }
+    };
+    const onMove = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => void refresh(), 600); };
+    map.on('moveend', onMove);
+    void refresh();
+    return () => { map.off('moveend', onMove); if (timer) clearTimeout(timer); ctl?.abort(); };
+  }, [map]);
+
+  // Un marqueur HTML par point (les emoji ne passent pas par les glyphes MapLibre) : créé une fois, mis à jour à chaque heure.
+  useEffect(() => {
+    const t = hours[idx];
+    const keep = new Set<string>();
+    for (const p of points) {
+      const i = hourIndex(p, t);
+      if (i < 0) continue;
+      const k = pointKey(p);
+      keep.add(k);
+      let m = markers.current.get(k);
+      if (!m) {
+        const el = document.createElement('div');
+        el.className = 'wx';
+        el.innerHTML = '<span class="wx-ico"></span><span class="wx-txt"></span>';
+        m = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([p.lon, p.lat]).addTo(map);
+        markers.current.set(k, m);
+      }
+      const el = m.getElement();
+      const cur = (el as HTMLElement & { _wx?: { p: PointForecast; i: number } });
+      cur._wx = { p, i };
+      el.onclick = (ev) => {
+        ev.stopPropagation();
+        const { p: q, i: j } = cur._wx!;
+        const rain = q.rain[j] >= 0.1 ? ` · ${q.rain[j].toFixed(1).replace('.', ',')} mm/h` : '';
+        onToastRef.current(`${hourLabel(t)} : ${weatherText(q.code[j])}, ${Math.round(q.temp[j])} °C, vent ${Math.round(q.wind[j])} km/h ${windArrow(q.dir[j])} (rafales ${Math.round(q.gust[j])})${rain}`);
+      };
+      (el.querySelector('.wx-ico') as HTMLElement).textContent = weatherIcon(p.code[i], p.day[i]);
+      (el.querySelector('.wx-txt') as HTMLElement).textContent = `${Math.round(p.temp[i])}° ${Math.round(p.wind[i])}${windArrow(p.dir[i])}`;
+      el.classList.toggle('wx-strong', p.gust[i] >= 60);
+      el.style.display = hidden ? 'none' : '';
+    }
+    for (const [k, m] of markers.current) if (!keep.has(k)) { m.remove(); markers.current.delete(k); }
+  }, [points, idx, hours, map, hidden]);
+
+  useEffect(() => () => { markers.current.forEach((m) => m.remove()); markers.current.clear(); }, []);
+
+  const t = hours[idx];
+  return (
+    <div className={`shade-bar wx-bar ${below ? 'wx-below' : ''}`} hidden={hidden}>
+      <div className="shade-head">
+        <b className="wx-time">{hourLabel(t)}</b>
+        <span className="shade-sun">{loading ? 'Météo…' : ''}</span>
+        <button onClick={onClose} aria-label="Fermer la météo">✕</button>
+      </div>
+      <div className="row shade-slider">
+        <button className="step" aria-label="1 h plus tôt" onClick={() => setIdx((i) => Math.max(0, i - 1))}>−</button>
+        <input type="range" className="big" min={0} max={hours.length - 1} value={idx} onChange={(e) => setIdx(Number(e.target.value))} />
+        <button className="step" aria-label="1 h plus tard" onClick={() => setIdx((i) => Math.min(hours.length - 1, i + 1))}>+</button>
+      </div>
+      <div className="row wx-days">
+        {[0, 1, 2, 3].map((d) => {
+          const day = new Date(hours[0]); day.setHours(0, 0, 0, 0); day.setDate(day.getDate() + d);
+          const first = hours.findIndex((h) => h >= day.getTime());
+          const cur = new Date(t).toDateString() === day.toDateString();
+          return <button key={d} className={cur ? 'on' : ''} disabled={first < 0}
+            onClick={() => setIdx(Math.max(first, hours.findIndex((h) => new Date(h).getHours() === 12 && new Date(h).toDateString() === day.toDateString())))}>
+            {d === 0 ? "Auj." : day.toLocaleDateString('fr-FR', { weekday: 'short' })}</button>;
+        })}
+      </div>
+      <p className="hint">{msg}</p>
+    </div>
+  );
+}

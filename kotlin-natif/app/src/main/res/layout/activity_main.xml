@@ -263,6 +263,104 @@
             style="@style/Hint" />
     </LinearLayout>
 
+    <!-- Météo sur la carte (Météo-France via Open-Meteo) : heure choisie, curseur sur 4 jours, jours -->
+    <LinearLayout
+        android:id="@+id/weatherBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="64dp"
+        android:layout_marginEnd="68dp"
+        android:background="@drawable/card_bg"
+        android:elevation="4dp"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/weatherTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#1D2421"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/weatherState"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:textColor="@color/muted"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/weatherClose"
+                style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="48dp"
+                android:layout_height="wrap_content"
+                android:contentDescription="Fermer la météo"
+                android:text="✕" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/weatherMinus"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="1 h plus tôt"
+                android:padding="0dp"
+                android:text="−"
+                android:textSize="22sp" />
+
+            <SeekBar
+                android:id="@+id/weatherSeek"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:maxHeight="10dp"
+                android:minHeight="10dp"
+                android:thumb="@drawable/seek_thumb" />
+
+            <Button
+                android:id="@+id/weatherPlus"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:contentDescription="1 h plus tard"
+                android:padding="0dp"
+                android:text="+"
+                android:textSize="22sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/weatherDay0" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textAllCaps="false" android:text="Auj." />
+            <Button android:id="@+id/weatherDay1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textAllCaps="false" />
+            <Button android:id="@+id/weatherDay2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textAllCaps="false" />
+            <Button android:id="@+id/weatherDay3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textAllCaps="false" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/weatherMsg"
+            style="@style/Hint" />
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/frameBanner"
         android:layout_width="match_parent"
@@ -485,7 +583,7 @@
                 android:layout_height="44dp"
                 android:layout_marginTop="8dp"
                 android:background="@drawable/round_btn"
-                android:contentDescription="Météo"
+                android:contentDescription="Météo sur la carte"
                 android:elevation="4dp"
                 android:padding="0dp"
                 android:text="🌦"

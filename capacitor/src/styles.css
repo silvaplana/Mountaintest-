@@ -280,3 +280,15 @@ progress { width: 100%; }
 .travel .lodgings button em { font-style: normal; font-weight: 700; }
 .expenses .error { color: #c0392b; margin: 0; }
 .travel .to-group { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+
+/* Météo sur la carte : icône + température/vent par point de grille, bandeau avec curseur d'heure. */
+.wx { display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer; }
+.wx-ico { font-size: 30px; line-height: 1; filter: drop-shadow(0 1px 2px #0008); }
+.wx-txt { font-size: 11px; font-weight: 600; color: #1d2421; background: #fffd; border-radius: 6px; padding: 0 4px; margin-top: 1px; white-space: nowrap; }
+.wx-strong .wx-txt { background: #e4572e; color: #fff; }
+.wx-time { font-size: 20px; line-height: 1.2; }
+.wx-bar.wx-below { top: calc(env(safe-area-inset-top) + 236px); }
+.app.nature .wx-bar.wx-below { top: calc(env(safe-area-inset-top) + 182px); }
+.wx-days { gap: 6px; }
+.wx-days button { flex: 1; min-height: 36px; padding: 4px 0; }
+.wx-days button.on { background: var(--accent); border-color: var(--accent); color: #fff; }

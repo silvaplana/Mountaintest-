@@ -33,13 +33,15 @@ export interface QuickProps {
   onExpenses: () => void;
   onLodging: () => void;
   onSki: () => void;
+  /** Météo posée sur la carte (icône 🌦) ; appui long : ouvre l'appli Météo-France. */
+  weather: boolean; onWeather: (on: boolean) => void;
 }
 
 const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSki }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSki, weather, onWeather }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -101,6 +103,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   const [help, setHelp] = useState(false);
   const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
   const show = help ? 0 : mode;
+  const wx = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
   return (
     <>
     {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
@@ -142,7 +145,12 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       <button aria-label="Sorties ski de rando (skitour.fr)" data-help="Sorties ski de rando (skitour.fr)" onClick={onSki}>⛷</button>
       </>}
       {(show === 2 || help) && <>
-      <button aria-label="Météo" data-help="Météo (Météo-France)" onClick={() => openWeather(false)}>🌦</button>
+      <button className={weather ? 'on' : ''} aria-label="Météo sur la carte" data-help="Météo sur la carte · appui long : appli Météo-France"
+        onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
+        onPointerUp={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
+        onPointerLeave={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
+        onContextMenu={(e) => e.preventDefault()}
+        onClick={() => { if (wx.current.long) { wx.current.long = false; return; } onWeather(!weather); }}>🌦</button>
       <button aria-label="Météo montagne" data-help="Météo montagne" onClick={() => openWeather(true)}>🏔</button>
       <button aria-label="Préparer un voyage en voiture" data-help="Voyage en voiture (km, coût, péages)" onClick={onTravel}>🚗</button>
       <button aria-label="Trouver un hébergement" data-help="Hébergement (meilleurs prix, IA)" onClick={onLodging}>🏨</button>
