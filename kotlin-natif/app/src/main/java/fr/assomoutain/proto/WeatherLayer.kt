@@ -272,12 +272,12 @@ class WeatherLayer(
             val img: String
             if (windMode) {
                 val rot = (OpenMeteo.windRotation(p.dir[i]) / 5).roundToInt() * 5
-                val txt = "${p.wind[i].roundToInt()} / ${p.gust[i].roundToInt()}"
+                val txt = "${p.wind[i].roundToInt()} (${p.gust[i].roundToInt()}) km/h"
                 img = "wind:$rot|${OpenMeteo.windColor(p.wind[i])}|$txt|$strong"
                 if (st.getImage(img) == null) st.addImage(img, windBitmap(rot.toFloat(), OpenMeteo.windColor(p.wind[i]), txt, strong))
             } else {
                 val ico = OpenMeteo.icon(p.code[i], p.day[i])
-                val txt = "${p.temp[i].roundToInt()}° ${p.wind[i].roundToInt()}${OpenMeteo.windArrow(p.dir[i])}"
+                val txt = "${p.temp[i].roundToInt()} °C"
                 img = "wx:$ico|$txt|$strong"
                 if (st.getImage(img) == null) st.addImage(img, bitmap(ico, txt, strong))
             }

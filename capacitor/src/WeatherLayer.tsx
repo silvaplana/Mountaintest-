@@ -131,12 +131,12 @@ export function WeatherLayer({ map, hidden, below, onToast, onClose }: { map: Ml
         ico.textContent = '➤';
         ico.style.transform = `rotate(${windRotation(p.dir[i])}deg)`;
         ico.style.color = windColor(p.wind[i]);
-        txt.textContent = `${Math.round(p.wind[i])} / ${Math.round(p.gust[i])}`;
+        txt.textContent = `${Math.round(p.wind[i])} (${Math.round(p.gust[i])}) km/h`;
       } else {
         ico.textContent = weatherIcon(p.code[i], p.day[i]);
         ico.style.transform = '';
         ico.style.color = '';
-        txt.textContent = `${Math.round(p.temp[i])}° ${Math.round(p.wind[i])}${windArrow(p.dir[i])}`;
+        txt.textContent = `${Math.round(p.temp[i])} °C`;
       }
       el.classList.toggle('wx-wind', mode === 'vent');
       el.classList.toggle('wx-strong', p.gust[i] >= 60);
@@ -175,7 +175,7 @@ export function WeatherLayer({ map, hidden, below, onToast, onClose }: { map: Ml
         <button className={mode === 'vent' ? 'on' : ''} onClick={() => setMode('vent')} aria-label="Vent : flèche, vitesse et rafales en km/h">➤ Vent</button>
         <label className="wx-simple"><input type="checkbox" checked={simple} onChange={(e) => setSimple(e.target.checked)} /> Carte simple</label>
       </div>
-      {mode === 'vent' && <p className="hint">Flèche : où va le vent · vitesse / rafales en km/h · vert &lt; 20, orange, rouge ≥ 40, violet ≥ 60</p>}
+      {mode === 'vent' && <p className="hint">Flèche : où va le vent · vent moyen (rafales) en km/h · vert &lt; 20, orange, rouge ≥ 40, violet ≥ 60</p>}
       <p className="hint">{msg}</p>
     </div>
   );

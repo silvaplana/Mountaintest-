@@ -371,7 +371,7 @@
         <TextView
             android:id="@+id/weatherWindHint"
             style="@style/Hint"
-            android:text="Flèche : où va le vent · vitesse / rafales en km/h · vert &lt; 20, orange, rouge ≥ 40, violet ≥ 60"
+            android:text="Flèche : où va le vent · vent moyen (rafales) en km/h · vert &lt; 20, orange, rouge ≥ 40, violet ≥ 60"
             android:visibility="gone" />
 
         <TextView
