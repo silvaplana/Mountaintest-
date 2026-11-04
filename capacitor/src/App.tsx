@@ -93,7 +93,8 @@ export function App() {
   const [travelRoutes, setTravelRoutes] = useState<CarRoute[]>([]);
   const [travelSel, setTravelSel] = useState(0);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
-  const [nature, setNature] = useState(false);
+  // L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰ (demande de Seb).
+  const [nature, setNature] = useState(true);
   const [geo, setGeo] = useState<GeolocateControl | null>(null);
   /** Petit message passager, visible même en mode nature. */
   const [toast, setToast] = useState('');

@@ -386,6 +386,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         refreshTabs(); refreshSortie(); refreshOffline()
+        // L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰ (demande de Seb).
+        setNature(true)
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "kotlin")
         // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
