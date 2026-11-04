@@ -107,7 +107,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
     <div className={help ? 'quick help' : 'quick'}>
       <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli"
         onClick={() => { if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
-      <button className="toggle" aria-label={mode === 3 ? 'Afficher les icônes' : 'Changer les icônes'} data-help="Appui : icônes suivantes · appui long : aide"
+      <button className="toggle arrow" aria-label={mode === 3 ? 'Afficher les icônes' : 'Changer les icônes'} data-help="Appui : icônes suivantes · appui long : aide"
         onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
         onPointerUp={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
