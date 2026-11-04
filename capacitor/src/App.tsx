@@ -200,7 +200,8 @@ export function App() {
         setStatus(`Sortie précédente récupérée (${recorder.current.points.length} points).`);
       }
     })();
-    const sub = CapApp.addListener('appStateChange', ({ isActive }) => setVisible(isActive));
+    // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
+    const sub = CapApp.addListener('appStateChange', ({ isActive }) => { setVisible(isActive); if (isActive) setOpen(false); });
     const onVis = () => setVisible(document.visibilityState === 'visible');
     document.addEventListener('visibilitychange', onVis);
     return () => { void sub.then((h) => h.remove()); document.removeEventListener('visibilitychange', onVis); };

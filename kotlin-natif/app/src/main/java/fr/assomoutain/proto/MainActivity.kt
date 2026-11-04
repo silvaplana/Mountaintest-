@@ -1658,7 +1658,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 
-    override fun onStart() { super.onStart(); mapView.onStart() }
+    // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
+    override fun onStart() { super.onStart(); mapView.onStart(); if (sheetOpen) { sheetOpen = false; refreshTabs() } }
     override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons() }
 
     /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
