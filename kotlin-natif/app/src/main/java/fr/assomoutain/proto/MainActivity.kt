@@ -113,6 +113,7 @@ class MainActivity : AppCompatActivity() {
     private val offline by lazy { OfflineDownloader(this) }
     /** Film des ombres du relief (8 h → midi). */
     private val shade by lazy { ShadeFilm(this, { map }, LAYER_FORESTS) }
+    private val weather by lazy { WeatherLayer(this, { map }, { shade.active }) }
     private val prefs by lazy { getSharedPreferences("reglages", MODE_PRIVATE) }
     private var apiKey = ""
 
@@ -206,6 +207,9 @@ class MainActivity : AppCompatActivity() {
                 val pt = m.projection.toScreenLocation(p)
                 val r = 20 * resources.displayMetrics.density
                 val box = android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r)
+                // Icône météo : le détail de la prévision à cet endroit.
+                if (weather.active) m.queryRenderedFeatures(box, WeatherLayer.LAYER)
+                    .firstOrNull()?.let { weather.describe(it) }?.let { toast(it); return@addOnMapClickListener true }
                 // Point d'une sortie skitour : on la choisit.
                 if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { skiPanel?.select(it); return@addOnMapClickListener true }
@@ -260,7 +264,7 @@ class MainActivity : AppCompatActivity() {
         setupSearch()
         findViewById<CheckBox>(R.id.chkSlopes).setOnCheckedChangeListener { _, checked -> slopes = checked; applySlopes(); refreshQuickButtons() }
         val chkShade = findViewById<CheckBox>(R.id.chkShade)
-        chkShade.setOnCheckedChangeListener { _, checked -> if (checked) shade.start() else shade.stop(); refreshQuickButtons() }
+        chkShade.setOnCheckedChangeListener { _, checked -> if (checked) shade.start() else shade.stop(); weather.placeBar(); refreshQuickButtons() }
         shade.onClose = { chkShade.isChecked = false }
 
         // Boutons carte
@@ -302,7 +306,10 @@ class MainActivity : AppCompatActivity() {
         }
         // Croix au-dessus de la flèche : quitte l'appli (l'enregistrement d'une sortie, service à part, continue).
         findViewById<Button>(R.id.btnQuickClose).setOnClickListener { finishAndRemoveTask() }
-        findViewById<Button>(R.id.btnWeather).setOnClickListener { if (!Weather.open(this, false)) toast("Impossible d'ouvrir Météo-France") }
+        // 🌦 : météo posée sur la carte (Météo-France via Open-Meteo) ; appui long : l'appli Météo-France.
+        findViewById<Button>(R.id.btnWeather).setOnClickListener { if (weather.active) weather.stop() else weather.start(); refreshQuickButtons() }
+        findViewById<Button>(R.id.btnWeather).setOnLongClickListener { if (!Weather.open(this, false)) toast("Impossible d'ouvrir Météo-France"); true }
+        weather.onClose = { weather.stop(); refreshQuickButtons() }
         findViewById<Button>(R.id.btnWeatherMountain).setOnClickListener { if (!Weather.open(this, true)) toast("Impossible d'ouvrir Météo-France") }
         findViewById<Button>(R.id.btnTravel).setOnClickListener { openTravel() }
         findViewById<ImageButton>(R.id.btnExpenses).setOnClickListener { openExpenses() }
@@ -379,6 +386,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         refreshTabs(); refreshSortie(); refreshOffline()
+        // L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰ (demande de Seb).
+        setNature(true)
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "kotlin")
         // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
@@ -486,6 +495,7 @@ class MainActivity : AppCompatActivity() {
                 circleRadius(9f), circleColor("#c0392b"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             applySlopes()
             shade.onStyleLoaded()
+            weather.onStyleLoaded()
             drawImported(fit = false)
             drawTrails(fit = false)
             drawWebHikes()
@@ -1113,6 +1123,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.frameBanner).visibility = if (on) View.VISIBLE else View.GONE
         findViewById<View>(R.id.targetBar).visibility = if (!on && target != null) View.VISIBLE else View.GONE
         shade.setBarVisible(!on)
+        weather.setBarVisible(!on)
         if (on) { sheetOpen = false; refreshTabs() }
     }
 
@@ -1649,7 +1660,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
 
-    override fun onStart() { super.onStart(); mapView.onStart() }
+    // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
+    override fun onStart() { super.onStart(); mapView.onStart(); if (sheetOpen) { sheetOpen = false; refreshTabs() } }
     override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons() }
 
     /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
@@ -1780,7 +1792,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
             R.id.btnQuickAvion to "Mode avion", R.id.btnPoche to "Mode poche (écran noir)",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes", R.id.btnQuickShade to "Ombres", R.id.btnSki to "Sorties ski de rando (skitour.fr)",
-            R.id.btnWeather to "Météo (Météo-France)", R.id.btnWeatherMountain to "Météo montagne",
+            R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
         )
         val d = resources.displayMetrics.density
@@ -1836,6 +1848,7 @@ class MainActivity : AppCompatActivity() {
         paint(R.id.btnQuickAvion, airplaneOn())
         paint(R.id.btnQuickSlopes, slopes)
         paint(R.id.btnQuickShade, findViewById<CheckBox>(R.id.chkShade).isChecked)
+        paint(R.id.btnWeather, weather.active)
         val mode = prefs.getInt("iconesMode", 0)
         val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
         icons.visibility = if (mode == 3) View.GONE else View.VISIBLE

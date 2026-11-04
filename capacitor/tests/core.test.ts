@@ -9,6 +9,7 @@ import { parseCapabilities } from '../src/tiles/capabilities';
 import { tilesForBbox } from '../src/tiles/tileMath';
 import { parseGpx, toGpx } from '../src/track/gpx';
 import { computeStats } from '../src/track/stats';
+import { MAX_POINTS, forecastUrl, gridPoints, gridStep, hourIndex, parseForecast, pointKey, sliderHours, weatherIcon, windArrow } from '../src/weather/openMeteo';
 
 const fix = (o: Partial<GpsFix>): GpsFix => ({ lat: 43.17, lon: 5.6, alt: 0, accuracy: 5, speed: 0, time: 0, ...o });
 
@@ -116,5 +117,38 @@ describe('recherche de lieux', () => {
     expect(places[1]).toMatchObject({ lon: 5.605625, lat: 43.161201, detail: 'pic' });
     expect(places[3].detail).toBe('adresse');
     expect(places[0].detail).toBe('département');
+  });
+});
+
+describe('météo sur la carte', () => {
+  it('grille alignée sur des multiples du pas, stable au glissement', () => {
+    const pts = gridPoints([5.55, 43.15, 5.66, 43.21]);
+    expect(gridStep([5.55, 43.15, 5.66, 43.21])).toBe(0.05);
+    expect(pts.length).toBeGreaterThan(0);
+    expect(pts.every((p) => Math.abs(p.lon / 0.05 - Math.round(p.lon / 0.05)) < 1e-6)).toBe(true);
+    const shifted = gridPoints([5.56, 43.16, 5.67, 43.22]);
+    expect(shifted.some((p) => pts.some((q) => pointKey(p) === pointKey(q)))).toBe(true);
+    expect(gridPoints([0, 40, 10, 50]).length).toBeLessThanOrEqual(MAX_POINTS);
+  });
+  it('lit une réponse Open-Meteo pour un ou plusieurs points', () => {
+    const one = { latitude: 43.2, longitude: 5.6, hourly: { time: ['2026-11-04T00:00', '2026-11-04T01:00'], weather_code: [0, 61], temperature_2m: [12.3, 11.8],
+      wind_speed_10m: [10, 20], wind_gusts_10m: [20, 65], wind_direction_10m: [0, 270], is_day: [0, 0], precipitation: [0, 1.2] } };
+    const r = parseForecast([one, { ...one, latitude: 43.25 }], [{ lat: 43.2, lon: 5.6 }, { lat: 43.25, lon: 5.6 }], 5);
+    expect(r.length).toBe(2);
+    expect(r[1].lat).toBe(43.25);
+    expect(r[0].day).toEqual([false, false]);
+    expect(hourIndex(r[0], new Date('2026-11-04T01:30').getTime())).toBe(1);
+    expect(hourIndex(r[0], new Date('2026-11-05T01:30').getTime())).toBe(-1);
+    expect(() => parseForecast({ error: true, reason: 'nope' }, [])).toThrow('nope');
+    expect(forecastUrl([{ lat: 43.2, lon: 5.6 }, { lat: 43.25, lon: 5.6 }])).toContain('latitude=43.2%2C43.25');
+  });
+  it('icônes : lune la nuit, orage, flèche du vent', () => {
+    expect(weatherIcon(0, true)).toBe('☀️');
+    expect(weatherIcon(0, false)).toBe('🌙');
+    expect(weatherIcon(95)).toBe('⛈️');
+    expect(weatherIcon(73)).toBe('🌨️');
+    expect(windArrow(270)).toBe('→');
+    expect(windArrow(0)).toBe('↓');
+    expect(sliderHours(new Date('2026-11-04T15:22').getTime())[0]).toBe(new Date('2026-11-04T15:00').getTime());
   });
 });

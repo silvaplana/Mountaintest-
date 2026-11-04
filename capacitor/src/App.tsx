@@ -38,6 +38,7 @@ import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './t
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { ShadeFilm } from './ShadeFilm';
+import { WeatherLayer } from './WeatherLayer';
 import { MNT_LAYER, mntTileUrl, mntTilesForZone } from './shade/dem';
 import { BatteryShortcuts } from './BatteryShortcuts';
 import { elevate, trailToGpx, type ElevatedTrail } from './trails/elevation';
@@ -78,6 +79,8 @@ export function App() {
   const [showSlopes, setShowSlopes] = useState(false);
   /** Film des ombres du relief (8 h → midi). */
   const [showShade, setShowShade] = useState(false);
+  // 🌦 Météo posée sur la carte (Météo-France via Open-Meteo).
+  const [showWeather, setShowWeather] = useState(false);
   const [searching, setSearching] = useState(false);
   // Menu Voyage : panneau ouvert, itinéraires trouvés et celui choisi.
   const [travel, setTravel] = useState(false);
@@ -90,7 +93,8 @@ export function App() {
   const [travelRoutes, setTravelRoutes] = useState<CarRoute[]>([]);
   const [travelSel, setTravelSel] = useState(0);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
-  const [nature, setNature] = useState(false);
+  // L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰ (demande de Seb).
+  const [nature, setNature] = useState(true);
   const [geo, setGeo] = useState<GeolocateControl | null>(null);
   /** Petit message passager, visible même en mode nature. */
   const [toast, setToast] = useState('');
@@ -197,7 +201,8 @@ export function App() {
         setStatus(`Sortie précédente récupérée (${recorder.current.points.length} points).`);
       }
     })();
-    const sub = CapApp.addListener('appStateChange', ({ isActive }) => setVisible(isActive));
+    // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
+    const sub = CapApp.addListener('appStateChange', ({ isActive }) => { setVisible(isActive); if (isActive) setOpen(false); });
     const onVis = () => setVisible(document.visibilityState === 'visible');
     document.addEventListener('visibilitychange', onVis);
     return () => { void sub.then((h) => h.remove()); document.removeEventListener('visibilitychange', onVis); };
@@ -558,6 +563,7 @@ export function App() {
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
+        weather={showWeather} onWeather={setShowWeather}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
         onSki={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setFramingFor('ski'); setFraming(true); }}
@@ -575,6 +581,7 @@ export function App() {
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       {toast && <div className="toast">{toast}</div>}
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
+      {showWeather && map && <WeatherLayer map={map} hidden={framing || drawing} below={showShade} onToast={setToast} onClose={() => setShowWeather(false)} />}
 
       {framing && map && <FrameOverlay map={map} label={framingFor === 'ski' ? 'Encadre la zone dans laquelle tu veux chercher les sorties' : undefined}
         onDone={(b) => {
