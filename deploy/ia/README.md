@@ -32,6 +32,14 @@ de la recherche et les cumuls (mois, total), visibles aussi sur https://silvapla
 
 Changer la clé ou le mot de passe : `rm ~/mountaintest/ia.env` puis relancer le script.
 
+## Sorties skitour.fr (bouton ⛷ des applis)
+
+Le relais interroge l'API officielle de skitour.fr avec une clé gardée dans `ia.env` (`SKITOUR_CLE`) :
+se connecter sur skitour.fr, ouvrir son profil, cliquer sur le crayon « modifier », puis « récupérer
+ma clé API » (elle arrive par mail). Limite : 1000 requêtes par 24 h ; le relais garde chaque zone
+en cache une heure. Pour l'ajouter après coup : `echo 'SKITOUR_CLE=<clé>' >> ~/mountaintest/ia.env`
+puis relancer le script (un `docker restart` ne relit pas `ia.env`).
+
 ## Tout retirer
 
 ```bash

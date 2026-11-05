@@ -15,6 +15,7 @@ la réponse donne son coût et les cumuls du mois et depuis le début, affichés
 """
 import hashlib
 import hmac
+import html
 import urllib.parse
 import urllib.request
 import re
@@ -323,30 +324,58 @@ SKITOUR_CLE = os.environ.get("SKITOUR_CLE", "")
 
 
 def sorties_skitour(o: float, s: float, e: float, n: float, jours: int) -> list:
-    q = urllib.parse.urlencode({"ll": f"{(s + n) / 2:.5f},{(o + e) / 2:.5f}", "j": jours, "c": 1, "l": 1000})
-    req = urllib.request.Request(f"https://skitour.fr/api/sorties?{q}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        data = json.loads(r.read())
-    if isinstance(data, dict):
-        raise RuntimeError(f"skitour : {data.get('ERROR', 'erreur')}")
+    # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
+    # on prend donc les sorties des derniers jours, par pages de 1000, et on garde celles dont un sommet est dans la zone.
+    data = []
+    for page in range(1, 4):
+        q = urllib.parse.urlencode({"j": jours, "c": 1, "l": 1000, "p": page})
+        req = urllib.request.Request(f"https://skitour.fr/api/sorties?{q}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+        with urllib.request.urlopen(req, timeout=30) as r:
+            lot = json.loads(r.read())
+        if isinstance(lot, dict):
+            raise RuntimeError(f"skitour : {lot.get('ERROR', 'erreur')}")
+        data += lot
+        if len(lot) < 1000:
+            break
     out = []
     for x in data:
-        pts = [sm for sm in (x.get("sommets") or []) if isinstance(sm.get("latlon"), list) and len(sm["latlon"]) == 2]
-        dedans = [sm for sm in pts if s <= float(sm["latlon"][0]) <= n and o <= float(sm["latlon"][1]) <= e]
+        # Format de l'API (vérifié le 5 nov. 2026) : tout est en chaînes ; un sommet = {"sommet", "altitude", "lat", "lng"},
+        # la date est en secondes Unix, les conditions sont dans "cond" avec un peu de HTML (<br>, &nbsp;).
+        pts = [sm for sm in (x.get("sommets") or []) if _nombre(sm.get("lat")) is not None and _nombre(sm.get("lng")) is not None]
+        dedans = [sm for sm in pts if s <= float(sm["lat"]) <= n and o <= float(sm["lng"]) <= e]
         if not dedans:
             continue
         sm = dedans[0]
         out.append({
-            "id": x.get("id"), "titre": x.get("titre", ""), "date": x.get("date"),
+            "id": _entier(x.get("id")), "titre": x.get("titre") or "", "date": _entier(x.get("date")),
             "massif": (x.get("massif") or {}).get("nom", ""),
-            "sommet": sm.get("nom", ""), "altitude": sm.get("altitude"),
-            "lat": float(sm["latlon"][0]), "lon": float(sm["latlon"][1]),
-            "denivele": x.get("denivele"), "dif_ski": x.get("dif_ski"), "orientation": x.get("orientation", ""),
-            "conditions": str(x.get("conditions") or "")[:400],
+            "sommet": sm.get("sommet") or "", "altitude": _entier(sm.get("altitude")),
+            "lat": float(sm["lat"]), "lon": float(sm["lng"]),
+            "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
+            "conditions": _texte(x.get("cond"))[:400],
             "auteur": (x.get("auteur") or {}).get("pseudo", ""),
             "url": f"https://skitour.fr/sorties/{x.get('id')}",
         })
     return out
+
+
+def _nombre(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _entier(v):
+    n = _nombre(v)
+    return int(n) if n is not None else None
+
+
+def _texte(v) -> str:
+    """Texte brut d'un champ HTML de skitour (sauts de ligne gardés, balises et entités retirées)."""
+    t = re.sub(r"<br\s*/?>", "\n", str(v or ""), flags=re.I)
+    t = re.sub(r"<[^>]+>", "", t)
+    return html.unescape(t).strip()
 
 
 def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domaines: list | None = None):

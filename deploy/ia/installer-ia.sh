@@ -22,8 +22,9 @@ if [ ! -f "$M/ia.env" ]; then
   done
   [ -n "$CLE" ] || { read -r -s -p "Colle ta clé API Anthropic (sk-ant-…) puis Entrée : " CLE; echo; }
   read -r -p "Choisis un mot de passe pour l'appli (à taper une fois dans l'onglet Randos) : " MDP
+  read -r -p "Clé API skitour.fr (profil › modifier › clé API ; Entrée pour l'ajouter plus tard) : " SKI
   umask 077
-  printf 'ANTHROPIC_API_KEY=%s\nRELAIS_MOT_DE_PASSE=%s\nRELAIS_MAX_PAR_JOUR=40\n' "$CLE" "$MDP" > "$M/ia.env"
+  printf 'ANTHROPIC_API_KEY=%s\nRELAIS_MOT_DE_PASSE=%s\nRELAIS_MAX_PAR_JOUR=40\nSKITOUR_CLE=%s\n' "$CLE" "$MDP" "$SKI" > "$M/ia.env"
 fi
 chmod 600 "$M/ia.env"
 
