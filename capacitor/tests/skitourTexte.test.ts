@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterRows, groupMassifs, outingLabel, parkingText, uniqueParkings, type Outing, type OutingRow } from '../src/ski/skitour';
+import { DETAILS_MAX, filterRows, groupMassifs, inView, mergeDetails, outingLabel, parkingText, uniqueParkings, withDetails, type Outing, type OutingRow } from '../src/ski/skitour';
 
 const row = (id: number, titre: string, massif: string, auteurs: string): OutingRow => ({
   id, titre, date: 0, massif, sommet: '', altitude: null, lat: null, lon: null, denivele: null, dif_ski: null, orientation: '', auteurs, url: '',
@@ -34,5 +34,21 @@ describe('skitour en texte', () => {
     expect(outingLabel(o, now)).toBe('Monte Bellino (2942 m), NE\nski 2.3, D+200 m, ★★\nskiabilité 🤢 Mauvaise, il y a 8 j');
     expect(outingLabel({ ...o, sommet: '', altitude: null, orientation: '', dif_ski: null, denivele: null, etoiles: 0, skiabilite: '', date: now / 1000 }, now))
       .toBe("Monte Bellino, versant NE\naujourd'hui");
+  });
+});
+
+describe('sorties de l\'écran', () => {
+  it('garde les sorties dans l\'écran, dans l\'ordre reçu', () => {
+    const os = [{ id: 1, lat: 45, lon: 6 }, { id: 2, lat: 46, lon: 8 }, { id: 3, lat: 45.5, lon: 6.5 }] as Outing[];
+    expect(inView(os, [5.5, 44.5, 7, 46]).map((o) => o.id)).toEqual([1, 3]);
+    expect(inView(os, [5.5, 44.5, 7, 46], 1).map((o) => o.id)).toEqual([1]);
+  });
+  it('détails gardés : les plus récents, DETAILS_MAX au plus', () => {
+    const old = mergeDetails({}, Object.fromEntries(Array.from({ length: DETAILS_MAX }, (_, i) => [String(i), { etoiles: 1 }])));
+    const m = mergeDetails(old, { 0: { etoiles: 3 }, 9999: { etoiles: 2 } });
+    expect(Object.keys(m).length).toBe(DETAILS_MAX);
+    expect(withDetails({ id: 1, etoiles: null } as Outing, m).etoiles).toBeNull();
+    expect(withDetails({ id: 0, etoiles: null } as Outing, m).etoiles).toBe(3);
+    expect(withDetails({ id: 9999, etoiles: null } as Outing, m).etoiles).toBe(2);
   });
 });

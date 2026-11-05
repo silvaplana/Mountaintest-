@@ -296,12 +296,17 @@ export function MapView(props: MapViewProps) {
     m.setPaintProperty('ski', 'circle-color', ['case', ['==', ['get', 'i'], sel], '#7b3fe4', '#1d6fe0']);
     m.setPaintProperty('ski', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
     const o = props.skiOutings?.[sel];
-    // Sortie choisie : on montre le sommet et son parking ensemble.
+    // Sortie choisie : on montre le sommet et son parking ensemble, une seule fois par choix (la liste de l'écran est
+    // recalculée à chaque arrêt de la carte : recadrer à chaque fois ferait boucler).
+    const key = o ? `${o.id}:${o.parking ? 'p' : ''}` : null;
+    if (key === skiFocused.current) return;
+    skiFocused.current = key;
     if (o?.parking) m.fitBounds([[Math.min(o.lon, o.parking.lon), Math.min(o.lat, o.parking.lat)], [Math.max(o.lon, o.parking.lon), Math.max(o.lat, o.parking.lat)]],
-      { padding: { top: 60, left: 40, right: 200, bottom: Math.round(m.getContainer().clientHeight * 0.45) }, maxZoom: 15, duration: 600 });
+      { padding: { top: 60, left: 40, right: 200, bottom: Math.round(m.getContainer().clientHeight * 0.55) }, maxZoom: 15, duration: 600 });
     else if (o) m.easeTo({ center: [o.lon, o.lat], duration: 600 });
   }, [props.skiOutings, props.skiSel, ready]);
 
+  const skiFocused = useRef<string | null>(null);
   // Étiquettes des sorties skitour à droite des points bleus (nom, étoiles, skiabilité) ; cachées en dessous du zoom 9.
   const skiMarkers = useRef<maplibregl.Marker[]>([]);
   useEffect(() => {

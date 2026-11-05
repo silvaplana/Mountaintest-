@@ -104,6 +104,56 @@ export async function loadOutings(b: Bbox, days: number, password: string): Prom
   }
 }
 
+// Sorties sur la carte (⛷🗺) : toute la liste de la période en une requête (gardée sur le téléphone pour le hors
+// ligne), filtrée ici sur l'écran affiché ; étoiles, skiabilité en mot et parking demandés seulement pour les sorties
+// à l'écran (30 au plus à la fois), gardés eux aussi. Même logique côté Kotlin (SkiPanel.kt).
+const ALL_KEY = 'skitourTout';
+const DET_KEY = 'skitourDetails2';
+// Clés « i123 » (et non « 123 ») : un objet range les clés numériques par valeur, on perdrait l'ordre d'arrivée.
+const dk = (id: number | string) => `i${id}`;
+export const DETAILS_MAX = 800;
+export interface Details { etoiles?: number | null; skiabilite?: string; parking?: Parking | null }
+
+export async function loadAll(days: number, password: string): Promise<{ outings: Outing[]; offline?: number }> {
+  try {
+    const r = await relayPost<{ sorties?: Outing[] }>('skitour-tout', { jours: days }, password);
+    const outings = (r.sorties ?? []).filter((o) => Number.isFinite(o.lat) && Number.isFinite(o.lon)).sort((x, y) => y.date - x.date);
+    try { localStorage.setItem(ALL_KEY, JSON.stringify({ days, t: Date.now(), sorties: outings })); } catch { /* stockage plein */ }
+    return { outings };
+  } catch (e) {
+    let saved: { days: number; t: number; sorties: Outing[] } | null = null;
+    try { saved = JSON.parse(localStorage.getItem(ALL_KEY) ?? 'null'); } catch { /* rien */ }
+    if (!saved || !Array.isArray(saved.sorties)) throw e;
+    const since = Date.now() / 1000 - days * 86400;
+    return { outings: saved.sorties.filter((o) => o.date >= since), offline: saved.t };
+  }
+}
+
+/** Sorties dans l'écran [ouest, sud, est, nord], les plus récentes d'abord (max au plus). */
+export const inView = (all: Outing[], b: Bbox, max = 150) =>
+  all.filter((o) => o.lon >= b[0] && o.lon <= b[2] && o.lat >= b[1] && o.lat <= b[3]).slice(0, max);
+
+export function readDetails(): Record<string, Details> {
+  try { const v = JSON.parse(localStorage.getItem(DET_KEY) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+}
+export const withDetails = (o: Outing, det: Record<string, Details>): Outing => (det[dk(o.id)] ? { ...o, ...det[dk(o.id)] } : o);
+export const hasDetails = (o: Outing, det: Record<string, Details>) => dk(o.id) in det;
+
+/** Garde les détails reçus (clés = id des sorties ; les plus récents en dernier, DETAILS_MAX au plus). */
+export function mergeDetails(old: Record<string, Details>, add: Record<string, Details>): Record<string, Details> {
+  const all = { ...old };
+  for (const [k, v] of Object.entries(add)) { delete all[dk(k)]; all[dk(k)] = v; }
+  const keys = Object.keys(all);
+  return keys.length > DETAILS_MAX ? Object.fromEntries(keys.slice(-DETAILS_MAX).map((k) => [k, all[k]])) : all;
+}
+
+export async function fetchDetails(ids: number[], password: string): Promise<Record<string, Details>> {
+  const r = await relayPost<{ details?: Record<string, Details> }>('skitour-details', { ids: ids.slice(0, 30) }, password);
+  const det = mergeDetails(readDetails(), r.details ?? {});
+  try { localStorage.setItem(DET_KEY, JSON.stringify(det)); } catch { /* stockage plein */ }
+  return det;
+}
+
 // Sorties en texte (icône ⛷💬) : liste façon skitour.fr (date, titre, auteurs) puis fiche détaillée.
 // La dernière liste et les 50 dernières fiches ouvertes restent sur le téléphone (lisibles hors ligne).
 export interface OutingRow {

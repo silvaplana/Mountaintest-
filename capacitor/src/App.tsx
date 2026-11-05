@@ -20,7 +20,6 @@ import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
 import { rowOf, type Outing, type OutingRow } from './ski/skitour';
-import type { Bbox as SkiBbox } from './config';
 import type { CarRoute } from './travel/travel';
 import type { GeolocateControl } from 'maplibre-gl';
 import { runCameraBench, type CameraBenchResult } from './cameraBench';
@@ -89,7 +88,8 @@ export function App() {
   const [expenses, setExpenses] = useState(false);
   const [lodging, setLodging] = useState(false);
   // ⛷ Sorties skitour.fr : zone encadrée, sorties trouvées, celle choisie.
-  const [skiZone, setSkiZone] = useState<SkiBbox | null>(null);
+  // ⛷🗺 : sorties de l'écran affiché (plus de zone à encadrer).
+  const [skiOn, setSkiOn] = useState(false);
   const [skiOutings, setSkiOutings] = useState<Outing[]>([]);
   const [skiSel, setSkiSel] = useState<number | null>(null);
   const [skiText, setSkiText] = useState(false);
@@ -135,7 +135,7 @@ export function App() {
   // Randos libres (OpenStreetMap) d'une zone encadrée
   const [framing, setFraming] = useState(false);
   /** Le même outil rectangle sert aux randos OSM et au téléchargement hors ligne. */
-  const [framingFor, setFramingFor] = useState<'randos' | 'forets' | 'horsligne' | 'ski'>('randos');
+  const [framingFor, setFramingFor] = useState<'randos' | 'forets' | 'horsligne'>('randos');
   const [frame, setFrame] = useState<Bbox | null>(null);
   const [trails, setTrails] = useState<Trail[]>([]);
   const [trailsMsg, setTrailsMsg] = useState('');
@@ -582,13 +582,13 @@ export function App() {
         weather={showWeather} onWeather={setShowWeather}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
-        onSkiText={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiZone(null); setSkiOutings([]); setSkiSel(null); setSkiText(true); }}
-        onSki={() => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setFramingFor('ski'); setFraming(true); }}
+        onSkiText={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiOn(false); setSkiOutings([]); setSkiSel(null); setSkiText(true); }}
+        onSki={() => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiSel(null); setSkiOn(true); }}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
-      {skiZone && !framing && <SkiPanel zone={skiZone} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
+      {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel}
-        onReframe={() => { setFramingFor('ski'); setFraming(true); }} onSheet={(o) => setSkiSheet(rowOf(o))}
-        onClose={() => { setSkiZone(null); setSkiOutings([]); setSkiSel(null); }} />}
+        onSheet={(o) => setSkiSheet(rowOf(o))}
+        onClose={() => { setSkiOn(false); setSkiOutings([]); setSkiSel(null); }} />}
       {skiSheet && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={skiSheet}
         onShowOnMap={() => setSkiSheet(null)} onClose={() => setSkiSheet(null)} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
@@ -604,9 +604,8 @@ export function App() {
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
       {showWeather && map && <WeatherLayer map={map} hidden={framing || drawing} below={showShade} onToast={setToast} onClose={() => setShowWeather(false)} />}
 
-      {framing && map && <FrameOverlay map={map} label={framingFor === 'ski' ? 'Encadre la zone dans laquelle tu veux chercher les sorties' : undefined}
+      {framing && map && <FrameOverlay map={map} label={undefined}
         onDone={(b) => {
-          if (framingFor === 'ski') { setFraming(false); setSkiSel(null); setSkiZone(b); return; }
           if (framingFor === 'randos') { void searchTrails(b); return; }
           if (framingFor === 'forets') { void searchForests(b); return; }
           setFraming(false); setTab('horsligne'); setOpen(true);

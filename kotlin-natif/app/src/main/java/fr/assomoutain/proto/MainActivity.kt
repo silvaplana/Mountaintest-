@@ -197,6 +197,7 @@ class MainActivity : AppCompatActivity() {
                         .putFloat("vueZoom", c.zoom.toFloat()).apply()
                 }
                 layoutSkiTags()
+                skiPanel?.refresh()
             }
             // Un glissement de carte arrête le suivi (comme côté Capacitor) ; la position reste affichée.
             m.addOnCameraMoveStartedListener { reason ->
@@ -1067,10 +1068,7 @@ class MainActivity : AppCompatActivity() {
             val proj = map?.projection
             if (proj != null) {
                 val p = proj.fromScreenLocation(a); val q = proj.fromScreenLocation(b)
-                if (framingForSki) {
-                    framingForSki = false; setFraming(false)
-                    openSki(Zone(minOf(p.longitude, q.longitude), minOf(p.latitude, q.latitude), maxOf(p.longitude, q.longitude), maxOf(p.latitude, q.latitude)))
-                } else if (framingForOffline) {
+                if (framingForOffline) {
                     // Même outil rectangle que pour les randos : ici, on télécharge ses tuiles.
                     setFraming(false); framingForOffline = false
                     showTab(Tab.OFFLINE)
@@ -1104,9 +1102,8 @@ class MainActivity : AppCompatActivity() {
             if (proj != null) drawDone(pts.map { val ll = proj.fromScreenLocation(it); LonLat(ll.longitude, ll.latitude) })
         }
         findViewById<Button>(R.id.btnFrameCancel).setOnClickListener {
-            val ski = framingForSki
-            setFraming(false); framingForOffline = false; framingForForests = false; framingForSki = false
-            if (!ski) { sheetOpen = true; refreshTabs() }
+            setFraming(false); framingForOffline = false; framingForForests = false
+            sheetOpen = true; refreshTabs()
         }
         // ⛷🗺 seul d'habitude : un premier appui montre ⛷💬 à côté (duo déplié) ; ⛷🗺 = sorties sur la carte, ⛷💬 = question en texte.
         fun badge(b: Int, e: String) = findViewById<Button>(b).apply {
@@ -1117,7 +1114,7 @@ class MainActivity : AppCompatActivity() {
             if (pairOpen != R.id.pairSki && helpOverlay == null) { pairOpen = R.id.pairSki; refreshQuickButtons(); return@setOnClickListener }
             pairOpen = 0; refreshQuickButtons()
             closeTravel(); closeLodging(); closeSki(); closeSkiText()
-            framingForOffline = false; framingForForests = false; framingForSki = true; setFraming(true)
+            openSki()
         }
         findViewById<Button>(R.id.btnSkiText).setOnClickListener {
             pairOpen = 0; refreshQuickButtons()
@@ -1143,16 +1140,21 @@ class MainActivity : AppCompatActivity() {
 
     /** Le rectangle tracé sert au hors ligne (true) ou aux randos OSM (false). */
     private var framingForOffline = false
-    private var framingForSki = false
 
     // ---------- ⛷ Sorties skitour.fr ----------
     private var skiPanel: SkiPanel? = null
     private var skiOutings: List<Outing> = emptyList()
-    private fun openSki(z: Zone) {
+    /** ⛷🗺 : sorties de l'écran affiché (plus de zone à encadrer), mises à jour à chaque arrêt de la carte. */
+    private fun openSki() {
         closeSki()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
-        val p = SkiPanel(this, z, password, onOutings = { o, sel -> drawSki(o, sel) },
-            onReframe = { closeSki(); framingForSki = true; setFraming(true) }, onClose = { closeSki() },
+        val viewport = {
+            map?.let { m ->
+                val b = m.projection.visibleRegion.latLngBounds
+                Zone(b.lonWest, b.latSouth, b.lonEast, b.latNorth) to m.cameraPosition.zoom
+            }
+        }
+        val p = SkiPanel(this, password, viewport, onOutings = { o, sel -> drawSki(o, sel) }, onClose = { closeSki() },
             onSheet = { x -> openSkiSheet(x, password) })
         skiPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
@@ -1187,6 +1189,7 @@ class MainActivity : AppCompatActivity() {
         skiPanel = null; drawSki(emptyList(), null)
     }
     private var skiSel: Int? = null
+    private var skiFocused: String? = null
     /** Décalage (dp) du coin haut-gauche de chaque étiquette par rapport à son point : "s3" sommet, "p3" parking. */
     private var skiOffsets: Map<String, Pair<Float, Float>> = emptyMap()
     /** Taille (dp) des étiquettes dessinées, par clé "s3" / "p3". */
@@ -1196,14 +1199,19 @@ class MainActivity : AppCompatActivity() {
         skiOutings = o; skiSel = sel; skiOffsets = emptyMap()
         setSkiSources()
         layoutSkiTags()
-        // Sortie choisie : on montre le sommet et son parking ensemble.
-        o.getOrNull(sel ?: -1)?.let {
+        // Sortie choisie : on montre le sommet et son parking ensemble, une seule fois par choix (la liste de l'écran est
+        // recalculée à chaque arrêt de la carte : recadrer à chaque fois ferait boucler).
+        val chosen = o.getOrNull(sel ?: -1)
+        val key = chosen?.let { "${it.id}:${if (it.parking != null) "p" else ""}" }
+        if (key == skiFocused) return
+        skiFocused = key
+        chosen?.let {
             val p = it.parking
             if (p != null) {
                 val d = resources.displayMetrics
                 val b = org.maplibre.android.geometry.LatLngBounds.Builder().include(LatLng(it.lat, it.lon)).include(LatLng(p.lat, p.lon)).build()
                 map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b, (40 * d.density).toInt(), (60 * d.density).toInt(),
-                    (200 * d.density).toInt(), (d.heightPixels * 0.45).toInt()), 600)
+                    (200 * d.density).toInt(), (d.heightPixels * 0.55).toInt()), 600)
             } else map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(it.lat, it.lon)), 600)
         }
     }
@@ -1305,7 +1313,6 @@ class MainActivity : AppCompatActivity() {
         draw.freehand = freehand
         findViewById<TextView>(R.id.frameText).text = when {
             freehand -> "Trace ton parcours du doigt"
-            framingForSki -> "Encadre la zone dans laquelle tu veux chercher les sorties"
             else -> "Trace un rectangle du doigt sur la zone"
         }
         findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
