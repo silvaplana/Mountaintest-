@@ -211,8 +211,8 @@ class MainActivity : AppCompatActivity() {
                 if (weather.active) m.queryRenderedFeatures(box, WeatherLayer.LAYER)
                     .firstOrNull()?.let { weather.describe(it) }?.let { toast(it); return@addOnMapClickListener true }
                 // Point d'une sortie skitour : on la choisit.
-                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI)
-                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { skiPanel?.select(it); return@addOnMapClickListener true }
+                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI, LAYER_SKI_PARK, "ski-park-tags")
+                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectSki(it); return@addOnMapClickListener true }
                 // Trait d'un itinéraire du voyage : on le choisit.
                 if (travelPanel?.routes?.isNotEmpty() == true) m.queryRenderedFeatures(box, LAYER_TRAVEL)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { travelPanel?.select(it); return@addOnMapClickListener true }
@@ -475,6 +475,22 @@ class MainActivity : AppCompatActivity() {
             style.addSource(GeoJsonSource(SRC_WEB_HIKES))
             style.addLayer(CircleLayer(LAYER_WEB_HIKES, SRC_WEB_HIKES).withProperties(
                 circleRadius(8f), circleColor(WebHikes.COLOR), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
+            // Parkings des sorties : trait pointillé sommet ↔ parking, point gris, étiquette « 🅿 nom (altitude) ».
+            style.addSource(GeoJsonSource(SRC_SKI_PARK))
+            style.addLayer(LineLayer("ski-link", SRC_SKI_PARK).withProperties(
+                lineColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
+                lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(3f), Expression.literal(2f))),
+                lineDasharray(arrayOf(2f, 1.5f)), lineOpacity(0.85f)).apply { setFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString"))) })
+            style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-park-tags", SRC_SKI_PARK).withProperties(
+                org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_LEFT),
+                org.maplibre.android.style.layers.PropertyFactory.iconOffset(arrayOf(11f, 0f)),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(false)).apply {
+                minZoom = 9f; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
+            style.addLayer(CircleLayer(LAYER_SKI_PARK, SRC_SKI_PARK).withProperties(
+                circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(8f), Expression.literal(6f))),
+                circleColor("#3a4a44"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)).apply {
+                setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
             style.addSource(GeoJsonSource(SRC_SKI))
             // Étiquette de chaque sortie à droite de son point : nom, étoiles, skiabilité (image dessinée par skiTagBitmap).
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-tags", SRC_SKI).withProperties(
@@ -1143,11 +1159,36 @@ class MainActivity : AppCompatActivity() {
             if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(x.label(), i == sel))
             Feature.fromGeometry(Point.fromLngLat(x.lon, x.lat)).apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img) }
         }))
-        o.getOrNull(sel ?: -1)?.let { map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(it.lat, it.lon)), 600) }
+        style.getSourceAs<GeoJsonSource>(SRC_SKI_PARK)?.setGeoJson(FeatureCollection.fromFeatures(o.flatMapIndexed { i, x ->
+            val p = x.parking ?: return@flatMapIndexed emptyList()
+            val img = "park:" + p.text() + if (i == sel) ":sel" else ""
+            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), i == sel, "#3a4a44"))
+            listOf(
+                Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(x.lon, x.lat), Point.fromLngLat(p.lon, p.lat))))
+                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel) },
+                Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
+                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img) })
+        }))
+        // Sortie choisie : on montre le sommet et son parking ensemble.
+        o.getOrNull(sel ?: -1)?.let {
+            val p = it.parking
+            if (p != null) {
+                val d = resources.displayMetrics
+                val b = org.maplibre.android.geometry.LatLngBounds.Builder().include(LatLng(it.lat, it.lon)).include(LatLng(p.lat, p.lon)).build()
+                map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b, (40 * d.density).toInt(), (60 * d.density).toInt(),
+                    (200 * d.density).toInt(), (d.heightPixels * 0.45).toInt()), 600)
+            } else map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(it.lat, it.lon)), 600)
+        }
     }
 
     /** Étiquette d'une sortie skitour : fond blanc, bord bleu (violet si choisie), une ou deux lignes. */
-    private fun skiTagBitmap(text: String, sel: Boolean): android.graphics.Bitmap {
+    /** Appui sur un point ou un parking de sortie : dans le panneau ⛷🗺 on la choisit ; venue de ⛷💬 (seule sortie), on la met en violet. */
+    private fun selectSki(i: Int) {
+        val p = skiPanel
+        if (p != null) p.select(i) else drawSki(skiOutings, i)
+    }
+
+    private fun skiTagBitmap(text: String, sel: Boolean, border: String = "#1D6FE0"): android.graphics.Bitmap {
         val d = resources.displayMetrics.density
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#1D2421"); textSize = 11 * d; if (sel) typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -1160,7 +1201,7 @@ class MainActivity : AppCompatActivity() {
         val r = android.graphics.RectF(1f, 1f, w + 1f, h + 1f)
         c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E8FFFFFF") })
         c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            style = android.graphics.Paint.Style.STROKE; color = Color.parseColor(if (sel) "#7B3FE4" else "#1D6FE0"); strokeWidth = d })
+            style = android.graphics.Paint.Style.STROKE; color = Color.parseColor(if (sel) "#7B3FE4" else border); strokeWidth = d })
         lines.forEachIndexed { k, l -> c.drawText(l, 1 + 6 * d, 1 + 3 * d + k * lh + lh / 2 - (paint.descent() + paint.ascent()) / 2, paint) }
         return bmp
     }
@@ -1962,6 +2003,8 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_WEB_HIKES = "web-hikes-src"
         private const val SRC_TRAVEL = "travel-src"
         private const val SRC_SKI = "ski-src"
+        private const val SRC_SKI_PARK = "ski-park-src"
+        private const val LAYER_SKI_PARK = "ski-park"
         private const val LAYER_SKI = "ski"
         private const val LAYER_TRAVEL = "travel"
         private const val LAYER_WEB_HIKES = "web-hikes"
