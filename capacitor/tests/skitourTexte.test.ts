@@ -18,8 +18,8 @@ describe('skitour en texte', () => {
       .toEqual([['Isère', ['Belledonne', 'Vercors']], ['Savoie', ['Bauges']]]);
   });
   it('étiquette du parking : nom et altitude', () => {
-    expect(parkingText({ nom: 'Chiazale', altitude: 1650, lat: 44.5, lon: 7 })).toBe('🅿 Chiazale (1650 m)');
-    expect(parkingText({ nom: '', altitude: null, lat: 44.5, lon: 7 })).toBe('🅿 Parking');
+    expect(parkingText({ nom: 'Chiazale', altitude: 1650, lat: 44.5, lon: 7 })).toBe('Chiazale (1650 m)');
+    expect(parkingText({ nom: '', altitude: null, lat: 44.5, lon: 7 })).toBe('');
   });
   it('étiquette du point : sommet, altitude, versant, ski, D+, étoiles, skiabilité, jours', () => {
     const now = Date.UTC(2026, 10, 5, 19);

@@ -322,7 +322,9 @@ export function MapView(props: MapViewProps) {
         // Étiquette du parking : nom et altitude ; un appui choisit la sortie.
         const p = document.createElement('div');
         p.className = `ski-tag park${i === props.skiSel ? ' sel' : ''}`;
-        p.textContent = parkingText(o.parking);
+        const pp = document.createElement('b');
+        pp.className = 'park-p'; pp.textContent = 'P';
+        p.append(pp, parkingText(o.parking));
         p.onclick = () => onSkiClick.current?.(i);
         add(p, [o.parking.lon, o.parking.lat], i === props.skiSel);
       }

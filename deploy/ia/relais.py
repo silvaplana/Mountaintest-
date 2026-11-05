@@ -353,7 +353,9 @@ def _page_sortie(id_: int) -> dict:
     zone = titre.group(0) if titre else page[:page.find("Skiabilit")] if "Skiabilit" in page else ""
     texte = html.unescape(re.sub(r"<[^>]+>", "\n", page))
     m = re.search(r"Skiabilit[ée]\s*:\s*([^\w\s]{1,4})?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' -]{1,24}?)\s*(?:\n|  |$)", texte)
-    out = {"etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else ""}
+    dep = re.search(r"D[ée]part\s*:?\s*\n*\s*([^\n(]{2,60}?)\s*(?:\((\d{3,4})\s*m\))?\s*\n", texte)
+    out = {"etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else "",
+           "depart": dep.group(1).strip() if dep else "", "depart_alt": int(dep.group(2)) if dep and dep.group(2) else None}
     _PAGES[id_] = (time.time(), out)
     return out
 
@@ -376,6 +378,12 @@ def _completer(lignes: list, maxi: int = 60) -> list:
         o = dict(o)
         p = (_PAGES.get(o.get("id")) or (0, None))[1]
         num = o.get("skiabilite") or ""
+        if p and o.get("parking"):
+            # Nom et altitude du parking : pris sur la page skitour.fr si l'API ne les donne pas.
+            pk = dict(o["parking"])
+            pk["nom"] = pk.get("nom") or p.get("depart", "")
+            pk["altitude"] = pk.get("altitude") or p.get("depart_alt")
+            o["parking"] = pk
         if p:
             if o.get("etoiles") is None:
                 o["etoiles"] = p["etoiles"]
@@ -389,22 +397,28 @@ def _completer(lignes: list, maxi: int = 60) -> list:
     return out
 
 
+CHAMPS_DEPART: set = set()  # champs vus dans le « depart » de l'API (affichés par GET /mountaintest-ia/)
+
+
 def _parking(x) -> dict | None:
     """Point de départ (parking) d'une sortie : {nom, altitude, lat, lon}, ou None si l'API ne le place pas."""
     d = x.get("depart") if isinstance(x.get("depart"), dict) else {}
+    CHAMPS_DEPART.update(d.keys())
     lat, lon = _nombre(d.get("lat")), _nombre(d.get("lng") if d.get("lng") is not None else d.get("lon"))
     if (lat is None or lon is None) and isinstance(d.get("latlon"), str) and "," in d["latlon"]:
         lat, lon = (_nombre(v) for v in d["latlon"].split(",")[:2])
     if lat is None or lon is None or (lat == 0 and lon == 0):
         return None
-    return {"nom": d.get("nom") or "", "altitude": _entier(d.get("altitude")), "lat": lat, "lon": lon}
+    nom = next((str(d[k]).strip() for k in ("nom", "lieu", "depart", "titre", "libelle", "name") if isinstance(d.get(k), str) and d[k].strip()), "")
+    alt = next((_entier(d[k]) for k in ("altitude", "alt", "altitude_depart") if _entier(d.get(k))), None)
+    return {"nom": html.unescape(nom), "altitude": alt, "lat": lat, "lon": lon}
 
 
 def _avec_parkings(lignes: list, maxi: int = 30) -> list:
     """Ajoute le parking aux sorties qui n'en ont pas (la liste de l'API ne le donne pas toujours) :
     lu dans la fiche de la sortie, gardé pour toujours (un départ ne bouge pas)."""
     with verrou:
-        connus = _lire("cache-skitour-departs.json", {})
+        connus = _lire("cache-skitour-departs2.json", {})
     nouveaux = {}
     for o in lignes:
         k = str(o.get("id"))
@@ -422,9 +436,9 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
         o["parking"] = nouveaux.get(k, connus.get(k))
     if nouveaux:
         with verrou:
-            connus = _lire("cache-skitour-departs.json", {})
+            connus = _lire("cache-skitour-departs2.json", {})
             connus.update(nouveaux)
-            _ecrire("cache-skitour-departs.json", connus)
+            _ecrire("cache-skitour-departs2.json", connus)
     return lignes
 
 
@@ -475,7 +489,7 @@ def sorties_skitour(o: float, s: float, e: float, n: float, jours: int) -> list:
         dedans = [sm for sm in _sommets(x) if s <= float(sm["lat"]) <= n and o <= float(sm["lng"]) <= e]
         if dedans:
             out.append(_sortie(x, dedans[0]))
-    return _avec_parkings(_completer(out))
+    return _completer(_avec_parkings(out))
 
 
 # ---------- Sorties en texte (icône ⛷💬) : liste façon skitour.fr, puis fiche détaillée ----------
@@ -746,7 +760,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
@@ -835,7 +849,7 @@ class Relais(BaseHTTPRequestHandler):
                 raise ValueError
         except (ValueError, KeyError, TypeError):
             return self._json(400, {"erreur": "zone invalide (2° au plus)"})
-        cle = f"skitour2:{o:.3f},{s:.3f},{e:.3f},{n:.3f},{jours}"
+        cle = f"skitour3:{o:.3f},{s:.3f},{e:.3f},{n:.3f},{jours}"
         with verrou:
             cache = _lire("cache-skitour.json", {})
             c = cache.get(cle)
@@ -864,7 +878,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche3:{id_}"
+            cle = f"fiche4:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)

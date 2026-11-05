@@ -14,8 +14,8 @@ export interface Outing {
   parking?: Parking | null;
 }
 export interface Parking { nom: string; altitude: number | null; lat: number; lon: number }
-/** « 🅿 Parking de Chiazale (1650 m) » */
-export const parkingText = (p: Parking) => `🅿 ${p.nom || 'Parking'}${p.altitude ? ` (${p.altitude} m)` : ''}`;
+/** « Val Thorens (2300 m) » : nom et altitude du parking (le P bleu est ajouté devant par la carte). */
+export const parkingText = (p: Parking) => [p.nom, p.altitude ? `(${p.altitude} m)` : ''].filter(Boolean).join(' ');
 
 export async function fetchOutings(b: Bbox, days: number, password: string): Promise<Outing[]> {
   const r = await relayPost<{ sorties?: Outing[] }>('skitour', { ouest: b[0], sud: b[1], est: b[2], nord: b[3], jours: days }, password);

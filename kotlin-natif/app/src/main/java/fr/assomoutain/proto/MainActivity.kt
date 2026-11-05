@@ -1198,7 +1198,7 @@ class MainActivity : AppCompatActivity() {
         style.getSourceAs<GeoJsonSource>(SRC_SKI_PARK)?.setGeoJson(FeatureCollection.fromFeatures(o.flatMapIndexed { i, x ->
             val p = x.parking ?: return@flatMapIndexed emptyList()
             val img = "park:" + p.text() + if (i == sel) ":sel" else ""
-            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), i == sel, "#3a4a44"))
+            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), i == sel, "#3a4a44", park = true))
             style.getImage(img)?.let { skiTagSizes["p$i"] = it.width / dens to it.height / dens }
             listOf(
                 Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(x.lon, x.lat), Point.fromLngLat(p.lon, p.lat))))
@@ -1235,21 +1235,32 @@ class MainActivity : AppCompatActivity() {
         if (p != null) p.select(i) else drawSki(skiOutings, i)
     }
 
-    private fun skiTagBitmap(text: String, sel: Boolean, border: String = "#1D6FE0"): android.graphics.Bitmap {
+    private fun skiTagBitmap(text: String, sel: Boolean, border: String = "#1D6FE0", park: Boolean = false): android.graphics.Bitmap {
         val d = resources.displayMetrics.density
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#1D2421"); textSize = 11 * d; if (sel) typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val lines = text.split('\n')
         val lh = 14 * d
-        val w = ((lines.maxOf { paint.measureText(it) }) + 12 * d).toInt(); val h = (lines.size * lh + 6 * d).toInt()
+        val w = ((lines.maxOf { paint.measureText(it) }) + (if (park) 18 else 12) * d).toInt(); val h = (lines.size * lh + 6 * d).toInt()
         val bmp = android.graphics.Bitmap.createBitmap(w + 2, h + 2, android.graphics.Bitmap.Config.ARGB_8888)
         val c = android.graphics.Canvas(bmp)
         val r = android.graphics.RectF(1f, 1f, w + 1f, h + 1f)
         c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E8FFFFFF") })
         c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             style = android.graphics.Paint.Style.STROKE; color = Color.parseColor(if (sel) "#7B3FE4" else border); strokeWidth = d })
-        lines.forEachIndexed { k, l -> c.drawText(l, 1 + 6 * d, 1 + 3 * d + k * lh + lh / 2 - (paint.descent() + paint.ascent()) / 2, paint) }
+        lines.forEachIndexed { k, l ->
+            val y = 1 + 3 * d + k * lh + lh / 2 - (paint.descent() + paint.ascent()) / 2
+            if (park && k == 0 && l.startsWith("P")) {
+                // Parking : « P » blanc sur carré bleu, puis le nom et l'altitude.
+                val pb = android.graphics.Paint(paint).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD; color = Color.WHITE }
+                val pw = pb.measureText("P")
+                c.drawRoundRect(android.graphics.RectF(1 + 5 * d, 1 + 3 * d + k * lh, 1 + 9 * d + pw, 1 + 3 * d + (k + 1) * lh), 3 * d, 3 * d,
+                    android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1D6FE0") })
+                c.drawText("P", 1 + 7 * d, y, pb)
+                c.drawText(l.drop(1), 1 + 9 * d + pw, y, paint)
+            } else c.drawText(l, 1 + 6 * d, y, paint)
+        }
         return bmp
     }
 

@@ -52,8 +52,8 @@ data class Outing(val id: Long, val titre: String, val date: Long, val massif: S
 
 /** Parking (point de départ) d'une sortie, même modèle que Parking de src/ski/skitour.ts. */
 data class Parking(val nom: String, val altitude: Int?, val lat: Double, val lon: Double) {
-    /** « 🅿 Parking de Chiazale (1650 m) » */
-    fun text() = "🅿 " + nom.ifEmpty { "Parking" } + (altitude?.let { " ($it m)" } ?: "")
+    /** « P Val Thorens (2300 m) » : le P est dessiné en bleu par skiTagBitmap (même texte que parkingText de l'appli web). */
+    fun text() = listOf("P", nom, altitude?.let { "($it m)" } ?: "").filter { it.isNotEmpty() }.joinToString(" ")
     fun toJson(): JSONObject = JSONObject().put("nom", nom).put("altitude", altitude ?: JSONObject.NULL).put("lat", lat).put("lon", lon)
     companion object {
         fun from(o: JSONObject?): Parking? {
