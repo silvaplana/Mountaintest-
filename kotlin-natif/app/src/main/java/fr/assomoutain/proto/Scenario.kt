@@ -17,10 +17,10 @@ object Scenario {
     const val BENCH_TAG = "ASSO_BENCH"
 
     // Carte « Auto » (même réglage que le prototype Capacitor, src/config.ts) :
-    // Plan IGN de loin, SCAN 25 de près, fondu entre les zooms 13 et 14.
-    // Hors ligne : Plan IGN z10-13 + SCAN 25 z13-16.
-    const val AUTO_SCAN_FROM = 13
-    const val AUTO_PLAN_UNTIL = 14
+    // Plan IGN de loin, SCAN 25 de près, fondu entre les zooms 12 et 13 (SCAN 25 plein dès le zoom 13, barre d’échelle « 500 m »).
+    // Hors ligne : Plan IGN z10-12 + SCAN 25 z12-16.
+    const val AUTO_SCAN_FROM = 12
+    const val AUTO_PLAN_UNTIL = 13
 }
 
 enum class IgnLayer(val label: String, val wmtsLayer: String, val format: String, val maxNativeZoom: Int, val needsKey: Boolean) {

@@ -220,7 +220,7 @@ export function MapView(props: MapViewProps) {
     const auto = props.baseLayer === 'auto';
     m.setLayoutProperty('scan25', 'visibility', props.baseLayer !== 'planign' ? 'visible' : 'none');
     m.setLayoutProperty('planign', 'visibility', props.baseLayer !== 'scan25' ? 'visible' : 'none');
-    // Auto : le Plan IGN n'est plus demandé au-delà du zoom 14, le SCAN 25 pas en dessous du zoom 13.
+    // Auto : le Plan IGN n'est plus demandé au-delà du zoom 13, le SCAN 25 pas en dessous du zoom 12.
     m.setLayerZoomRange('planign', 0, auto ? AUTO_PLAN_UNTIL : 24);
     m.setLayerZoomRange('scan25', auto ? AUTO_SCAN_FROM : 0, 24);
     m.setPaintProperty('scan25', 'raster-opacity',

@@ -12,7 +12,7 @@ import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
 
 /**
  * Télécharge la bbox du scénario (z10 à z16) dans la base hors-ligne de MapLibre.
- * En mode Auto : Plan IGN z10-13 et SCAN 25 z13-16 (zooms des sources du style, voir Scenario.kt).
+ * En mode Auto : Plan IGN z10-12 et SCAN 25 z12-16 (zooms des sources du style, voir Scenario.kt).
  * Mesures relevées : durée, nombre de tuiles, octets des tuiles (= place occupée hors index SQLite).
  */
 class OfflineDownloader(private val context: Context) {
