@@ -33,7 +33,7 @@ data class Outing(val id: Long, val titre: String, val date: Long, val massif: S
     /** Étiquette à côté du point bleu : nom de la course, puis étoiles et skiabilité (même texte que outingLabel). */
     fun label(): String {
         val t = if (titre.length > 26) titre.take(25) + "…" else titre
-        val sk = if (skiabilite.all { it.isDigit() } && skiabilite.isNotEmpty()) "skiab. $skiabilite" else skiabilite
+        val sk = if (skiabilite.all { it.isDigit() } && skiabilite.isNotEmpty()) "skiabilité $skiabilite" else skiabilite
         val meta = listOf(etoiles?.takeIf { it > 0 }?.let { "★".repeat(it) } ?: "", sk).filter { it.isNotEmpty() }.joinToString(" · ")
         return if (meta.isEmpty()) t else "$t\n$meta"
     }

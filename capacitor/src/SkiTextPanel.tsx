@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
+import { skiabText, fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
   type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList } from './ski/skitour';
 
 import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
@@ -150,7 +150,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
           {rows.map((o) => (
             <tr key={o.id} onClick={() => open(o)}>
               <td>{shortDate(o.date)}</td>
-              <td><b>{o.titre}</b>{o.etoiles ? <span className="ski-stars"> {'★'.repeat(o.etoiles)}</span> : null}{o.dif_ski ? <span className="ski-dif"> {o.dif_ski}</span> : null}<br /><small>{o.massif}{o.skiabilite ? ` · ${o.skiabilite}` : ''}</small></td>
+              <td><b>{o.titre}</b>{o.etoiles ? <span className="ski-stars"> {'★'.repeat(o.etoiles)}</span> : null}{o.dif_ski ? <span className="ski-dif"> ski {o.dif_ski}</span> : null}<br /><small>{o.massif}{o.skiabilite ? ` · ${skiabText(o.skiabilite)}` : ''}</small></td>
               <td>{o.auteurs}</td>
             </tr>
           ))}

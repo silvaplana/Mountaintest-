@@ -19,10 +19,13 @@ export async function fetchOutings(b: Bbox, days: number, password: string): Pro
 
 export const outingDate = (o: Outing) => new Date(o.date * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
+/** Skiabilité lisible : l'API donne souvent un chiffre (1 = « Mauvaise » sur le site). */
+export const skiabText = (v?: string) => (!v ? '' : /^\d+$/.test(v) ? `skiabilité ${v}` : v);
+
 /** Étiquette à côté du point bleu : nom de la course, étoiles, skiabilité. */
 export function outingLabel(o: Outing): string {
   const t = o.titre.length > 26 ? `${o.titre.slice(0, 25)}…` : o.titre;
-  const sk = o.skiabilite ? (/^\d+$/.test(o.skiabilite) ? `skiab. ${o.skiabilite}` : o.skiabilite) : '';
+  const sk = skiabText(o.skiabilite);
   const meta = [o.etoiles ? '★'.repeat(o.etoiles) : '', sk].filter(Boolean).join(' · ');
   return meta ? `${t}\n${meta}` : t;
 }
