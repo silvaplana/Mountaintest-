@@ -323,13 +323,13 @@ def lire_facture(image_b64: str, media: str):
 SKITOUR_CLE = os.environ.get("SKITOUR_CLE", "")
 
 
-def _sorties_brutes(jours: int) -> list:
-    """Toutes les sorties publiées ces derniers jours (format brut de l'API)."""
+def _sorties_brutes(jours: int, massif: int | None = None) -> list:
+    """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif."""
     # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
     # on prend donc les sorties des derniers jours, par pages de 1000.
     data = []
     for page in range(1, 4):
-        q = urllib.parse.urlencode({"j": jours, "c": 1, "l": 1000, "p": page})
+        q = urllib.parse.urlencode({"j": jours, "c": 1, "l": 1000, "p": page, **({"m": massif} if massif else {})})
         req = urllib.request.Request(f"https://skitour.fr/api/sorties?{q}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
         with urllib.request.urlopen(req, timeout=30) as r:
             lot = json.loads(r.read())
@@ -370,140 +370,86 @@ def sorties_skitour(o: float, s: float, e: float, n: float, jours: int) -> list:
     return out
 
 
-# ---------- Question en texte sur les sorties skitour (icône ⛷ 💬) ----------
-# Claude reçoit la question, cherche lui-même dans les sorties récentes (outil chercher_sorties, exécuté ici,
-# sans recherche web) puis répond en quelques phrases ; seuls les liens des sorties qu'il a vues sont gardés.
+# ---------- Sorties en texte (icône ⛷💬) : liste façon skitour.fr, puis fiche détaillée ----------
+# Pas de Claude ici : seulement l'API skitour. Les photos ne sont pas reprises (conditions de l'API) : la fiche
+# renvoie vers la page skitour.fr de la sortie.
 
-SKI_JOURS_MAX = 60
-_ski_memo: dict = {}
+_liste_memo: dict = {}
 
 
-def _sorties_recentes(jours: int) -> list:
-    """Sorties des derniers jours au format de l'appli, une par sommet repéré ; gardées 1 h en mémoire."""
-    c = _ski_memo.get(jours)
-    if c and time.time() - c[0] < 3600:
-        return c[1]
-    out = []
-    for x in _sorties_brutes(jours):
-        pts = _sommets(x)
-        if pts:
-            o = _sortie(x, pts[0])
-            o["autres_sommets"] = [sm.get("sommet") or "" for sm in pts[1:]]
-            out.append(o)
-    _ski_memo[jours] = (time.time(), out)
+def _personnes(x) -> str:
+    noms = [(x.get("auteur") or {}).get("pseudo", "")] + [p.get("pseudo", "") for p in (x.get("participants") or []) if isinstance(p, dict)]
+    return ", ".join(n for n in noms if n)
+
+
+def _ligne(x) -> dict:
+    """Une sortie pour la liste : texte court, sans les récits."""
+    pts = _sommets(x)
+    sm = (pts or (x.get("sommets") or [{}]))[0]
+    return {
+        "id": _entier(x.get("id")), "titre": x.get("titre") or "", "date": _entier(x.get("date")),
+        "massif": (x.get("massif") or {}).get("nom", ""),
+        "sommet": sm.get("sommet") or sm.get("nom") or "", "altitude": _entier(sm.get("altitude")),
+        "lat": float(sm["lat"]) if pts else None, "lon": float(sm["lng"]) if pts else None,
+        "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
+        "auteurs": _personnes(x), "url": f"https://skitour.fr/sorties/{x.get('id')}",
+    }
+
+
+def liste_sorties(jours: int, massifs: list | None = None) -> list:
+    """Sorties des derniers jours, de tous les massifs ou de ceux choisis (un appel par massif, gardé 1 h)."""
+    out, vus = [], set()
+    for m in (massifs or [None]):
+        c = _liste_memo.get((jours, m))
+        if not (c and time.time() - c[0] < 3600):
+            c = (time.time(), [_ligne(x) for x in _sorties_brutes(jours, m)])
+            _liste_memo[(jours, m)] = c
+        for o in c[1]:
+            if o["id"] not in vus:
+                vus.add(o["id"]); out.append(o)
+    out.sort(key=lambda o: o["date"] or 0, reverse=True)
     return out
 
 
-def _sans_accents(t: str) -> str:
-    import unicodedata
-    return "".join(ch for ch in unicodedata.normalize("NFD", t.lower()) if unicodedata.category(ch) != "Mn")
+def liste_massifs() -> list:
+    """Massifs de skitour (id, nom, groupe), gardés 1 jour."""
+    c = _liste_memo.get("massifs")
+    if c and time.time() - c[0] < 86400:
+        return c[1]
+    req = urllib.request.Request("https://skitour.fr/api/massifs", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = json.loads(r.read())
+    if isinstance(data, dict):
+        raise RuntimeError(f"skitour : {data.get('ERROR', 'erreur')}")
+    out = [{"id": _entier(m.get("id")), "nom": m.get("nom") or "", "groupe": m.get("groupe") or ""}
+           for m in data if isinstance(m, dict) and _entier(m.get("id"))]
+    _liste_memo["massifs"] = (time.time(), out)
+    return out
 
 
-def chercher_sorties(sorties: list, mots: str = "", jours: int = 14, lat=None, lon=None, rayon_km: float = 25) -> list:
-    """Les 25 sorties les plus pertinentes : mots trouvés dans titre / massif / sommets, ou autour d'un point."""
-    import math
-    depuis = time.time() - jours * 86400
-    termes = [m for m in re.split(r"[^a-z0-9]+", _sans_accents(mots)) if len(m) > 2]
-    notes = []
-    for o in sorties:
-        if (o["date"] or 0) < depuis:
-            continue
-        note = 0
-        if termes:
-            texte = _sans_accents(" ".join([o["titre"], o["massif"], o["sommet"], *o.get("autres_sommets", [])]))
-            note = sum(1 for m in termes if m in texte)
-            if not note:
-                continue
-        if lat is not None and lon is not None:
-            d = math.hypot((o["lat"] - lat) * 111, (o["lon"] - lon) * 111 * math.cos(math.radians(lat)))
-            if d > rayon_km:
-                continue
-        notes.append((note, o["date"] or 0, o))
-    notes.sort(key=lambda t: (t[0], t[1]), reverse=True)
-    return [o for _, _, o in notes[:25]]
-
-
-OUTIL_SKI_CHERCHER = {
-    "name": "chercher_sorties",
-    "description": "Cherche dans les sorties de ski de rando publiées sur skitour.fr ces derniers jours. "
-                   "Par mots (sommet, massif, col, vallée : ex. « Belledonne », « Grand Veymont ») et/ou autour d'un point. "
-                   "Renvoie au plus 25 sorties, les plus récentes et pertinentes d'abord. Peut être appelé plusieurs fois.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "mots": {"type": "string", "description": "Noms à chercher (vide pour tout prendre autour du point)."},
-            "jours": {"type": "integer", "description": f"Sorties des N derniers jours (1 à {SKI_JOURS_MAX}, 14 par défaut)."},
-            "lat": {"type": "number"}, "lon": {"type": "number"},
-            "rayon_km": {"type": "number", "description": "Rayon autour du point (25 km par défaut)."},
-        },
-    },
-}
-OUTIL_SKI_REPONSE = {
-    "name": "repondre",
-    "description": "Donne la réponse finale à l'utilisateur. À appeler une seule fois, à la fin.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "texte": {"type": "string", "description": "Réponse en français simple, quelques phrases ou une courte liste, sans Markdown."},
-            "sorties": {"type": "array", "items": {"type": "integer"}, "description": "Identifiants des sorties citées (8 au plus)."},
-        },
-        "required": ["texte", "sorties"],
-    },
-}
-CONSIGNE_SKI = """Tu aides un skieur de randonnée (association de montagne, France). Il pose une question en texte libre sur
-les sorties publiées sur skitour.fr : conditions de neige, sommets faits récemment, idées de sortie, etc.
-Utilise l'outil chercher_sorties (plusieurs fois si utile : autre orthographe, massif voisin, période plus longue).
-Base-toi uniquement sur ce que l'outil renvoie ; si rien ne correspond, dis-le simplement. Donne les dates
-(« le 3 novembre »), les sommets, les conditions décrites et qui les décrit. Pas de conseil de sécurité inventé :
-rappelle seulement, si la question touche au risque, de consulter le bulletin d'avalanche (BERA).
-Termine en appelant l'outil repondre. Aujourd'hui : {date}.{position}"""
-
-
-def repondre_ski(question: str, lat=None, lon=None) -> dict:
-    sorties = _sorties_recentes(SKI_JOURS_MAX)
-    par_id = {o["id"]: o for o in sorties}
-    vues: set = set()
-    position = f" Position de la carte de l'utilisateur : lat {lat:.4f}, lon {lon:.4f}." if lat is not None and lon is not None else ""
-    systeme = CONSIGNE_SKI.format(date=time.strftime("%d/%m/%Y"), position=position)
-    messages = [{"role": "user", "content": question}]
-    cout, jetons = 0.0, {"entree": 0, "sortie": 0, "recherches_web": 0}
-    for _ in range(6):
-        r = client.beta.messages.create(
-            model=MODELE, max_tokens=3000,
-            betas=["server-side-fallback-2026-07-01"], fallbacks="default",
-            output_config={"effort": "low"},
-            system=systeme, tools=[OUTIL_SKI_CHERCHER, OUTIL_SKI_REPONSE], messages=messages,
-        )
-        u = r.usage
-        ent, sor = u.input_tokens or 0, u.output_tokens or 0
-        lec, ecr = getattr(u, "cache_read_input_tokens", 0) or 0, getattr(u, "cache_creation_input_tokens", 0) or 0
-        cout += (ent * PRIX["entree"] + sor * PRIX["sortie"] + lec * PRIX["cache_lecture"] + ecr * PRIX["cache_ecriture"]) / 1e6
-        jetons["entree"] += ent + lec + ecr; jetons["sortie"] += sor
-        fin = next((b for b in r.content if b.type == "tool_use" and b.name == "repondre"), None)
-        if fin:
-            ids = [i for i in (fin.input.get("sorties") or []) if i in vues][:8]
-            return {"texte": str(fin.input.get("texte", "")).strip(), "sorties": [par_id[i] for i in ids],
-                    "cout_usd": round(cout, 4), "jetons": jetons}
-        if r.stop_reason == "refusal":
-            raise RuntimeError("Claude a refusé la demande")
-        appels = [b for b in r.content if b.type == "tool_use" and b.name == "chercher_sorties"]
-        messages.append({"role": "assistant", "content": r.content})
-        if not appels:
-            messages.append({"role": "user", "content": "Appelle maintenant l'outil repondre."})
-            continue
-        resultats = []
-        for b in appels:
-            a = b.input or {}
-            trouve = chercher_sorties(sorties, str(a.get("mots", ""))[:200], max(1, min(int(a.get("jours", 14) or 14), SKI_JOURS_MAX)),
-                                      _nombre(a.get("lat")), _nombre(a.get("lon")), max(1.0, min(_nombre(a.get("rayon_km")) or 25, 150)))
-            vues.update(o["id"] for o in trouve)
-            compact = [{"id": o["id"], "date": time.strftime("%d/%m/%Y", time.localtime(o["date"] or 0)), "titre": o["titre"],
-                        "massif": o["massif"], "sommet": o["sommet"], "altitude": o["altitude"], "denivele": o["denivele"],
-                        "ski": o["dif_ski"], "orientation": o["orientation"], "auteur": o["auteur"], "conditions": o["conditions"]}
-                       for o in trouve]
-            resultats.append({"type": "tool_result", "tool_use_id": b.id, "content": json.dumps(compact, ensure_ascii=False)})
-        messages.append({"role": "user", "content": resultats})
-    raise RuntimeError("pas de réponse exploitable")
+def fiche_sortie(id_: int) -> dict:
+    req = urllib.request.Request(f"https://skitour.fr/api/sortie/{id_}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        x = json.loads(r.read())
+    if isinstance(x, list):
+        x = x[0] if x else {}
+    if not isinstance(x, dict) or x.get("ERROR"):
+        raise RuntimeError(f"skitour : {(x or {}).get('ERROR', 'sortie introuvable')}")
+    d = x.get("depart") if isinstance(x.get("depart"), dict) else {}
+    neige = []
+    for n in x.get("neige") or []:
+        if isinstance(n, dict):
+            neige.append(" · ".join(str(n.get(k) or "").strip() for k in ("lieu", "alt", "ori", "heure", "qte", "type", "com") if str(n.get(k) or "").strip()))
+    return {
+        **_ligne(x),
+        "sommets": [sm.get("sommet") or sm.get("nom") or "" for sm in (x.get("sommets") or []) if isinstance(sm, dict)],
+        "depart": (d.get("nom") or "") + (f" ({d['altitude']} m)" if d.get("altitude") else ""),
+        "topos": [t.get("nom", "") for t in (x.get("topos") or []) if isinstance(t, dict)],
+        "conditions": _texte(x.get("cond") or x.get("conditions")),
+        "neige": neige,
+        "recit": _texte(x.get("recit")),
+        "photos": len(x.get("photos") or []),
+    }
 
 
 def _nombre(v):
@@ -675,11 +621,11 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-texte"], "skitour": bool(SKITOUR_CLE), "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs"], "skitour": bool(SKITOUR_CLE), "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-texte")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -689,8 +635,15 @@ class Relais(BaseHTTPRequestHandler):
             return self._facture()
         if chemin.endswith("/skitour"):
             return self._skitour()
-        if chemin.endswith("/skitour-texte"):
-            return self._skitour_texte()
+        if chemin.endswith("/skitour-massifs"):
+            if not SKITOUR_CLE:
+                return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
+            try:
+                return self._json(200, {"massifs": liste_massifs()})
+            except Exception as ex:  # noqa: BLE001
+                return self._json(502, {"erreur": str(ex)})
+        if chemin.endswith(("/skitour-liste", "/skitour-sortie")):
+            return self._skitour_texte(chemin.endswith("/skitour-liste"))
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         try:
@@ -758,34 +711,33 @@ class Relais(BaseHTTPRequestHandler):
             _ecrire("cache-skitour.json", cache)
         self._json(200, {"sorties": r})
 
-    def _skitour_texte(self):
+    def _skitour_texte(self, liste: bool):
         if not SKITOUR_CLE:
             return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
         try:
-            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 4_000)))
-            question = str(d["question"]).strip()[:500]
-            lat, lon = _nombre(d.get("lat")), _nombre(d.get("lon"))
-            if len(question) < 3:
-                raise ValueError
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)) or b"{}")
+            jours = max(1, min(int(d.get("jours", 14)), 186))
+            massifs = sorted({int(m) for m in (d.get("massifs") or [])})[:30]
+            id_ = None if liste else int(d["id"])
         except (ValueError, KeyError, TypeError):
-            return self._json(400, {"erreur": "question vide"})
-        jour = time.strftime("%Y-%m-%d")
-        with verrou:
-            quota = _lire("quota.json", {})
-            if quota.get(jour, 0) >= MAX_PAR_JOUR:
-                return self._json(429, {"erreur": f"Limite de {MAX_PAR_JOUR} demandes par jour atteinte"})
-            _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
+            return self._json(400, {"erreur": "demande invalide"})
         try:
-            r = repondre_ski(question, lat, lon)
-        except anthropic.APIError as e:
-            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
-        except Exception as e:  # noqa: BLE001
-            return self._json(502, {"erreur": str(e)})
-        with verrou:
-            with open(_fichier("couts.jsonl"), "a") as f:
-                f.write(json.dumps({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "type": "skitour-texte",
-                                    "cout_usd": r["cout_usd"], **r["jetons"]}) + "\n")
-        self._json(200, {**r, **cumuls()})
+            if liste:
+                return self._json(200, {"sorties": liste_sorties(jours, massifs)})
+            cle = f"fiche:{id_}"
+            with verrou:
+                cache = _lire("cache-skitour-fiches.json", {})
+                c = cache.get(cle)
+                if c and time.time() - c["t"] < 86400:
+                    return self._json(200, c["r"])
+            r = fiche_sortie(id_)
+            with verrou:
+                cache = {k: x for k, x in _lire("cache-skitour-fiches.json", {}).items() if time.time() - x["t"] < 86400}
+                cache[cle] = {"t": time.time(), "r": r}
+                _ecrire("cache-skitour-fiches.json", cache)
+            self._json(200, r)
+        except Exception as ex:  # noqa: BLE001
+            self._json(502, {"erreur": str(ex)})
 
     def _facture(self):
         try:

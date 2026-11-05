@@ -568,7 +568,7 @@ export function App() {
         weather={showWeather} onWeather={setShowWeather}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
-        onSkiText={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiZone(null); setSkiSel(null); setSkiText(true); }}
+        onSkiText={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiZone(null); setSkiOutings([]); setSkiSel(null); setSkiText(true); }}
         onSki={() => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setFramingFor('ski'); setFraming(true); }}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
       {skiZone && !framing && <SkiPanel zone={skiZone} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
@@ -576,8 +576,7 @@ export function App() {
         onReframe={() => { setFramingFor('ski'); setFraming(true); }}
         onClose={() => { setSkiZone(null); setSkiOutings([]); setSkiSel(null); }} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
-        center={map ? { lat: map.getCenter().lat, lon: map.getCenter().lng } : null}
-        onOutings={(o) => { setSkiOutings(o); setSkiSel(null); }} onClose={() => setSkiText(false)} />}
+        onShowOnMap={(o) => { setSkiText(false); setSkiOutings([o]); setSkiSel(0); }} onClose={() => setSkiText(false)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}

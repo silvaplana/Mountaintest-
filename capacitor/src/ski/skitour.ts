@@ -60,19 +60,65 @@ export async function loadOutings(b: Bbox, days: number, password: string): Prom
   }
 }
 
-// Question en texte (icône ⛷ 💬) : le relais fait chercher Claude dans les sorties récentes et renvoie une réponse
-// courte et les sorties citées. Les 10 dernières réponses restent sur le téléphone (relisibles hors ligne).
-export interface SkiAnswer { q: string; texte: string; sorties: Outing[]; t: number; cout_usd?: number }
-const ANSWERS_KEY = 'skitourReponses';
+// Sorties en texte (icône ⛷💬) : liste façon skitour.fr (date, titre, auteurs) puis fiche détaillée.
+// La dernière liste et les 50 dernières fiches ouvertes restent sur le téléphone (lisibles hors ligne).
+export interface OutingRow {
+  id: number; titre: string; date: number; massif: string; sommet: string; altitude: number | null;
+  lat: number | null; lon: number | null; denivele: number | null; dif_ski: string | number | null; orientation: string;
+  auteurs: string; url: string;
+}
+export interface OutingSheet extends OutingRow {
+  sommets: string[]; depart: string; topos: string[]; conditions: string; neige: string[]; recit: string; photos: number;
+}
+const LIST_KEY = 'skitourListe';
+const SHEETS_KEY = 'skitourFiches';
 
-export async function askSki(q: string, center: { lat: number; lon: number } | null, password: string): Promise<SkiAnswer> {
-  const r = await relayPost<{ texte?: string; sorties?: Outing[]; cout_usd?: number }>('skitour-texte',
-    { question: q, ...(center ? { lat: center.lat, lon: center.lon } : {}) }, password);
-  const a: SkiAnswer = { q, texte: r.texte ?? '', sorties: (r.sorties ?? []).filter((o) => Number.isFinite(o.lat) && Number.isFinite(o.lon)), t: Date.now(), cout_usd: r.cout_usd };
-  try { localStorage.setItem(ANSWERS_KEY, JSON.stringify([a, ...readAnswers()].slice(0, 10))); } catch { /* stockage plein */ }
-  return a;
+export interface SavedList { jours: number; t: number; sorties: OutingRow[] }
+export function readList(): SavedList | null {
+  try { const v = JSON.parse(localStorage.getItem(LIST_KEY) ?? 'null'); return v && Array.isArray(v.sorties) ? v : null; } catch { return null; }
+}
+export async function fetchList(jours: number, massifs: number[], password: string): Promise<SavedList> {
+  const r = await relayPost<{ sorties?: OutingRow[] }>('skitour-liste', { jours, massifs }, password);
+  const l = { jours, t: Date.now(), sorties: r.sorties ?? [] };
+  try { localStorage.setItem(LIST_KEY, JSON.stringify(l)); } catch { /* stockage plein */ }
+  return l;
 }
 
-export function readAnswers(): SkiAnswer[] {
-  try { const v = JSON.parse(localStorage.getItem(ANSWERS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+function readSheets(): OutingSheet[] {
+  try { const v = JSON.parse(localStorage.getItem(SHEETS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export const savedSheet = (id: number) => readSheets().find((f) => f.id === id) ?? null;
+export async function fetchSheet(id: number, password: string): Promise<OutingSheet> {
+  const f = await relayPost<OutingSheet>('skitour-sortie', { id }, password);
+  try { localStorage.setItem(SHEETS_KEY, JSON.stringify([f, ...readSheets().filter((x) => x.id !== id)].slice(0, 50))); } catch { /* stockage plein */ }
+  return f;
+}
+
+/** Filtre de la liste : chaque mot (sans accents) doit se trouver dans le titre, le massif, le sommet ou les auteurs. */
+export function filterRows(rows: OutingRow[], q: string): OutingRow[] {
+  const norm = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const words = norm(q).split(/[^a-z0-9]+/).filter(Boolean);
+  if (!words.length) return rows;
+  return rows.filter((o) => { const t = norm(`${o.titre} ${o.massif} ${o.sommet} ${o.auteurs}`); return words.every((w) => t.includes(w)); });
+}
+
+export const shortDate = (d: number) => new Date(d * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+
+// Massifs de skitour (id, nom, groupe) : demandés au relais, gardés sur le téléphone.
+export interface Massif { id: number; nom: string; groupe: string }
+const MASSIFS_KEY = 'skitourMassifsListe';
+export function readMassifs(): Massif[] {
+  try { const v = JSON.parse(localStorage.getItem(MASSIFS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export async function fetchMassifs(password: string): Promise<Massif[]> {
+  const r = await relayPost<{ massifs?: Massif[] }>('skitour-massifs', {}, password);
+  const m = r.massifs ?? [];
+  if (m.length) try { localStorage.setItem(MASSIFS_KEY, JSON.stringify(m)); } catch { /* stockage plein */ }
+  return m;
+}
+/** Groupes dans l'ordre de l'API (Haute Savoie, Savoie, Isère…), massifs dans l'ordre alphabétique. */
+export function groupMassifs(ms: Massif[]): [string, string[]][] {
+  const g = new Map<string, string[]>();
+  for (const m of ms) g.set(m.groupe || 'Autres', [...(g.get(m.groupe || 'Autres') ?? []), m.nom]);
+  return [...g.entries()].map(([k, v]) => [k, v.sort((a, b) => a.localeCompare(b, 'fr'))]);
 }

@@ -429,7 +429,7 @@ class MainActivity : AppCompatActivity() {
             navBottom = bars.bottom; navTop = bars.top
             expensesPanel?.insets(bars.top, bars.bottom)
             skiPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
-            skiTextPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
+            skiTextPanel?.view?.updatePadding(bottom = bars.bottom + (24 * resources.displayMetrics.density).toInt())
             lodgingPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             sheet.updatePadding(bottom = bars.bottom + 4 * margin)
             travelPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
@@ -1115,15 +1115,14 @@ class MainActivity : AppCompatActivity() {
     private fun openSkiText() {
         closeSkiText()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
-        val c = map?.cameraPosition?.target
-        val p = SkiTextPanel(this, c?.let { it.latitude to it.longitude }, password,
-            onOutings = { drawSki(it, null) }, onClose = { closeSkiText() })
+        drawSki(emptyList(), null)
+        val p = SkiTextPanel(this, password, onShowOnMap = { closeSkiText(); drawSki(listOf(it), 0) }, onClose = { closeSkiText() })
         skiTextPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
-        p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
+        p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
     }
     private fun closeSkiText() {
-        skiTextPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view); drawSki(emptyList(), null) }
+        skiTextPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
         skiTextPanel = null
     }
     private fun closeSki() {

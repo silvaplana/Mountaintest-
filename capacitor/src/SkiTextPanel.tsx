@@ -1,51 +1,136 @@
-import { useState } from 'react';
-import { askSki, outingDate, outingLine, readAnswers, type Outing, type SkiAnswer } from './ski/skitour';
+import { useEffect, useMemo, useState } from 'react';
+import { fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, savedSheet, shortDate,
+  type Massif, type Outing, type OutingRow, type OutingSheet, type SavedList } from './ski/skitour';
 
-/** ⛷ 💬 : question en texte sur les sorties skitour.fr, réponse en texte (Claude via le relais), sorties citées en points bleus. */
-export function SkiTextPanel({ center, password, onOutings, onClose }: {
-  center: { lat: number; lon: number } | null; password: string; onOutings: (o: Outing[]) => void; onClose: () => void;
+import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
+
+/**
+ * ⛷💬 : sorties skitour.fr en texte, comme sur le site : tableau date / titre / auteurs, puis la fiche
+ * (massif, départ, sommet, orientation, dénivelé, ski, conditions, neige, récit). Liste et fiches gardées hors ligne.
+ */
+export function SkiTextPanel({ password, onShowOnMap, onClose }: {
+  password: string; onShowOnMap: (o: Outing) => void; onClose: () => void;
 }) {
-  const [q, setQ] = useState('');
+  const [jours, setJours] = useState(() => { try { return Number(localStorage.getItem('skitourTexteJours')) || 14; } catch { return 14; } });
+  const [list, setList] = useState<SavedList | null>(readList);
+  const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [history, setHistory] = useState<SkiAnswer[]>(readAnswers);
-  const [shown, setShown] = useState<SkiAnswer | null>(null);
-  const show = (a: SkiAnswer | null) => { setShown(a); onOutings(a?.sorties ?? []); };
-  const ask = () => {
-    if (q.trim().length < 3 || busy) return;
-    setBusy(true); setError(''); show(null);
-    askSki(q.trim(), center, password)
-      .then((a) => { show(a); setHistory(readAnswers()); setQ(''); })
-      .catch((e) => setError(`Pas de réponse : ${e instanceof TypeError ? 'pas de réseau (les réponses précédentes restent lisibles ci-dessous)' : (e as Error).message}`))
-      .finally(() => setBusy(false));
+  const [q, setQ] = useState('');
+  const [sheet, setSheet] = useState<OutingSheet | null>(null);
+  const [sheetRow, setSheetRow] = useState<OutingRow | null>(null);
+  const [sheetMsg, setSheetMsg] = useState('');
+  // Massifs choisis (vide = tous), retenus d'une fois sur l'autre, comme la disquette du site.
+  const [massifs, setMassifs] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('skitourMassifs') ?? '[]'); } catch { return []; } });
+  const [picking, setPicking] = useState(false);
+  // Liste des massifs de skitour (relais), sinon celle gardée, sinon celle du site recopiée dans massifs.ts.
+  const [allMassifs, setAllMassifs] = useState<Massif[]>(readMassifs);
+  useEffect(() => { fetchMassifs(password).then((m) => { if (m.length) setAllMassifs(m); }).catch(() => { /* hors ligne */ }); }, [password]);
+  const groups = allMassifs.length ? groupMassifs(allMassifs) : MASSIF_GROUPS;
+  const ids = massifs.map((n) => allMassifs.find((m) => m.nom === n)?.id).filter((i): i is number => i != null);
+  // Un massif sans identifiant connu : on demande tout et on filtre ici par nom.
+  const idsKey = ids.length === massifs.length ? ids.join(',') : '';
+  const toggleMassif = (m: string) => setMassifs((l) => {
+    const n = l.includes(m) ? l.filter((x) => x !== m) : [...l, m];
+    try { localStorage.setItem('skitourMassifs', JSON.stringify(n)); } catch { /* ignoré */ }
+    return n;
+  });
+
+  useEffect(() => {
+    let live = true;
+    setBusy(true); setError(''); setOffline(false);
+    try { localStorage.setItem('skitourTexteJours', String(jours)); } catch { /* ignoré */ }
+    fetchList(jours, idsKey ? idsKey.split(',').map(Number) : [], password)
+      .then((l) => { if (live) setList(l); })
+      .catch((e) => {
+        if (!live) return;
+        const saved = readList();
+        if (saved) { setList(saved); setOffline(true); } else setError(`Liste impossible : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`);
+      })
+      .finally(() => { if (live) setBusy(false); });
+    return () => { live = false; };
+  }, [jours, password, idsKey]);
+
+  const rows = useMemo(() => filterRows((list?.sorties ?? []).filter((o) => !massifs.length || massifs.includes(o.massif)), q), [list, q, massifs]);
+
+  const open = (o: OutingRow) => {
+    setSheetRow(o); setSheetMsg('');
+    const saved = savedSheet(o.id);
+    setSheet(saved);
+    if (!saved) setSheetMsg('Chargement de la sortie…');
+    fetchSheet(o.id, password)
+      .then((f) => { setSheet(f); setSheetMsg(''); })
+      .catch((e) => setSheetMsg(saved ? '📴 Hors ligne : fiche gardée sur le téléphone.'
+        : `Fiche impossible : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`));
   };
+
+  if (sheetRow) {
+    const f = sheet;
+    const o = f ?? sheetRow;
+    const info: [string, string][] = [
+      ['Massif', o.massif], ['Départ', f?.depart ?? ''],
+      ['Sommet', f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
+      ['Topo', f?.topos.join(', ') ?? ''], ['Orientation', o.orientation],
+      ['Dénivelé', o.denivele ? `${o.denivele} m` : ''], ['Ski', o.dif_ski ? String(o.dif_ski) : ''],
+    ];
+    return (
+      <div className="ski-page">
+        <div className="travel-head"><button onClick={() => { setSheetRow(null); setSheet(null); }}>← Liste</button>
+          <button onClick={onClose} aria-label="Fermer">✕</button></div>
+        <h2>{o.titre}</h2>
+        <p className="hint">Sortie du {new Date(o.date * 1000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · par {o.auteurs}</p>
+        {sheetMsg && <p className="hint">{sheetMsg}</p>}
+        <dl className="ski-info">{info.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+        {f?.conditions && <><h3>❄ Conditions nivologiques, accès et météo</h3><p className="ski-text">{f.conditions}</p></>}
+        {f && f.neige.length > 0 && <><h3>Neige observée</h3><ul className="ski-text">{f.neige.map((n, i) => <li key={i}>{n}</li>)}</ul></>}
+        {f?.recit && <><h3>Récit</h3><p className="ski-text">{f.recit}</p></>}
+        <div className="row">
+          <button className="primary" onClick={() => window.open(o.url, '_system')}>Voir sur skitour.fr{f?.photos ? ` (${f.photos} photo${f.photos > 1 ? 's' : ''})` : ''}</button>
+          {o.lat != null && o.lon != null && <button onClick={() => onShowOnMap({ ...o, lat: o.lat!, lon: o.lon!, auteur: o.auteurs, conditions: f?.conditions ?? '' })}>Sur la carte</button>}
+        </div>
+        <p className="hint">Texte de {o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="travel">
-      <div className="travel-head"><b>⛷ 💬 Question sur les sorties</b><button onClick={() => { onOutings([]); onClose(); }} aria-label="Fermer">✕</button></div>
-      <textarea rows={2} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ex. : comment est la neige en Belledonne cette semaine ?" />
-      <button className="primary" disabled={busy || q.trim().length < 3} onClick={ask}>{busy ? 'Recherche dans les sorties skitour.fr…' : 'Demander'}</button>
-      {error && <p className="error">{error}</p>}
-      {shown && <div className="cost">
-        <p className="hint">« {shown.q} »</p>
-        {shown.texte.split('\n').filter(Boolean).map((l, i) => <p key={i}>{l}</p>)}
-        {shown.cout_usd != null && <p className="hint">Coût : {shown.cout_usd.toFixed(3)} $</p>}
-      </div>}
-      {shown && shown.sorties.length > 0 && <ul className="routes lodgings">
-        {shown.sorties.map((o) => (
-          <li key={o.id}><button onClick={() => window.open(o.url, '_system')}>
-            <b>{o.titre}</b><em>{outingDate(o)}</em><span>{outingLine(o)} · lire sur skitour.fr</span></button></li>
+    <div className="ski-page">
+      <div className="travel-head"><b>⛷💬 Sorties ski de rando</b><button onClick={onClose} aria-label="Fermer">✕</button></div>
+      <span className="row ski-filters">
+        <button className="ski-massifs" onClick={() => setPicking(true)}>
+          <small>Massifs</small> {massifs.length === 0 ? 'Tous' : massifs.length === 1 ? massifs[0] : `${massifs.length} massifs`} ▾</button>
+        <label className="ski-limit"><small>Limiter à</small>
+          <select value={jours} onChange={(e) => setJours(Number(e.target.value))}>
+            {LIMITS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+      </span>
+      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filtrer : sommet, auteur…" />
+      {picking && <div className="ski-picker">
+        <div className="travel-head"><b>Massifs</b><span>
+          <button onClick={() => { setMassifs([]); try { localStorage.setItem('skitourMassifs', '[]'); } catch { /* ignoré */ } }}>Tous</button>
+          <button className="primary" onClick={() => setPicking(false)}>OK</button></span></div>
+        {groups.map(([g, ms]) => (
+          <section key={g}><h3>{g}</h3>
+            {ms.map((m) => <label key={m} className="check"><input type="checkbox" checked={massifs.includes(m)} onChange={() => toggleMassif(m)} /> {m}</label>)}
+          </section>
         ))}
-      </ul>}
-      {history.length > 0 && <>
-        <p className="hint">Questions précédentes (lisibles hors ligne) :</p>
-        <ul className="routes lodgings">
-          {history.map((a) => (
-            <li key={a.t}><button className={a.t === shown?.t ? 'sel' : ''} onClick={() => show(a)}>
-              <b>{a.q}</b><em>{new Date(a.t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</em></button></li>
+      </div>}
+      {busy && <p className="hint">Chargement des sorties skitour.fr…</p>}
+      {error && <p className="error">{error}</p>}
+      {offline && list && <p className="hint">📴 Hors ligne : liste du {new Date(list.t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} ({list.jours} jours).</p>}
+      {list && !busy && <p className="hint">{rows.length} sortie{rows.length > 1 ? 's' : ''}</p>}
+      <table className="ski-table">
+        <thead><tr><th>Date</th><th>Titre</th><th>Auteurs</th></tr></thead>
+        <tbody>
+          {rows.map((o) => (
+            <tr key={o.id} onClick={() => open(o)}>
+              <td>{shortDate(o.date)}</td>
+              <td><b>{o.titre}</b>{o.dif_ski ? <span className="ski-dif"> {o.dif_ski}</span> : null}<br /><small>{o.massif}</small></td>
+              <td>{o.auteurs}</td>
+            </tr>
           ))}
-        </ul>
-      </>}
-      <p className="hint">Réponse de Claude à partir des sorties skitour.fr (CC BY-NC-ND pour les récits).</p>
+        </tbody>
+      </table>
+      <p className="hint">Données skitour.fr (CC BY-NC-ND pour les récits).</p>
     </div>
   );
 }
