@@ -12,6 +12,8 @@ export interface Outing {
   skiabilite?: string; etoiles?: number | null;
   /** Point de départ (parking), si skitour le place. */
   parking?: Parking | null;
+  /** Trace GPX de la sortie et itinéraire GPX de son topo, simplifiés ([lon, lat]), s'ils existent. */
+  trace?: [number, number][]; itineraire?: [number, number][];
 }
 export interface Parking { nom: string; altitude: number | null; lat: number; lon: number }
 /**
@@ -108,11 +110,11 @@ export async function loadOutings(b: Bbox, days: number, password: string): Prom
 // ligne), filtrée ici sur l'écran affiché ; étoiles, skiabilité en mot et parking demandés seulement pour les sorties
 // à l'écran (30 au plus à la fois), gardés eux aussi. Même logique côté Kotlin (SkiPanel.kt).
 const ALL_KEY = 'skitourTout';
-const DET_KEY = 'skitourDetails2';
+const DET_KEY = 'skitourDetails3';
 // Clés « i123 » (et non « 123 ») : un objet range les clés numériques par valeur, on perdrait l'ordre d'arrivée.
 const dk = (id: number | string) => `i${id}`;
 export const DETAILS_MAX = 800;
-export interface Details { etoiles?: number | null; skiabilite?: string; parking?: Parking | null }
+export interface Details { etoiles?: number | null; skiabilite?: string; parking?: Parking | null; trace?: [number, number][]; itineraire?: [number, number][] }
 
 /** Choix de période de la carte ⛷🗺 (jours ; 3650 = « Tout »), du plus court au plus long. */
 export const PERIODS: [number, string][] = [[1, '< 1 j'], [2, '< 2 j'], [3, '< 3 j'], [4, '< 4 j'], [5, '< 5 j'], [7, '< 1 sem.'],
