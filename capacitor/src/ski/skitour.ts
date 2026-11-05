@@ -121,6 +121,17 @@ export const periodLabel = (d: number) => PERIODS.find((p) => p[0] === d)?.[1] ?
 /** Période gardée valide (sinon 30 jours). */
 export const periodOk = (d: number) => (PERIODS.some((p) => p[0] === d) ? d : 30);
 
+/** Difficulté ski maximale (échelle Toponeige 1.1 à 5.6 de skitour) ; 0 = toutes. */
+export const SKI_LEVELS: [number, string][] = [[1.3, '≤ 1.3'], [2.1, '≤ 2.1'], [2.2, '≤ 2.2'], [2.3, '≤ 2.3'], [3.1, '≤ 3.1'],
+  [3.2, '≤ 3.2'], [3.3, '≤ 3.3'], [4.1, '≤ 4.1'], [4.2, '≤ 4.2'], [4.3, '≤ 4.3'], [5.2, '≤ 5.2'], [5.4, '≤ 5.4'], [0, 'Tout']];
+export const skiLabel = (max: number) => (max ? `≤ ${max}` : 'Ski : tout');
+/** La sortie passe le filtre de difficulté (une sortie sans cotation est gardée). */
+export function skiOk(o: { dif_ski?: string | number | null }, max: number): boolean {
+  if (!max) return true;
+  const v = Number(String(o.dif_ski ?? '').replace(',', '.'));
+  return !Number.isFinite(v) || v <= 0 || v <= max + 1e-9;
+}
+
 export async function loadAll(days: number, password: string): Promise<{ outings: Outing[]; offline?: number }> {
   try {
     const r = await relayPost<{ sorties?: Outing[] }>('skitour-tout', { jours: days }, password);

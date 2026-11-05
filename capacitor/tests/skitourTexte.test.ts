@@ -52,3 +52,14 @@ describe('sorties de l\'écran', () => {
     expect(withDetails({ id: 9999, etoiles: null } as Outing, m).etoiles).toBe(2);
   });
 });
+
+import { skiOk, skiLabel } from '../src/ski/skitour';
+describe('filtre de difficulté ski', () => {
+  it('garde les sorties de cette cotation ou moins, et celles sans cotation', () => {
+    expect(skiOk({ dif_ski: '3.3' }, 3.3)).toBe(true);
+    expect(skiOk({ dif_ski: '4.1' }, 3.3)).toBe(false);
+    expect(skiOk({ dif_ski: null }, 3.3)).toBe(true);
+    expect(skiOk({ dif_ski: '5.5' }, 0)).toBe(true);
+    expect(skiLabel(3.3)).toBe('≤ 3.3');
+  });
+});

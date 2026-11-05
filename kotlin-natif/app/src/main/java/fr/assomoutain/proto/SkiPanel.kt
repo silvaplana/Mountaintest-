@@ -237,10 +237,15 @@ class SkiPanel(
     /** Choix de période (jours ; 3650 = « Tout »), comme PERIODS de l'appli web. */
     private val periods = listOf(1 to "< 1 j", 2 to "< 2 j", 3 to "< 3 j", 4 to "< 4 j", 5 to "< 5 j", 7 to "< 1 sem.",
         15 to "< 15 j", 30 to "< 30 j", 90 to "< 3 mois", 365 to "< 1 an", 3650 to "Tout")
+    /** Difficulté ski maximale (échelle Toponeige 1.1 à 5.6) ; 0 = toutes. Comme SKI_LEVELS de l'appli web. */
+    private val skiLevels = listOf(1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 5.2, 5.4).map { it to "≤ $it" } + (0.0 to "Tout")
     private val count = text("", 13f, muted)
     private val pill = Button(a)
+    private val skiPill = Button(a)
     private val menu = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; visibility = android.view.View.GONE }
+    private val skiMenu = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; visibility = android.view.View.GONE }
     private var days = 30
+    private var skiMax = 0.0
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
     private val allFile = java.io.File(a.filesDir, "skitour-tout.json")
     private val details = SkiDetails(java.io.File(a.filesDir, "skitour-details.json"))
@@ -253,65 +258,77 @@ class SkiPanel(
 
     init {
         days = prefs.getInt("skitourJours", 30).takeIf { d -> periods.any { it.first == d } } ?: 30
-        // Première ligne, sans titre (on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
-        // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
-        pill.apply {
-            isAllCaps = false; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); textSize = 14f; minWidth = 0; minimumWidth = 0
-            setPadding(dp(12), 0, dp(12), 0)
-            background = GradientDrawable().apply { setColor(Color.parseColor("#2F6FD6")); cornerRadius = 999f }
-            contentDescription = "Période des sorties"
-            setOnClickListener { showMenu(menu.visibility != android.view.View.VISIBLE) }
+        skiMax = prefs.getFloat("skitourSkiMax", 0f).toDouble().let { m -> skiLevels.firstOrNull { kotlin.math.abs(it.first - m) < 1e-6 }?.first ?: 0.0 }
+        // Filtres en pastilles, tous visibles sur la première ligne (sans titre : on est déjà dans la recherche par carte) ;
+        // celui qu'on touche se déplie au-dessus, un seul à la fois, et un choix le replie. Puis ▾ (réduire) et ✕.
+        fun pillStyle(b: Button, color: String, desc: String) = b.apply {
+            isAllCaps = false; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); textSize = 13f; minWidth = 0; minimumWidth = 0
+            setPadding(dp(10), 0, dp(10), 0)
+            background = GradientDrawable().apply { setColor(Color.parseColor(color)); cornerRadius = 999f }
+            contentDescription = desc
         }
+        pillStyle(pill, "#2F6FD6", "Période des sorties").setOnClickListener { showMenu(if (menu.visibility == android.view.View.VISIBLE) null else menu) }
+        pillStyle(skiPill, "#E07B1D", "Difficulté ski maximale").setOnClickListener { showMenu(if (skiMenu.visibility == android.view.View.VISIBLE) null else skiMenu) }
+        fillMenu(menu, periods.map { it.first.toDouble() to it.second }) { v ->
+            days = v.toInt(); prefs.edit().putInt("skitourJours", days).apply(); load(days)
+        }
+        fillMenu(skiMenu, skiLevels) { v -> skiMax = v; prefs.edit().putFloat("skitourSkiMax", v.toFloat()).apply(); refresh() }
+        col.addView(menu); col.addView(skiMenu)
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(count, LinearLayout.LayoutParams(0, -2, 1f))
             addView(pill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
-            addView(lowBtn.apply { setOnClickListener { setLow(!low) } }, LinearLayout.LayoutParams(dp(48), dp(44)))
-            addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
+            addView(skiPill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
+            addView(lowBtn.apply { setOnClickListener { setLow(!low) } }, LinearLayout.LayoutParams(dp(44), dp(44)))
+            addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(44), dp(44)))
         })
-        // Les choix de période sur deux lignes, juste sous la pastille ; un choix referme la liste.
-        periods.chunked(6).forEach { row ->
-            menu.addView(LinearLayout(a).apply {
-                row.forEach { (d0, t) ->
-                    addView(Button(a).apply {
-                        text = t; tag = d0; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
-                        setPadding(dp(2), dp(6), dp(2), dp(6))
-                        setOnClickListener {
-                            days = d0; prefs.edit().putInt("skitourJours", d0).apply(); showMenu(false); load(d0)
-                        }
-                    }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(3) })
-                }
-                if (row.size < 6) addView(android.view.View(a), LinearLayout.LayoutParams(0, 0, (6 - row.size).toFloat()))
-            })
-        }
-        col.addView(menu)
-        showMenu(false)
+        showMenu(null)
         col.addView(status); col.addView(detail); col.addView(list)
         col.addView(text("Données skitour.fr (CC BY-NC-ND pour les récits)."))
-        setLow(true) // ouvert réduit : juste la première ligne, la carte d'abord
+        setLow(true) // ouvert réduit : juste la ligne des pastilles, la carte d'abord
         view.post { load(days) } // après l'init complet (job, detJob)
     }
 
-    /** ▾ réduit le panneau à sa première ligne (le menu de période, enfant 1, reste utilisable) ; ▴ le remet. */
+    /** Choix d'un filtre, par lignes de 6 ; un appui choisit et replie. */
+    private fun fillMenu(m: LinearLayout, items: List<Pair<Double, String>>, pick: (Double) -> Unit) {
+        items.chunked(6).forEach { row ->
+            m.addView(LinearLayout(a).apply {
+                row.forEach { (v, t) ->
+                    addView(Button(a).apply {
+                        text = t; tag = v; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                        setPadding(dp(2), dp(6), dp(2), dp(6))
+                        setOnClickListener { pick(v); showMenu(null) }
+                    }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(3) })
+                }
+                if (row.size < 6) addView(android.view.View(a), LinearLayout.LayoutParams(0, 0, (6 - row.size).toFloat()))
+            }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(3) })
+        }
+    }
+
+    /** Les 2 menus (enfants 0 et 1) et la ligne des pastilles (enfant 2) restent ; ▾ cache le reste, ▴ le remet. */
     private fun setLow(v: Boolean) {
         low = v
         lowBtn.text = if (v) "▴" else "▾"; lowBtn.contentDescription = if (v) "Agrandir le panneau" else "Réduire le panneau"
-        for (k in 2 until col.childCount) col.getChildAt(k).visibility = if (v) android.view.View.GONE else android.view.View.VISIBLE
+        for (k in 3 until col.childCount) col.getChildAt(k).visibility = if (v) android.view.View.GONE else android.view.View.VISIBLE
         if (status.text.isEmpty()) status.visibility = android.view.View.GONE
         view.layoutParams = view.layoutParams.apply { height = -2 }
     }
 
-    private fun showMenu(open: Boolean) {
-        menu.visibility = if (open) android.view.View.VISIBLE else android.view.View.GONE
-        pill.text = (periods.firstOrNull { it.first == days }?.second ?: "< $days j") + if (open) " ▴" else " ▾"
-        for (k in 0 until menu.childCount) (menu.getChildAt(k) as LinearLayout).let { row ->
-            for (j in 0 until row.childCount) (row.getChildAt(j) as? Button)?.let { b ->
-                val on = b.tag == days
-                b.setTypeface(null, if (on) Typeface.BOLD else Typeface.NORMAL)
-                b.background = GradientDrawable().apply { setColor(Color.parseColor(if (on) "#2F6FD6" else "#F2F4F1")); cornerRadius = 999f }
-                b.setTextColor(if (on) Color.WHITE else ink)
+    /** Déplie un seul menu (ou aucun) et met les pastilles à jour. */
+    private fun showMenu(open: LinearLayout?) {
+        menu.visibility = if (open === menu) android.view.View.VISIBLE else android.view.View.GONE
+        skiMenu.visibility = if (open === skiMenu) android.view.View.VISIBLE else android.view.View.GONE
+        pill.text = (periods.firstOrNull { it.first == days }?.second ?: "< $days j") + if (open === menu) " ▴" else " ▾"
+        skiPill.text = (if (skiMax > 0) "≤ $skiMax" else "Ski : tout") + if (open === skiMenu) " ▴" else " ▾"
+        for ((m, cur, color) in listOf(Triple(menu, days.toDouble(), "#2F6FD6"), Triple(skiMenu, skiMax, "#E07B1D")))
+            for (k in 0 until m.childCount) (m.getChildAt(k) as LinearLayout).let { row ->
+                for (j in 0 until row.childCount) (row.getChildAt(j) as? Button)?.let { b ->
+                    val on = (b.tag as? Double)?.let { kotlin.math.abs(it - cur) < 1e-6 } == true
+                    b.setTypeface(null, if (on) Typeface.BOLD else Typeface.NORMAL)
+                    b.background = GradientDrawable().apply { setColor(Color.parseColor(if (on) color else "#F2F4F1")); cornerRadius = 999f }
+                    b.setTextColor(if (on) Color.WHITE else ink)
+                }
             }
-        }
     }
 
     private var job: kotlinx.coroutines.Job? = null
@@ -332,11 +349,11 @@ class SkiPanel(
         val vp = viewport() ?: return
         val (z, zoom) = vp
         val far = zoom < SKI_MIN_ZOOM
-        val vis = if (far) emptyList() else all.filter { it.lon in z.west..z.east && it.lat in z.south..z.north }.take(150).map { details.apply(it) }
+        val vis = if (far) emptyList() else all.filter { it.lon in z.west..z.east && it.lat in z.south..z.north && skiOk(it.difSki, skiMax) }.take(150).map { details.apply(it) }
         outings = vis
         val k = vis.indexOfFirst { it.id == selId }.takeIf { it >= 0 }
         onOutings(vis, k)
-        count.text = if (far) "Zoome sur une région" else "${vis.size} sortie${if (vis.size > 1) "s" else ""} à l'écran"
+        count.text = if (far) "Zoome" else "${vis.size} sortie${if (vis.size > 1) "s" else ""}"
         val notes = listOfNotNull(
             offline?.let { "📴 Hors ligne : sorties gardées sur le téléphone, liste du " +
                 Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM 'à' HH:mm", Locale.FRANCE)) + "." },
@@ -394,6 +411,13 @@ class SkiPanel(
 
 /** Skiabilité comme sur skitour.fr (« 🙂 Bonne », lue par le relais sur la page de la sortie) ;
  *  si le relais n'a que le chiffre de l'API, « skiabilité 1 » (même texte que skiabText de l'appli web). */
+/** La sortie passe le filtre de difficulté ski (une sortie sans cotation est gardée), comme skiOk de l'appli web. */
+fun skiOk(difSki: String?, max: Double): Boolean {
+    if (max <= 0) return true
+    val v = difSki?.replace(',', '.')?.trim()?.toDoubleOrNull() ?: return true
+    return v <= 0 || v <= max + 1e-9
+}
+
 /** « il y a 8 j » depuis la date de la sortie (secondes Unix), comme daysAgo de l'appli web. */
 /** En dessous de ce zoom, l'écran couvre trop de pays : on ne montre pas les points (comme SKI_MIN_ZOOM de l'appli web). */
 const val SKI_MIN_ZOOM = 7.0
