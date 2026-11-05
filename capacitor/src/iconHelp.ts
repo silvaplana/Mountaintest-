@@ -7,22 +7,22 @@ export type IconKey =
   | 'slopes' | 'shade' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
-  close: { title: '✕ Quitter', text: "Ferme l'appli." },
-  locate: { title: '⌖ Me localiser', text: 'Centre la carte sur ta position GPS et la suit. Appuie de nouveau pour couper le GPS et économiser la batterie.' },
-  search: { title: '🔍 Chercher un lieu', text: "Tape le nom d'une ville, d'un sommet ou d'un lieu-dit : la carte s'y centre." },
-  photo: { title: '📷 Appareil photo', text: "Ouvre l'appareil photo du téléphone ; le bouton Retour ramène à la carte." },
-  layer: { title: '🗺 Fond de carte', text: 'Chaque appui passe au fond suivant : Carte auto, SCAN 25 (IGN au 1:25 000), Plan IGN.' },
-  avion: { title: '✈ Mode avion', text: "Android ne laisse pas une appli basculer le mode avion : l'icône est verte quand il est actif et ouvre le réglage. Le GPS marche toujours en mode avion et la batterie dure bien plus longtemps. Le 1er appui montre aussi 👖." },
-  poche: { title: '👖 Mode poche', text: "Téléphone vertical 3 s = écran noir, pour ne rien toucher dans la poche (le GPS de « Me localiser » se coupe, l'enregistrement d'une sortie continue). À plat ou deux secousses pour rallumer." },
-  draw: { title: '✏ Tracer au doigt', text: 'Dessine un parcours sur la carte : sa longueur, son dénivelé et son profil s’affichent.' },
-  slopes: { title: '⛰ Pentes', text: "Carte IGN des pentes en montagne. Sous 30°, pas de couleur. Le 1er appui montre aussi 🌗." },
-  shade: { title: '🌗 Ombres du relief', text: 'Film des ombres du soleil sur 24 h, toutes les 30 min, calculé dans le téléphone à partir du relief IGN. Choisis la date et fais glisser l’heure.' },
-  ski: { title: '⛷🗺 Sorties ski de rando', text: "Sorties de skitour.fr dans la zone affichée ; toucher une sortie ouvre sa fiche. Le 1er appui montre aussi ⛷💬." },
-  skiText: { title: '⛷💬 Question sur les sorties ski', text: 'Pose une question en texte sur les sorties de skitour.fr (par exemple les conditions récentes dans un massif).' },
-  weatherMountain: { title: '🏔 Météo montagne', text: 'Ouvre la météo montagne de Météo-France (bulletins, risque d’avalanche).' },
-  travel: { title: '🚗 Voyage en voiture', text: 'Itinéraires avec km, durée, coût du carburant et péages.' },
-  lodging: { title: '🏨 Hébergement', text: 'Cherche les meilleurs prix près de ta destination (IA).' },
-  expenses: { title: 'Partage des frais', text: 'Façon Tricount : qui a payé quoi, et qui doit combien à qui. Les participants sont invités par mail.' },
+  close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
+  locate: { title: 'Me localiser', text: 'Centre la carte sur toi. Encore : coupe le GPS.' },
+  search: { title: '🔍 Chercher un lieu', text: 'Cherche une ville, un sommet…' },
+  photo: { title: '📷 Appareil photo', text: 'Ouvre l’appareil photo.' },
+  layer: { title: '🗺 Fond de carte', text: 'SCAN 25, Plan IGN ou auto.' },
+  avion: { title: '✈ Mode avion', text: 'Ouvre le réglage. Le GPS marche toujours.' },
+  poche: { title: '👖 Mode poche', text: 'Vertical 3 s = écran noir.' },
+  draw: { title: '✏ Tracer au doigt', text: 'Dessine un parcours : km et dénivelé.' },
+  slopes: { title: '⛰ Pentes', text: 'Carte IGN des pentes :' },
+  shade: { title: '🌗 Ombres', text: 'Ombres du soleil heure par heure.' },
+  ski: { title: '⛷🗺 Sorties ski', text: 'Sorties skitour.fr sur la carte.' },
+  skiText: { title: '⛷💬 Question ski', text: 'Question sur les sorties skitour.fr.' },
+  weatherMountain: { title: '🏔 Météo montagne', text: 'Météo-France montagne.' },
+  travel: { title: '🚗 Voyage en voiture', text: 'Km, coût, péages.' },
+  lodging: { title: '🏨 Hébergement', text: 'Meilleurs prix (IA).' },
+  expenses: { title: 'Partage des frais', text: 'Qui doit combien à qui.' },
 };
 
 /** Légende de la couche IGN « Carte des pentes » (GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN). */
@@ -34,4 +34,4 @@ export const SLOPE_LEGEND: { color: string; label: string }[] = [
 ];
 
 /** Étiquettes de pente le long d'un tracé (mêmes seuils que MapView et MainActivity). */
-export const SLOPE_TAGS_HELP = 'Sur un tracé, les étiquettes donnent la pente du chemin : orange dès 9° (16 %), rouge dès 17° (30 %).';
+export const SLOPE_TAGS_HELP = 'Tracés : orange dès 9°, rouge dès 17°.';
