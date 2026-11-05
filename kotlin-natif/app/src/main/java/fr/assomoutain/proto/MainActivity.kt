@@ -1172,7 +1172,7 @@ class MainActivity : AppCompatActivity() {
         closeSkiText()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         drawSki(emptyList(), null)
-        val p = SkiTextPanel(this, password, onShowOnMap = { closeSkiText(); drawSki(listOf(it), 0) }, onClose = { closeSkiText() })
+        val p = SkiTextPanel(this, password, onShowOnMap = { o, at -> closeSkiText(); drawSki(listOf(o), 0); flyToSki(at) }, onClose = { closeSkiText() })
         skiTextPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
@@ -1182,11 +1182,18 @@ class MainActivity : AppCompatActivity() {
         closeSkiText()
         val row = OutingRow(x.id, x.titre, x.date, x.massif, x.sommet, x.altitude, x.lat, x.lon, x.denivele, x.difSki, x.orientation,
             x.auteur, x.url, x.skiabilite, x.etoiles, x.parking)
-        val p = SkiTextPanel(this, password, onShowOnMap = { closeSkiText() }, onClose = { closeSkiText() }, start = row)
+        val p = SkiTextPanel(this, password, onShowOnMap = { _, at -> closeSkiText(); flyToSki(at) }, onClose = { closeSkiText() }, start = row)
         skiTextPanel = p
         skiPanel?.view?.visibility = android.view.View.GONE // caché (liste gardée) tant que la fiche est ouverte
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
+    }
+    /** Centre la carte sur le départ ou le sommet d'une sortie, après son cadrage automatique. */
+    private fun flyToSki(at: Pair<Double, Double>?) {
+        val (lat, lon) = at ?: return
+        findViewById<android.view.View>(R.id.root).postDelayed({
+            map?.let { m -> m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), maxOf(m.cameraPosition.zoom, 14.0))) }
+        }, 700)
     }
     private fun closeSkiText() {
         skiTextPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
