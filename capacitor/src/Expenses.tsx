@@ -37,7 +37,7 @@ async function invite(m: Member, g: Group, password: string): Promise<string> {
     }
     if (res?.ok) return `Invitation envoyée à ${m.email}`;
   } catch { /* pas de réseau : on passe à l'appli mail */ }
-  const body = `Bonjour ${m.name},\n\n${de} t'invite à partager les frais du groupe « ${g.name} » dans l'appli Assomoutain.\n\nPour l'installer (Android) : https://silvaplana.cloud/mountaintest/apk/`;
+  const body = `Bonjour ${m.name},\n\n${de} t'invite à partager les frais du groupe « ${g.name} » dans l'appli Mountain Buddies.\n\nPour l'installer (Android) : https://silvaplana.cloud/mountaintest/apk/`;
   window.open(`mailto:${encodeURIComponent(m.email ?? '')}?subject=${encodeURIComponent(`Partage des frais « ${g.name} »`)}&body=${encodeURIComponent(body)}`, '_system');
   return 'Envoi direct impossible : ton appli mail s’ouvre avec le message prêt';
 }
