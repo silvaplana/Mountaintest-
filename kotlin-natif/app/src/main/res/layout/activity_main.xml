@@ -457,7 +457,7 @@
                 android:background="@drawable/round_btn"
                 android:contentDescription="Me localiser"
                 android:elevation="4dp"
-                android:src="@android:drawable/ic_menu_mylocation" />
+                android:src="@drawable/ic_locate" />
 
             <Button
                 android:id="@+id/btnQuickSearch"

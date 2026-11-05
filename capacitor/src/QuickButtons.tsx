@@ -40,6 +40,15 @@ export interface QuickProps {
   weather: boolean; onWeather: (on: boolean) => void;
 }
 
+/** Icône « me localiser » : cercle traversé d'une croix horizontale et verticale, point au centre (même dessin côté Kotlin : ic_locate.xml). */
+const LocateIcon = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <circle cx="12" cy="12" r="7" />
+    <path d="M12 1.5v6M12 16.5v6M1.5 12h6M16.5 12h6" />
+    <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
@@ -168,7 +177,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } nextMode(); }}>{mode === 3 ? '◂' : '▸'}</button>
       {show === 0 && <>
       <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser" {...lp('locate')}
-        onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
+        onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
       </>}
       {show < 2 && <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
