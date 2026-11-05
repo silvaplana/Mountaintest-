@@ -20,12 +20,14 @@ function Photo({ p, onOpen }: { p: SkiPhoto; onOpen?: () => void }) {
  * ⛷💬 : sorties skitour.fr en texte, comme sur le site : tableau date / titre / auteurs, puis la fiche
  * (massif, départ, sommet, orientation, dénivelé, ski, conditions, neige, récit). Liste et fiches gardées hors ligne.
  */
-export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
+export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose }: {
   password: string;
   /** Fiche à ouvrir tout de suite (sortie choisie sur la carte) ; « ← » ferme alors le panneau. */
   start?: OutingRow;
   /** Montre la sortie sur la carte de l'appli, centrée sur un point (départ ou sommet) s'il est donné. */
   onShowOnMap: (o: Outing, at?: [number, number]) => void; onClose: () => void;
+  /** 🗺 à droite du titre : recherche des sorties sur la carte (écran affiché). */
+  onOpenMap?: () => void;
 }) {
   const [jours, setJours] = useState(() => { try { return Number(localStorage.getItem('skitourTexteJours')) || 14; } catch { return 14; } });
   const [list, setList] = useState<SavedList | null>(readList);
@@ -153,7 +155,8 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
 
   return (
     <div className="ski-page">
-      <div className="travel-head"><b>⛷💬 Sorties ski de rando</b><button onClick={onClose} aria-label="Fermer">✕</button></div>
+      <div className="travel-head"><b className="ski-head-title">⛷ Sorties ski{onOpenMap && <button className="ski-map-btn" onClick={onOpenMap} aria-label="Sorties ski sur la carte">🗺</button>}</b>
+        <button onClick={onClose} aria-label="Fermer">✕</button></div>
       <span className="row ski-filters">
         <button className="ski-massifs" onClick={() => setPicking(true)}>
           <small>Massifs</small> {massifs.length === 0 ? 'Tous' : massifs.length === 1 ? massifs[0] : `${massifs.length} massifs`} ▾</button>

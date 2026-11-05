@@ -19,7 +19,7 @@ object IconHelp {
         "slopes" to IconHelp.Entry("⛰ Pentes", "Carte IGN des pentes :"),
         "shade" to IconHelp.Entry("🌗 Ombres", "Ombres du soleil heure par heure."),
         "ski" to IconHelp.Entry("⛷🗺 Sorties ski", "Sorties skitour.fr sur la carte."),
-        "skiText" to IconHelp.Entry("⛷💬 Question ski", "Question sur les sorties skitour.fr."),
+        "skiText" to IconHelp.Entry("⛷ Sorties ski", "Sorties skitour.fr ; 🗺 : sur la carte."),
         "weatherMountain" to IconHelp.Entry("🏔 Météo montagne", "Météo-France montagne."),
         "travel" to IconHelp.Entry("🚗 Voyage en voiture", "Km, coût, péages."),
         "lodging" to IconHelp.Entry("🏨 Hébergement", "Meilleurs prix (IA)."),
