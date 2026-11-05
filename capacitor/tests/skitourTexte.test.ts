@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterRows, groupMassifs, outingLabel, parkingText, type Outing, type OutingRow } from '../src/ski/skitour';
+import { filterRows, groupMassifs, outingLabel, parkingText, uniqueParkings, type Outing, type OutingRow } from '../src/ski/skitour';
 
 const row = (id: number, titre: string, massif: string, auteurs: string): OutingRow => ({
   id, titre, date: 0, massif, sommet: '', altitude: null, lat: null, lon: null, denivele: null, dif_ski: null, orientation: '', auteurs, url: '',
@@ -16,6 +16,12 @@ describe('skitour en texte', () => {
   it('groupe les massifs dans l\'ordre de l\'API', () => {
     expect(groupMassifs([{ id: 1, nom: 'Vercors', groupe: 'Isère' }, { id: 2, nom: 'Bauges', groupe: 'Savoie' }, { id: 3, nom: 'Belledonne', groupe: 'Isère' }]))
       .toEqual([['Isère', ['Belledonne', 'Vercors']], ['Savoie', ['Bauges']]]);
+  });
+  it('un seul parking quand deux sorties partent du même endroit', () => {
+    const pk = { nom: '', altitude: null, lat: 45.3, lon: 6.58 };
+    const os = [{ parking: pk }, { parking: { ...pk, nom: 'Val Thorens', altitude: 2300 } }, { parking: null }] as Outing[];
+    expect(uniqueParkings(os, 1)).toEqual([{ i: 1, sel: true, p: { nom: 'Val Thorens', altitude: 2300, lat: 45.3, lon: 6.58 } }]);
+    expect(uniqueParkings(os, null)).toEqual([{ i: 0, sel: false, p: { nom: 'Val Thorens', altitude: 2300, lat: 45.3, lon: 6.58 } }]);
   });
   it('étiquette du parking : nom et altitude', () => {
     expect(parkingText({ nom: 'Chiazale', altitude: 1650, lat: 44.5, lon: 7 })).toBe('Chiazale (1650 m)');

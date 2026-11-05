@@ -344,7 +344,7 @@ SKIAB_NOMS: dict = {}  # chiffre de l'API -> « 🙂 Bonne », appris sur les pa
 
 def _page_sortie(id_: int) -> dict:
     c = _PAGES.get(id_)
-    if c and time.time() - c[0] < 86400:
+    if c and time.time() - c[0] < 86400 and "liens" in c[1]:
         return c[1]
     req = urllib.request.Request(f"https://skitour.fr/sorties/{id_}", headers={"User-Agent": "Assomoutain"})
     with urllib.request.urlopen(req, timeout=10) as r:
@@ -353,13 +353,18 @@ def _page_sortie(id_: int) -> dict:
     zone = titre.group(0) if titre else page[:page.find("Skiabilit")] if "Skiabilit" in page else ""
     texte = html.unescape(re.sub(r"<[^>]+>", "\n", page))
     m = re.search(r"Skiabilit[ée]\s*:\s*([^\w\s]{1,4})?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' -]{1,24}?)\s*(?:\n|  |$)", texte)
-    dep = re.search(r"D[ée]part\s*:?\s*\n*\s*([^\n(]{2,60}?)\s*(?:\((\d{3,4})\s*m\))?\s*\n", texte)
+    dep = re.search(r"D[ée]part\s*:\s*([^\n(]{2,60}?)\s*(?:\((\d{3,4})\s*m\))?\s*\n", texte)
     # Liens de la page vers le départ, les topos et les sommets (pour les suivre depuis l'appli, comme sur le site).
     liens = []
     for m2 in re.finditer(r'href="(?:https://skitour\.fr)?/(departs|topos|sommets)/(\d+)[^"]*"[^>]*>(.*?)</a>', page, re.S | re.I):
         nom = html.unescape(re.sub(r"<[^>]+>", "", m2.group(3))).strip()
         if nom and not any(l["type"] == m2.group(1) and l["id"] == int(m2.group(2)) for l in liens):
             liens.append({"type": m2.group(1), "id": int(m2.group(2)), "nom": nom, "url": f"https://skitour.fr/{m2.group(1)}/{m2.group(2)}"})
+    # Mieux : le lien vers la page du départ, « Val Thorens (2300 m) ».
+    lien_dep = next((l["nom"] for l in liens if l["type"] == "departs"), "")
+    if lien_dep:
+        m3 = re.match(r"(.+?)\s*(?:\((\d{3,4})\s*m\))?$", lien_dep)
+        dep = m3 if m3 else dep
     expo = re.search(r"Exposition\s*:?\s*\n*\s*(\d)", texte)
     out = {"liens": liens, "exposition": expo.group(1) if expo else "",
            "etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else "",
@@ -887,7 +892,7 @@ class Relais(BaseHTTPRequestHandler):
                 raise ValueError
         except (ValueError, KeyError, TypeError):
             return self._json(400, {"erreur": "zone invalide (2° au plus)"})
-        cle = f"skitour3:{o:.3f},{s:.3f},{e:.3f},{n:.3f},{jours}"
+        cle = f"skitour4:{o:.3f},{s:.3f},{e:.3f},{n:.3f},{jours}"
         with verrou:
             cache = _lire("cache-skitour.json", {})
             c = cache.get(cle)
@@ -916,7 +921,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche5:{id_}"
+            cle = f"fiche6:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)

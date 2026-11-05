@@ -1226,17 +1226,20 @@ class MainActivity : AppCompatActivity() {
             Feature.fromGeometry(Point.fromLngLat(x.lon, x.lat)).apply {
                 addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img); addProperty("off", tagOffset("s$i")) }
         }))
-        style.getSourceAs<GeoJsonSource>(SRC_SKI_PARK)?.setGeoJson(FeatureCollection.fromFeatures(o.flatMapIndexed { i, x ->
-            val p = x.parking ?: return@flatMapIndexed emptyList()
-            val img = "park:" + p.text() + if (i == sel) ":sel" else ""
-            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), i == sel, "#3a4a44", park = true))
+        // Un trait par sortie, mais un seul point et une seule étiquette par parking (plusieurs sorties peuvent partir du même).
+        val lines = o.mapIndexedNotNull { i, x ->
+            val p = x.parking ?: return@mapIndexedNotNull null
+            Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(x.lon, x.lat), Point.fromLngLat(p.lon, p.lat))))
+                .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel) }
+        }
+        val parks = uniqueParkings(o, sel).map { (i, p, isSel) ->
+            val img = "park:" + p.text() + if (isSel) ":sel" else ""
+            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), isSel, "#3a4a44", park = true))
             style.getImage(img)?.let { skiTagSizes["p$i"] = it.width / dens to it.height / dens }
-            listOf(
-                Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(x.lon, x.lat), Point.fromLngLat(p.lon, p.lat))))
-                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel) },
-                Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
-                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img); addProperty("off", tagOffset("p$i")) })
-        }))
+            Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
+                .apply { addNumberProperty("i", i); addBooleanProperty("sel", isSel); addStringProperty("img", img); addProperty("off", tagOffset("p$i")) }
+        }
+        style.getSourceAs<GeoJsonSource>(SRC_SKI_PARK)?.setGeoJson(FeatureCollection.fromFeatures(lines + parks))
     }
 
     /** Place les étiquettes des sorties pour qu'elles se chevauchent le moins possible (SkiLabels), à l'arrêt de la carte. */
@@ -1245,11 +1248,12 @@ class MainActivity : AppCompatActivity() {
         if (skiOutings.isEmpty() || m.cameraPosition.zoom < 9) return
         val dens = resources.displayMetrics.density
         // Sommet et parking de la sortie choisie d'abord, puis les autres.
+        val parks = uniqueParkings(skiOutings, skiSel).associate { (i, p, _) -> "p$i" to p }
         val keys = skiOutings.indices.sortedBy { if (it == skiSel) 0 else 1 }.flatMap { i ->
-            listOfNotNull("s$i", if (skiOutings[i].parking != null) "p$i" else null) }
+            listOfNotNull("s$i", if (parks.containsKey("p$i")) "p$i" else null) }
         val pts = keys.map { k ->
             val x = skiOutings[k.drop(1).toInt()]
-            val ll = if (k[0] == 's') LatLng(x.lat, x.lon) else LatLng(x.parking!!.lat, x.parking.lon)
+            val ll = if (k[0] == 's') LatLng(x.lat, x.lon) else parks.getValue(k).let { LatLng(it.lat, it.lon) }
             m.projection.toScreenLocation(ll).let { it.x / dens to it.y / dens }
         }
         val items = keys.mapIndexed { n, k -> val (w, h) = skiTagSizes[k] ?: (0f to 0f); SkiLabels.Item(pts[n].first, pts[n].second, w, h) }

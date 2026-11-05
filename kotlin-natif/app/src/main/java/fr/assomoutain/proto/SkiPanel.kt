@@ -65,6 +65,23 @@ data class Parking(val nom: String, val altitude: Int?, val lat: Double, val lon
     }
 }
 
+/**
+ * Un seul parking par endroit quand plusieurs sorties partent du même : la sortie choisie le représente si elle en fait
+ * partie (sinon la première) ; nom et altitude pris sur celle qui les a. Même règle que uniqueParkings de l'appli web.
+ */
+fun uniqueParkings(outings: List<Outing>, sel: Int?): List<Triple<Int, Parking, Boolean>> {
+    val by = LinkedHashMap<String, Triple<Int, Parking, Boolean>>()
+    outings.forEachIndexed { i, o ->
+        val pk = o.parking ?: return@forEachIndexed
+        val k = String.format(Locale.US, "%.4f,%.4f", pk.lat, pk.lon)
+        val cur = by[k]
+        if (cur == null) { by[k] = Triple(i, pk, i == sel); return@forEachIndexed }
+        val merged = cur.second.copy(nom = cur.second.nom.ifEmpty { pk.nom }, altitude = cur.second.altitude ?: pk.altitude)
+        by[k] = if (i == sel) Triple(i, merged, true) else cur.copy(second = merged)
+    }
+    return by.values.toList()
+}
+
 object Skitour {
     fun fetch(z: Zone, days: Int, password: String): List<Outing> {
         val o = Travel.post("skitour", JSONObject().put("ouest", z.west).put("sud", z.south).put("est", z.east).put("nord", z.north).put("jours", days), password)
