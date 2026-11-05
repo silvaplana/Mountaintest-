@@ -194,7 +194,8 @@ object SkiText {
 class SkiTextPanel(
     private val a: AppCompatActivity,
     private val password: String,
-    private val onShowOnMap: (Outing) -> Unit,
+    /** Montre la sortie sur la carte de l'appli, centrée sur un point (lat, lon) du départ ou du sommet s'il est donné. */
+    private val onShowOnMap: (Outing, Pair<Double, Double>?) -> Unit,
     private val onClose: () -> Unit,
     /** Fiche à ouvrir tout de suite (sortie touchée sur la carte) ; ✕ ferme alors le panneau, ▾ le réduit. */
     private val start: OutingRow? = null,
@@ -449,9 +450,9 @@ class SkiTextPanel(
         lowBtn.setOnClickListener { setLow(!low, lowBtn, title, back) }
         col.addView(header(LinearLayout(a).apply { gravity = Gravity.CENTER_VERTICAL; back?.let { addView(it) }; addView(title, LinearLayout.LayoutParams(-1, -2)) }, lowBtn))
         setLow(false, lowBtn, title, back)
-        val toMap = {
+        val toMap = { at: Pair<Double, Double>? ->
             if (o.lat != null && o.lon != null) onShowOnMap(Outing(o.id, o.titre, o.date, o.massif, o.sommet, o.altitude, o.lat, o.lon, o.denivele, o.difSki,
-                o.orientation, f?.conditions ?: "", o.auteurs, o.url, o.skiabilite, o.etoiles, o.parking))
+                o.orientation, f?.conditions ?: "", o.auteurs, o.url, o.skiabilite, o.etoiles, o.parking), at)
         }
         // En-tête façon skitour.fr : titre et étoiles dans un cadre, puis date et auteurs.
         col.addView(box().apply {
@@ -464,7 +465,8 @@ class SkiTextPanel(
         col.addView(text("👤 ${o.auteurs}", 14f, ink))
         if (msg.isNotEmpty()) col.addView(text(msg))
         val blue = Color.parseColor("#2E6DB4")
-        // Lien vers la page skitour.fr (comme sur le site) ; 📍 montre la sortie sur la carte (sommet et départ).
+        // Nom : lien vers la page skitour.fr (comme sur le site). Départ et sommet ont aussi « 🗺 Carte » : la carte de l'appli,
+        // centrée sur leur point.
         fun linkView(l: SheetLink, pin: Boolean) = LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(text(l.text(), 14f, ink).apply {
@@ -473,8 +475,11 @@ class SkiTextPanel(
                     setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l.url))) } }
                 }
             }, LinearLayout.LayoutParams(0, -2, 1f))
-            if (pin && o.lat != null) addView(text("📍", 18f, ink).apply {
-                contentDescription = "${l.nom} sur la carte"; setPadding(dp(8), dp(4), dp(4), dp(4)); setOnClickListener { toMap() } })
+            if (pin && o.lat != null) addView(Button(a).apply {
+                text = "🗺 Carte"; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                setPadding(dp(8), dp(4), dp(8), dp(4)); contentDescription = "${l.nom} sur la carte"
+                val at = if (l.lat != null && l.lon != null) l.lat to l.lon else null
+                setOnClickListener { toMap(at) } })
         }
         fun plural(n: Int, w: String) = if (n > 1) w.replace(" ", "s ") + "s" else w
         val L = f?.links
@@ -530,7 +535,7 @@ class SkiTextPanel(
             }, LinearLayout.LayoutParams(0, -2, 1f))
             if (o.lat != null && o.lon != null) addView(Button(a).apply {
                 text = "Sur la carte"
-                setOnClickListener { toMap() }
+                setOnClickListener { toMap(null) }
             })
         })
         col.addView(text("Texte de ${o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié."))

@@ -24,7 +24,8 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
   password: string;
   /** Fiche à ouvrir tout de suite (sortie choisie sur la carte) ; « ← » ferme alors le panneau. */
   start?: OutingRow;
-  onShowOnMap: (o: Outing) => void; onClose: () => void;
+  /** Montre la sortie sur la carte de l'appli, centrée sur un point (départ ou sommet) s'il est donné. */
+  onShowOnMap: (o: Outing, at?: [number, number]) => void; onClose: () => void;
 }) {
   const [jours, setJours] = useState(() => { try { return Number(localStorage.getItem('skitourTexteJours')) || 14; } catch { return 14; } });
   const [list, setList] = useState<SavedList | null>(readList);
@@ -86,14 +87,19 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
     const f = sheet;
     const o = f ?? sheetRow;
     const go = (url: string) => { if (url) window.open(url, '_system'); };
-    const onMap = () => { if (o.lat != null && o.lon != null) onShowOnMap({ ...o, lat: o.lat, lon: o.lon, auteur: o.auteurs, conditions: f?.conditions ?? '' }); };
+    const onMap = (at?: [number, number]) => {
+      if (o.lat != null && o.lon != null) onShowOnMap({ ...o, lat: o.lat, lon: o.lon, auteur: o.auteurs, conditions: f?.conditions ?? '' }, at);
+    };
     const L = f?.liens;
-    // Lien vers la page skitour.fr (comme sur le site) ; 📍 montre la sortie sur la carte (sommet et départ).
-    const link = (l: { nom: string; url: string; altitude?: number | null }, pin: boolean, k?: number) => (
-      <span key={k ?? l.url} className="ski-link">
+    // Nom : lien vers la page skitour.fr (comme sur le site). Départ et sommet ont aussi « 🗺 Carte » : la carte de l'appli,
+    // centrée sur leur point.
+    const link = (l: { nom: string; url: string; altitude?: number | null; lat?: number | null; lon?: number | null }, onAppMap: boolean, k?: number) => {
+      const at: [number, number] | undefined = l.lat != null && l.lon != null ? [l.lon, l.lat] : undefined;
+      return (<span key={k ?? l.url} className="ski-link">
         {l.url ? <a href={l.url} onClick={(e) => { e.preventDefault(); go(l.url); }}>{linkText(l)}</a> : linkText(l)}
-        {pin && o.lat != null && <button className="ski-pin" onClick={onMap} aria-label={`${l.nom} sur la carte`}>📍</button>}
+        {onAppMap && o.lat != null && <button className="ski-pin" onClick={() => onMap(at)} aria-label={`${l.nom} sur la carte`}>🗺 Carte</button>}
       </span>);
+    };
     const info: [string, React.ReactNode][] = [
       ['Massif', o.massif],
       ['Départ', L?.depart ? link(L.depart, true) : f?.depart ?? ''],
@@ -135,7 +141,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
         </div>}
         <div className="row">
           <button className="primary" onClick={() => window.open(o.url, '_system')}>Voir sur skitour.fr</button>
-          {o.lat != null && o.lon != null && <button onClick={onMap}>Sur la carte</button>}
+          {o.lat != null && o.lon != null && <button onClick={() => onMap()}>Sur la carte</button>}
         </div>
         <p className="hint">Texte de {o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié.</p>
         </>}

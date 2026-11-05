@@ -188,6 +188,8 @@ export function App() {
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
   const [map, setMap] = useState<MlMap | null>(null);
+  /** Centre la carte sur un point (départ ou sommet d'une sortie), après le cadrage automatique de la sortie. */
+  const flyTo = (at?: [number, number]) => { if (at) window.setTimeout(() => map?.flyTo({ center: at, zoom: Math.max(map.getZoom(), 14) }), 700); };
   // Hauteur du menu du bas : la barre d'échelle se pose juste au-dessus.
   const sheetRef = useRef<HTMLElement>(null);
   const [sheetH, setSheetH] = useState(0);
@@ -592,9 +594,9 @@ export function App() {
         onSheet={(o) => setSkiSheet(rowOf(o))}
         onClose={() => { setSkiOn(false); setSkiOutings([]); setSkiSel(null); }} />}
       {skiSheet && <SkiTextPanel key={skiSheet.id} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={skiSheet}
-        onShowOnMap={() => setSkiSheet(null)} onClose={() => setSkiSheet(null)} />}
+        onShowOnMap={(_o, at) => { setSkiSheet(null); flyTo(at); }} onClose={() => setSkiSheet(null)} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
-        onShowOnMap={(o) => { setSkiText(false); setSkiOutings([o]); setSkiSel(0); }} onClose={() => setSkiText(false)} />}
+        onShowOnMap={(o, at) => { setSkiText(false); setSkiOutings([o]); setSkiSel(0); flyTo(at); }} onClose={() => setSkiText(false)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}

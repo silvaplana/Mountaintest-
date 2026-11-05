@@ -496,7 +496,7 @@ def _sommets(x) -> list:
 
 def _sortie(x, sm) -> dict:
     return {
-        "id": _entier(x.get("id")), "titre": x.get("titre") or "", "date": _entier(x.get("date")),
+        "id": _entier(x.get("id")), "titre": _texte(x.get("titre")), "date": _entier(x.get("date")),
         "massif": _d(x.get("massif")).get("nom", "") or (x.get("massif") if isinstance(x.get("massif"), str) else ""),
         "sommet": sm.get("sommet") or "", "altitude": _entier(sm.get("altitude")),
         "lat": float(sm["lat"]), "lon": float(sm["lng"]),
@@ -572,9 +572,9 @@ def _ligne(x) -> dict:
     pts = _sommets(x)
     sm = _d((pts or [s for s in (x.get("sommets") or []) if isinstance(s, dict)] or [{}])[0])
     return {
-        "id": _entier(x.get("id")), "titre": x.get("titre") or "", "date": _entier(x.get("date")),
+        "id": _entier(x.get("id")), "titre": _texte(x.get("titre")), "date": _entier(x.get("date")),
         "massif": _d(x.get("massif")).get("nom", "") or (x.get("massif") if isinstance(x.get("massif"), str) else ""),
-        "sommet": sm.get("sommet") or sm.get("nom") or "", "altitude": _entier(sm.get("altitude")),
+        "sommet": _texte(sm.get("sommet") or sm.get("nom")), "altitude": _entier(sm.get("altitude")),
         "lat": float(sm["lat"]) if pts else None, "lon": float(sm["lng"]) if pts else None,
         "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
         "auteurs": _personnes(x), "url": f"https://skitour.fr/sorties/{x.get('id')}",
@@ -710,7 +710,13 @@ def _texte(v) -> str:
     """Texte brut d'un champ HTML de skitour (sauts de ligne gardés, balises et entités retirées)."""
     t = re.sub(r"<br\s*/?>", "\n", str(v or ""), flags=re.I)
     t = re.sub(r"<[^>]+>", "", t)
-    return html.unescape(t).strip()
+    # Entités parfois encodées deux fois par skitour (« &amp;nbsp; ») : on décode jusqu'à ce que ça ne change plus.
+    for _ in range(3):
+        u = html.unescape(t)
+        if u == t:
+            break
+        t = u
+    return t.replace("\xa0", " ").strip()
 
 
 def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domaines: list | None = None):

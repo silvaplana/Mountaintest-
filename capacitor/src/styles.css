@@ -348,7 +348,7 @@ progress { width: 100%; }
 .ski-info dt { color: #7aa7d8; }
 .ski-link { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; }
 .ski-link a { color: inherit; text-decoration: underline; }
-.ski-pin { min-width: 0; padding: 0 4px; background: none; border: none; font-size: 16px; }
+.ski-pin { min-width: 0; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
 .ski-info dt { font-weight: 700; min-width: 92px; }
 .ski-info dd { margin: 0; flex: 1; }
 .ski-text { white-space: pre-line; margin: 0; line-height: 1.45; }
