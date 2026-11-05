@@ -1151,7 +1151,7 @@ class MainActivity : AppCompatActivity() {
         val viewport = {
             map?.let { m ->
                 val b = m.projection.visibleRegion.latLngBounds
-                Zone(b.lonWest, b.latSouth, b.lonEast, b.latNorth) to m.cameraPosition.zoom
+                Zone(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth) to m.cameraPosition.zoom
             }
         }
         val p = SkiPanel(this, password, viewport, onOutings = { o, sel -> drawSki(o, sel) }, onClose = { closeSki() },
