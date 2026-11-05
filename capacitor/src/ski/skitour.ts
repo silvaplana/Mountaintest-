@@ -59,3 +59,20 @@ export async function loadOutings(b: Bbox, days: number, password: string): Prom
     return { outings: c.sorties, offline: c.t };
   }
 }
+
+// Question en texte (icône ⛷ 💬) : le relais fait chercher Claude dans les sorties récentes et renvoie une réponse
+// courte et les sorties citées. Les 10 dernières réponses restent sur le téléphone (relisibles hors ligne).
+export interface SkiAnswer { q: string; texte: string; sorties: Outing[]; t: number; cout_usd?: number }
+const ANSWERS_KEY = 'skitourReponses';
+
+export async function askSki(q: string, center: { lat: number; lon: number } | null, password: string): Promise<SkiAnswer> {
+  const r = await relayPost<{ texte?: string; sorties?: Outing[]; cout_usd?: number }>('skitour-texte',
+    { question: q, ...(center ? { lat: center.lat, lon: center.lon } : {}) }, password);
+  const a: SkiAnswer = { q, texte: r.texte ?? '', sorties: (r.sorties ?? []).filter((o) => Number.isFinite(o.lat) && Number.isFinite(o.lon)), t: Date.now(), cout_usd: r.cout_usd };
+  try { localStorage.setItem(ANSWERS_KEY, JSON.stringify([a, ...readAnswers()].slice(0, 10))); } catch { /* stockage plein */ }
+  return a;
+}
+
+export function readAnswers(): SkiAnswer[] {
+  try { const v = JSON.parse(localStorage.getItem(ANSWERS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}

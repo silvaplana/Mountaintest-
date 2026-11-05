@@ -584,18 +584,41 @@
                     android:textSize="20sp" />
             </LinearLayout>
 
-            <Button
-                android:id="@+id/btnSki"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+            <!-- ⛷🗺 seul d'habitude ; un appui le déplie : ⛷💬 (question en texte) apparaît à sa gauche. -->
+            <LinearLayout
+                android:id="@+id/pairSki"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/round_btn"
-                android:contentDescription="Sorties ski de rando (skitour.fr)"
-                android:elevation="4dp"
-                android:padding="0dp"
-                android:text="⛷"
-                android:textColor="#1D2421"
-                android:textSize="20sp" />
+                android:gravity="end|center_vertical"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnSkiText"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Question en texte sur les sorties ski (skitour.fr)"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="⛷"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btnSki"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Sorties ski de rando : carte ou question"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="⛷"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp" />
+            </LinearLayout>
             <!-- Menu Voyage -->
             <Button
                 android:id="@+id/btnWeather"

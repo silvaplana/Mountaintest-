@@ -17,6 +17,7 @@ import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
+import { SkiTextPanel } from './SkiTextPanel';
 import type { Outing } from './ski/skitour';
 import type { Bbox as SkiBbox } from './config';
 import type { CarRoute } from './travel/travel';
@@ -90,6 +91,7 @@ export function App() {
   const [skiZone, setSkiZone] = useState<SkiBbox | null>(null);
   const [skiOutings, setSkiOutings] = useState<Outing[]>([]);
   const [skiSel, setSkiSel] = useState<number | null>(null);
+  const [skiText, setSkiText] = useState(false);
   const [travelRoutes, setTravelRoutes] = useState<CarRoute[]>([]);
   const [travelSel, setTravelSel] = useState(0);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
@@ -566,12 +568,16 @@ export function App() {
         weather={showWeather} onWeather={setShowWeather}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
-        onSki={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setFramingFor('ski'); setFraming(true); }}
+        onSkiText={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiZone(null); setSkiSel(null); setSkiText(true); }}
+        onSki={() => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setFramingFor('ski'); setFraming(true); }}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
       {skiZone && !framing && <SkiPanel zone={skiZone} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel}
         onReframe={() => { setFramingFor('ski'); setFraming(true); }}
         onClose={() => { setSkiZone(null); setSkiOutings([]); setSkiSel(null); }} />}
+      {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
+        center={map ? { lat: map.getCenter().lat, lon: map.getCenter().lng } : null}
+        onOutings={(o) => { setSkiOutings(o); setSkiSel(null); }} onClose={() => setSkiText(false)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
