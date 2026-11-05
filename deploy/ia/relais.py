@@ -842,8 +842,9 @@ def liste_sorties(jours: int, massifs: list | None = None) -> list:
     out, vus = [], set()
     for m in (massifs or [None]):
         c = _liste_memo.get((jours, m))
-        if not (c and time.time() - c[0] < 3600):
-            c = (time.time(), [_ligne(x) for x in _sorties_brutes(jours, m)])
+        if not (c and time.time() - c[0] < (3600 if jours <= 30 else 6 * 3600)):
+            # Longues périodes : plus de pages (1000 sorties chacune) ; gardées sur le disque, voir _sorties_brutes.
+            c = (time.time(), [_ligne(x) for x in _sorties_brutes(jours, m, pages=3 if jours <= 90 else 10)])
             _liste_memo[(jours, m)] = c
         for o in c[1]:
             if o["id"] not in vus:
@@ -1314,7 +1315,7 @@ class Relais(BaseHTTPRequestHandler):
             return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
         try:
             d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)) or b"{}")
-            jours = max(1, min(int(d.get("jours", 14)), 186))
+            jours = max(1, min(int(d.get("jours", 14)), 3650))
             massifs = sorted({int(m) for m in (d.get("massifs") or [])})[:30]
             id_ = None if liste else int(d["id"])
         except (ValueError, KeyError, TypeError):
