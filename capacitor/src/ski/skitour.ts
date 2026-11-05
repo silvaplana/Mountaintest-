@@ -1,6 +1,7 @@
 // Sorties de ski de rando publiées sur skitour.fr, dans une zone encadrée. Passe par le relais du VPS
 // (deploy/ia/relais.py), qui garde la clé de l'API skitour. Même appel côté Kotlin (Skitour.kt).
 import { relayPost } from '../travel/travel';
+import { keepPhotos, prunePhotos } from './photoStore';
 import type { Bbox } from '../config';
 
 export interface Outing {
@@ -67,8 +68,14 @@ export interface OutingRow {
   lat: number | null; lon: number | null; denivele: number | null; dif_ski: string | number | null; orientation: string;
   auteurs: string; url: string;
 }
+/** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
+export interface SkiPhoto { url: string; legende: string; auteur: string }
+export const sheetPhotos = (f: OutingSheet | null): SkiPhoto[] => (f && Array.isArray(f.photos) ? f.photos : []);
+
 export interface OutingSheet extends OutingRow {
-  sommets: string[]; depart: string; topos: string[]; conditions: string; neige: string[]; recit: string; photos: number;
+  sommets: string[]; depart: string; topos: string[]; conditions: string; neige: string[]; recit: string; skiabilite?: string;
+  /** Anciennes fiches gardées : un nombre (avant les photos). */
+  photos: SkiPhoto[] | number;
 }
 const LIST_KEY = 'skitourListe';
 const SHEETS_KEY = 'skitourFiches';
@@ -90,7 +97,10 @@ function readSheets(): OutingSheet[] {
 export const savedSheet = (id: number) => readSheets().find((f) => f.id === id) ?? null;
 export async function fetchSheet(id: number, password: string): Promise<OutingSheet> {
   const f = await relayPost<OutingSheet>('skitour-sortie', { id }, password);
-  try { localStorage.setItem(SHEETS_KEY, JSON.stringify([f, ...readSheets().filter((x) => x.id !== id)].slice(0, 50))); } catch { /* stockage plein */ }
+  const kept = [f, ...readSheets().filter((x) => x.id !== id)].slice(0, 50);
+  try { localStorage.setItem(SHEETS_KEY, JSON.stringify(kept)); } catch { /* stockage plein */ }
+  // Photos gardées pour le hors ligne : celles des 50 fiches gardées, pas plus.
+  void keepPhotos(sheetPhotos(f).map((p) => p.url), password).then(() => prunePhotos(new Set(kept.flatMap((x) => sheetPhotos(x).map((p) => p.url)))));
   return f;
 }
 

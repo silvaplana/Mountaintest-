@@ -448,8 +448,25 @@ def fiche_sortie(id_: int) -> dict:
         "conditions": _texte(x.get("cond") or x.get("conditions")),
         "neige": neige,
         "recit": _texte(x.get("recit")),
-        "photos": len(x.get("photos") or []),
+        "skiabilite": _texte(x.get("skiabilite")),
+        # Photos : seulement dans la fiche de leur sortie, auteur cité (conditions de l'API skitour).
+        "photos": [{"url": urllib.parse.urljoin("https://skitour.fr/", str(ph.get("url") or "")),
+                    "legende": _texte(ph.get("com")), "auteur": (ph.get("auteur") or {}).get("pseudo", "") or (x.get("auteur") or {}).get("pseudo", "")}
+                   for ph in (x.get("photos") or []) if isinstance(ph, dict) and ph.get("url")],
     }
+
+
+PHOTO_CHEMIN = re.compile(r"^https://skitour\.fr/[\w/.%-]+\.(jpe?g|png|webp)$", re.I)
+
+
+def photo_skitour(url: str) -> tuple:
+    """Une photo de skitour.fr (pour le hors ligne de l'appli web, qui ne peut pas la lire directement : CORS)."""
+    if not PHOTO_CHEMIN.match(url) or ".." in url:
+        raise ValueError("adresse de photo refusée")
+    req = urllib.request.Request(url, headers={"User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = r.read(6_000_000)
+        return data, r.headers.get("Content-Type", "image/jpeg")
 
 
 def _nombre(v):
@@ -621,11 +638,11 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs"], "skitour": bool(SKITOUR_CLE), "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo"], "skitour": bool(SKITOUR_CLE), "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -635,6 +652,21 @@ class Relais(BaseHTTPRequestHandler):
             return self._facture()
         if chemin.endswith("/skitour"):
             return self._skitour()
+        if chemin.endswith("/skitour-photo"):
+            try:
+                d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)))
+                data, typ = photo_skitour(str(d["url"]))
+            except (ValueError, KeyError, TypeError) as ex:
+                return self._json(400, {"erreur": str(ex) or "adresse invalide"})
+            except Exception as ex:  # noqa: BLE001
+                return self._json(502, {"erreur": str(ex)})
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", typ)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         if chemin.endswith("/skitour-massifs"):
             if not SKITOUR_CLE:
                 return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
@@ -724,7 +756,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche:{id_}"
+            cle = f"fiche2:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)

@@ -81,7 +81,7 @@ export const routeLine = (r: CarRoute) =>
 
 // ---------- Relais IA ----------
 
-const relay = (path: string) => RELAIS_URL.replace(/\/randos$/, `/${path}`);
+export const relay = (path: string) => RELAIS_URL.replace(/\/randos$/, `/${path}`);
 
 /** password : un ou plusieurs mots de passe séparés par un retour à la ligne (intégré à l'APK, puis tapé) ; on essaie le suivant si refusé. */
 export async function relayPost<T>(path: string, body: unknown, password: string, signal?: AbortSignal): Promise<T> {
