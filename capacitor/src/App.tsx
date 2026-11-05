@@ -19,7 +19,10 @@ import { Expenses } from './Expenses';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
-import { rowOf, type Outing, type OutingRow } from './ski/skitour';
+import { rowOf, type Outing, type OutingRow, type TopoRow } from './ski/skitour';
+import type { SkiMode } from './SkiTabs';
+import { TopoTextPanel } from './TopoTextPanel';
+import { TopoMapPanel } from './TopoMapPanel';
 import type { CarRoute } from './travel/travel';
 import type { GeolocateControl } from 'maplibre-gl';
 import { runCameraBench, type CameraBenchResult } from './cameraBench';
@@ -98,6 +101,22 @@ export function App() {
   const [skiText, setSkiText] = useState(false);
   // Fiche d'une sortie choisie sur la carte (⛷🗺), par-dessus le panneau de la zone.
   const [skiSheet, setSkiSheet] = useState<OutingRow | null>(null);
+  // 📖 Topos : liste en texte, carte des topos (points à leur départ), topo touché sur la carte.
+  const [topoText, setTopoText] = useState(false);
+  const [topoMapOn, setTopoMapOn] = useState(false);
+  const [topos, setTopos] = useState<TopoRow[]>([]);
+  const [topoSel, setTopoSel] = useState<number | null>(null);
+  const [topoSheet, setTopoSheet] = useState<TopoRow | null>(null);
+  /** Onglets du ski : ferme les autres écrans ski (et panneaux) puis ouvre celui choisi. */
+  const skiMode = (m: SkiMode) => {
+    setTravel(false); setLodging(false); setOpen(false); setSearching(false);
+    setSkiText(false); setSkiOn(false); setSkiOutings([]); setSkiSel(null); setSkiSheet(null);
+    setTopoText(false); setTopoMapOn(false); setTopos([]); setTopoSel(null); setTopoSheet(null);
+    if (m === 'sorties') setSkiText(true);
+    else if (m === 'carte') setSkiOn(true);
+    else if (m === 'topos') setTopoText(true);
+    else setTopoMapOn(true);
+  };
   const [travelRoutes, setTravelRoutes] = useState<CarRoute[]>([]);
   const [travelSel, setTravelSel] = useState(0);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
@@ -614,7 +633,9 @@ export function App() {
         skiOutings={skiOutings} skiSel={skiSel}
         // Appui sur une sortie (point, étiquette ou parking) : on la choisit et on ouvre sa fiche texte.
         onSkiClick={(i) => setSkiSel(i)}
-        onSkiClear={() => setSkiSel(null)}
+        onSkiClear={() => { setSkiSel(null); setTopoSel(null); }}
+        topos={topos} topoSel={topoSel} onTopoClick={setTopoSel}
+        onTopoOpen={(i) => { setTopoSel(i); const t = topos[i]; if (t) setTopoSheet(t); }}
         onSkiOpen={(i) => { setSkiSel(i); const o = skiOutings[i]; if (o) setSkiSheet(rowOf(o)); }}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} top={10} />}
@@ -645,17 +666,23 @@ export function App() {
         weather={showWeather} onWeather={setShowWeather}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
-        onSkiText={() => { setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiOn(false); setSkiOutings([]); setSkiSel(null); setSkiText(true); }}
+        onSkiText={() => skiMode('sorties')}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
       {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel} hidden={!!skiSheet}
-        onSheet={(o) => setSkiSheet(rowOf(o))}
+        onSheet={(o) => setSkiSheet(rowOf(o))} onMode={skiMode}
         onClose={() => { setSkiOn(false); setSkiOutings([]); setSkiSel(null); }} />}
       {skiSheet && <SkiTextPanel key={skiSheet.id} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={skiSheet}
         onShowOnMap={(_o, at) => { setSkiSheet(null); flyTo(at); }} onClose={() => setSkiSheet(null)} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         onShowOnMap={(o, at) => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiOutings([o]); setSkiSel(0); setSkiOn(true); flyTo(at); }} onClose={() => setSkiText(false)}
-        onOpenMap={() => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiSel(null); setSkiOn(true); }} />}
+        onMode={skiMode} />}
+      {topoText && <TopoTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onMode={skiMode} onClose={() => setTopoText(false)} />}
+      {topoMapOn && map && !framing && <TopoMapPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
+        topos={topos} selected={topoSel} onTopos={setTopos} onSelect={setTopoSel} hidden={!!topoSheet}
+        onOpen={setTopoSheet} onMode={skiMode} onClose={() => { setTopoMapOn(false); setTopos([]); setTopoSel(null); }} />}
+      {topoSheet && <TopoTextPanel key={topoSheet.id} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={topoSheet}
+        onMode={(m) => { if (m === 'carteTopos') setTopoSheet(null); else skiMode(m); }} onClose={() => setTopoSheet(null)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}

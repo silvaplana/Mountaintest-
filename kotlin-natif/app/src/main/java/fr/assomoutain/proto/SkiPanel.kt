@@ -229,6 +229,8 @@ class SkiPanel(
     private val onSheet: (Outing) -> Unit = {},
     /** Sortie venue de la fiche texte (🗺 Carte) : choisie et gardée sur la carte même hors de la période choisie. */
     private val pinned: Outing? = null,
+    /** Onglets en tête du panneau (Sorties, Carte sorties, Topos, Carte topos). */
+    private val onMode: ((SkiMode) -> Unit)? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -304,6 +306,7 @@ class SkiPanel(
                 showMenu(if (menu.visibility == android.view.View.VISIBLE) menu else if (skiMenu.visibility == android.view.View.VISIBLE) skiMenu else null); refresh()
             }
         }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(4) })
+        onMode?.let { col.addView(SkiTabs.view(a, SkiMode.CARTE, it)) }
         col.addView(menu); col.addView(skiMenu)
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -341,7 +344,7 @@ class SkiPanel(
     private fun setLow(v: Boolean) {
         low = v
         lowBtn.text = if (v) "▴" else "▾"; lowBtn.contentDescription = if (v) "Agrandir le panneau" else "Réduire le panneau"
-        for (k in 4 until col.childCount) col.getChildAt(k).visibility = if (v) android.view.View.GONE else android.view.View.VISIBLE
+        for (k in (if (onMode != null) 5 else 4) until col.childCount) col.getChildAt(k).visibility = if (v) android.view.View.GONE else android.view.View.VISIBLE
         if (status.text.isEmpty()) status.visibility = android.view.View.GONE
         view.layoutParams = view.layoutParams.apply { height = -2 }
     }

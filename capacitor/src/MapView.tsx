@@ -10,7 +10,7 @@ import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
-import { outingLabel, parkingText, type Outing } from './ski/skitour';
+import { outingLabel, parkingText, topoLine, type Outing, type TopoRow } from './ski/skitour';
 import { placeLabels } from './ski/labels';
 
 /** Zoom à partir duquel on écrit les étiquettes des sorties (sommets), puis montre les parkings : de loin, des points seuls. */
@@ -56,6 +56,12 @@ export interface MapViewProps {
   onSkiOpen?: (i: number) => void;
   /** Appui ailleurs sur la carte : l'étiquette de la sortie choisie disparaît. */
   onSkiClear?: () => void;
+  /** Topos skitour.fr (carte des topos) : un point orange par topo, à son départ ; celui choisi en violet avec son étiquette. */
+  topos?: TopoRow[];
+  topoSel?: number | null;
+  onTopoClick?: (i: number) => void;
+  /** Appui sur l'étiquette du topo choisi : ouvrir sa fiche. */
+  onTopoOpen?: (i: number) => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -93,6 +99,10 @@ export function MapView(props: MapViewProps) {
   onSkiOpen.current = props.onSkiOpen;
   const onSkiClear = useRef(props.onSkiClear);
   onSkiClear.current = props.onSkiClear;
+  const onTopoClick = useRef(props.onTopoClick);
+  onTopoClick.current = props.onTopoClick;
+  const onTopoOpen = useRef(props.onTopoOpen);
+  onTopoOpen.current = props.onTopoOpen;
   const onTravelClick = useRef(props.onTravelClick);
   onTravelClick.current = props.onTravelClick;
 
@@ -111,7 +121,7 @@ export function MapView(props: MapViewProps) {
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
-          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY },
+          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
@@ -144,6 +154,7 @@ export function MapView(props: MapViewProps) {
             paint: { 'line-color': ['case', ['get', 'sel'], '#7b3fe4', '#1d6fe0'], 'line-width': ['case', ['get', 'sel'], 3, 2], 'line-dasharray': [2, 1.5], 'line-opacity': 0.85 } },
           { id: 'ski-park', type: 'circle', source: 'skiPark', filter: ['==', ['geometry-type'], 'Point'],
             paint: { 'circle-radius': ['case', ['get', 'sel'], 8, 6], 'circle-color': '#3a4a44', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
+          { id: 'topos', type: 'circle', source: 'topos', paint: { 'circle-radius': 8, 'circle-color': '#e07b00', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'ski', type: 'circle', source: 'ski', paint: { 'circle-radius': 8, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
         ],
@@ -177,8 +188,12 @@ export function MapView(props: MapViewProps) {
     // Appui ailleurs que sur un point, un parking ou une étiquette de sortie : on enlève l'étiquette.
     m.on('click', (e) => {
       if ((e.originalEvent.target as HTMLElement | null)?.closest?.('.ski-tag')) return;
-      const layers = ['ski', 'ski-park'].filter((l) => m.getLayer(l));
+      const layers = ['ski', 'ski-park', 'topos'].filter((l) => m.getLayer(l));
       if (!m.queryRenderedFeatures(e.point, { layers }).length) onSkiClear.current?.();
+    });
+    m.on('click', 'topos', (e) => {
+      const i = e.features?.[0]?.properties?.i;
+      if (i != null) onTopoClick.current?.(Number(i));
     });
     m.on('click', 'ski', (e) => {
       const i = e.features?.[0]?.properties?.i;
@@ -375,6 +390,27 @@ export function MapView(props: MapViewProps) {
     requestAnimationFrame(layout);
     return () => { m.off('moveend', layout); };
   }, [props.skiOutings, props.skiSel, ready]);
+
+  // Topos : points (départs), le choisi en violet avec une étiquette « nom / ski, D+, orientation » qui ouvre la fiche.
+  const topoMarker = useRef<maplibregl.Marker | null>(null);
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    const sel = props.topoSel ?? -1;
+    (m.getSource('topos') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.topos ?? []).flatMap((t, i) =>
+      t.depart?.lat != null && t.depart.lon != null ? [{ type: 'Feature' as const, properties: { i }, geometry: { type: 'Point' as const, coordinates: [t.depart.lon, t.depart.lat] } }] : []) });
+    m.setPaintProperty('topos', 'circle-color', ['case', ['==', ['get', 'i'], sel], '#7b3fe4', '#e07b00']);
+    m.setPaintProperty('topos', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
+    topoMarker.current?.remove(); topoMarker.current = null;
+    const t = props.topos?.[sel];
+    if (t?.depart?.lat != null && t.depart.lon != null) {
+      const el = document.createElement('div');
+      el.className = 'ski-tag sel topo-tag';
+      el.textContent = `${t.nom}\n${topoLine(t)}`;
+      el.onclick = () => onTopoOpen.current?.(sel);
+      topoMarker.current = new maplibregl.Marker({ element: el, anchor: 'top-left', offset: [13, -8] }).setLngLat([t.depart.lon, t.depart.lat]).addTo(m);
+    }
+  }, [props.topos, props.topoSel, ready]);
 
   const slopeMarkers = useRef<maplibregl.Marker[]>([]);
   useEffect(() => {
