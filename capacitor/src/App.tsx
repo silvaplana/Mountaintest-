@@ -190,16 +190,6 @@ export function App() {
   const [map, setMap] = useState<MlMap | null>(null);
   /** Centre la carte sur un point (départ ou sommet d'une sortie), après le cadrage automatique de la sortie. */
   const flyTo = (at?: [number, number]) => { if (at) window.setTimeout(() => map?.flyTo({ center: at, zoom: Math.max(map.getZoom(), 14) }), 700); };
-  // Hauteur du menu du bas : la barre d'échelle se pose juste au-dessus.
-  const sheetRef = useRef<HTMLElement>(null);
-  const [sheetH, setSheetH] = useState(0);
-  useEffect(() => {
-    const el = sheetRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setSheetH(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [nature]);
   const [camBench, setCamBench] = useState<CameraBenchResult | 'running' | null>(null);
 
   useEffect(() => {
@@ -572,7 +562,7 @@ export function App() {
         onSkiClick={(i) => setSkiSel(i)}
         onSkiOpen={(i) => { setSkiSel(i); const o = skiOutings[i]; if (o) setSkiSheet(rowOf(o)); }}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
-      {map && <ScaleBar map={map} bottom={nature ? 34 : sheetH + 8} />}
+      {map && <ScaleBar map={map} top={10} />}
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
@@ -635,7 +625,7 @@ export function App() {
         </div>
       )}
 
-      <section ref={sheetRef} className={`sheet ${open ? 'open' : ''}`}>
+      <section className={`sheet ${open ? 'open' : ''}`}>
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
           <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>

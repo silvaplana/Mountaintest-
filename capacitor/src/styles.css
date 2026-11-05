@@ -389,7 +389,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-tag .park-p { background: #1d6fe0; color: #fff; border-radius: 3px; padding: 0 4px; font-weight: 700; }
 .ski-stars { color: #c9a800; }
 
-/* Barre d'échelle (2 km, 5 km…) : en bas à gauche, visible aussi en mode nature */
+/* Barre d'échelle (2 km, 5 km…) : toujours en haut à gauche, visible aussi en mode nature */
 .scale-bar {
   position: absolute; left: 10px; z-index: 2; pointer-events: none;
   display: flex; flex-direction: column; align-items: flex-start; font-size: 12px; font-weight: 600; color: #1d2421;

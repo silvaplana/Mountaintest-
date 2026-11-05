@@ -433,9 +433,9 @@ class MainActivity : AppCompatActivity() {
         val targetTop = (10 * resources.displayMetrics.density).toInt()
         val sheet = findViewById<View>(R.id.sheet)
         val margin = (10 * resources.displayMetrics.density).toInt()
-        // Le menu du bas change de hauteur (onglet ouvert/fermé) : la barre d'échelle suit.
-        sheet.addOnLayoutChangeListener { v, _, top, _, bottom, _, oldTop, _, oldBottom ->
-            if (bottom - top != oldBottom - oldTop) v.post { placeScaleBar() }
+        // La barre du haut (fond de carte) bouge ou change de taille : la barre d'échelle reste juste dessous.
+        findViewById<View>(R.id.topBar).addOnLayoutChangeListener { v, _, _, _, bottom, _, _, _, oldBottom ->
+            if (bottom != oldBottom) v.post { placeScaleBar() }
         }
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -880,13 +880,15 @@ class MainActivity : AppCompatActivity() {
         placeScaleBar()
     }
 
-    /** Barre d'échelle juste au-dessus du menu du bas (ou de la barre de gestes en mode nature). */
+    /** Barre d'échelle toujours en haut à gauche (sous la barre du fond de carte quand elle est affichée) :
+     *  jamais cachée par un panneau du bas. */
     private fun placeScaleBar() {
-        val sheet = findViewById<View>(R.id.sheet)
-        val gap = (8 * resources.displayMetrics.density).toInt()
-        val b = if (sheet.visibility == View.VISIBLE) sheet.height + gap else navBottom + 3 * gap + gap / 2
+        val bar = findViewById<View>(R.id.topBar)
+        val d = resources.displayMetrics.density
+        val t = if (bar.visibility == View.VISIBLE) (if (bar.bottom > 0) bar.bottom else navTop + (60 * d).toInt()) + (6 * d).toInt()
+            else navTop + (10 * d).toInt()
         findViewById<View>(R.id.scaleBar).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
-            if (bottomMargin != b) bottomMargin = b
+            if (topMargin != t) topMargin = t
         }
     }
 
