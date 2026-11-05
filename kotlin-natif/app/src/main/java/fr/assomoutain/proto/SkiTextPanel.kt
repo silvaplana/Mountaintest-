@@ -199,6 +199,8 @@ class SkiTextPanel(
     private val onClose: () -> Unit,
     /** Fiche à ouvrir tout de suite (sortie touchée sur la carte) ; ✕ ferme alors le panneau, ▾ le réduit. */
     private val start: OutingRow? = null,
+    /** 🗺 à droite du titre « Sorties ski » : recherche des sorties sur la carte (écran affiché). */
+    private val onOpenMap: (() -> Unit)? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -279,7 +281,12 @@ class SkiTextPanel(
 
     private fun showList() {
         col.removeAllViews()
-        col.addView(header(text("⛷💬 Sorties ski de rando", 16f, ink, true)))
+        col.addView(header(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(text("⛷ Sorties ski", 16f, ink, true))
+            onOpenMap?.let { go -> addView(Button(a).apply { text = "🗺"; contentDescription = "Sorties ski sur la carte"; setOnClickListener { go() } },
+                LinearLayout.LayoutParams(dp(52), dp(44)).apply { leftMargin = dp(10) }) }
+        }))
         val spin = Spinner(a).apply {
             adapter = ArrayAdapter(a, android.R.layout.simple_spinner_dropdown_item, periods.map { it.second })
             setSelection(periods.indexOfFirst { it.first == prefs.getInt("skitourTexteJours", 14) }.coerceAtLeast(0))

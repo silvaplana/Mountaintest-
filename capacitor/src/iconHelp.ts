@@ -18,7 +18,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   slopes: { title: '⛰ Pentes', text: 'Carte IGN des pentes :' },
   shade: { title: '🌗 Ombres', text: 'Ombres du soleil heure par heure.' },
   ski: { title: '⛷🗺 Sorties ski', text: 'Sorties skitour.fr sur la carte.' },
-  skiText: { title: '⛷💬 Question ski', text: 'Question sur les sorties skitour.fr.' },
+  skiText: { title: '⛷ Sorties ski', text: 'Sorties skitour.fr ; 🗺 : sur la carte.' },
   weatherMountain: { title: '🏔 Météo montagne', text: 'Météo-France montagne.' },
   travel: { title: '🚗 Voyage en voiture', text: 'Km, coût, péages.' },
   lodging: { title: '🏨 Hébergement', text: 'Meilleurs prix (IA).' },
