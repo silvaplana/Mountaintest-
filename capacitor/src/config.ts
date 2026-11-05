@@ -11,11 +11,11 @@ export const DISPLAY_MAX_ZOOM = 18;
 
 /**
  * Carte « Auto » (même réglage que le prototype Kotlin, Scenario.kt) : Plan IGN de loin,
- * SCAN 25 de près, fondu entre les zooms 13 et 14.
- * Hors ligne en Auto : Plan IGN z10-13 + SCAN 25 z13-16.
+ * SCAN 25 de près, fondu entre les zooms 12 et 13 (SCAN 25 plein dès le zoom 13, barre d’échelle « 500 m »).
+ * Hors ligne en Auto : Plan IGN z10-12 + SCAN 25 z12-16.
  */
-export const AUTO_SCAN_FROM = 13;
-export const AUTO_PLAN_UNTIL = 14;
+export const AUTO_SCAN_FROM = 12;
+export const AUTO_PLAN_UNTIL = 13;
 export type BaseMode = 'auto' | 'scan25' | 'planign';
 export const BASE_MODES: Record<BaseMode, string> = {
   auto: 'Carte auto',
