@@ -13,6 +13,10 @@ import type { CarRoute } from './travel/travel';
 import { outingLabel, parkingText, uniqueParkings, type Outing } from './ski/skitour';
 import { placeLabels } from './ski/labels';
 
+/** Zoom à partir duquel on écrit les étiquettes des sorties (sommets), puis montre les parkings : de loin, des points seuls. */
+const SKI_TAG_ZOOM = 12;
+const SKI_PARK_ZOOM = 13;
+
 export interface MapViewProps {
   baseLayer: BaseMode;
   showSlopes: boolean;
@@ -125,9 +129,9 @@ export function MapView(props: MapViewProps) {
           { id: 'travel', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 6, 3], 'line-opacity': ['case', ['get', 'sel'], 1, 0.6] } },
           { id: 'travel-hit', type: 'line', source: 'travel', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
           // Trait sommet ↔ parking et parking (point gris foncé), sous les points des sommets.
-          { id: 'ski-link', type: 'line', source: 'skiPark', filter: ['==', ['geometry-type'], 'LineString'],
+          { id: 'ski-link', type: 'line', source: 'skiPark', minzoom: SKI_PARK_ZOOM, filter: ['==', ['geometry-type'], 'LineString'],
             paint: { 'line-color': ['case', ['get', 'sel'], '#7b3fe4', '#1d6fe0'], 'line-width': ['case', ['get', 'sel'], 3, 2], 'line-dasharray': [2, 1.5], 'line-opacity': 0.85 } },
-          { id: 'ski-park', type: 'circle', source: 'skiPark', filter: ['==', ['geometry-type'], 'Point'],
+          { id: 'ski-park', type: 'circle', source: 'skiPark', minzoom: SKI_PARK_ZOOM, filter: ['==', ['geometry-type'], 'Point'],
             paint: { 'circle-radius': ['case', ['get', 'sel'], 8, 6], 'circle-color': '#3a4a44', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'ski', type: 'circle', source: 'ski', paint: { 'circle-radius': 8, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
@@ -315,10 +319,10 @@ export function MapView(props: MapViewProps) {
     skiMarkers.current = [];
     if (!m) return;
     // Étiquettes posées en haut à gauche, décalées par placeLabels pour éviter les chevauchements (sortie choisie d'abord).
-    const tags: { mk: maplibregl.Marker; el: HTMLElement; ll: [number, number]; sel: boolean }[] = [];
+    const tags: { mk: maplibregl.Marker; el: HTMLElement; ll: [number, number]; sel: boolean; park?: boolean }[] = [];
     const add = (el: HTMLElement, ll: [number, number], sel: boolean) => {
       const mk = new maplibregl.Marker({ element: el, anchor: 'top-left', offset: [13, -8] }).setLngLat(ll).addTo(m);
-      skiMarkers.current.push(mk); tags.push({ mk, el, ll, sel });
+      skiMarkers.current.push(mk); tags.push({ mk, el, ll, sel, park: el.classList.contains('park') });
     };
     (props.skiOutings ?? []).forEach((o, i) => {
       const el = document.createElement('div');
@@ -339,15 +343,21 @@ export function MapView(props: MapViewProps) {
     });
     const order = [...tags.filter((t) => t.sel), ...tags.filter((t) => !t.sel)];
     const layout = () => {
-      if (m.getZoom() < 9 || !order.length) return;
-      const pts = order.map((t) => m.project(t.ll));
+      if (m.getZoom() < SKI_TAG_ZOOM || !order.length) return;
+      // Parkings : seulement de plus près ; on ne place que les étiquettes visibles.
+      const shown = m.getZoom() >= SKI_PARK_ZOOM ? order : order.filter((t) => !t.park);
+      const pts = shown.map((t) => m.project(t.ll));
       const c = m.getContainer();
       // Écran sans la colonne d'icônes de droite (≈ 70 px).
-      const offs = placeLabels(order.map((t, n) => ({ x: pts[n].x, y: pts[n].y, w: t.el.offsetWidth, h: t.el.offsetHeight })), pts,
+      const offs = placeLabels(shown.map((t, n) => ({ x: pts[n].x, y: pts[n].y, w: t.el.offsetWidth, h: t.el.offsetHeight })), pts,
         { w: c.clientWidth - 70, h: c.clientHeight });
-      order.forEach((t, n) => t.mk.setOffset(offs[n]));
+      shown.forEach((t, n) => t.mk.setOffset(offs[n]));
     };
-    const zoom = () => m.getContainer().classList.toggle('ski-tags-off', m.getZoom() < 9);
+    // De loin, seulement les points : étiquettes des sommets à partir du zoom 12, parkings (point, trait, nom) à partir de 13.
+    const zoom = () => {
+      m.getContainer().classList.toggle('ski-tags-off', m.getZoom() < SKI_TAG_ZOOM);
+      m.getContainer().classList.toggle('ski-park-off', m.getZoom() < SKI_PARK_ZOOM);
+    };
     zoom(); m.on('zoom', zoom);
     m.on('moveend', layout);
     requestAnimationFrame(layout);

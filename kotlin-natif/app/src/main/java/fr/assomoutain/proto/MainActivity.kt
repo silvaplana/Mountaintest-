@@ -498,7 +498,8 @@ class MainActivity : AppCompatActivity() {
             style.addLayer(LineLayer("ski-link", SRC_SKI_PARK).withProperties(
                 lineColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
                 lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(3f), Expression.literal(2f))),
-                lineDasharray(arrayOf(2f, 1.5f)), lineOpacity(0.85f)).apply { setFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString"))) })
+                lineDasharray(arrayOf(2f, 1.5f)), lineOpacity(0.85f)).apply {
+                minZoom = SKI_PARK_ZOOM; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString"))) })
             // Étiquettes posées par leur coin haut-gauche, décalées par SkiLabels (propriété "off") pour éviter les chevauchements.
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-park-tags", SRC_SKI_PARK).withProperties(
                 org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
@@ -506,11 +507,11 @@ class MainActivity : AppCompatActivity() {
                 org.maplibre.android.style.layers.PropertyFactory.iconOffset(Expression.get("off")),
                 org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
                 org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply {
-                minZoom = 9f; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
+                minZoom = SKI_PARK_ZOOM; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
             style.addLayer(CircleLayer(LAYER_SKI_PARK, SRC_SKI_PARK).withProperties(
                 circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(8f), Expression.literal(6f))),
                 circleColor("#3a4a44"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)).apply {
-                setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
+                minZoom = SKI_PARK_ZOOM; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
             style.addSource(GeoJsonSource(SRC_SKI))
             // Étiquette de chaque sortie à droite de son point : nom, étoiles, skiabilité (image dessinée par skiTagBitmap).
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-tags", SRC_SKI).withProperties(
@@ -518,7 +519,7 @@ class MainActivity : AppCompatActivity() {
                 org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_TOP_LEFT),
                 org.maplibre.android.style.layers.PropertyFactory.iconOffset(Expression.get("off")),
                 org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
-                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply { minZoom = 9f })
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply { minZoom = SKI_TAG_ZOOM })
             style.addLayer(CircleLayer(LAYER_SKI, SRC_SKI).withProperties(
                 circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(11f), Expression.literal(8f))),
                 circleColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
@@ -1269,10 +1270,11 @@ class MainActivity : AppCompatActivity() {
     /** Place les étiquettes des sorties pour qu'elles se chevauchent le moins possible (SkiLabels), à l'arrêt de la carte. */
     private fun layoutSkiTags() {
         val m = map ?: return
-        if (skiOutings.isEmpty() || m.cameraPosition.zoom < 9) return
+        if (skiOutings.isEmpty() || m.cameraPosition.zoom < SKI_TAG_ZOOM) return
         val dens = resources.displayMetrics.density
-        // Sommet et parking de la sortie choisie d'abord, puis les autres.
-        val parks = uniqueParkings(skiOutings, skiSel).associate { (i, p, _) -> "p$i" to p }
+        // Sommet et parking de la sortie choisie d'abord, puis les autres ; parkings seulement de plus près (visibles).
+        val parks = if (m.cameraPosition.zoom < SKI_PARK_ZOOM) emptyMap()
+            else uniqueParkings(skiOutings, skiSel).associate { (i, p, _) -> "p$i" to p }
         val keys = skiOutings.indices.sortedBy { if (it == skiSel) 0 else 1 }.flatMap { i ->
             listOfNotNull("s$i", if (parks.containsKey("p$i")) "p$i" else null) }
         val pts = keys.map { k ->
@@ -2191,6 +2193,9 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_SKI_PARK = "ski-park-src"
         private const val LAYER_SKI_PARK = "ski-park"
         private const val LAYER_SKI = "ski"
+        /** De loin, des points seuls : étiquettes des sommets à partir du zoom 12, parkings (point, trait, nom) à partir de 13. */
+        private const val SKI_TAG_ZOOM = 12f
+        private const val SKI_PARK_ZOOM = 13f
         private const val LAYER_TRAVEL = "travel"
         private const val LAYER_WEB_HIKES = "web-hikes"
         private const val LAYER_SLOPES = "slopes"
