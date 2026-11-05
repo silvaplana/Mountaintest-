@@ -1,8 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, savedSheet, shortDate,
-  type Massif, type Outing, type OutingRow, type OutingSheet, type SavedList } from './ski/skitour';
+import { fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
+  type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList } from './ski/skitour';
 
 import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
+import { storedPhoto } from './ski/photoStore';
+
+/** Une photo : la copie gardée sur le téléphone si elle existe, sinon celle de skitour.fr. */
+function Photo({ p, onOpen }: { p: SkiPhoto; onOpen?: () => void }) {
+  const [src, setSrc] = useState(p.url);
+  useEffect(() => {
+    let url: string | null = null, live = true;
+    void storedPhoto(p.url).then((u) => { url = u; if (live && u) setSrc(u); });
+    return () => { live = false; if (url) URL.revokeObjectURL(url); };
+  }, [p.url]);
+  return <img src={src} alt={p.legende || `Photo de ${p.auteur}`} loading="lazy" onClick={onOpen} />;
+}
 
 /**
  * ⛷💬 : sorties skitour.fr en texte, comme sur le site : tableau date / titre / auteurs, puis la fiche
@@ -20,6 +32,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
   const [sheet, setSheet] = useState<OutingSheet | null>(null);
   const [sheetRow, setSheetRow] = useState<OutingRow | null>(null);
   const [sheetMsg, setSheetMsg] = useState('');
+  const [big, setBig] = useState<number | null>(null);
   // Massifs choisis (vide = tous), retenus d'une fois sur l'autre, comme la disquette du site.
   const [massifs, setMassifs] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('skitourMassifs') ?? '[]'); } catch { return []; } });
   const [picking, setPicking] = useState(false);
@@ -72,10 +85,12 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
       ['Sommet', f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
       ['Topo', f?.topos.join(', ') ?? ''], ['Orientation', o.orientation],
       ['Dénivelé', o.denivele ? `${o.denivele} m` : ''], ['Ski', o.dif_ski ? String(o.dif_ski) : ''],
+      ['Skiabilité', f?.skiabilite ?? ''],
     ];
+    const photos = sheetPhotos(f);
     return (
       <div className="ski-page">
-        <div className="travel-head"><button onClick={() => { setSheetRow(null); setSheet(null); }}>← Liste</button>
+        <div className="travel-head"><button onClick={() => { setSheetRow(null); setSheet(null); setBig(null); }}>← Liste</button>
           <button onClick={onClose} aria-label="Fermer">✕</button></div>
         <h2>{o.titre}</h2>
         <p className="hint">Sortie du {new Date(o.date * 1000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · par {o.auteurs}</p>
@@ -84,8 +99,19 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
         {f?.conditions && <><h3>❄ Conditions nivologiques, accès et météo</h3><p className="ski-text">{f.conditions}</p></>}
         {f && f.neige.length > 0 && <><h3>Neige observée</h3><ul className="ski-text">{f.neige.map((n, i) => <li key={i}>{n}</li>)}</ul></>}
         {f?.recit && <><h3>Récit</h3><p className="ski-text">{f.recit}</p></>}
+        {photos.length > 0 && <><h3>Photos</h3>
+          <div className="ski-photos">{photos.map((p, i) => <figure key={p.url}><Photo p={p} onOpen={() => setBig(i)} /><figcaption>© {p.auteur}</figcaption></figure>)}</div></>}
+        {big != null && photos[big] && <div className="ski-big" onClick={() => setBig(null)}>
+          <Photo p={photos[big]} />
+          <p>{photos[big].legende}{photos[big].legende ? ' · ' : ''}© {photos[big].auteur} · skitour.fr</p>
+          <div className="row">
+            <button disabled={big === 0} onClick={(e) => { e.stopPropagation(); setBig(big - 1); }}>‹</button>
+            <span>{big + 1} / {photos.length}</span>
+            <button disabled={big === photos.length - 1} onClick={(e) => { e.stopPropagation(); setBig(big + 1); }}>›</button>
+          </div>
+        </div>}
         <div className="row">
-          <button className="primary" onClick={() => window.open(o.url, '_system')}>Voir sur skitour.fr{f?.photos ? ` (${f.photos} photo${f.photos > 1 ? 's' : ''})` : ''}</button>
+          <button className="primary" onClick={() => window.open(o.url, '_system')}>Voir sur skitour.fr</button>
           {o.lat != null && o.lon != null && <button onClick={() => onShowOnMap({ ...o, lat: o.lat!, lon: o.lon!, auteur: o.auteurs, conditions: f?.conditions ?? '' })}>Sur la carte</button>}
         </div>
         <p className="hint">Texte de {o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié.</p>

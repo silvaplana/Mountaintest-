@@ -37,7 +37,50 @@ data class OutingRow(val id: Long, val titre: String, val date: Long, val massif
 
 /** La fiche d'une sortie (même modèle que OutingSheet). */
 class OutingSheet(val row: OutingRow, val sommets: List<String>, val depart: String, val topos: List<String>,
-                  val conditions: String, val neige: List<String>, val recit: String, val photos: Int)
+                  val conditions: String, val neige: List<String>, val recit: String, val skiabilite: String, val photos: List<SkiPhoto>)
+
+/** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
+data class SkiPhoto(val url: String, val legende: String, val auteur: String)
+
+/**
+ * Photos des fiches : chaque photo vue est gardée en taille réduite (1024 px, JPEG) dans filesDir/skitour-photos,
+ * ce qui la rend lisible hors ligne ; on ne garde que celles des 50 fiches gardées. Même rôle que src/ski/photoStore.ts.
+ */
+object SkiPhotos {
+    private const val MAX_PX = 1024
+    private fun dir(c: android.content.Context) = java.io.File(c.filesDir, "skitour-photos").apply { mkdirs() }
+    private fun name(url: String) = java.security.MessageDigest.getInstance("SHA-1").digest(url.toByteArray())
+        .joinToString("") { "%02x".format(it) } + ".jpg"
+
+    /** La photo (gardée, sinon téléchargée puis gardée), ou null sans réseau. À appeler hors du fil principal. */
+    fun load(c: android.content.Context, url: String): android.graphics.Bitmap? {
+        val f = java.io.File(dir(c), name(url))
+        if (!f.exists()) runCatching {
+            val bytes = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).run {
+                connectTimeout = 15_000; readTimeout = 30_000; setRequestProperty("User-Agent", "Assomoutain")
+                inputStream.use { it.readBytes() }
+            }
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_PX) sample *= 2
+            val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size,
+                android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+            val k = minOf(1f, MAX_PX.toFloat() / maxOf(bmp.width, bmp.height))
+            val small = if (k < 1f) android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * k).toInt(), (bmp.height * k).toInt(), true) else bmp
+            val tmp = java.io.File(f.path + ".tmp")
+            tmp.outputStream().use { small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 75, it) }
+            tmp.renameTo(f)
+        }
+        return if (f.exists()) android.graphics.BitmapFactory.decodeFile(f.path) else null
+    }
+
+    /** Retire les photos qui n'appartiennent plus à une fiche gardée. */
+    fun prune(c: android.content.Context, keep: Collection<String>) {
+        val names = keep.map { name(it) }.toSet()
+        dir(c).listFiles()?.forEach { if (it.name !in names) it.delete() }
+    }
+}
 
 /**
  * Sorties en texte (⛷💬) : liste façon skitour.fr puis fiche, via le relais (/skitour-liste, /skitour-sortie).
@@ -53,7 +96,16 @@ object SkiText {
         if (o.isNull("dif_ski")) "" else o.optString("dif_ski"), o.optString("orientation"), o.optString("auteurs"), o.optString("url"))
 
     fun sheet(o: JSONObject) = OutingSheet(row(o), strs(o.optJSONArray("sommets")), o.optString("depart"), strs(o.optJSONArray("topos")),
-        o.optString("conditions"), strs(o.optJSONArray("neige")), o.optString("recit"), o.optInt("photos"))
+        o.optString("conditions"), strs(o.optJSONArray("neige")), o.optString("recit"), o.optString("skiabilite"),
+        // Anciennes fiches gardées : « photos » était un nombre.
+        o.optJSONArray("photos")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }
+            .map { SkiPhoto(it.optString("url"), it.optString("legende"), it.optString("auteur")) }.filter { it.url.isNotEmpty() } } ?: emptyList())
+
+    /** Adresses des photos de toutes les fiches gardées (pour SkiPhotos.prune). */
+    fun keptPhotoUrls(f: java.io.File): List<String> {
+        val a = readSheets(f)
+        return (0 until a.length()).flatMap { sheet(a.getJSONObject(it)).photos.map { p -> p.url } }
+    }
 
     /** (jours, date de la liste en ms, sorties) */
     fun readList(f: java.io.File): Triple<Int, Long, List<OutingRow>>? = runCatching {
@@ -303,13 +355,56 @@ class SkiTextPanel(
         renderSheet(o, saved, if (saved == null) "Chargement de la sortie…" else "")
         job = a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { SkiText.fetchSheet(sheetsFile, o.id, password) } }
-                .onSuccess { renderSheet(o, it, "") }
+                .onSuccess {
+                    renderSheet(o, it, "")
+                    withContext(Dispatchers.IO) { runCatching { SkiPhotos.prune(a, SkiText.keptPhotoUrls(sheetsFile)) } }
+                }
                 .onFailure { e ->
                     if (e is kotlinx.coroutines.CancellationException) return@onFailure
                     renderSheet(o, saved, if (saved != null) "📴 Hors ligne : fiche gardée sur le téléphone."
                         else "Fiche impossible : ${if (e is java.io.IOException) "pas de réseau" else e.message}")
                 }
         }
+    }
+
+    /** Vignette : la photo (gardée ou téléchargée), avec l'auteur en bas. */
+    private fun photoTile(ph: SkiPhoto, onClick: () -> Unit) = FrameLayout(a).apply {
+        val img = android.widget.ImageView(a).apply { scaleType = android.widget.ImageView.ScaleType.CENTER_CROP; setBackgroundColor(Color.parseColor("#DDDDDD")) }
+        addView(img, FrameLayout.LayoutParams(-1, -1))
+        addView(text("© ${ph.auteur}", 11f, Color.WHITE).apply { setBackgroundColor(Color.parseColor("#88000000")); setPadding(dp(5), dp(1), dp(5), dp(1)) },
+            FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(4), 0, 0, dp(4)) })
+        setOnClickListener { onClick() }
+        a.lifecycleScope.launch { withContext(Dispatchers.IO) { SkiPhotos.load(a, ph.url) }?.let { img.setImageBitmap(it) } }
+    }
+
+    /** Photo en grand (fond noir), légende et auteur, ‹ › pour passer à la suivante ; toucher la photo ferme. */
+    private fun showPhoto(list: List<SkiPhoto>, start: Int) {
+        val dlg = android.app.Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        var i = start
+        val img = android.widget.ImageView(a).apply { scaleType = android.widget.ImageView.ScaleType.FIT_CENTER; setOnClickListener { dlg.dismiss() } }
+        val cap = text("", 14f, Color.WHITE).apply { gravity = Gravity.CENTER }
+        val count = text("", 14f, Color.WHITE)
+        val prev = Button(a).apply { text = "‹" }
+        val next = Button(a).apply { text = "›" }
+        fun show() {
+            val ph = list[i]
+            cap.text = listOf(ph.legende, "© ${ph.auteur} · skitour.fr").filter { it.isNotBlank() }.joinToString(" · ")
+            count.text = "${i + 1} / ${list.size}"; prev.isEnabled = i > 0; next.isEnabled = i < list.size - 1
+            img.setImageDrawable(null)
+            a.lifecycleScope.launch { withContext(Dispatchers.IO) { SkiPhotos.load(a, ph.url) }?.let { if (list[i] == ph) img.setImageBitmap(it) } }
+        }
+        prev.setOnClickListener { if (i > 0) { i--; show() } }
+        next.setOnClickListener { if (i < list.size - 1) { i++; show() } }
+        dlg.setContentView(LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setBackgroundColor(Color.BLACK); setPadding(dp(12), dp(12), dp(12), dp(12))
+            addView(img, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(cap, LinearLayout.LayoutParams(-1, -2))
+            addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER
+                addView(prev); addView(count.apply { setPadding(dp(16), 0, dp(16), 0) }); addView(next)
+            }, LinearLayout.LayoutParams(-1, -2))
+        })
+        show(); dlg.show()
     }
 
     private fun renderSheet(row: OutingRow, f: OutingSheet?, msg: String) {
@@ -326,7 +421,7 @@ class SkiTextPanel(
             "Massif" to o.massif, "Départ" to (f?.depart ?: ""),
             "Sommet" to (f?.sommets?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: (o.sommet + (o.altitude?.let { " ($it m)" } ?: ""))),
             "Topo" to (f?.topos?.joinToString(", ") ?: ""), "Orientation" to o.orientation,
-            "Dénivelé" to (o.denivele?.let { "$it m" } ?: ""), "Ski" to o.difSki,
+            "Dénivelé" to (o.denivele?.let { "$it m" } ?: ""), "Ski" to o.difSki, "Skiabilité" to (f?.skiabilite ?: ""),
         ).filter { it.second.isNotEmpty() }
         col.addView(box().apply {
             info.forEach { (k, v) ->
@@ -345,11 +440,23 @@ class SkiTextPanel(
             section("❄ Conditions nivologiques, accès et météo", f.conditions)
             section("Neige observée", f.neige.joinToString("\n") { "• $it" })
             section("Récit", f.recit)
+            if (f.photos.isNotEmpty()) {
+                col.addView(text("Photos", 16f, accent, true).apply { setPadding(0, dp(12), 0, dp(2)) })
+                f.photos.chunked(2).forEachIndexed { r, pair ->
+                    col.addView(LinearLayout(a).apply {
+                        pair.forEachIndexed { c, ph ->
+                            addView(photoTile(ph) { showPhoto(f.photos, r * 2 + c) },
+                                LinearLayout.LayoutParams(0, dp(200), 1f).apply { if (c == 0) marginEnd = dp(6) })
+                        }
+                        if (pair.size == 1) addView(android.view.View(a), LinearLayout.LayoutParams(0, dp(200), 1f))
+                    }, lp())
+                }
+            }
         }
         col.addView(LinearLayout(a).apply {
             setPadding(0, dp(10), 0, 0)
             addView(Button(a).apply {
-                text = "Voir sur skitour.fr" + if ((f?.photos ?: 0) > 0) " (${f!!.photos} photo${if (f.photos > 1) "s" else ""})" else ""
+                text = "Voir sur skitour.fr"
                 setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(o.url))) } }
             }, LinearLayout.LayoutParams(0, -2, 1f))
             if (o.lat != null && o.lon != null) addView(Button(a).apply {
