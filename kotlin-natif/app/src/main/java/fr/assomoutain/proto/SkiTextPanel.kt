@@ -38,7 +38,15 @@ data class OutingRow(val id: Long, val titre: String, val date: Long, val massif
 
 /** La fiche d'une sortie (même modèle que OutingSheet). */
 class OutingSheet(val row: OutingRow, val sommets: List<String>, val depart: String, val topos: List<String>,
-                  val conditions: String, val neige: List<String>, val recit: String, val skiabilite: String, val photos: List<SkiPhoto>)
+                  val conditions: String, val neige: List<String>, val recit: String, val skiabilite: String, val photos: List<SkiPhoto>,
+                  val links: SheetLinks? = null, val exposition: String = "")
+
+/** Lien de la fiche vers la page skitour.fr du départ, d'un topo ou d'un sommet (et son point pour la carte). Même modèle que SheetLink. */
+data class SheetLink(val nom: String, val url: String, val altitude: Int? = null, val lat: Double? = null, val lon: Double? = null) {
+    /** « Val Thorens (2300 m) » */
+    fun text() = nom + (altitude?.let { " ($it m)" } ?: "")
+}
+class SheetLinks(val depart: SheetLink?, val topos: List<SheetLink>, val sommets: List<SheetLink>)
 
 /** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
 data class SkiPhoto(val url: String, val legende: String, val auteur: String)
@@ -101,7 +109,12 @@ object SkiText {
         o.optString("conditions"), strs(o.optJSONArray("neige")), o.optString("recit"), o.optString("skiabilite"),
         // Anciennes fiches gardées : « photos » était un nombre.
         o.optJSONArray("photos")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }
-            .map { SkiPhoto(it.optString("url"), it.optString("legende"), it.optString("auteur")) }.filter { it.url.isNotEmpty() } } ?: emptyList())
+            .map { SkiPhoto(it.optString("url"), it.optString("legende"), it.optString("auteur")) }.filter { it.url.isNotEmpty() } } ?: emptyList(),
+        o.optJSONObject("liens")?.let { l -> SheetLinks(l.optJSONObject("depart")?.let { link(it) }, links(l.optJSONArray("topos")), links(l.optJSONArray("sommets"))) },
+        o.optString("exposition"))
+
+    private fun link(o: JSONObject) = SheetLink(o.optString("nom"), o.optString("url"), intOrNull(o, "altitude"), dblOrNull(o, "lat"), dblOrNull(o, "lon"))
+    private fun links(a: JSONArray?) = if (a == null) emptyList() else (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { link(it) }
 
     /** Adresses des photos de toutes les fiches gardées (pour SkiPhotos.prune). */
     fun keptPhotoUrls(f: java.io.File): List<String> {
@@ -183,6 +196,8 @@ class SkiTextPanel(
     private val password: String,
     private val onShowOnMap: (Outing) -> Unit,
     private val onClose: () -> Unit,
+    /** Fiche à ouvrir tout de suite (sortie choisie sur la carte) ; « ← Carte » ferme alors le panneau. */
+    private val start: OutingRow? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -234,7 +249,7 @@ class SkiTextPanel(
     private var note = ""
 
     init {
-        showList()
+        if (start != null) openSheet(start) else showList()
         a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { SkiText.fetchMassifs(massifsFile, password) } }.onSuccess { if (it.isNotEmpty()) allMassifs = it }
         }
@@ -414,23 +429,59 @@ class SkiTextPanel(
         val o = f?.row ?: row
         col.removeAllViews()
         col.addView(header(LinearLayout(a).apply {
-            addView(Button(a).apply { text = "← Liste"; setOnClickListener { job?.cancel(); showList() } })
+            addView(Button(a).apply {
+                text = if (start != null) "← Carte" else "← Liste"
+                setOnClickListener { job?.cancel(); if (start != null) onClose() else showList() }
+            })
         }))
-        col.addView(text(o.titre, 20f, ink, true))
-        col.addView(text("Sortie du " + Instant.ofEpochSecond(o.date).atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRANCE)) + " · par ${o.auteurs}"))
+        val toMap = {
+            if (o.lat != null && o.lon != null) onShowOnMap(Outing(o.id, o.titre, o.date, o.massif, o.sommet, o.altitude, o.lat, o.lon, o.denivele, o.difSki,
+                o.orientation, f?.conditions ?: "", o.auteurs, o.url, o.skiabilite, o.etoiles, o.parking))
+        }
+        // En-tête façon skitour.fr : titre et étoiles dans un cadre, puis date et auteurs.
+        col.addView(box().apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            addView(text(o.titre, 20f, ink, true).apply { gravity = Gravity.CENTER })
+            o.etoiles?.takeIf { it > 0 }?.let { addView(text("★".repeat(it), 22f, Color.parseColor("#C9A800")).apply { gravity = Gravity.CENTER }) }
+        }, lp())
+        col.addView(text("📅 Sortie du " + Instant.ofEpochSecond(o.date).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRANCE)), 14f, ink))
+        col.addView(text("👤 ${o.auteurs}", 14f, ink))
         if (msg.isNotEmpty()) col.addView(text(msg))
-        val info = listOf(
-            "Massif" to o.massif, "Départ" to (f?.depart ?: ""),
-            "Sommet" to (f?.sommets?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: (o.sommet + (o.altitude?.let { " ($it m)" } ?: ""))),
-            "Topo" to (f?.topos?.joinToString(", ") ?: ""), "Orientation" to o.orientation,
-            "Dénivelé" to (o.denivele?.let { "$it m" } ?: ""), "Ski" to o.difSki, "Étoiles" to (o.etoiles?.takeIf { it > 0 }?.let { "★".repeat(it) } ?: ""), "Skiabilité" to (f?.skiabilite ?: ""),
-        ).filter { it.second.isNotEmpty() }
+        val blue = Color.parseColor("#2E6DB4")
+        // Lien vers la page skitour.fr (comme sur le site) ; 📍 montre la sortie sur la carte (sommet et départ).
+        fun linkView(l: SheetLink, pin: Boolean) = LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(text(l.text(), 14f, ink).apply {
+                if (l.url.isNotEmpty()) {
+                    paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
+                    setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l.url))) } }
+                }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            if (pin && o.lat != null) addView(text("📍", 18f, ink).apply {
+                contentDescription = "${l.nom} sur la carte"; setPadding(dp(8), dp(4), dp(4), dp(4)); setOnClickListener { toMap() } })
+        }
+        fun plural(n: Int, w: String) = if (n > 1) w.replace(" ", "s ") + "s" else w
+        val L = f?.links
+        val info: List<Pair<String, Any>> = listOf(
+            "Massif" to o.massif,
+            "Départ" to (L?.depart?.let { listOf(linkView(it, true)) } ?: (f?.depart ?: "")),
+            plural(L?.topos?.size ?: 0, "Topo associé") to (L?.topos?.takeIf { it.isNotEmpty() }?.map { linkView(it, false) } ?: (f?.topos?.joinToString(", ") ?: "")),
+            plural(L?.sommets?.size ?: 0, "Sommet associé") to (L?.sommets?.takeIf { it.isNotEmpty() }?.map { linkView(it, true) }
+                ?: (f?.sommets?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: (o.sommet + (o.altitude?.let { " ($it m)" } ?: "")))),
+            "Orientation" to o.orientation, "Dénivelé" to (o.denivele?.let { "$it m" } ?: ""), "Ski" to o.difSki,
+            "Exposition" to (f?.exposition ?: ""), "Skiabilité" to (f?.skiabilite ?: ""),
+        ).filter { (_, v) -> (v as? String)?.isNotEmpty() ?: true }
         col.addView(box().apply {
             info.forEach { (k, v) ->
                 addView(LinearLayout(a).apply {
-                    addView(text(k, 14f, ink, true), LinearLayout.LayoutParams(dp(96), -2))
-                    addView(text(v, 14f, ink), LinearLayout.LayoutParams(0, -2, 1f))
+                    setPadding(0, dp(2), 0, dp(2))
+                    addView(text("$k :", 14f, blue, true), LinearLayout.LayoutParams(dp(110), -2))
+                    if (v is String) addView(text(v, 14f, ink), LinearLayout.LayoutParams(0, -2, 1f))
+                    else addView(LinearLayout(a).apply {
+                        orientation = LinearLayout.VERTICAL
+                        @Suppress("UNCHECKED_CAST") (v as List<android.view.View>).forEach { addView(it) }
+                    }, LinearLayout.LayoutParams(0, -2, 1f))
                 })
             }
         }, lp())
@@ -464,10 +515,7 @@ class SkiTextPanel(
             }, LinearLayout.LayoutParams(0, -2, 1f))
             if (o.lat != null && o.lon != null) addView(Button(a).apply {
                 text = "Sur la carte"
-                setOnClickListener {
-                    onShowOnMap(Outing(o.id, o.titre, o.date, o.massif, o.sommet, o.altitude, o.lat, o.lon, o.denivele, o.difSki,
-                        o.orientation, f?.conditions ?: "", o.auteurs, o.url, o.skiabilite, o.etoiles, o.parking))
-                }
+                setOnClickListener { toMap() }
             })
         })
         col.addView(text("Texte de ${o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié."))

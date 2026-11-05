@@ -3,9 +3,11 @@ import type { Bbox } from './config';
 import { loadOutings, outingDate, outingLine, type Outing } from './ski/skitour';
 
 /** Sorties skitour.fr de la zone encadrée : liste (la plus récente d'abord) et points sur la carte. */
-export function SkiPanel({ zone, password, outings, selected, onOutings, onSelect, onReframe, onClose }: {
+export function SkiPanel({ zone, password, outings, selected, onOutings, onSelect, onReframe, onSheet, onClose }: {
   zone: Bbox; password: string; outings: Outing[]; selected: number | null;
-  onOutings: (o: Outing[]) => void; onSelect: (i: number | null) => void; onReframe: () => void; onClose: () => void;
+  onOutings: (o: Outing[]) => void; onSelect: (i: number | null) => void; onReframe: () => void;
+  /** Ouvre la fiche complète de la sortie (façon skitour.fr). */
+  onSheet: (o: Outing) => void; onClose: () => void;
 }) {
   const [days, setDays] = useState(() => { try { return Number(localStorage.getItem('skitourJours')) || 30; } catch { return 30; } });
   const [busy, setBusy] = useState(false);
@@ -51,7 +53,10 @@ export function SkiPanel({ zone, password, outings, selected, onOutings, onSelec
         <p className="hint">{outingDate(sel)} · {sel.massif} · par {sel.auteur}</p>
         <p>{outingLine(sel)}</p>
         {sel.conditions && <p className="hint">{sel.conditions}</p>}
-        <button className="primary" onClick={() => window.open(sel.url, '_system')}>Lire la sortie sur skitour.fr</button>
+        <span className="row">
+          <button className="primary" onClick={() => onSheet(sel)}>Fiche de la sortie</button>
+          <button onClick={() => window.open(sel.url, '_system')}>Sur skitour.fr</button>
+        </span>
       </div>}
       <ul className="routes lodgings">
         {outings.map((o, i) => (
