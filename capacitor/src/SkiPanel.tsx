@@ -75,8 +75,8 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   // Première ligne (sans titre : on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
   // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
   const [low, setLow] = useState(true); // ouvert réduit : juste la première ligne, la carte d'abord
-  const count = busy ? 'Recherche…' : error ? '' : tooFar ? 'Zoome'
-    : `${outings.length} sortie${outings.length > 1 ? 's' : ''}`;
+  // Pas de nombre de sorties (inutile) : seulement « Recherche… » pendant le chargement, ou « Zoome » de trop loin.
+  const count = busy ? 'Recherche…' : error ? '' : tooFar ? 'Zoome' : '';
   const choices = <T extends number>(list: [T, string][], cur: T, pick: (v: T) => void, cls: string) => (
     <div className={`ski-menu ${cls}`} role="listbox">{list.map(([v, t]) => (
       <button key={v} role="option" aria-selected={v === cur} className={v === cur ? 'on' : ''}
