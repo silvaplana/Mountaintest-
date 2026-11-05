@@ -33,6 +33,8 @@ import { SearchBar } from './SearchBar';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
+import { TraceList, TraceMenu } from './TraceMenu';
+import { defaultTraceName, deleteTrace, listTraces, saveTrace, traceLine, type SavedTrace } from './trails/savedTraces';
 import { Profile } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
 import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './trails/route';
@@ -144,6 +146,14 @@ export function App() {
   const [elevated, setElevated] = useState<ElevatedTrail | 'loading' | 'error' | null>(null);
   /** Tracé au doigt en cours, et recalage sur les chemins (IGN) ou ligne libre. */
   const [drawing, setDrawing] = useState(false);
+  /** Menu du bas de la trace violette, liste 📂 des traces enregistrées (null : fermée). */
+  const [traceMenu, setTraceMenu] = useState(false);
+  const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
+  const [drawnSlopes, setDrawnSlopes] = useState(false);
+  const [drawnProfile, setDrawnProfile] = useState(false);
+  /** Trace affichée déjà enregistrée (identifiant), et recalée ou non sur les chemins. */
+  const [drawnSavedId, setDrawnSavedId] = useState<number | null>(null);
+  const [drawnOnPaths, setDrawnOnPaths] = useState(false);
   // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
   /** Curseur de pente : distance le long de la rando affichée. */
   const [profCursor, setProfCursor] = useState<number | null>(null);
@@ -162,13 +172,16 @@ export function App() {
     elevate(t).then((el) => { if (live) setImportProfile({ prof: buildProfile(el.segments), gps: false }); }).catch(() => {});
     return () => { live = false; };
   }, [imported, showSlopes]);
+  // « Afficher la pente » du menu de la trace violette : étiquettes sur cette trace seule.
+  const drawnSel = selected?.id === DRAWN_ID;
   const slopeTags = useMemo(() => {
-    if (!showSlopes) return [];
+    const own = showSlopes || (drawnSel && drawnSlopes);
+    if (!own) return [];
     return [
       ...(profile ? slopeLabels(profile) : []),
-      ...(importProfile ? slopeLabels(importProfile.prof, importProfile.gps ? 100 : 50) : []),
+      ...(showSlopes && importProfile ? slopeLabels(importProfile.prof, importProfile.gps ? 100 : 50) : []),
     ];
-  }, [showSlopes, profile, importProfile]);
+  }, [showSlopes, profile, importProfile, drawnSel, drawnSlopes]);
   const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
   const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
   const trailsAbort = useRef<AbortController | null>(null);
@@ -495,8 +508,10 @@ export function App() {
     setSelected(t);
     setElevated(t ? 'loading' : null);
     setFollow(false);
+    // La trace violette a son propre menu en bas ; les randos s'ouvrent dans le panneau.
+    setTraceMenu(t?.id === DRAWN_ID);
     if (!t) return;
-    setOpen(true); setTab('randos');
+    if (t.id === DRAWN_ID) { setTraceList(null); setOpen(false); } else { setOpen(true); setTab('randos'); }
     const first = t.segments[0][0];
     setTarget({ lon: first.lon, lat: first.lat, label: `Départ de « ${t.name} »` });
     try {
@@ -511,22 +526,59 @@ export function App() {
     // Nouveau tracé : l'ancien disparaît tout de suite.
     setTrails((prev) => prev.filter((x) => x.id !== DRAWN_ID));
     if (selected?.id === DRAWN_ID) void selectTrail(null);
+    setTraceMenu(false); setTraceList(null);
     setDrawing(true); setOpen(false); setSearching(false);
   }
 
   async function drawDone(line: LonLat[]) {
     setDrawing(false);
-    setOpen(true); setTab('randos');
-    let final = line, used = onPaths, msg = '';
+    let final = line, used = onPaths;
     if (onPaths) {
-      setTrailsMsg('Calcul du chemin sur les sentiers…');
-      try { final = await routeOnPaths(waypoints(line)); }
-      catch { used = false; msg = 'Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle.'; }
+      setToast('Calcul du chemin sur les sentiers…');
+      try { final = await routeOnPaths(waypoints(line)); setToast(''); }
+      catch { used = false; setToast('Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle.'); }
     }
-    setTrailsMsg(msg);
-    const t = drawnTrail(final, used);
+    showDrawn(drawnTrail(final, used), used, null);
+  }
+
+  /** Affiche une trace violette (dessinée ou chargée) et ouvre son menu en bas. */
+  function showDrawn(t: Trail, used: boolean, savedId: number | null) {
+    setDrawnOnPaths(used); setDrawnSavedId(savedId);
     setTrails((prev) => [t, ...prev.filter((x) => x.id !== DRAWN_ID)]);
-    await selectTrail(t);
+    void selectTrail(t);
+  }
+
+  async function openTraceList() {
+    setDrawing(false); setTraceMenu(false); setOpen(false);
+    setTraceList(await listTraces());
+  }
+
+  function loadTrace(st: SavedTrace) {
+    setTraceList(null);
+    showDrawn({ ...drawnTrail(traceLine(st), st.onPaths), name: st.name }, st.onPaths, st.id);
+  }
+
+  async function saveDrawn() {
+    if (!selected || selected.id !== DRAWN_ID) return;
+    const name = window.prompt('Nom de la trace', defaultTraceName())?.trim();
+    if (name == null) return;
+    try {
+      const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), drawnOnPaths);
+      const t = { ...selected, name: st.name };
+      setSelected(t);
+      setTrails((prev) => prev.map((x) => (x.id === DRAWN_ID ? t : x)));
+      setDrawnSavedId(st.id);
+      setToast(`💾 Trace « ${st.name} » enregistrée sur le téléphone`);
+    } catch (e) {
+      setToast(`Enregistrement impossible : ${(e as Error).message}`);
+    }
+  }
+
+  /** 🗑 Supprimer : la trace quitte la carte (une trace enregistrée reste dans 📂 Mes traces). */
+  function deleteDrawn() {
+    setTrails((prev) => prev.filter((x) => x.id !== DRAWN_ID));
+    void selectTrail(null);
+    setDrawnSavedId(null);
   }
 
   async function exportTrail() {
@@ -550,6 +602,7 @@ export function App() {
         onMapReady={setMap} onGeolocate={setGeo} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
           // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
+          if (id === DRAWN_ID && selected?.id === id) { if (profile) setProfCursor(nearestD(profile, at.lon, at.lat)); setTraceList(null); setTraceMenu(true); return; }
           if (selected?.id === id && profile) { setProfCursor(nearestD(profile, at.lon, at.lat)); setOpen(true); return; }
           void selectTrail(trails.find((t) => t.id === id) ?? null);
         }}
@@ -566,7 +619,20 @@ export function App() {
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} top={10} />}
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
-        onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
+        onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} />}
+      {traceMenu && selected?.id === DRAWN_ID && !drawing && (
+        <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
+          showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
+          savedId={drawnSavedId} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)} />
+      )}
+      {traceList && !drawing && (
+        <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)}
+          onDelete={(t) => {
+            if (!window.confirm(`Effacer « ${t.name} » du téléphone ?`)) return;
+            void deleteTrace(t.id).then(listTraces).then(setTraceList);
+            if (drawnSavedId === t.id) setDrawnSavedId(null);
+          }} />
+      )}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
         onSearch={() => { setNature(false); setSearching(true); }}
         onBaseLayer={() => {
@@ -682,6 +748,7 @@ export function App() {
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
               <button disabled={!map} onClick={startDrawing}>✏ Tracer au doigt</button>
+              <button onClick={() => void openTraceList()}>📂 Mes traces</button>
               <button disabled={!map} onClick={() => {
                 const b = map!.getBounds();
                 void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);

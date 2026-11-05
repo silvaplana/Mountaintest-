@@ -9,7 +9,8 @@ const URL_ROUTE = 'https://data.geopf.fr/navigation/itineraire';
 export const MAX_WAYPOINTS = 12;
 /** Identifiant réservé au tracé au doigt (les randos OSM ont des identifiants positifs). */
 export const DRAWN_ID = -1;
-export const DRAWN_COLOR = '#e4572e';
+/** Violet : la trace dessinée se distingue des randos OSM et de l'enregistrement GPS (rouge). */
+export const DRAWN_COLOR = '#7b3fe4';
 
 export function lineLengthM(line: LonLat[]) {
   let d = 0;

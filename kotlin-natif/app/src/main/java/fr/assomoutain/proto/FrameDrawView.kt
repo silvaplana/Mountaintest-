@@ -30,7 +30,7 @@ class FrameDrawView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet?
     private val line = ArrayList<PointF>()
     private val path = android.graphics.Path()
     private val pen = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE; color = Color.parseColor("#E4572E"); strokeWidth = 4 * density
+        style = Paint.Style.STROKE; color = Color.parseColor("#7B3FE4"); strokeWidth = 4 * density
         strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND
     }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
