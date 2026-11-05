@@ -201,7 +201,7 @@ class ExpensesPanel(
             }
             done()
             if (ok) { toast("Invitation envoyée à ${m.email}"); return@launch }
-            val body = "Bonjour ${m.name},\n\n$de t'invite à partager les frais du groupe « $groupe » dans l'appli Assomoutain.\n\n" +
+            val body = "Bonjour ${m.name},\n\n$de t'invite à partager les frais du groupe « $groupe » dans l'appli Mountain Buddies.\n\n" +
                 "Pour l'installer (Android) : https://silvaplana.cloud/mountaintest/apk/"
             runCatching {
                 a.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")).putExtra(Intent.EXTRA_EMAIL, arrayOf(m.email))

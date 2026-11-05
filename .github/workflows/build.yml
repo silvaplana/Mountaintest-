@@ -95,9 +95,9 @@ jobs:
           ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
       - name: Renommer l'APK
         run: |
-          cp capacitor/android/app/build/outputs/apk/release/*.apk assomoutain-capacitor.apk
+          cp capacitor/android/app/build/outputs/apk/release/*.apk mountain-buddies-capacitor.apk
       - uses: actions/upload-artifact@v4
-        with: { name: apk-capacitor, path: assomoutain-capacitor.apk }
+        with: { name: apk-capacitor, path: mountain-buddies-capacitor.apk }
 
   apk-kotlin:
     name: APK Kotlin natif
@@ -120,9 +120,9 @@ jobs:
       - run: |
           python3 ../shared/changelog.py ${{ github.run_number }} app/src/main/assets/changelog.json
           ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
-      - run: cp app/build/outputs/apk/release/*.apk ../assomoutain-kotlin.apk
+      - run: cp app/build/outputs/apk/release/*.apk ../mountain-buddies-kotlin.apk
       - uses: actions/upload-artifact@v4
-        with: { name: apk-kotlin, path: assomoutain-kotlin.apk }
+        with: { name: apk-kotlin, path: mountain-buddies-kotlin.apk }
 
   release:
     name: Mettre les APK en téléchargement
@@ -135,11 +135,11 @@ jobs:
         env: { GH_TOKEN: '${{ github.token }}', GH_REPO: '${{ github.repository }}' }
         run: |
           u=https://github.com/${{ github.repository }}/releases/latest/download
-          printf '{"build": %s, "apk": {"capacitor": "%s/assomoutain-capacitor.apk", "kotlin": "%s/assomoutain-kotlin.apk"}}\n' \
+          printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk", "kotlin": "%s/mountain-buddies-kotlin.apk"}}\n' \
             "${{ github.run_number }}" "$u" "$u" > version.json
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest assomoutain-capacitor.apk assomoutain-kotlin.apk version.json \
-            --title "Dernière version des prototypes" \
+          gh release create latest mountain-buddies-capacitor.apk mountain-buddies-kotlin.apk version.json \
+            --title "Mountain Buddies : dernière version" \
             --notes "APK construits automatiquement depuis le commit ${{ github.sha }}. À ouvrir depuis le téléphone pour installer."
 
   site:
@@ -161,12 +161,12 @@ jobs:
           # Relais IA (randos trouvées par Claude) : le VPS le fait tourner, voir deploy/ia/README.md.
           mkdir -p site/ia && cp deploy/ia/relais.py deploy/ia/installer-ia.sh deploy/ia/activer-mail.sh site/ia/
           sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" \
-              -e "s/@CAP@/$(du -m site/apk/assomoutain-capacitor.apk | cut -f1)/" \
-              -e "s/@KOT@/$(du -m site/apk/assomoutain-kotlin.apk | cut -f1)/" \
+              -e "s/@CAP@/$(du -m site/apk/mountain-buddies-capacitor.apk | cut -f1)/" \
+              -e "s/@KOT@/$(du -m site/apk/mountain-buddies-kotlin.apk | cut -f1)/" \
               deploy/apk-index.html > site/apk/index.html
           # Lu par les applis pour proposer la mise à jour (Updater.java).
           u=https://silvaplana.cloud/mountaintest/apk
-          printf '{"build": %s, "apk": {"capacitor": "%s/assomoutain-capacitor.apk", "kotlin": "%s/assomoutain-kotlin.apk"}}\n' \
+          printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk", "kotlin": "%s/mountain-buddies-kotlin.apk"}}\n' \
             "${{ github.run_number }}" "$u" "$u" > site/apk/version.json
       - name: Pousser la branche site
         run: |
