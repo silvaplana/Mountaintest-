@@ -34,7 +34,9 @@ import java.util.Locale
 data class OutingRow(val id: Long, val titre: String, val date: Long, val massif: String, val sommet: String, val altitude: Int?,
                      val lat: Double?, val lon: Double?, val denivele: Int?, val difSki: String, val orientation: String,
                      val auteurs: String, val url: String, val skiabilite: String = "", val etoiles: Int? = null,
-                     val parking: Parking? = null)
+                     val parking: Parking? = null,
+                     /** Adresse de la trace GPX sur skitour.fr, quand la sortie en a une. */
+                     val gpx: String = "")
 
 /** La fiche d'une sortie (même modèle que OutingSheet). */
 class OutingSheet(val row: OutingRow, val sommets: List<String>, val depart: String, val topos: List<String>,
@@ -103,7 +105,7 @@ object SkiText {
     fun row(o: JSONObject) = OutingRow(o.optLong("id"), o.optString("titre"), o.optLong("date"), o.optString("massif"), o.optString("sommet"),
         intOrNull(o, "altitude"), dblOrNull(o, "lat"), dblOrNull(o, "lon"), intOrNull(o, "denivele"),
         if (o.isNull("dif_ski")) "" else o.optString("dif_ski"), o.optString("orientation"), o.optString("auteurs"), o.optString("url"),
-        o.optString("skiabilite"), intOrNull(o, "etoiles"), Parking.from(o.optJSONObject("parking")))
+        o.optString("skiabilite"), intOrNull(o, "etoiles"), Parking.from(o.optJSONObject("parking")), o.optString("gpx"))
 
     fun sheet(o: JSONObject) = OutingSheet(row(o), strs(o.optJSONArray("sommets")), o.optString("depart"), strs(o.optJSONArray("topos")),
         o.optString("conditions"), strs(o.optJSONArray("neige")), o.optString("recit"), o.optString("skiabilite"),
@@ -357,7 +359,15 @@ class SkiTextPanel(
                 addView(LinearLayout(a).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(text(o.titre + (o.etoiles?.takeIf { it > 0 }?.let { " " + "★".repeat(it) } ?: "") +
-                        if (o.difSki.isNotEmpty()) "  ski ${o.difSki}" else "", 15f, ink, true))
+                        if (o.difSki.isNotEmpty()) "  ski ${o.difSki}" else "", 15f, ink, true).apply {
+                        // Petite pastille « GPX » : la sortie a une trace GPX sur skitour.fr.
+                        if (o.gpx.isNotEmpty()) text = android.text.SpannableStringBuilder(text).append("  ").apply {
+                            val s0 = length; append(" GPX ")
+                            setSpan(android.text.style.BackgroundColorSpan(Color.parseColor("#C0392B")), s0, length, 0)
+                            setSpan(android.text.style.ForegroundColorSpan(Color.WHITE), s0, length, 0)
+                            setSpan(android.text.style.RelativeSizeSpan(0.7f), s0, length, 0)
+                        }
+                    })
                     addView(text(o.massif + if (o.skiabilite.isNotEmpty()) " · skiabilité " + o.skiabilite else ""))
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(text(o.auteurs), LinearLayout.LayoutParams(dp(96), -2))
@@ -545,6 +555,10 @@ class SkiTextPanel(
             if (o.lat != null && o.lon != null) addView(Button(a).apply {
                 text = "Sur la carte"
                 setOnClickListener { toMap(null) }
+            })
+            if (o.gpx.isNotEmpty()) addView(Button(a).apply {
+                text = "GPX"; isAllCaps = false
+                setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(o.gpx))) } }
             })
         })
         col.addView(text("Texte de ${o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié."))

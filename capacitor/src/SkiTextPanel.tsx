@@ -146,6 +146,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
         <div className="row">
           <button className="primary" onClick={() => window.open(o.url, '_system')}>Voir sur skitour.fr</button>
           {o.lat != null && o.lon != null && <button onClick={() => onMap()}>Sur la carte</button>}
+          {o.gpx && <button className="ski-gpx-btn" onClick={() => window.open(o.gpx, '_system')}>GPX</button>}
         </div>
         <p className="hint">Texte de {o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié.</p>
         </>}
@@ -185,7 +186,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
           {rows.map((o) => (
             <tr key={o.id} onClick={() => open(o)}>
               <td>{shortDate(o.date)}</td>
-              <td><b>{o.titre}</b>{o.etoiles ? <span className="ski-stars"> {'★'.repeat(o.etoiles)}</span> : null}{o.dif_ski ? <span className="ski-dif"> ski {o.dif_ski}</span> : null}<br /><small>{o.massif}{o.skiabilite ? ` · skiabilité ${o.skiabilite}` : ''}</small></td>
+              <td><b>{o.titre}</b>{o.etoiles ? <span className="ski-stars"> {'★'.repeat(o.etoiles)}</span> : null}{o.dif_ski ? <span className="ski-dif"> ski {o.dif_ski}</span> : null}{o.gpx ? <span className="ski-gpx" title="Trace GPX">GPX</span> : null}<br /><small>{o.massif}{o.skiabilite ? ` · skiabilité ${o.skiabilite}` : ''}</small></td>
               <td>{o.auteurs}</td>
             </tr>
           ))}
