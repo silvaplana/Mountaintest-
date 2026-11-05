@@ -196,7 +196,7 @@ class SkiTextPanel(
     private val password: String,
     private val onShowOnMap: (Outing) -> Unit,
     private val onClose: () -> Unit,
-    /** Fiche à ouvrir tout de suite (sortie choisie sur la carte) ; « ← Carte » ferme alors le panneau. */
+    /** Fiche à ouvrir tout de suite (sortie touchée sur la carte) ; ✕ ferme alors le panneau, ▾ le réduit. */
     private val start: OutingRow? = null,
 ) {
     private val d = a.resources.displayMetrics.density
@@ -255,10 +255,25 @@ class SkiTextPanel(
         }
     }
 
-    private fun header(left: android.view.View) = LinearLayout(a).apply {
+    private fun header(left: android.view.View, lowBtn: android.view.View? = null) = LinearLayout(a).apply {
         gravity = Gravity.CENTER_VERTICAL
         addView(left, LinearLayout.LayoutParams(0, -2, 1f))
+        lowBtn?.let { addView(it, LinearLayout.LayoutParams(dp(48), dp(44))) }
         addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
+    }
+
+    /** Fiche réduite (▾) : une barre en bas avec le titre, ▴ et ✕ ; la carte reste visible au-dessus. */
+    private var low = false
+    private fun setLow(v: Boolean, btn: Button, title: TextView, left: android.view.View?) {
+        low = v
+        btn.text = if (v) "▴" else "▾"; btn.contentDescription = if (v) "Agrandir la fiche" else "Réduire la fiche"
+        title.visibility = if (v) android.view.View.VISIBLE else android.view.View.GONE
+        left?.visibility = if (v) android.view.View.GONE else android.view.View.VISIBLE
+        for (k in 1 until col.childCount) col.getChildAt(k).visibility = if (v) android.view.View.GONE else android.view.View.VISIBLE
+        col.setPadding(dp(14), if (v) dp(8) else dp(36), dp(14), dp(24))
+        view.background = if (v) GradientDrawable().apply { setColor(Color.WHITE); cornerRadii = floatArrayOf(14 * d, 14 * d, 14 * d, 14 * d, 0f, 0f, 0f, 0f) } else null
+        if (!v) view.setBackgroundColor(Color.WHITE)
+        view.layoutParams = if (v) FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM) else FrameLayout.LayoutParams(-1, -1)
     }
 
     private fun showList() {
@@ -428,12 +443,12 @@ class SkiTextPanel(
     private fun renderSheet(row: OutingRow, f: OutingSheet?, msg: String) {
         val o = f?.row ?: row
         col.removeAllViews()
-        col.addView(header(LinearLayout(a).apply {
-            addView(Button(a).apply {
-                text = if (start != null) "← Carte" else "← Liste"
-                setOnClickListener { job?.cancel(); if (start != null) onClose() else showList() }
-            })
-        }))
+        val back = if (start == null) Button(a).apply { text = "← Liste"; setOnClickListener { job?.cancel(); showList() } } else null
+        val title = text(o.titre, 15f, ink, true).apply { isSingleLine = true; ellipsize = android.text.TextUtils.TruncateAt.END }
+        val lowBtn = Button(a)
+        lowBtn.setOnClickListener { setLow(!low, lowBtn, title, back) }
+        col.addView(header(LinearLayout(a).apply { gravity = Gravity.CENTER_VERTICAL; back?.let { addView(it) }; addView(title, LinearLayout.LayoutParams(-1, -2)) }, lowBtn))
+        setLow(false, lowBtn, title, back)
         val toMap = {
             if (o.lat != null && o.lon != null) onShowOnMap(Outing(o.id, o.titre, o.date, o.massif, o.sommet, o.altitude, o.lat, o.lon, o.denivele, o.difSki,
                 o.orientation, f?.conditions ?: "", o.auteurs, o.url, o.skiabilite, o.etoiles, o.parking))
