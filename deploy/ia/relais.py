@@ -621,6 +621,46 @@ def _gpx_topo(id_: int) -> str:
     return _TOPOS_GPX[id_]
 
 
+_FICHES_TOPO: dict = {}  # id -> (heure, fiche)
+
+
+def _point(x) -> dict:
+    """Départ ou sommet d'un topo : nom, altitude, position (latlon [lat, lon] ou lat/lng)."""
+    x = _d(x)
+    ll = x.get("latlon") if isinstance(x.get("latlon"), list) else []
+    lat = _nombre(ll[0]) if len(ll) > 1 else _nombre(x.get("lat"))
+    lon = _nombre(ll[1]) if len(ll) > 1 else _nombre(x.get("lng") if x.get("lng") is not None else x.get("lon"))
+    return {"id": _entier(x.get("id")), "nom": _texte(x.get("nom") or x.get("sommet")), "altitude": _entier(x.get("altitude")), "lat": lat, "lon": lon}
+
+
+def fiche_topo(id_: int) -> dict:
+    """Fiche d'un topo (itinéraire) pour l'appli : textes de l'API skitour, départ, sommets et trace GPX simplifiée."""
+    c = _FICHES_TOPO.get(id_)
+    if c and time.time() - c[0] < 86400:
+        return c[1]
+    req = urllib.request.Request(f"https://skitour.fr/api/topo/{id_}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        x = json.loads(r.read())
+    x = x[0] if isinstance(x, list) and x else x
+    if not isinstance(x, dict) or x.get("ERROR"):
+        raise RuntimeError(f"skitour : {_d(x).get('ERROR') or 'topo introuvable'}")
+    gpx = _gpx(x)
+    f = {
+        "id": id_, "nom": _texte(x.get("nom")), "url": f"https://skitour.fr/topos/{id_}",
+        "massif": _d(x.get("massif")).get("nom", "") if isinstance(x.get("massif"), dict) else _texte(x.get("massif")),
+        "orientation": _texte(x.get("orientation")), "denivele": _entier(x.get("denivele")), "dif_ski": _texte(x.get("dif_ski")),
+        "difficulte": _texte(x.get("difficulte")), "expo": _texte(x.get("expo")),
+        "depart": _point(x.get("depart")) if x.get("depart") else None,
+        "sommets": [_point(s) for s in (x.get("sommets") or []) if isinstance(s, dict)],
+        **{k: _texte(x.get(k)) for k in ("presentation", "itineraire", "variantes", "remarques", "materiel", "biblio")},
+        "auteur": _pseudo(x.get("auteur")), "gpx": gpx, "trace": _trace(gpx),
+    }
+    if len(_FICHES_TOPO) > 500:
+        _FICHES_TOPO.clear()
+    _FICHES_TOPO[id_] = (time.time(), f)
+    return f
+
+
 _TOPOS_SOMMET: dict = {}  # id du sommet -> (heure, topos bruts de l'API)
 
 
@@ -1052,11 +1092,11 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -1105,6 +1145,8 @@ class Relais(BaseHTTPRequestHandler):
                 return self._json(502, {"erreur": str(ex)})
         if chemin.endswith(("/skitour-liste", "/skitour-sortie")):
             return self._skitour_texte(chemin.endswith("/skitour-liste"))
+        if chemin.endswith("/skitour-topo"):
+            return self._skitour_topo()
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         try:
@@ -1202,6 +1244,21 @@ class Relais(BaseHTTPRequestHandler):
         except Exception:  # noqa: BLE001 — bug de lecture : détail dans « docker logs », message simple pour l'appli
             traceback.print_exc()
             self._json(502, {"erreur": "fiche skitour illisible pour l'instant, ouvre-la sur skitour.fr"})
+
+    def _skitour_topo(self):
+        if not SKITOUR_CLE:
+            return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
+        try:
+            id_ = int(json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)) or b"{}")["id"])
+        except (ValueError, KeyError, TypeError):
+            return self._json(400, {"erreur": "demande invalide"})
+        try:
+            self._json(200, fiche_topo(id_))
+        except (RuntimeError, OSError) as ex:
+            self._json(502, {"erreur": str(ex)})
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+            self._json(502, {"erreur": "topo skitour illisible pour l'instant, ouvre-le sur skitour.fr"})
 
     def _facture(self):
         try:
