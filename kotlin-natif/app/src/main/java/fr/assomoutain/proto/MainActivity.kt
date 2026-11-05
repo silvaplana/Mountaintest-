@@ -216,8 +216,10 @@ class MainActivity : AppCompatActivity() {
                 // Icône météo : le détail de la prévision à cet endroit.
                 if (weather.active) m.queryRenderedFeatures(box, WeatherLayer.LAYER)
                     .firstOrNull()?.let { weather.describe(it) }?.let { toast(it); return@addOnMapClickListener true }
-                // Point d'une sortie skitour : on la choisit.
-                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI, LAYER_SKI_PARK, "ski-park-tags", "ski-tags")
+                // Sorties skitour : l'étiquette ouvre la fiche ; un point la choisit (son étiquette apparaît).
+                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, "ski-park-tags", "ski-tags")
+                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { openSkiFromTag(it); return@addOnMapClickListener true }
+                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI, LAYER_SKI_PARK)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectSki(it); return@addOnMapClickListener true }
                 // Trait d'un itinéraire du voyage : on le choisit.
                 if (travelPanel?.routes?.isNotEmpty() == true) m.queryRenderedFeatures(box, LAYER_TRAVEL)
@@ -499,7 +501,7 @@ class MainActivity : AppCompatActivity() {
                 lineColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
                 lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(3f), Expression.literal(2f))),
                 lineDasharray(arrayOf(2f, 1.5f)), lineOpacity(0.85f)).apply {
-                minZoom = SKI_PARK_ZOOM; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString"))) })
+                setFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString"))) })
             // Étiquettes posées par leur coin haut-gauche, décalées par SkiLabels (propriété "off") pour éviter les chevauchements.
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-park-tags", SRC_SKI_PARK).withProperties(
                 org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
@@ -507,11 +509,11 @@ class MainActivity : AppCompatActivity() {
                 org.maplibre.android.style.layers.PropertyFactory.iconOffset(Expression.get("off")),
                 org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
                 org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply {
-                minZoom = SKI_PARK_ZOOM; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
+                setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
             style.addLayer(CircleLayer(LAYER_SKI_PARK, SRC_SKI_PARK).withProperties(
                 circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(8f), Expression.literal(6f))),
                 circleColor("#3a4a44"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)).apply {
-                minZoom = SKI_PARK_ZOOM; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
+                setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
             style.addSource(GeoJsonSource(SRC_SKI))
             // Étiquette de chaque sortie à droite de son point : nom, étoiles, skiabilité (image dessinée par skiTagBitmap).
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-tags", SRC_SKI).withProperties(
@@ -519,7 +521,7 @@ class MainActivity : AppCompatActivity() {
                 org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_TOP_LEFT),
                 org.maplibre.android.style.layers.PropertyFactory.iconOffset(Expression.get("off")),
                 org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
-                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply { minZoom = SKI_TAG_ZOOM })
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply { setFilter(Expression.eq(Expression.get("sel"), Expression.literal(true))) })
             style.addLayer(CircleLayer(LAYER_SKI, SRC_SKI).withProperties(
                 circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(11f), Expression.literal(8f))),
                 circleColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
@@ -1244,13 +1246,14 @@ class MainActivity : AppCompatActivity() {
             Feature.fromGeometry(Point.fromLngLat(x.lon, x.lat)).apply {
                 addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img); addProperty("off", tagOffset("s$i")) }
         }))
-        // Un trait par sortie, mais un seul point et une seule étiquette par parking (plusieurs sorties peuvent partir du même).
-        val lines = o.mapIndexedNotNull { i, x ->
-            val p = x.parking ?: return@mapIndexedNotNull null
+        // Seulement les points des sorties ; le parking (point, trait, étiquette) de la sortie choisie seulement.
+        val chosen = sel?.let { i -> o.getOrNull(i)?.parking?.let { Triple(i, it, true) } }
+        val lines = listOfNotNull(chosen).map { (i, p, _) ->
+            val x = o[i]
             Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(x.lon, x.lat), Point.fromLngLat(p.lon, p.lat))))
-                .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel) }
+                .apply { addNumberProperty("i", i); addBooleanProperty("sel", true) }
         }
-        val parks = uniqueParkings(o, sel).map { (i, p, isSel) ->
+        val parks = listOfNotNull(chosen).map { (i, p, isSel) ->
             val img = "park:" + p.text() + if (isSel) ":sel" else ""
             if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), isSel, "#3a4a44", park = true))
             style.getImage(img)?.let { skiTagSizes["p$i"] = it.width / dens to it.height / dens }
@@ -1263,13 +1266,11 @@ class MainActivity : AppCompatActivity() {
     /** Place les étiquettes des sorties pour qu'elles se chevauchent le moins possible (SkiLabels), à l'arrêt de la carte. */
     private fun layoutSkiTags() {
         val m = map ?: return
-        if (skiOutings.isEmpty() || m.cameraPosition.zoom < SKI_TAG_ZOOM) return
+        val sel = skiSel?.takeIf { it in skiOutings.indices } ?: return
         val dens = resources.displayMetrics.density
-        // Sommet et parking de la sortie choisie d'abord, puis les autres ; parkings seulement de plus près (visibles).
-        val parks = if (m.cameraPosition.zoom < SKI_PARK_ZOOM) emptyMap()
-            else uniqueParkings(skiOutings, skiSel).associate { (i, p, _) -> "p$i" to p }
-        val keys = skiOutings.indices.sortedBy { if (it == skiSel) 0 else 1 }.flatMap { i ->
-            listOfNotNull("s$i", if (parks.containsKey("p$i")) "p$i" else null) }
+        // Seules l'étiquette de la sortie choisie et celle de son parking sont affichées.
+        val parks = skiOutings[sel].parking?.let { mapOf("p$sel" to it) } ?: emptyMap()
+        val keys = listOfNotNull("s$sel", if (parks.containsKey("p$sel")) "p$sel" else null)
         val pts = keys.map { k ->
             val x = skiOutings[k.drop(1).toInt()]
             val ll = if (k[0] == 's') LatLng(x.lat, x.lon) else parks.getValue(k).let { LatLng(it.lat, it.lon) }
@@ -1283,10 +1284,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Étiquette d'une sortie skitour : fond blanc, bord bleu (violet si choisie), une ou deux lignes. */
-    /** Appui sur un point, une étiquette ou un parking de sortie : dans ⛷🗺 on la choisit et on ouvre sa fiche texte ; venue de ⛷💬 (seule sortie), on la met en violet. */
+    /** Appui sur le point d'une sortie (ou de son parking) : on la choisit, son étiquette apparaît. */
     private fun selectSki(i: Int) {
         val p = skiPanel
-        if (p != null) { p.select(i); skiOutings.getOrNull(i)?.let { p.openSheet(it) } } else drawSki(skiOutings, i)
+        if (p != null) p.select(i) else drawSki(skiOutings, i)
+    }
+    /** Appui sur l'étiquette d'une sortie (ou de son parking) : sa fiche texte. */
+    private fun openSkiFromTag(i: Int) {
+        val x = skiOutings.getOrNull(i) ?: return
+        val p = skiPanel
+        if (p != null) { p.select(i); p.openSheet(x) }
+        else openSkiSheet(x, listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n"))
     }
 
     /**
@@ -2188,8 +2196,6 @@ class MainActivity : AppCompatActivity() {
         private const val LAYER_SKI_PARK = "ski-park"
         private const val LAYER_SKI = "ski"
         /** De loin, des points seuls : étiquettes des sommets à partir du zoom 12, parkings (point, trait, nom) à partir de 13. */
-        private const val SKI_TAG_ZOOM = 12f
-        private const val SKI_PARK_ZOOM = 13f
         private const val LAYER_TRAVEL = "travel"
         private const val LAYER_WEB_HIKES = "web-hikes"
         private const val LAYER_SLOPES = "slopes"
