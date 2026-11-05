@@ -336,6 +336,59 @@ def _etoiles(x):
     return None
 
 
+# L'API ne donne ni les étoiles de la sortie, ni le mot de la skiabilité (seulement un chiffre) :
+# on les lit sur la page skitour.fr de la sortie (« ⭐⭐ » dans le titre, « Skiabilité : 🙂 Bonne »), gardés 1 jour.
+_PAGES: dict = {}
+SKIAB_NOMS: dict = {}  # chiffre de l'API -> « 🙂 Bonne », appris sur les pages lues
+
+
+def _page_sortie(id_: int) -> dict:
+    c = _PAGES.get(id_)
+    if c and time.time() - c[0] < 86400:
+        return c[1]
+    req = urllib.request.Request(f"https://skitour.fr/sorties/{id_}", headers={"User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        page = r.read(600_000).decode("utf-8", "replace")
+    titre = re.search(r"<h1.*?</h1>", page, re.S | re.I)
+    zone = titre.group(0) if titre else page[:page.find("Skiabilit")] if "Skiabilit" in page else ""
+    texte = html.unescape(re.sub(r"<[^>]+>", "\n", page))
+    m = re.search(r"Skiabilit[ée]\s*:\s*([^\w\s]{1,4})?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' -]{1,24}?)\s*(?:\n|  |$)", texte)
+    out = {"etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else ""}
+    _PAGES[id_] = (time.time(), out)
+    return out
+
+
+def _completer(lignes: list, maxi: int = 60) -> list:
+    """Ajoute étoiles et skiabilité en mots (lus sur les pages skitour.fr) aux sorties, en copie."""
+    from concurrent.futures import ThreadPoolExecutor
+    a_lire = [o["id"] for o in lignes if o.get("id") and o["id"] not in _PAGES][:maxi]
+
+    def lire(i):
+        try:
+            _page_sortie(i)
+        except Exception:  # noqa: BLE001 (page absente : on garde ce que donne l'API)
+            pass
+    if a_lire:
+        with ThreadPoolExecutor(6) as ex:
+            list(ex.map(lire, a_lire))
+    out = []
+    for o in lignes:
+        o = dict(o)
+        p = (_PAGES.get(o.get("id")) or (0, None))[1]
+        num = o.get("skiabilite") or ""
+        if p:
+            if o.get("etoiles") is None:
+                o["etoiles"] = p["etoiles"]
+            if p["skiabilite"]:
+                if num.isdigit():
+                    SKIAB_NOMS[num] = p["skiabilite"]
+                o["skiabilite"] = p["skiabilite"]
+        if (o.get("skiabilite") or "").isdigit() and o["skiabilite"] in SKIAB_NOMS:
+            o["skiabilite"] = SKIAB_NOMS[o["skiabilite"]]
+        out.append(o)
+    return out
+
+
 def _sorties_brutes(jours: int, massif: int | None = None) -> list:
     """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif."""
     # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
@@ -383,7 +436,7 @@ def sorties_skitour(o: float, s: float, e: float, n: float, jours: int) -> list:
         dedans = [sm for sm in _sommets(x) if s <= float(sm["lat"]) <= n and o <= float(sm["lng"]) <= e]
         if dedans:
             out.append(_sortie(x, dedans[0]))
-    return out
+    return _completer(out)
 
 
 # ---------- Sorties en texte (icône ⛷💬) : liste façon skitour.fr, puis fiche détaillée ----------
@@ -425,7 +478,7 @@ def liste_sorties(jours: int, massifs: list | None = None) -> list:
             if o["id"] not in vus:
                 vus.add(o["id"]); out.append(o)
     out.sort(key=lambda o: o["date"] or 0, reverse=True)
-    return out
+    return _completer(out)
 
 
 def liste_massifs() -> list:
@@ -458,14 +511,13 @@ def fiche_sortie(id_: int) -> dict:
         if isinstance(n, dict):
             neige.append(" · ".join(str(n.get(k) or "").strip() for k in ("lieu", "alt", "ori", "heure", "qte", "type", "com") if str(n.get(k) or "").strip()))
     return {
-        **_ligne(x),
+        **_completer([_ligne(x)])[0],
         "sommets": [sm.get("sommet") or sm.get("nom") or "" for sm in (x.get("sommets") or []) if isinstance(sm, dict)],
         "depart": (d.get("nom") or "") + (f" ({d['altitude']} m)" if d.get("altitude") else ""),
         "topos": [t.get("nom", "") for t in (x.get("topos") or []) if isinstance(t, dict)],
         "conditions": _texte(x.get("cond") or x.get("conditions")),
         "neige": neige,
         "recit": _texte(x.get("recit")),
-        "skiabilite": _texte(x.get("skiabilite")),
         # Photos : seulement dans la fiche de leur sortie, auteur cité (conditions de l'API skitour).
         "photos": [{"url": urllib.parse.urljoin("https://skitour.fr/", str(ph.get("url") or "")),
                     "legende": _texte(ph.get("com")), "auteur": (ph.get("auteur") or {}).get("pseudo", "") or (x.get("auteur") or {}).get("pseudo", "")}
@@ -773,7 +825,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche2:{id_}"
+            cle = f"fiche3:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)

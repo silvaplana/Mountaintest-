@@ -318,8 +318,8 @@ class SkiTextPanel(
                 addView(LinearLayout(a).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(text(o.titre + (o.etoiles?.takeIf { it > 0 }?.let { " " + "★".repeat(it) } ?: "") +
-                        if (o.difSki.isNotEmpty()) "  ${o.difSki}" else "", 15f, ink, true))
-                    addView(text(o.massif + if (o.skiabilite.isNotEmpty()) " · ${o.skiabilite}" else ""))
+                        if (o.difSki.isNotEmpty()) "  ski ${o.difSki}" else "", 15f, ink, true))
+                    addView(text(o.massif + if (o.skiabilite.isNotEmpty()) " · skiabilité " + o.skiabilite else ""))
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(text(o.auteurs), LinearLayout.LayoutParams(dp(96), -2))
                 setOnClickListener { openSheet(o) }
@@ -423,7 +423,7 @@ class SkiTextPanel(
             "Massif" to o.massif, "Départ" to (f?.depart ?: ""),
             "Sommet" to (f?.sommets?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: (o.sommet + (o.altitude?.let { " ($it m)" } ?: ""))),
             "Topo" to (f?.topos?.joinToString(", ") ?: ""), "Orientation" to o.orientation,
-            "Dénivelé" to (o.denivele?.let { "$it m" } ?: ""), "Ski" to o.difSki, "Skiabilité" to (f?.skiabilite ?: ""),
+            "Dénivelé" to (o.denivele?.let { "$it m" } ?: ""), "Ski" to o.difSki, "Étoiles" to (o.etoiles?.takeIf { it > 0 }?.let { "★".repeat(it) } ?: ""), "Skiabilité" to (f?.skiabilite ?: ""),
         ).filter { it.second.isNotEmpty() }
         col.addView(box().apply {
             info.forEach { (k, v) ->

@@ -33,7 +33,7 @@ data class Outing(val id: Long, val titre: String, val date: Long, val massif: S
     /** Étiquette à côté du point bleu : nom de la course, puis étoiles et skiabilité (même texte que outingLabel). */
     fun label(): String {
         val t = if (titre.length > 26) titre.take(25) + "…" else titre
-        val sk = if (skiabilite.all { it.isDigit() } && skiabilite.isNotEmpty()) "skiab. $skiabilite" else skiabilite
+        val sk = skiabText(skiabilite)
         val meta = listOf(etoiles?.takeIf { it > 0 }?.let { "★".repeat(it) } ?: "", sk).filter { it.isNotEmpty() }.joinToString(" · ")
         return if (meta.isEmpty()) t else "$t\n$meta"
     }
@@ -218,3 +218,7 @@ class SkiPanel(
         view.post { view.smoothScrollTo(0, 0) }
     }
 }
+
+/** Skiabilité comme sur skitour.fr (« 🙂 Bonne », lue par le relais sur la page de la sortie) ;
+ *  si le relais n'a que le chiffre de l'API, « skiabilité 1 » (même texte que skiabText de l'appli web). */
+fun skiabText(v: String): String = if (v.isNotEmpty() && v.all { it.isDigit() }) "skiabilité $v" else v
