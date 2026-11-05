@@ -55,6 +55,15 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   const [watch, setWatch] = useState<WatchState>('OFF');
   const [airplane, setAirplane] = useState(false);
   const [pocket, setPocket] = useState(false);
+  // ✈ seul d'habitude ; un appui le « déplie » : 👖 apparaît à côté, chacun bascule son mode ; toucher ailleurs replie.
+  const [pair, setPair] = useState(false);
+  const pairRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pair) return;
+    const close = (e: PointerEvent) => { if (!pairRef.current?.contains(e.target as Node)) setPair(false); };
+    document.addEventListener('pointerdown', close, true);
+    return () => document.removeEventListener('pointerdown', close, true);
+  }, [pair]);
 
   useEffect(() => {
     if (!geo) return;
@@ -127,18 +136,22 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         }}>📷</button>}
       {show === 0 && <>
       <button aria-label="Changer de fond de carte" data-help="Fond de carte" onClick={onBaseLayer}>🗺</button>
-      <button className={airplane ? 'on' : ''} disabled={!native} aria-label="Mode avion (sans réseau, Wi-Fi ni Bluetooth)" data-help="Mode avion"
+      <div className="pair" ref={pairRef}>
+      <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche"
         onClick={() => {
+          if (!pair && !help) { setPair(true); return; }
+          if (!native) { onToast('Mode avion : seulement dans l’appli'); return; }
           onToast(airplane ? 'Désactive le mode avion' : 'Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.');
           void BatterySettings.open({ what: 'avion' });
         }}>✈</button>
-      <button className={pocket ? 'on' : ''} disabled={!native} aria-label="Mode poche (écran noir quand le téléphone est vertical)" data-help="Mode poche (écran noir)"
+      {(pair || help) && <button className={pocket ? 'on' : ''} disabled={!native} aria-label="Mode poche (écran noir quand le téléphone est vertical)" data-help="Mode poche (écran noir)"
         onClick={() => {
           const on = !pocket;
           setPocket(on);
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
-        }}>👖</button>
+        }}>👖</button>}
+      </div>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" onClick={onDraw}>✏</button>
       <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" onClick={() => onSlopes(!slopes)}>⛰</button>
       <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" onClick={() => onShade(!shade)}>🌗</button>

@@ -494,31 +494,41 @@
                 android:textSize="20sp" />
 
 
-            <Button
-                android:id="@+id/btnQuickAvion"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+            <!-- ✈ seul d'habitude ; un appui le déplie : 👖 apparaît à sa gauche (voir pairOpen dans MainActivity). -->
+            <LinearLayout
+                android:id="@+id/pairAvion"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/round_btn"
-                android:contentDescription="Mode avion (sans réseau, Wi-Fi ni Bluetooth)"
-                android:elevation="4dp"
-                android:padding="0dp"
-                android:text="✈"
-                android:textColor="#1D2421"
-                android:textSize="20sp" />
+                android:gravity="center"
+                android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/btnPoche"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/round_btn"
-                android:contentDescription="Mode poche (écran noir quand le téléphone est vertical)"
-                android:elevation="4dp"
-                android:padding="0dp"
-                android:text="👖"
-                android:textColor="#1D2421"
-                android:textSize="20sp" />
+                <Button
+                    android:id="@+id/btnPoche"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Mode poche (écran noir quand le téléphone est vertical)"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="👖"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btnQuickAvion"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Mode avion et mode poche"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="✈"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp" />
+            </LinearLayout>
 
             <Button
                 android:id="@+id/btnQuickDraw"
