@@ -110,11 +110,13 @@ export async function loadOutings(b: Bbox, days: number, password: string): Prom
 // ligne), filtrée ici sur l'écran affiché ; étoiles, skiabilité en mot et parking demandés seulement pour les sorties
 // à l'écran (30 au plus à la fois), gardés eux aussi. Même logique côté Kotlin (SkiPanel.kt).
 const ALL_KEY = 'skitourTout';
-const DET_KEY = 'skitourDetails3';
+const DET_KEY = 'skitourDetails4';
 // Clés « i123 » (et non « 123 ») : un objet range les clés numériques par valeur, on perdrait l'ordre d'arrivée.
 const dk = (id: number | string) => `i${id}`;
 export const DETAILS_MAX = 800;
-export interface Details { etoiles?: number | null; skiabilite?: string; parking?: Parking | null; trace?: [number, number][]; itineraire?: [number, number][] }
+export interface Details { etoiles?: number | null; skiabilite?: string; parking?: Parking | null; trace?: [number, number][]; itineraire?: [number, number][];
+  /** Heure de réception : une sortie reçue sans parking est redemandée une heure après (l'API a pu être en erreur). */
+  t?: number }
 
 /** Choix de période de la carte ⛷🗺 (jours ; 3650 = « Tout »), du plus court au plus long. */
 export const PERIODS: [number, string][] = [[1, '< 1 j'], [2, '< 2 j'], [3, '< 3 j'], [4, '< 4 j'], [5, '< 5 j'], [7, '< 1 sem.'],
@@ -156,8 +158,14 @@ export const inView = (all: Outing[], b: Bbox, max = 150) =>
 export function readDetails(): Record<string, Details> {
   try { const v = JSON.parse(localStorage.getItem(DET_KEY) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
 }
-export const withDetails = (o: Outing, det: Record<string, Details>): Outing => (det[dk(o.id)] ? { ...o, ...det[dk(o.id)] } : o);
-export const hasDetails = (o: Outing, det: Record<string, Details>) => dk(o.id) in det;
+export const withDetails = (o: Outing, det: Record<string, Details>): Outing => {
+  const d = det[dk(o.id)];
+  return d ? { ...o, ...d, parking: d.parking ?? o.parking } : o;
+};
+export const hasDetails = (o: Outing, det: Record<string, Details>, now = Date.now()) => {
+  const d = det[dk(o.id)];
+  return !!d && (!!d.parking || now - (d.t ?? 0) < 3600_000);
+};
 
 /** Garde les détails reçus (clés = id des sorties ; les plus récents en dernier, DETAILS_MAX au plus). */
 export function mergeDetails(old: Record<string, Details>, add: Record<string, Details>): Record<string, Details> {
@@ -169,7 +177,9 @@ export function mergeDetails(old: Record<string, Details>, add: Record<string, D
 
 export async function fetchDetails(ids: number[], password: string): Promise<Record<string, Details>> {
   const r = await relayPost<{ details?: Record<string, Details> }>('skitour-details', { ids: ids.slice(0, 30) }, password);
-  const det = mergeDetails(readDetails(), r.details ?? {});
+  const t = Date.now();
+  const got = Object.fromEntries(Object.entries(r.details ?? {}).map(([k, v]) => [k, { ...v, t }]));
+  const det = mergeDetails(readDetails(), got);
   try { localStorage.setItem(DET_KEY, JSON.stringify(det)); } catch { /* stockage plein */ }
   return det;
 }
