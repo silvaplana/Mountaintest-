@@ -232,6 +232,31 @@ export async function fetchSheet(id: number, password: string): Promise<OutingSh
   return f;
 }
 
+/** Point d'un topo (départ ou sommet). */
+export interface TopoPoint { nom: string; altitude?: number | null; lat?: number | null; lon?: number | null }
+/** Fiche d'un topo (itinéraire de skitour.fr), lue dans l'appli. */
+export interface TopoSheet {
+  id: number; nom: string; url: string; massif: string; orientation: string; denivele?: number | null; dif_ski: string;
+  difficulte: string; expo: string; depart: TopoPoint | null; sommets: TopoPoint[];
+  presentation: string; itineraire: string; variantes: string; remarques: string; materiel: string; biblio?: string;
+  auteur: string; gpx: string;
+}
+const TOPOS_KEY = 'skitourTopos';
+/** Numéro d'un topo d'après son lien skitour.fr (…/topos/123). */
+export const topoId = (url: string): number | null => { const m = /\/topos\/(\d+)/.exec(url); return m ? Number(m[1]) : null; };
+function readTopos(): TopoSheet[] {
+  try { const v = JSON.parse(localStorage.getItem(TOPOS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+export const savedTopo = (id: number) => readTopos().find((t) => t.id === id) ?? null;
+/** Topo lu par le relais ; les 50 derniers ouverts sont gardés (le plus ancien est effacé). */
+export async function fetchTopo(id: number, password: string): Promise<TopoSheet> {
+  const t = await relayPost<TopoSheet>('skitour-topo', { id }, password);
+  const { trace: _t, ...keep } = t as TopoSheet & { trace?: unknown };
+  const kept = [keep, ...readTopos().filter((x) => x.id !== id)].slice(0, 50);
+  try { localStorage.setItem(TOPOS_KEY, JSON.stringify(kept)); } catch { /* stockage plein */ }
+  return t;
+}
+
 /** Filtre de la liste : chaque mot (sans accents) doit se trouver dans le titre, le massif, le sommet ou les auteurs. */
 export function filterRows(rows: OutingRow[], q: string): OutingRow[] {
   const norm = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchList, fetchMassifs, linkText, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
-  type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList } from './ski/skitour';
+import { fetchList, fetchMassifs, linkText, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate, fetchTopo, savedTopo, topoId,
+  type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList, type TopoSheet } from './ski/skitour';
 
 import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
 import { storedPhoto } from './ski/photoStore';
@@ -41,6 +41,29 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
   const [sheetRow, setSheetRow] = useState<OutingRow | null>(null);
   const [sheetMsg, setSheetMsg] = useState('');
   const [big, setBig] = useState<number | null>(null);
+  // Topo ouvert depuis une fiche (lu dans l'appli, gardé hors ligne).
+  const [topo, setTopo] = useState<TopoSheet | null>(null);
+  const [topoOpen, setTopoOpen] = useState<{ id: number; nom: string; url: string } | null>(null);
+  const [topoMsg, setTopoMsg] = useState('');
+  const openTopo = (l: { nom: string; url: string }) => {
+    const id = topoId(l.url);
+    if (id == null) { window.open(l.url, '_system'); return; }
+    setTopoOpen({ id, nom: l.nom, url: l.url }); setTopoMsg('');
+    const saved = savedTopo(id);
+    setTopo(saved);
+    if (!saved) setTopoMsg('Chargement du topo…');
+    fetchTopo(id, password)
+      .then((t) => { setTopo(t); setTopoMsg(''); })
+      .catch((e) => setTopoMsg(saved ? '📴 Hors ligne : topo gardé sur le téléphone.'
+        : `Topo impossible : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`));
+  };
+  // Topo ouvert : le bouton retour d'Android revient à la fiche.
+  useEffect(() => {
+    if (!topoOpen || big != null) return;
+    let sub: { remove: () => void } | null = null, live = true;
+    void CapApp.addListener('backButton', () => setTopoOpen(null)).then((h) => { if (live) sub = h; else void h.remove(); }).catch(() => { /* web */ });
+    return () => { live = false; sub?.remove(); };
+  }, [topoOpen, big]);
   // Photo en grand : le bouton retour d'Android la ferme (sans quitter l'appli).
   useEffect(() => {
     if (big == null) return;
@@ -83,7 +106,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
   const rows = useMemo(() => filterRows((list?.sorties ?? []).filter((o) => !massifs.length || massifs.includes(o.massif)), q), [list, q, massifs]);
 
   const open = (o: OutingRow) => {
-    setSheetRow(o); setSheetMsg('');
+    setSheetRow(o); setSheetMsg(''); setTopoOpen(null);
     const saved = savedSheet(o.id);
     setSheet(saved);
     if (!saved) setSheetMsg('Chargement de la sortie…');
@@ -106,9 +129,10 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
     // centrée sur leur point.
     const link = (l: { nom: string; url: string; altitude?: number | null; lat?: number | null; lon?: number | null }, onAppMap: boolean, k?: number, near?: { lat: number; lon: number } | null) => {
       // Sans coordonnées propres : le parking pour le départ, le point de la sortie pour un sommet.
+      const isTopo = !onAppMap && topoId(l.url) != null;
       const at: [number, number] | undefined = l.lat != null && l.lon != null ? [l.lon, l.lat] : near ? [near.lon, near.lat] : undefined;
       return (<span key={k ?? l.url} className="ski-link">
-        {l.url ? <a href={l.url} onClick={(e) => { e.preventDefault(); go(l.url); }}>{linkText(l)}</a> : linkText(l)}
+        {l.url ? <a href={l.url} onClick={(e) => { e.preventDefault(); if (isTopo) openTopo(l); else go(l.url); }}>{linkText(l)}</a> : linkText(l)}
         {onAppMap && o.lat != null && <button className="ski-pin" onClick={() => onMap(at)} aria-label={`${l.nom} sur la carte`}>🗺 Carte</button>}
       </span>);
     };
@@ -132,11 +156,40 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
       ['Exposition', f?.exposition ?? ''], ['Skiabilité', f?.skiabilite ?? ''],
     ];
     const photos = sheetPhotos(f);
+    if (topoOpen) {
+      const t = topo?.id === topoOpen.id ? topo : null;
+      const pt = (p: { nom: string; altitude?: number | null }) => p.nom + (p.altitude ? ` (${p.altitude} m)` : '');
+      const tinfo: [string, React.ReactNode][] = t ? [
+        ['Massif', t.massif],
+        ['Départ', t.depart ? <span className="ski-link">{pt(t.depart)}
+          <button className="ski-pin" onClick={() => go(gmaps(t.depart!, null))} aria-label={`${t.depart.nom} dans Google Maps`}>🚗 Google Maps</button></span> : ''],
+        [`Sommet${t.sommets.length > 1 ? 's' : ''}`, t.sommets.map(pt).join(', ')],
+        ['Orientation', t.orientation], ['Dénivelé', t.denivele ? `${t.denivele} m` : ''], ['Ski', t.dif_ski],
+        ['Difficulté', t.difficulte], ['Exposition', t.expo], ['Auteur', t.auteur],
+      ] : [];
+      const sections: [string, string][] = t ? [['Présentation', t.presentation], ['Itinéraire', t.itineraire], ['Variantes', t.variantes],
+        ['Remarques', t.remarques], ['Matériel', t.materiel], ['Bibliographie', t.biblio ?? '']] : [];
+      return (
+        <div className="ski-page">
+          <div className="travel-head"><button onClick={() => setTopoOpen(null)}>← Sortie</button>
+            <span className="head-btns"><button onClick={onClose} aria-label="Fermer">✕</button></span></div>
+          <div className="ski-title"><h2>📖 {t?.nom || topoOpen.nom}</h2></div>
+          {topoMsg && <p className="hint">{topoMsg}</p>}
+          <dl className="ski-info">{tinfo.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k} :</dt><dd>{v}</dd></div>)}</dl>
+          {sections.filter(([, v]) => v).map(([k, v]) => <div key={k}><h3>{k}</h3><p className="ski-text">{v}</p></div>)}
+          <div className="row">
+            <button className="primary" onClick={() => go(topoOpen.url)}>Voir sur skitour.fr</button>
+            {t?.gpx && <button className="ski-gpx-btn" onClick={() => go(t.gpx)}>GPX</button>}
+          </div>
+          <p className="hint">Topo de {t?.auteur || 'skitour.fr'} sur skitour.fr, non modifié.</p>
+        </div>
+      );
+    }
     return (
       <div className={`ski-page${low ? ' low' : ''}`}>
         {/* ▾ réduit la fiche à une barre en bas (titre, ▴, ✕) pour revoir la carte ; ▴ la remet ; ✕ la ferme. */}
         <div className="travel-head">{low || start ? <b className="ski-low-title">{low ? o.titre : ''}</b>
-          : <button onClick={() => { setSheetRow(null); setSheet(null); setBig(null); }}>← Liste</button>}
+          : <button onClick={() => { setSheetRow(null); setSheet(null); setBig(null); setTopoOpen(null); }}>← Liste</button>}
           <span className="head-btns">
             <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir la fiche' : 'Réduire la fiche'}>{low ? '▴' : '▾'}</button>
             <button onClick={onClose} aria-label="Fermer">✕</button></span></div>

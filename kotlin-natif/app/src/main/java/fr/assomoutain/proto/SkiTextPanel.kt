@@ -52,6 +52,16 @@ class SheetLinks(val depart: SheetLink?, val topos: List<SheetLink>, val sommets
                  /** Topos retrouvés par le sommet (la sortie n'en cite pas). */ val toposTrouves: Boolean = false)
 
 /** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
+/** Point d'un topo (départ ou sommet). */
+data class TopoPoint(val nom: String, val altitude: Int?, val lat: Double?, val lon: Double?) {
+    fun text() = nom + (altitude?.let { " ($it m)" } ?: "")
+}
+/** Fiche d'un topo (itinéraire de skitour.fr), lue dans l'appli. */
+class TopoSheet(val id: Long, val nom: String, val url: String, val massif: String, val orientation: String, val denivele: Int?,
+                val difSki: String, val difficulte: String, val expo: String, val depart: TopoPoint?, val sommets: List<TopoPoint>,
+                /** Présentation, Itinéraire, Variantes, Remarques, Matériel, Bibliographie. */ val sections: List<Pair<String, String>>,
+                val auteur: String, val gpx: String)
+
 data class SkiPhoto(val url: String, val legende: String, val auteur: String)
 
 /**
@@ -155,6 +165,30 @@ object SkiText {
         return sheet(o)
     }
 
+    /** Numéro d'un topo d'après son lien skitour.fr (…/topos/123). */
+    fun topoId(url: String): Long? = Regex("/topos/(\\d+)").find(url)?.groupValues?.get(1)?.toLongOrNull()
+    private fun point(o: JSONObject?) = o?.let { TopoPoint(it.optString("nom"), intOrNull(it, "altitude"), dblOrNull(it, "lat"), dblOrNull(it, "lon")) }
+    fun topo(o: JSONObject) = TopoSheet(o.optLong("id"), o.optString("nom"), o.optString("url"), o.optString("massif"), o.optString("orientation"),
+        intOrNull(o, "denivele"), o.optString("dif_ski"), o.optString("difficulte"), o.optString("expo"), point(o.optJSONObject("depart")),
+        o.optJSONArray("sommets")?.let { a -> (0 until a.length()).mapNotNull { point(a.optJSONObject(it)) } } ?: emptyList(),
+        listOf("presentation" to "Présentation", "itineraire" to "Itinéraire", "variantes" to "Variantes", "remarques" to "Remarques",
+            "materiel" to "Matériel", "biblio" to "Bibliographie").map { (k, t) -> t to o.optString(k) },
+        o.optString("auteur"), o.optString("gpx"))
+    fun savedTopo(f: java.io.File, id: Long): TopoSheet? {
+        val a = readSheets(f)
+        return (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optLong("id") == id }?.let { topo(it) }
+    }
+    /** Topo lu par le relais ; les 50 derniers ouverts sont gardés (le plus ancien est effacé). */
+    fun fetchTopo(f: java.io.File, id: Long, password: String): TopoSheet {
+        val o = Travel.post("skitour-topo", JSONObject().put("id", id), password)
+        o.remove("trace")
+        val old = readSheets(f)
+        val a = JSONArray().put(o)
+        (0 until old.length()).map { old.getJSONObject(it) }.filter { it.optLong("id") != id }.take(49).forEach { a.put(it) }
+        runCatching { f.writeText(a.toString()) }
+        return topo(o)
+    }
+
     /** Massifs de skitour (id, nom, groupe), demandés au relais et gardés dans un fichier. */
     data class Massif(val id: Int, val nom: String, val groupe: String)
     private fun massifs(a: JSONArray) = (0 until a.length()).map { a.getJSONObject(it) }
@@ -212,6 +246,7 @@ class SkiTextPanel(
     private val accent = Color.parseColor("#2F6F4F")
     private val listFile = java.io.File(a.filesDir, "skitour-liste.json")
     private val sheetsFile = java.io.File(a.filesDir, "skitour-fiches.json")
+    private val toposFile = java.io.File(a.filesDir, "skitour-topos.json")
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
     private val col = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(36), dp(14), dp(24)) }
     val view: ScrollView = ScrollView(a).apply {
@@ -463,6 +498,75 @@ class SkiTextPanel(
         show(); dlg.show()
     }
 
+    private fun openTopo(id: Long, l: SheetLink, row: OutingRow, f: OutingSheet?, msg: String) {
+        job?.cancel()
+        val saved = SkiText.savedTopo(toposFile, id)
+        renderTopo(l, saved, if (saved == null) "Chargement du topo…" else "", row, f, msg)
+        job = a.lifecycleScope.launch {
+            runCatching { withContext(Dispatchers.IO) { SkiText.fetchTopo(toposFile, id, password) } }
+                .onSuccess { renderTopo(l, it, "", row, f, msg) }
+                .onFailure { e ->
+                    if (e is kotlinx.coroutines.CancellationException) return@onFailure
+                    renderTopo(l, saved, if (saved != null) "📴 Hors ligne : topo gardé sur le téléphone."
+                        else "Topo impossible : ${if (e is java.io.IOException) "pas de réseau" else e.message}", row, f, msg)
+                }
+        }
+    }
+
+    /** Topo dans l'appli : infos, départ (Google Maps), textes ; « ← Sortie » revient à la fiche. */
+    private fun renderTopo(l: SheetLink, t: TopoSheet?, tmsg: String, row: OutingRow, f: OutingSheet?, msg: String) {
+        col.removeAllViews()
+        if (low) setLow(false, Button(a), TextView(a), null)
+        col.addView(header(Button(a).apply { text = "← Sortie"; isAllCaps = false; setOnClickListener { job?.cancel(); renderSheet(row, f, msg) } }
+            .let { b -> LinearLayout(a).apply { addView(b) } }))
+        col.addView(box().apply { gravity = Gravity.CENTER_HORIZONTAL; addView(text("📖 " + (t?.nom?.ifEmpty { null } ?: l.nom), 20f, ink, true).apply { gravity = Gravity.CENTER }) }, lp())
+        if (tmsg.isNotEmpty()) col.addView(text(tmsg))
+        val blue = Color.parseColor("#2E6DB4")
+        fun open(url: String) = runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        if (t != null) {
+            val dep = t.depart
+            val info: List<Pair<String, Any>> = listOf(
+                "Massif" to t.massif,
+                "Départ" to (dep?.let { p ->
+                    LinearLayout(a).apply {
+                        gravity = Gravity.CENTER_VERTICAL
+                        addView(text(p.text(), 14f, ink), LinearLayout.LayoutParams(0, -2, 1f))
+                        val url = if (p.lat != null && p.lon != null) "https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}"
+                            else "https://www.google.com/maps/search/?api=1&query=" + Uri.encode("${p.nom} ${t.massif}")
+                        addView(Button(a).apply {
+                            text = "🚗 Google Maps"; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                            setPadding(dp(8), dp(4), dp(8), dp(4)); contentDescription = "${p.nom} dans Google Maps"
+                            setOnClickListener { open(url) } })
+                    }
+                } ?: ""),
+                (if (t.sommets.size > 1) "Sommets" else "Sommet") to t.sommets.joinToString(", ") { it.text() },
+                "Orientation" to t.orientation, "Dénivelé" to (t.denivele?.let { "$it m" } ?: ""), "Ski" to t.difSki,
+                "Difficulté" to t.difficulte, "Exposition" to t.expo, "Auteur" to t.auteur,
+            ).filter { (_, v) -> (v as? String)?.isNotEmpty() ?: true }
+            col.addView(box().apply {
+                info.forEach { (k, v) ->
+                    addView(LinearLayout(a).apply {
+                        setPadding(0, dp(2), 0, dp(2))
+                        addView(text("$k :", 14f, blue, true), LinearLayout.LayoutParams(dp(110), -2))
+                        if (v is String) addView(text(v, 14f, ink), LinearLayout.LayoutParams(0, -2, 1f))
+                        else addView(v as android.view.View, LinearLayout.LayoutParams(0, -2, 1f))
+                    })
+                }
+            }, lp())
+            t.sections.filter { it.second.isNotBlank() }.forEach { (k, body) ->
+                col.addView(text(k, 16f, accent, true).apply { setPadding(0, dp(12), 0, dp(2)) })
+                col.addView(text(body, 15f, ink).apply { setLineSpacing(0f, 1.2f) })
+            }
+        }
+        col.addView(LinearLayout(a).apply {
+            setPadding(0, dp(10), 0, 0)
+            addView(Button(a).apply { text = "Voir sur skitour.fr"; setOnClickListener { open(l.url) } }, LinearLayout.LayoutParams(0, -2, 1f))
+            if (t != null && t.gpx.isNotEmpty()) addView(Button(a).apply { text = "GPX"; isAllCaps = false; setOnClickListener { open(t.gpx) } })
+        })
+        col.addView(text("Topo de ${t?.auteur?.ifEmpty { null } ?: "skitour.fr"} sur skitour.fr, non modifié."))
+        view.post { view.scrollTo(0, 0) }
+    }
+
     private fun renderSheet(row: OutingRow, f: OutingSheet?, msg: String) {
         // Point de la sortie : celui de la fiche, sinon celui de la carte (la fiche n'en a pas toujours, sommets sans coordonnées).
         val o = f?.row?.let { it.copy(lat = it.lat ?: row.lat, lon = it.lon ?: row.lon, parking = it.parking ?: row.parking) } ?: row
@@ -495,7 +599,12 @@ class SkiTextPanel(
             addView(text(l.text(), 14f, ink).apply {
                 if (l.url.isNotEmpty()) {
                     paintFlags = paintFlags or android.graphics.Paint.UNDERLINE_TEXT_FLAG
-                    setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l.url))) } }
+                    // Un topo s'ouvre dans l'appli (gardé hors ligne), le reste sur skitour.fr.
+                    val tid = if (!pin) SkiText.topoId(l.url) else null
+                    setOnClickListener {
+                        if (tid != null) openTopo(tid, l, row, f, msg)
+                        else runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(l.url))) }
+                    }
                 }
             }, LinearLayout.LayoutParams(0, -2, 1f))
             if (pin && o.lat != null) addView(Button(a).apply {
