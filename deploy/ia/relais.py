@@ -455,12 +455,12 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
     return lignes
 
 
-def _sorties_brutes(jours: int, massif: int | None = None) -> list:
+def _sorties_brutes(jours: int, massif: int | None = None, pages: int = 3) -> list:
     """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif."""
     # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
     # on prend donc les sorties des derniers jours, par pages de 1000.
     data = []
-    for page in range(1, 4):
+    for page in range(1, pages + 1):
         q = urllib.parse.urlencode({"j": jours, "c": 1, "l": 1000, "p": page, **({"m": massif} if massif else {})})
         req = urllib.request.Request(f"https://skitour.fr/api/sorties?{q}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -503,6 +503,41 @@ def sorties_skitour(o: float, s: float, e: float, n: float, jours: int) -> list:
         if dedans:
             out.append(_sortie(x, dedans[0]))
     return _completer(_avec_parkings(out))
+
+
+# ---------- Sorties sur la carte (icône ⛷🗺) : toute la liste d'une période, l'appli garde celles de l'écran ----------
+# Une seule requête skitour par période (gardée 1 h) quel que soit l'endroit regardé ; les détails lus sur les pages
+# (étoiles, skiabilité en mot, parking) ne sont demandés que pour les sorties à l'écran, 30 au plus à la fois.
+
+_PAR_ID: dict = {}  # id -> sortie brute de l'API (pour les détails)
+
+
+def toutes_sorties(jours: int) -> list:
+    """Toutes les sorties de la période (jours ≥ 3650 = « Tout »), avec un sommet placé sur la carte."""
+    c = _liste_memo.get(("tout", jours))
+    # Longue période : plus de pages (1000 sorties chacune) mais gardée plus longtemps, pour ménager le quota skitour.
+    garde = 3600 if jours <= 30 else 6 * 3600
+    if not (c and time.time() - c[0] < garde):
+        out = []
+        for x in _sorties_brutes(jours, pages=3 if jours <= 90 else 10):
+            pts = _sommets(x)
+            if pts:
+                o = _sortie(x, pts[0])
+                o["conditions"] = o["conditions"][:200]
+                out.append(o)
+                _PAR_ID[o["id"]] = o
+        out.sort(key=lambda o: o["date"] or 0, reverse=True)
+        c = (time.time(), out)
+        _liste_memo[("tout", jours)] = c
+    return c[1]
+
+
+def details_sorties(ids: list) -> dict:
+    """Étoiles, skiabilité en mot et parking (avec nom et altitude) des sorties demandées."""
+    lignes = [dict(_PAR_ID[i]) for i in ids if i in _PAR_ID]
+    lignes += [{"id": i, "skiabilite": "", "etoiles": None, "parking": None} for i in ids if i not in _PAR_ID]
+    return {str(o["id"]): {"etoiles": o.get("etoiles"), "skiabilite": o.get("skiabilite") or "", "parking": o.get("parking")}
+            for o in _completer(_avec_parkings(lignes), maxi=30)}
 
 
 # ---------- Sorties en texte (icône ⛷💬) : liste façon skitour.fr, puis fiche détaillée ----------
@@ -803,11 +838,11 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -832,6 +867,21 @@ class Relais(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(data)
             return
+        if chemin.endswith(("/skitour-tout", "/skitour-details")):
+            if not SKITOUR_CLE:
+                return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
+            try:
+                d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 4_000)) or b"{}")
+                jours = max(1, min(int(d.get("jours", 30)), 3650))
+                ids = [int(i) for i in (d.get("ids") or [])][:30]
+            except (ValueError, TypeError):
+                return self._json(400, {"erreur": "demande invalide"})
+            try:
+                if chemin.endswith("/skitour-tout"):
+                    return self._json(200, {"sorties": toutes_sorties(jours)})
+                return self._json(200, {"details": details_sorties(ids)})
+            except Exception as ex:  # noqa: BLE001
+                return self._json(502, {"erreur": str(ex)})
         if chemin.endswith("/skitour-massifs"):
             if not SKITOUR_CLE:
                 return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})

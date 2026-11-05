@@ -6,12 +6,10 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.view.Gravity
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -83,6 +81,35 @@ fun uniqueParkings(outings: List<Outing>, sel: Int?): List<Triple<Int, Parking, 
 }
 
 object Skitour {
+    private fun outing(it: JSONObject) = Outing(it.optLong("id"), it.optString("titre"), it.optLong("date"), it.optString("massif"), it.optString("sommet"),
+        if (it.isNull("altitude")) null else it.optInt("altitude"), it.optDouble("lat"), it.optDouble("lon"),
+        if (it.isNull("denivele")) null else it.optInt("denivele"), if (it.isNull("dif_ski")) "" else it.optString("dif_ski"),
+        it.optString("orientation"), it.optString("conditions"), it.optString("auteur"), it.optString("url"),
+        it.optString("skiabilite"), if (it.isNull("etoiles") || !it.has("etoiles")) null else it.optInt("etoiles"),
+        Parking.from(it.optJSONObject("parking")))
+
+    /**
+     * ⛷🗺 : toutes les sorties de la période en une requête (filtrées ensuite sur l'écran), gardées dans un fichier pour
+     * le hors ligne. Rend les sorties et, hors ligne, la date de la liste gardée. Même logique que loadAll de l'appli web.
+     */
+    fun fetchAll(file: java.io.File, days: Int, password: String): Pair<List<Outing>, Long?> = try {
+        val a = Travel.post("skitour-tout", JSONObject().put("jours", days), password).optJSONArray("sorties") ?: org.json.JSONArray()
+        val o = (0 until a.length()).map { outing(a.getJSONObject(it)) }.filter { !it.lat.isNaN() && !it.lon.isNaN() }.sortedByDescending { it.date }
+        runCatching { file.writeText(JSONObject().put("days", days).put("t", System.currentTimeMillis()).put("sorties", org.json.JSONArray(o.map { toJson(it) })).toString()) }
+        o to null
+    } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+        val saved = runCatching { JSONObject(file.readText()) }.getOrNull() ?: throw e
+        val since = System.currentTimeMillis() / 1000 - days * 86400L
+        val a = saved.getJSONArray("sorties")
+        (0 until a.length()).map { fromJson(a.getJSONObject(it)) }.filter { it.date >= since } to saved.optLong("t")
+    }
+
+    /** Étoiles, skiabilité en mot et parking des sorties demandées (30 au plus), par id. */
+    fun details(ids: List<Long>, password: String): Map<Long, JSONObject> {
+        val d = Travel.post("skitour-details", JSONObject().put("ids", org.json.JSONArray(ids.take(30))), password).optJSONObject("details") ?: return emptyMap()
+        return d.keys().asSequence().mapNotNull { k -> k.toLongOrNull()?.let { it to d.getJSONObject(k) } }.toMap()
+    }
+
     fun fetch(z: Zone, days: Int, password: String): List<Outing> {
         val o = Travel.post("skitour", JSONObject().put("ouest", z.west).put("sud", z.south).put("est", z.east).put("nord", z.north).put("jours", days), password)
         val a = o.optJSONArray("sorties") ?: return emptyList()
@@ -150,12 +177,39 @@ class SkitourCache(private val file: java.io.File) {
 }
 
 /** Liste des sorties de la zone encadrée (la plus récente d'abord) ; les points sont dessinés par MainActivity. */
+/** Détails (étoiles, skiabilité, parking) gardés sur le téléphone, 800 sorties au plus (les plus récentes). */
+class SkiDetails(private val file: java.io.File) {
+    private val max = 800
+    private val map: LinkedHashMap<Long, JSONObject> = runCatching {
+        val o = JSONObject(file.readText()); val m = LinkedHashMap<Long, JSONObject>()
+        val a = o.getJSONArray("ordre"); for (k in 0 until a.length()) { val id = a.getLong(k); o.optJSONObject("d$id")?.let { m[id] = it } }; m
+    }.getOrDefault(LinkedHashMap())
+    fun has(id: Long) = map.containsKey(id)
+    fun apply(x: Outing): Outing {
+        val d = map[x.id] ?: return x
+        return x.copy(etoiles = if (d.isNull("etoiles") || !d.has("etoiles")) x.etoiles else d.optInt("etoiles"),
+            skiabilite = d.optString("skiabilite").ifEmpty { x.skiabilite }, parking = Parking.from(d.optJSONObject("parking")) ?: x.parking)
+    }
+    fun add(add: Map<Long, JSONObject>) {
+        add.forEach { (k, v) -> map.remove(k); map[k] = v }
+        while (map.size > max) map.remove(map.keys.first())
+        val o = JSONObject().put("ordre", org.json.JSONArray(map.keys.toList()))
+        map.forEach { (k, v) -> o.put("d$k", v) }
+        runCatching { file.writeText(o.toString()) }
+    }
+}
+
+/**
+ * Sorties skitour.fr de l'écran affiché : toute la liste de la période est chargée une fois, puis filtrée sur l'écran
+ * à chaque arrêt de la carte (aucune requête) ; étoiles, skiabilité et parking demandés pour les sorties visibles.
+ * Même fonctionnement que SkiPanel.tsx.
+ */
 class SkiPanel(
     private val a: AppCompatActivity,
-    private val zone: Zone,
     private val password: String,
+    /** Écran affiché (zone et zoom), ou null si la carte n'est pas prête. */
+    private val viewport: () -> Pair<Zone, Double>?,
     private val onOutings: (List<Outing>, Int?) -> Unit,
-    private val onReframe: () -> Unit,
     private val onClose: () -> Unit,
     /** Ouvre la fiche complète de la sortie (façon skitour.fr). */
     private val onSheet: (Outing) -> Unit = {},
@@ -180,85 +234,143 @@ class SkiPanel(
     private val detail = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val list = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private var outings: List<Outing> = emptyList()
-    private val periods = listOf(7 to "7 derniers jours", 30 to "30 derniers jours", 90 to "3 derniers mois", 365 to "12 derniers mois")
+    /** Choix de période (jours ; 3650 = « Tout »), comme PERIODS de l'appli web. */
+    private val periods = listOf(1 to "< 1 j", 2 to "< 2 j", 3 to "< 3 j", 4 to "< 4 j", 5 to "< 5 j", 7 to "< 1 sem.",
+        15 to "< 15 j", 30 to "< 30 j", 90 to "< 3 mois", 365 to "< 1 an", 3650 to "Tout")
+    private val count = text("", 13f, muted)
+    private val pill = Button(a)
+    private val menu = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; visibility = android.view.View.GONE }
+    private var days = 30
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
-    private val cache = SkitourCache(java.io.File(a.filesDir, "skitour-cache.json"))
+    private val allFile = java.io.File(a.filesDir, "skitour-tout.json")
+    private val details = SkiDetails(java.io.File(a.filesDir, "skitour-details.json"))
+    private val asked = mutableSetOf<Long>() // déjà demandés (une fois par ouverture, même si la réponse manque)
+    private var all: List<Outing> = emptyList()
+    private var offline: Long? = null
+    private var selId: Long? = null
     private var low = false
 
     init {
+        days = prefs.getInt("skitourJours", 30).takeIf { d -> periods.any { it.first == d } } ?: 30
+        // Première ligne, sans titre (on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
+        // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
+        pill.apply {
+            isAllCaps = false; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); textSize = 14f; minWidth = 0; minimumWidth = 0
+            setPadding(dp(12), 0, dp(12), 0)
+            background = GradientDrawable().apply { setColor(Color.parseColor("#2F6FD6")); cornerRadius = 999f }
+            contentDescription = "Période des sorties"
+            setOnClickListener { showMenu(menu.visibility != android.view.View.VISIBLE) }
+        }
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
-            addView(text("⛷ Sorties ski de rando", 16f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
-            // ▾ réduit le panneau à cette seule ligne (titre, flèche, croix) pour voir la carte ; ▴ le remet.
+            addView(count, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(pill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
             addView(Button(a).apply {
                 text = "▾"; contentDescription = "Réduire le panneau"
                 setOnClickListener {
                     low = !low
                     text = if (low) "▴" else "▾"; contentDescription = if (low) "Agrandir le panneau" else "Réduire le panneau"
-                    for (k in 1 until col.childCount) col.getChildAt(k).visibility = if (low) android.view.View.GONE else android.view.View.VISIBLE
+                    // Le menu de période (enfant 1) reste utilisable même panneau réduit.
+                    for (k in 2 until col.childCount) col.getChildAt(k).visibility = if (low) android.view.View.GONE else android.view.View.VISIBLE
+                    if (status.text.isEmpty()) status.visibility = android.view.View.GONE
                     view.layoutParams = view.layoutParams.apply { height = -2 }
                 }
             }, LinearLayout.LayoutParams(dp(48), dp(44)))
             addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
         })
-        val spin = Spinner(a).apply {
-            adapter = ArrayAdapter(a, android.R.layout.simple_spinner_dropdown_item, periods.map { it.second })
-            setSelection(periods.indexOfFirst { it.first == prefs.getInt("skitourJours", 30) }.coerceAtLeast(0))
+        // Les choix de période sur deux lignes, juste sous la pastille ; un choix referme la liste.
+        periods.chunked(6).forEach { row ->
+            menu.addView(LinearLayout(a).apply {
+                row.forEach { (d0, t) ->
+                    addView(Button(a).apply {
+                        text = t; tag = d0; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                        setPadding(dp(2), dp(6), dp(2), dp(6))
+                        setOnClickListener {
+                            days = d0; prefs.edit().putInt("skitourJours", d0).apply(); showMenu(false); load(d0)
+                        }
+                    }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(3) })
+                }
+                if (row.size < 6) addView(android.view.View(a), LinearLayout.LayoutParams(0, 0, (6 - row.size).toFloat()))
+            })
         }
-        col.addView(LinearLayout(a).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            addView(spin, LinearLayout.LayoutParams(0, -2, 1f))
-            addView(Button(a).apply { text = "Autre zone"; setOnClickListener { onReframe() } })
-        })
-        spin.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: android.widget.AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-                prefs.edit().putInt("skitourJours", periods[pos].first).apply(); load(periods[pos].first)
-            }
-            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
-        }
+        col.addView(menu)
+        showMenu(false)
         col.addView(status); col.addView(detail); col.addView(list)
         col.addView(text("Données skitour.fr (CC BY-NC-ND pour les récits)."))
+        view.post { load(days) } // après l'init complet (job, detJob)
+    }
+
+    private fun showMenu(open: Boolean) {
+        menu.visibility = if (open) android.view.View.VISIBLE else android.view.View.GONE
+        pill.text = (periods.firstOrNull { it.first == days }?.second ?: "< $days j") + if (open) " ▴" else " ▾"
+        for (k in 0 until menu.childCount) (menu.getChildAt(k) as LinearLayout).let { row ->
+            for (j in 0 until row.childCount) (row.getChildAt(j) as? Button)?.let { b ->
+                val on = b.tag == days
+                b.setTypeface(null, if (on) Typeface.BOLD else Typeface.NORMAL)
+                b.background = GradientDrawable().apply { setColor(Color.parseColor(if (on) "#2F6FD6" else "#F2F4F1")); cornerRadius = 999f }
+                b.setTextColor(if (on) Color.WHITE else ink)
+            }
+        }
     }
 
     private var job: kotlinx.coroutines.Job? = null
     private fun load(days: Int) {
         job?.cancel()
-        status.text = "Recherche sur skitour.fr…"; list.removeAllViews(); detail.removeAllViews()
-        outings = emptyList(); onOutings(outings, null)
+        status.text = ""; status.visibility = android.view.View.GONE; count.text = "Recherche…"; list.removeAllViews(); detail.removeAllViews()
+        all = emptyList(); outings = emptyList(); onOutings(outings, null)
         job = a.lifecycleScope.launch {
-            // Sans réseau (ou relais en panne) : sorties gardées sur le téléphone ; offline = date de cette recherche.
-            runCatching { withContext<Pair<List<Outing>, Long?>>(Dispatchers.IO) {
-                try { Skitour.fetch(zone, days, password).also { cache.add(zone, days, it) } to null }
-                catch (e: kotlinx.coroutines.CancellationException) { throw e }
-                catch (e: Exception) { cache.find(zone, days) ?: throw e }
-            } }
-                .onSuccess { (o, offline) ->
-                    outings = o; onOutings(o, null)
-                    val found = if (o.isEmpty()) "Aucune sortie dans cette zone sur la période."
-                        else "${o.size} sortie${if (o.size > 1) "s" else ""} dans la zone (points bleus sur la carte)."
-                    status.text = if (offline == null) found else "📴 Hors ligne : sorties gardées sur le téléphone, recherche du " +
-                        Instant.ofEpochMilli(offline).atZone(ZoneId.systemDefault())
-                            .format(DateTimeFormatter.ofPattern("d MMM 'à' HH:mm", Locale.FRANCE)) + ".\n" + found
-                    o.forEachIndexed { i, x ->
-                        list.addView(LinearLayout(a).apply {
-                            orientation = LinearLayout.VERTICAL; setPadding(dp(10), dp(8), dp(10), dp(8))
-                            background = GradientDrawable().apply { setColor(Color.parseColor("#F2F4F1")); cornerRadius = 8 * d }
-                            addView(LinearLayout(a).apply {
-                                addView(text(x.titre, 15f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
-                                addView(text(x.dateText(), 13f, ink))
-                            })
-                            addView(text(x.line()))
-                            setOnClickListener { select(i) }
-                        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
-                    }
-                }
-                .onFailure { if (it !is kotlinx.coroutines.CancellationException) status.text = "Recherche impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}" }
+            runCatching { withContext(Dispatchers.IO) { Skitour.fetchAll(allFile, days, password) } }
+                .onSuccess { (o, off) -> all = o; offline = off; refresh() }
+                .onFailure { if (it !is kotlinx.coroutines.CancellationException) { count.text = ""; status.visibility = android.view.View.VISIBLE; status.text = "Recherche impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}" } }
+        }
+    }
+
+    private var detJob: kotlinx.coroutines.Job? = null
+    /** À chaque arrêt de la carte (appelé par MainActivity) : sorties de l'écran, puis leurs détails manquants. */
+    fun refresh() {
+        val vp = viewport() ?: return
+        val (z, zoom) = vp
+        val far = zoom < SKI_MIN_ZOOM
+        val vis = if (far) emptyList() else all.filter { it.lon in z.west..z.east && it.lat in z.south..z.north }.take(150).map { details.apply(it) }
+        outings = vis
+        val k = vis.indexOfFirst { it.id == selId }.takeIf { it >= 0 }
+        onOutings(vis, k)
+        count.text = if (far) "Zoome sur une région" else "${vis.size} sortie${if (vis.size > 1) "s" else ""} à l'écran"
+        val notes = listOfNotNull(
+            offline?.let { "📴 Hors ligne : sorties gardées sur le téléphone, liste du " +
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM 'à' HH:mm", Locale.FRANCE)) + "." },
+            if (far) "Rapproche la carte pour voir les sorties (${all.size} sur la période)." else null)
+        status.text = notes.joinToString("\n")
+        status.visibility = if (notes.isEmpty() || low) android.view.View.GONE else android.view.View.VISIBLE
+        list.removeAllViews()
+        if (k == null) detail.removeAllViews()
+        vis.forEachIndexed { i, x ->
+            list.addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(10), dp(8), dp(10), dp(8))
+                background = GradientDrawable().apply { setColor(Color.parseColor(if (i == k) "#DCE8F7" else "#F2F4F1")); cornerRadius = 8 * d }
+                addView(LinearLayout(a).apply {
+                    addView(text(x.titre, 15f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(text(x.dateText(), 13f, ink))
+                })
+                addView(text(x.line()))
+                setOnClickListener { select(i) }
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+        }
+        val missing = vis.filter { !details.has(it.id) && it.id !in asked }.take(30).map { it.id }
+        detJob?.cancel()
+        if (missing.isEmpty()) return
+        detJob = a.lifecycleScope.launch {
+            kotlinx.coroutines.delay(1000)
+            asked.addAll(missing)
+            runCatching { withContext(Dispatchers.IO) { Skitour.details(missing, password) } }
+                .onSuccess { details.add(it); refresh() }
         }
     }
 
     /** Sortie choisie (dans la liste ou en touchant son point). */
     fun select(i: Int) {
         val x = outings.getOrNull(i) ?: return
+        selId = x.id
         onOutings(outings, i)
         detail.removeAllViews()
         detail.addView(text(x.titre, 15f, ink, true))
@@ -279,6 +391,9 @@ class SkiPanel(
 /** Skiabilité comme sur skitour.fr (« 🙂 Bonne », lue par le relais sur la page de la sortie) ;
  *  si le relais n'a que le chiffre de l'API, « skiabilité 1 » (même texte que skiabText de l'appli web). */
 /** « il y a 8 j » depuis la date de la sortie (secondes Unix), comme daysAgo de l'appli web. */
+/** En dessous de ce zoom, l'écran couvre trop de pays : on ne montre pas les points (comme SKI_MIN_ZOOM de l'appli web). */
+const val SKI_MIN_ZOOM = 7.0
+
 fun daysAgo(date: Long, now: Long = System.currentTimeMillis()): String {
     val n = maxOf(0L, (now - date * 1000) / 86_400_000L)
     return if (n == 0L) "aujourd'hui" else "il y a $n j"
