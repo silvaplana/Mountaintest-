@@ -107,7 +107,7 @@ export function MapView(props: MapViewProps) {
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
-          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY },
+          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
@@ -131,6 +131,11 @@ export function MapView(props: MapViewProps) {
           { id: 'travel', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 6, 3], 'line-opacity': ['case', ['get', 'sel'], 1, 0.6] } },
           { id: 'travel-hit', type: 'line', source: 'travel', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
           // Trait sommet ↔ parking et parking (point gris foncé), sous les points des sommets.
+          // Traces GPX des sorties (rouge) et itinéraires de leurs topos (vert, pointillé), sous les points ; celles de la sortie choisie plus épaisses.
+          { id: 'ski-iti', type: 'line', source: 'skiLines', filter: ['==', ['get', 'k'], 'iti'], layout: { 'line-join': 'round' },
+            paint: { 'line-color': '#2e9d4f', 'line-width': ['case', ['get', 'sel'], 4, 2.5], 'line-opacity': ['case', ['get', 'sel'], 0.95, 0.7], 'line-dasharray': [2, 1] } },
+          { id: 'ski-trace', type: 'line', source: 'skiLines', filter: ['==', ['get', 'k'], 'trace'], layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#d7301f', 'line-width': ['case', ['get', 'sel'], 4, 2.5], 'line-opacity': ['case', ['get', 'sel'], 0.95, 0.7] } },
           { id: 'ski-link', type: 'line', source: 'skiPark', filter: ['==', ['geometry-type'], 'LineString'],
             paint: { 'line-color': ['case', ['get', 'sel'], '#7b3fe4', '#1d6fe0'], 'line-width': ['case', ['get', 'sel'], 3, 2], 'line-dasharray': [2, 1.5], 'line-opacity': 0.85 } },
           { id: 'ski-park', type: 'circle', source: 'skiPark', filter: ['==', ['geometry-type'], 'Point'],
@@ -292,6 +297,9 @@ export function MapView(props: MapViewProps) {
     (m.getSource('ski') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).map((o, i) => ({
       type: 'Feature', properties: { i }, geometry: { type: 'Point', coordinates: [o.lon, o.lat] } })) });
     const sel = props.skiSel ?? -1;
+    (m.getSource('skiLines') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).flatMap((o, i) =>
+      ([['trace', o.trace], ['iti', o.itineraire]] as const).filter(([, c]) => c && c.length > 1).map(([k, c]) =>
+        ({ type: 'Feature' as const, properties: { i, k, sel: i === sel }, geometry: { type: 'LineString' as const, coordinates: c as [number, number][] } }))) });
     // Seulement les points des sorties ; le parking (point et trait) de la sortie choisie seulement.
     const so = props.skiOutings?.[sel];
     (m.getSource('skiPark') as GeoJSONSource).setData({ type: 'FeatureCollection', features: so?.parking ? [

@@ -495,6 +495,14 @@ class MainActivity : AppCompatActivity() {
             style.addSource(GeoJsonSource(SRC_WEB_HIKES))
             style.addLayer(CircleLayer(LAYER_WEB_HIKES, SRC_WEB_HIKES).withProperties(
                 circleRadius(8f), circleColor(WebHikes.COLOR), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
+            // Traces GPX des sorties (rouge) et itinéraires de leurs topos (vert, pointillé) ; celles de la sortie choisie plus épaisses.
+            style.addSource(GeoJsonSource(SRC_SKI_LINES))
+            for ((id, k) in listOf("ski-iti" to "iti", "ski-trace" to "trace")) style.addLayer(LineLayer(id, SRC_SKI_LINES).withProperties(
+                lineColor(if (k == "iti") "#2e9d4f" else "#d7301f"),
+                lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(4f), Expression.literal(2.5f))),
+                lineOpacity(Expression.switchCase(Expression.get("sel"), Expression.literal(0.95f), Expression.literal(0.7f)))).apply {
+                if (k == "iti") setProperties(lineDasharray(arrayOf(2f, 1f)))
+                setFilter(Expression.eq(Expression.get("k"), Expression.literal(k))) })
             // Parkings des sorties : trait pointillé sommet ↔ parking, point gris, étiquette « 🅿 nom (altitude) ».
             style.addSource(GeoJsonSource(SRC_SKI_PARK))
             style.addLayer(LineLayer("ski-link", SRC_SKI_PARK).withProperties(
@@ -1247,6 +1255,12 @@ class MainActivity : AppCompatActivity() {
             style.getImage(img)?.let { skiTagSizes["s$i"] = it.width / dens to it.height / dens }
             Feature.fromGeometry(Point.fromLngLat(x.lon, x.lat)).apply {
                 addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img); addProperty("off", tagOffset("s$i")) }
+        }))
+        style.getSourceAs<GeoJsonSource>(SRC_SKI_LINES)?.setGeoJson(FeatureCollection.fromFeatures(o.flatMapIndexed { i, x ->
+            listOf("trace" to x.trace, "iti" to x.itineraire).filter { it.second.size > 1 }.map { (k, c) ->
+                Feature.fromGeometry(LineString.fromLngLats(c.map { Point.fromLngLat(it.first, it.second) }))
+                    .apply { addNumberProperty("i", i); addStringProperty("k", k); addBooleanProperty("sel", i == sel) }
+            }
         }))
         // Seulement les points des sorties ; le parking (point, trait, étiquette) de la sortie choisie seulement.
         val chosen = sel?.let { i -> o.getOrNull(i)?.parking?.let { Triple(i, it, true) } }
@@ -2195,6 +2209,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRAVEL = "travel-src"
         private const val SRC_SKI = "ski-src"
         private const val SRC_SKI_PARK = "ski-park-src"
+        private const val SRC_SKI_LINES = "ski-lines-src"
         private const val LAYER_SKI_PARK = "ski-park"
         private const val LAYER_SKI = "ski"
         /** De loin, des points seuls : étiquettes des sommets à partir du zoom 12, parkings (point, trait, nom) à partir de 13. */

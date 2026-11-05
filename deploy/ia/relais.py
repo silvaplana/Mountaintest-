@@ -525,6 +525,8 @@ def _sortie(x, sm) -> dict:
         "auteur": _pseudo(x.get("auteur")),
         "url": f"https://skitour.fr/sorties/{x.get('id')}", "gpx": _gpx(x),
         "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x), "parking": _parking(x),
+        # Topos liés (leur itinéraire GPX est lu à la demande, pour la case « Itinéraire » de la carte).
+        "topos_ids": [i for i in (_entier(_d(t).get("id")) for t in (x.get("topos") or [])) if i][:3],
     }
 
 
@@ -567,12 +569,77 @@ def toutes_sorties(jours: int) -> list:
     return c[1]
 
 
+GPX_CHEMIN = re.compile(r"^https://skitour\.fr/[\w/.%-]+\.gpx$", re.I)
+_TRACES: dict = {}  # adresse GPX -> trace simplifiée [[lon, lat], …] (une trace ne change pas)
+
+
+def _trace(url: str, maxi: int = 80) -> list:
+    """Trace GPX d'une sortie (points de trace ou d'itinéraire), réduite à maxi points pour la carte."""
+    if not url or not GPX_CHEMIN.match(url):
+        return []
+    if url in _TRACES:
+        return _TRACES[url]
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Assomoutain"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            gpx = r.read(3_000_000).decode("utf-8", "replace")
+    except OSError as ex:
+        print(f"trace skitour {url} : {ex}", file=sys.stderr, flush=True)
+        return []
+    pts = []
+    for m in re.finditer(r"<(?:\w+:)?(?:trkpt|rtept)\b([^>]*)>", gpx):
+        la = re.search(r'\blat\s*=\s*["\']([-\d.]+)', m.group(1))
+        lo = re.search(r'\blon\s*=\s*["\']([-\d.]+)', m.group(1))
+        if la and lo:
+            pts.append([round(float(lo.group(1)), 5), round(float(la.group(1)), 5)])
+    if len(pts) > maxi:
+        pas = (len(pts) - 1) / (maxi - 1)
+        pts = [pts[round(k * pas)] for k in range(maxi)]
+    if len(_TRACES) > 3000:
+        _TRACES.clear()
+    _TRACES[url] = pts
+    return pts
+
+
+_TOPOS_GPX: dict = {}  # id du topo -> adresse de son GPX ("" s'il n'en a pas)
+
+
+def _gpx_topo(id_: int) -> str:
+    """Adresse du GPX d'un topo (itinéraire), lue une fois par topo dans l'API skitour."""
+    if id_ not in _TOPOS_GPX:
+        try:
+            req = urllib.request.Request(f"https://skitour.fr/api/topo/{id_}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                x = json.loads(r.read())
+            x = x[0] if isinstance(x, list) and x else x
+            _TOPOS_GPX[id_] = _gpx(_d(x))
+        except (OSError, ValueError) as ex:
+            print(f"topo skitour {id_} : {ex}", file=sys.stderr, flush=True)
+            return ""
+    return _TOPOS_GPX[id_]
+
+
+def _itineraire(o: dict) -> list:
+    """Itinéraire du premier topo lié qui a un GPX."""
+    for t in o.get("topos_ids") or []:
+        tr = _trace(_gpx_topo(t))
+        if tr:
+            return tr
+    return []
+
+
 def details_sorties(ids: list) -> dict:
-    """Étoiles, skiabilité en mot et parking (avec nom et altitude) des sorties demandées."""
+    """Étoiles, skiabilité en mot, parking (avec nom et altitude) et trace GPX des sorties demandées."""
+    from concurrent.futures import ThreadPoolExecutor
     lignes = [dict(_PAR_ID[i]) for i in ids if i in _PAR_ID]
     lignes += [{"id": i, "skiabilite": "", "etoiles": None, "parking": None} for i in ids if i not in _PAR_ID]
-    return {str(o["id"]): {"etoiles": o.get("etoiles"), "skiabilite": o.get("skiabilite") or "", "parking": o.get("parking")}
-            for o in _completer(_avec_parkings(lignes), maxi=30)}
+    lignes = _completer(_avec_parkings(lignes), maxi=30)
+    with ThreadPoolExecutor(6) as ex:
+        traces = list(ex.map(lambda o: _trace(o.get("gpx") or ""), lignes))
+        itis = list(ex.map(_itineraire, lignes))
+    return {str(o["id"]): {"etoiles": o.get("etoiles"), "skiabilite": o.get("skiabilite") or "", "parking": o.get("parking"),
+                           "trace": t, "itineraire": it}
+            for o, t, it in zip(lignes, traces, itis)}
 
 
 # ---------- Sorties en texte (icône ⛷💬) : liste façon skitour.fr, puis fiche détaillée ----------

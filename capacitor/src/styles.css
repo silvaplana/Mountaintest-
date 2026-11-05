@@ -432,3 +432,5 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-map-btn { font-size: 18px; padding: 4px 10px; }
 /* Petite pastille « GPX » : la sortie a une trace GPX sur skitour.fr. */
 .ski-gpx { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 4px; background: #c0392b; color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; vertical-align: 2px; }
+/* 〰 : cases « Trace GPX » (rouge sur la carte) et « Itinéraire » (vert). */
+.ski-pill.lines, .ski-menu.lines button.on { background: #2e9d4f; border-color: #2e9d4f; color: #fff; }
