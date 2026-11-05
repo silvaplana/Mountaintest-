@@ -192,6 +192,7 @@ class MainActivity : AppCompatActivity() {
                     prefs.edit().putFloat("vueLat", t.latitude.toFloat()).putFloat("vueLon", t.longitude.toFloat())
                         .putFloat("vueZoom", c.zoom.toFloat()).apply()
                 }
+                layoutSkiTags()
             }
             // Un glissement de carte arrête le suivi (comme côté Capacitor) ; la position reste affichée.
             m.addOnCameraMoveStartedListener { reason ->
@@ -481,11 +482,13 @@ class MainActivity : AppCompatActivity() {
                 lineColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
                 lineWidth(Expression.switchCase(Expression.get("sel"), Expression.literal(3f), Expression.literal(2f))),
                 lineDasharray(arrayOf(2f, 1.5f)), lineOpacity(0.85f)).apply { setFilter(Expression.eq(Expression.geometryType(), Expression.literal("LineString"))) })
+            // Étiquettes posées par leur coin haut-gauche, décalées par SkiLabels (propriété "off") pour éviter les chevauchements.
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-park-tags", SRC_SKI_PARK).withProperties(
                 org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
-                org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_LEFT),
-                org.maplibre.android.style.layers.PropertyFactory.iconOffset(arrayOf(11f, 0f)),
-                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(false)).apply {
+                org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_TOP_LEFT),
+                org.maplibre.android.style.layers.PropertyFactory.iconOffset(Expression.get("off")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply {
                 minZoom = 9f; setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
             style.addLayer(CircleLayer(LAYER_SKI_PARK, SRC_SKI_PARK).withProperties(
                 circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(8f), Expression.literal(6f))),
@@ -495,9 +498,10 @@ class MainActivity : AppCompatActivity() {
             // Étiquette de chaque sortie à droite de son point : nom, étoiles, skiabilité (image dessinée par skiTagBitmap).
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-tags", SRC_SKI).withProperties(
                 org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
-                org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_LEFT),
-                org.maplibre.android.style.layers.PropertyFactory.iconOffset(arrayOf(13f, 0f)),
-                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(false)).apply { minZoom = 9f })
+                org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_TOP_LEFT),
+                org.maplibre.android.style.layers.PropertyFactory.iconOffset(Expression.get("off")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply { minZoom = 9f })
             style.addLayer(CircleLayer(LAYER_SKI, SRC_SKI).withProperties(
                 circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(11f), Expression.literal(8f))),
                 circleColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#1d6fe0"))),
@@ -1151,24 +1155,16 @@ class MainActivity : AppCompatActivity() {
         skiPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
         skiPanel = null; drawSki(emptyList(), null)
     }
+    private var skiSel: Int? = null
+    /** Décalage (dp) du coin haut-gauche de chaque étiquette par rapport à son point : "s3" sommet, "p3" parking. */
+    private var skiOffsets: Map<String, Pair<Float, Float>> = emptyMap()
+    /** Taille (dp) des étiquettes dessinées, par clé "s3" / "p3". */
+    private val skiTagSizes = mutableMapOf<String, Pair<Float, Float>>()
+
     private fun drawSki(o: List<Outing>, sel: Int?) {
-        skiOutings = o
-        val style = map?.style ?: return
-        style.getSourceAs<GeoJsonSource>(SRC_SKI)?.setGeoJson(FeatureCollection.fromFeatures(o.mapIndexed { i, x ->
-            val img = "ski:" + x.label() + if (i == sel) ":sel" else ""
-            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(x.label(), i == sel))
-            Feature.fromGeometry(Point.fromLngLat(x.lon, x.lat)).apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img) }
-        }))
-        style.getSourceAs<GeoJsonSource>(SRC_SKI_PARK)?.setGeoJson(FeatureCollection.fromFeatures(o.flatMapIndexed { i, x ->
-            val p = x.parking ?: return@flatMapIndexed emptyList()
-            val img = "park:" + p.text() + if (i == sel) ":sel" else ""
-            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), i == sel, "#3a4a44"))
-            listOf(
-                Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(x.lon, x.lat), Point.fromLngLat(p.lon, p.lat))))
-                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel) },
-                Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
-                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img) })
-        }))
+        skiOutings = o; skiSel = sel; skiOffsets = emptyMap()
+        setSkiSources()
+        layoutSkiTags()
         // Sortie choisie : on montre le sommet et son parking ensemble.
         o.getOrNull(sel ?: -1)?.let {
             val p = it.parking
@@ -1179,6 +1175,57 @@ class MainActivity : AppCompatActivity() {
                     (200 * d.density).toInt(), (d.heightPixels * 0.45).toInt()), 600)
             } else map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(it.lat, it.lon)), 600)
         }
+    }
+
+    private fun tagOffset(key: String): com.google.gson.JsonArray {
+        val (dx, dy) = skiOffsets[key] ?: (13f to -((skiTagSizes[key]?.second ?: 0f) / 2))
+        return com.google.gson.JsonArray().apply { add(dx); add(dy) }
+    }
+
+    /** Points, étiquettes (avec leur décalage), parkings et traits des sorties skitour. */
+    private fun setSkiSources() {
+        val style = map?.style ?: return
+        val o = skiOutings; val sel = skiSel
+        val dens = resources.displayMetrics.density
+        skiTagSizes.clear()
+        style.getSourceAs<GeoJsonSource>(SRC_SKI)?.setGeoJson(FeatureCollection.fromFeatures(o.mapIndexed { i, x ->
+            val img = "ski:" + x.label() + if (i == sel) ":sel" else ""
+            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(x.label(), i == sel))
+            style.getImage(img)?.let { skiTagSizes["s$i"] = it.width / dens to it.height / dens }
+            Feature.fromGeometry(Point.fromLngLat(x.lon, x.lat)).apply {
+                addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img); addProperty("off", tagOffset("s$i")) }
+        }))
+        style.getSourceAs<GeoJsonSource>(SRC_SKI_PARK)?.setGeoJson(FeatureCollection.fromFeatures(o.flatMapIndexed { i, x ->
+            val p = x.parking ?: return@flatMapIndexed emptyList()
+            val img = "park:" + p.text() + if (i == sel) ":sel" else ""
+            if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(p.text(), i == sel, "#3a4a44"))
+            style.getImage(img)?.let { skiTagSizes["p$i"] = it.width / dens to it.height / dens }
+            listOf(
+                Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(x.lon, x.lat), Point.fromLngLat(p.lon, p.lat))))
+                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel) },
+                Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat))
+                    .apply { addNumberProperty("i", i); addBooleanProperty("sel", i == sel); addStringProperty("img", img); addProperty("off", tagOffset("p$i")) })
+        }))
+    }
+
+    /** Place les étiquettes des sorties pour qu'elles se chevauchent le moins possible (SkiLabels), à l'arrêt de la carte. */
+    private fun layoutSkiTags() {
+        val m = map ?: return
+        if (skiOutings.isEmpty() || m.cameraPosition.zoom < 9) return
+        val dens = resources.displayMetrics.density
+        // Sommet et parking de la sortie choisie d'abord, puis les autres.
+        val keys = skiOutings.indices.sortedBy { if (it == skiSel) 0 else 1 }.flatMap { i ->
+            listOfNotNull("s$i", if (skiOutings[i].parking != null) "p$i" else null) }
+        val pts = keys.map { k ->
+            val x = skiOutings[k.drop(1).toInt()]
+            val ll = if (k[0] == 's') LatLng(x.lat, x.lon) else LatLng(x.parking!!.lat, x.parking.lon)
+            m.projection.toScreenLocation(ll).let { it.x / dens to it.y / dens }
+        }
+        val items = keys.mapIndexed { n, k -> val (w, h) = skiTagSizes[k] ?: (0f to 0f); SkiLabels.Item(pts[n].first, pts[n].second, w, h) }
+        val mv = mapView
+        val offs = SkiLabels.place(items, pts, mv.width / dens - 70f, mv.height / dens)
+        val next = keys.zip(offs).toMap()
+        if (next != skiOffsets) { skiOffsets = next; setSkiSources() }
     }
 
     /** Étiquette d'une sortie skitour : fond blanc, bord bleu (violet si choisie), une ou deux lignes. */

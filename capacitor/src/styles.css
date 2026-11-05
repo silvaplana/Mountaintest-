@@ -222,6 +222,7 @@ progress { width: 100%; }
   padding: 8px 12px calc(env(safe-area-inset-bottom) + 48px); display: flex; flex-direction: column; gap: 8px;
 }
 .travel-head { display: flex; justify-content: space-between; align-items: center; }
+.travel-head .head-btns { display: flex; gap: 8px; }
 .travel .row { display: flex; gap: 8px; align-items: flex-end; }
 .travel .row > * { flex: 1; min-width: 0; }
 .travel .row > button { flex: 0 0 auto; }

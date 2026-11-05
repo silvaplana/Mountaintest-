@@ -23,9 +23,19 @@ export function SkiPanel({ zone, password, outings, selected, onOutings, onSelec
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zone, days, password]);
   const sel = selected != null ? outings[selected] : null;
+  // ▾ réduit le panneau à sa première ligne (titre, flèche, croix) pour voir la carte ; ▴ le remet.
+  const [low, setLow] = useState(false);
+  const head = (
+    <div className="travel-head"><b>⛷ Sorties ski de rando</b>
+      <span className="head-btns">
+        <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir le panneau' : 'Réduire le panneau'}>{low ? '▴' : '▾'}</button>
+        <button onClick={onClose} aria-label="Fermer">✕</button>
+      </span></div>
+  );
+  if (low) return <div className="travel">{head}</div>;
   return (
     <div className="travel">
-      <div className="travel-head"><b>⛷ Sorties ski de rando</b><button onClick={onClose} aria-label="Fermer">✕</button></div>
+      {head}
       <span className="row">
         <label className="field">Période<select value={days} onChange={(e) => setDays(Number(e.target.value))}>
           <option value={7}>7 derniers jours</option><option value={30}>30 derniers jours</option>

@@ -164,11 +164,22 @@ class SkiPanel(
     private val periods = listOf(7 to "7 derniers jours", 30 to "30 derniers jours", 90 to "3 derniers mois", 365 to "12 derniers mois")
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
     private val cache = SkitourCache(java.io.File(a.filesDir, "skitour-cache.json"))
+    private var low = false
 
     init {
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(text("⛷ Sorties ski de rando", 16f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
+            // ▾ réduit le panneau à cette seule ligne (titre, flèche, croix) pour voir la carte ; ▴ le remet.
+            addView(Button(a).apply {
+                text = "▾"; contentDescription = "Réduire le panneau"
+                setOnClickListener {
+                    low = !low
+                    text = if (low) "▴" else "▾"; contentDescription = if (low) "Agrandir le panneau" else "Réduire le panneau"
+                    for (k in 1 until col.childCount) col.getChildAt(k).visibility = if (low) android.view.View.GONE else android.view.View.VISIBLE
+                    view.layoutParams = view.layoutParams.apply { height = -2 }
+                }
+            }, LinearLayout.LayoutParams(dp(48), dp(44)))
             addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
         })
         val spin = Spinner(a).apply {
