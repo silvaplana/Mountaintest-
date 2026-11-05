@@ -9,12 +9,12 @@ object IconHelp {
 
     val ENTRIES: Map<String, Entry> = mapOf(
         "close" to IconHelp.Entry("✕ Quitter", "Ferme l'appli."),
-        "locate" to IconHelp.Entry("◎ Me localiser", "Centre la carte sur ta position GPS et la suit. Appuie de nouveau pour couper le GPS et économiser la batterie."),
+        "locate" to IconHelp.Entry("⌖ Me localiser", "Centre la carte sur ta position GPS et la suit. Appuie de nouveau pour couper le GPS et économiser la batterie."),
         "search" to IconHelp.Entry("🔍 Chercher un lieu", "Tape le nom d'une ville, d'un sommet ou d'un lieu-dit : la carte s'y centre."),
         "photo" to IconHelp.Entry("📷 Appareil photo", "Ouvre l'appareil photo du téléphone ; le bouton Retour ramène à la carte."),
         "layer" to IconHelp.Entry("🗺 Fond de carte", "Chaque appui passe au fond suivant : Carte auto, SCAN 25 (IGN au 1:25 000), Plan IGN."),
         "avion" to IconHelp.Entry("✈ Mode avion", "Android ne laisse pas une appli basculer le mode avion : l'icône est verte quand il est actif et ouvre le réglage. Le GPS marche toujours en mode avion et la batterie dure bien plus longtemps. Le 1er appui montre aussi 👖."),
-        "poche" to IconHelp.Entry("👖 Mode poche", "Téléphone vertical 3 s = écran noir, pour ne rien toucher dans la poche (le GPS de ◎ se coupe, l'enregistrement d'une sortie continue). À plat ou deux secousses pour rallumer."),
+        "poche" to IconHelp.Entry("👖 Mode poche", "Téléphone vertical 3 s = écran noir, pour ne rien toucher dans la poche (le GPS de « Me localiser » se coupe, l'enregistrement d'une sortie continue). À plat ou deux secousses pour rallumer."),
         "draw" to IconHelp.Entry("✏ Tracer au doigt", "Dessine un parcours sur la carte : sa longueur, son dénivelé et son profil s’affichent."),
         "slopes" to IconHelp.Entry("⛰ Pentes", "Carte IGN des pentes en montagne. Sous 30°, pas de couleur. Le 1er appui montre aussi 🌗."),
         "shade" to IconHelp.Entry("🌗 Ombres du relief", "Film des ombres du soleil sur 24 h, toutes les 30 min, calculé dans le téléphone à partir du relief IGN. Choisis la date et fais glisser l’heure."),

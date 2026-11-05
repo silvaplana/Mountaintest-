@@ -8,12 +8,12 @@ export type IconKey =
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: "Ferme l'appli." },
-  locate: { title: '◎ Me localiser', text: 'Centre la carte sur ta position GPS et la suit. Appuie de nouveau pour couper le GPS et économiser la batterie.' },
+  locate: { title: '⌖ Me localiser', text: 'Centre la carte sur ta position GPS et la suit. Appuie de nouveau pour couper le GPS et économiser la batterie.' },
   search: { title: '🔍 Chercher un lieu', text: "Tape le nom d'une ville, d'un sommet ou d'un lieu-dit : la carte s'y centre." },
   photo: { title: '📷 Appareil photo', text: "Ouvre l'appareil photo du téléphone ; le bouton Retour ramène à la carte." },
   layer: { title: '🗺 Fond de carte', text: 'Chaque appui passe au fond suivant : Carte auto, SCAN 25 (IGN au 1:25 000), Plan IGN.' },
   avion: { title: '✈ Mode avion', text: "Android ne laisse pas une appli basculer le mode avion : l'icône est verte quand il est actif et ouvre le réglage. Le GPS marche toujours en mode avion et la batterie dure bien plus longtemps. Le 1er appui montre aussi 👖." },
-  poche: { title: '👖 Mode poche', text: "Téléphone vertical 3 s = écran noir, pour ne rien toucher dans la poche (le GPS de ◎ se coupe, l'enregistrement d'une sortie continue). À plat ou deux secousses pour rallumer." },
+  poche: { title: '👖 Mode poche', text: "Téléphone vertical 3 s = écran noir, pour ne rien toucher dans la poche (le GPS de « Me localiser » se coupe, l'enregistrement d'une sortie continue). À plat ou deux secousses pour rallumer." },
   draw: { title: '✏ Tracer au doigt', text: 'Dessine un parcours sur la carte : sa longueur, son dénivelé et son profil s’affichent.' },
   slopes: { title: '⛰ Pentes', text: "Carte IGN des pentes en montagne. Sous 30°, pas de couleur. Le 1er appui montre aussi 🌗." },
   shade: { title: '🌗 Ombres du relief', text: 'Film des ombres du soleil sur 24 h, toutes les 30 min, calculé dans le téléphone à partir du relief IGN. Choisis la date et fais glisser l’heure.' },
