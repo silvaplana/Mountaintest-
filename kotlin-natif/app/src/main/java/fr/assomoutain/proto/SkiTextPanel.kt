@@ -216,7 +216,8 @@ object SkiText {
 
     /** « Limiter à » de skitour.fr, en jours. */
     val LIMITS = listOf(1 to "1 jour", 2 to "2 jours", 3 to "3 jours", 4 to "4 jours", 5 to "5 jours", 6 to "6 jours",
-        7 to "1 sem.", 14 to "2 sem.", 30 to "1 mois", 60 to "2 mois", 90 to "3 mois", 180 to "6 mois")
+        7 to "1 sem.", 14 to "2 sem.", 30 to "1 mois", 60 to "2 mois", 90 to "3 mois", 180 to "6 mois",
+        365 to "1 an", 730 to "2 ans", 3650 to "Tout")
 
     private fun norm(t: String) = Normalizer.normalize(t, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
 
