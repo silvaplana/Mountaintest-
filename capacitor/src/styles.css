@@ -340,9 +340,17 @@ progress { width: 100%; }
 .ski-table small { color: var(--muted); }
 .ski-dif { font-size: 12px; color: var(--accent); }
 .ski-info { margin: 4px 0; padding: 8px 10px; background: var(--card); color: var(--fg); border-radius: 8px; }
-.ski-info div { display: flex; gap: 8px; padding: 2px 0; }
+.ski-info div { display: flex; gap: 8px; padding: 3px 0; }
+.ski-title { text-align: center; background: var(--card); color: var(--fg); border-radius: 14px; padding: 12px; margin: 6px 0; }
+.ski-title h2 { margin: 0; }
+.ski-title .ski-stars { font-size: 22px; }
+.ski-meta { margin: 4px 0; }
+.ski-info dt { color: #7aa7d8; }
+.ski-link { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; }
+.ski-link a { color: inherit; text-decoration: underline; }
+.ski-pin { min-width: 0; padding: 0 4px; background: none; border: none; font-size: 16px; }
 .ski-info dt { font-weight: 700; min-width: 92px; }
-.ski-info dd { margin: 0; }
+.ski-info dd { margin: 0; flex: 1; }
 .ski-text { white-space: pre-line; margin: 0; line-height: 1.45; }
 ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-filters > * { flex: 1; min-width: 0; }

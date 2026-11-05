@@ -1132,7 +1132,8 @@ class MainActivity : AppCompatActivity() {
         closeSki()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         val p = SkiPanel(this, z, password, onOutings = { o, sel -> drawSki(o, sel) },
-            onReframe = { closeSki(); framingForSki = true; setFraming(true) }, onClose = { closeSki() })
+            onReframe = { closeSki(); framingForSki = true; setFraming(true) }, onClose = { closeSki() },
+            onSheet = { x -> openSkiSheet(x, password) })
         skiPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
@@ -1143,6 +1144,16 @@ class MainActivity : AppCompatActivity() {
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         drawSki(emptyList(), null)
         val p = SkiTextPanel(this, password, onShowOnMap = { closeSkiText(); drawSki(listOf(it), 0) }, onClose = { closeSkiText() })
+        skiTextPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
+    }
+    /** Fiche d'une sortie choisie sur la carte (⛷🗺), par-dessus le panneau de la zone ; « ← Carte » y revient. */
+    private fun openSkiSheet(x: Outing, password: String) {
+        closeSkiText()
+        val row = OutingRow(x.id, x.titre, x.date, x.massif, x.sommet, x.altitude, x.lat, x.lon, x.denivele, x.difSki, x.orientation,
+            x.auteur, x.url, x.skiabilite, x.etoiles, x.parking)
+        val p = SkiTextPanel(this, password, onShowOnMap = { closeSkiText() }, onClose = { closeSkiText() }, start = row)
         skiTextPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())

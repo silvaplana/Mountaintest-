@@ -99,8 +99,21 @@ export interface OutingRow {
 export interface SkiPhoto { url: string; legende: string; auteur: string }
 export const sheetPhotos = (f: OutingSheet | null): SkiPhoto[] => (f && Array.isArray(f.photos) ? f.photos : []);
 
+/** Liens de la fiche vers les pages skitour.fr du départ, des topos et des sommets (et leur point pour la carte). */
+export interface SheetLink { nom: string; url: string; altitude?: number | null; lat?: number | null; lon?: number | null }
+export interface SheetLinks { depart: SheetLink | null; topos: SheetLink[]; sommets: SheetLink[] }
+/** « Val Thorens (2300 m) » */
+export const linkText = (l: SheetLink) => l.nom + (l.altitude ? ` (${l.altitude} m)` : '');
+/** Une sortie de la carte (⛷🗺) vue comme une ligne de la liste, pour ouvrir sa fiche. */
+export const rowOf = (o: Outing): OutingRow => ({
+  id: o.id, titre: o.titre, date: o.date, massif: o.massif, sommet: o.sommet, altitude: o.altitude, lat: o.lat, lon: o.lon,
+  denivele: o.denivele, dif_ski: o.dif_ski, orientation: o.orientation, auteurs: o.auteur, url: o.url,
+  skiabilite: o.skiabilite, etoiles: o.etoiles, parking: o.parking,
+});
+
 export interface OutingSheet extends OutingRow {
   sommets: string[]; depart: string; topos: string[]; conditions: string; neige: string[]; recit: string; skiabilite?: string;
+  liens?: SheetLinks; exposition?: string;
   /** Anciennes fiches gardées : un nombre (avant les photos). */
   photos: SkiPhoto[] | number;
 }

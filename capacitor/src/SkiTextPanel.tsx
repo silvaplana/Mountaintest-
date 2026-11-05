@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
+import { fetchList, fetchMassifs, linkText, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
   type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList } from './ski/skitour';
 
 import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
@@ -20,8 +20,11 @@ function Photo({ p, onOpen }: { p: SkiPhoto; onOpen?: () => void }) {
  * ⛷💬 : sorties skitour.fr en texte, comme sur le site : tableau date / titre / auteurs, puis la fiche
  * (massif, départ, sommet, orientation, dénivelé, ski, conditions, neige, récit). Liste et fiches gardées hors ligne.
  */
-export function SkiTextPanel({ password, onShowOnMap, onClose }: {
-  password: string; onShowOnMap: (o: Outing) => void; onClose: () => void;
+export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
+  password: string;
+  /** Fiche à ouvrir tout de suite (sortie choisie sur la carte) ; « ← » ferme alors le panneau. */
+  start?: OutingRow;
+  onShowOnMap: (o: Outing) => void; onClose: () => void;
 }) {
   const [jours, setJours] = useState(() => { try { return Number(localStorage.getItem('skitourTexteJours')) || 14; } catch { return 14; } });
   const [list, setList] = useState<SavedList | null>(readList);
@@ -64,6 +67,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
     return () => { live = false; };
   }, [jours, password, idsKey]);
 
+  useEffect(() => { if (start) open(start); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = useMemo(() => filterRows((list?.sorties ?? []).filter((o) => !massifs.length || massifs.includes(o.massif)), q), [list, q, massifs]);
 
   const open = (o: OutingRow) => {
@@ -80,22 +84,35 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
   if (sheetRow) {
     const f = sheet;
     const o = f ?? sheetRow;
-    const info: [string, string][] = [
-      ['Massif', o.massif], ['Départ', f?.depart ?? ''],
-      ['Sommet', f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
-      ['Topo', f?.topos.join(', ') ?? ''], ['Orientation', o.orientation],
-      ['Dénivelé', o.denivele ? `${o.denivele} m` : ''], ['Ski', o.dif_ski ? String(o.dif_ski) : ''],
-      ['Étoiles', o.etoiles ? '★'.repeat(o.etoiles) : ''], ['Skiabilité', f?.skiabilite ?? ''],
+    const go = (url: string) => { if (url) window.open(url, '_system'); };
+    const onMap = () => { if (o.lat != null && o.lon != null) onShowOnMap({ ...o, lat: o.lat, lon: o.lon, auteur: o.auteurs, conditions: f?.conditions ?? '' }); };
+    const L = f?.liens;
+    // Lien vers la page skitour.fr (comme sur le site) ; 📍 montre la sortie sur la carte (sommet et départ).
+    const link = (l: { nom: string; url: string; altitude?: number | null }, pin: boolean, k?: number) => (
+      <span key={k ?? l.url} className="ski-link">
+        {l.url ? <a href={l.url} onClick={(e) => { e.preventDefault(); go(l.url); }}>{linkText(l)}</a> : linkText(l)}
+        {pin && o.lat != null && <button className="ski-pin" onClick={onMap} aria-label={`${l.nom} sur la carte`}>📍</button>}
+      </span>);
+    const info: [string, React.ReactNode][] = [
+      ['Massif', o.massif],
+      ['Départ', L?.depart ? link(L.depart, true) : f?.depart ?? ''],
+      [`Topo${(L?.topos.length ?? 0) > 1 ? 's' : ''} associé${(L?.topos.length ?? 0) > 1 ? 's' : ''}`, L?.topos.length ? L.topos.map((t, k) => link(t, false, k)) : f?.topos.join(', ') ?? ''],
+      [`Sommet${(L?.sommets.length ?? 0) > 1 ? 's' : ''} associé${(L?.sommets.length ?? 0) > 1 ? 's' : ''}`,
+        L?.sommets.length ? L.sommets.map((t, k) => link(t, true, k)) : f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
+      ['Orientation', o.orientation], ['Dénivelé', o.denivele ? `${o.denivele} m` : ''], ['Ski', o.dif_ski ? String(o.dif_ski) : ''],
+      ['Exposition', f?.exposition ?? ''], ['Skiabilité', f?.skiabilite ?? ''],
     ];
     const photos = sheetPhotos(f);
     return (
       <div className="ski-page">
-        <div className="travel-head"><button onClick={() => { setSheetRow(null); setSheet(null); setBig(null); }}>← Liste</button>
+        <div className="travel-head"><button onClick={() => { if (start) { onClose(); return; } setSheetRow(null); setSheet(null); setBig(null); }}>{start ? '← Carte' : '← Liste'}</button>
           <button onClick={onClose} aria-label="Fermer">✕</button></div>
-        <h2>{o.titre}</h2>
-        <p className="hint">Sortie du {new Date(o.date * 1000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · par {o.auteurs}</p>
+        {/* En-tête façon skitour.fr : titre et étoiles dans un cadre, puis date et auteurs. */}
+        <div className="ski-title"><h2>{o.titre}</h2>{o.etoiles ? <div className="ski-stars">{'★'.repeat(o.etoiles)}</div> : null}</div>
+        <p className="ski-meta">📅 <b>Sortie du</b> {new Date(o.date * 1000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        <p className="ski-meta">👤 {o.auteurs}</p>
         {sheetMsg && <p className="hint">{sheetMsg}</p>}
-        <dl className="ski-info">{info.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+        <dl className="ski-info">{info.filter(([, v]) => v && (!Array.isArray(v) || v.length)).map(([k, v]) => <div key={k}><dt>{k} :</dt><dd>{v}</dd></div>)}</dl>
         {f?.conditions && <><h3>❄ Conditions nivologiques, accès et météo</h3><p className="ski-text">{f.conditions}</p></>}
         {f && f.neige.length > 0 && <><h3>Neige observée</h3><ul className="ski-text">{f.neige.map((n, i) => <li key={i}>{n}</li>)}</ul></>}
         {f?.recit && <><h3>Récit</h3><p className="ski-text">{f.recit}</p></>}
@@ -112,7 +129,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
         </div>}
         <div className="row">
           <button className="primary" onClick={() => window.open(o.url, '_system')}>Voir sur skitour.fr</button>
-          {o.lat != null && o.lon != null && <button onClick={() => onShowOnMap({ ...o, lat: o.lat!, lon: o.lon!, auteur: o.auteurs, conditions: f?.conditions ?? '' })}>Sur la carte</button>}
+          {o.lat != null && o.lon != null && <button onClick={onMap}>Sur la carte</button>}
         </div>
         <p className="hint">Texte de {o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié.</p>
       </div>

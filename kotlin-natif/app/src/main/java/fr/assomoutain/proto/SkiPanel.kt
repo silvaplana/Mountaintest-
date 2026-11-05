@@ -140,6 +140,8 @@ class SkiPanel(
     private val onOutings: (List<Outing>, Int?) -> Unit,
     private val onReframe: () -> Unit,
     private val onClose: () -> Unit,
+    /** Ouvre la fiche complète de la sortie (façon skitour.fr). */
+    private val onSheet: (Outing) -> Unit = {},
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -246,9 +248,12 @@ class SkiPanel(
         detail.addView(text("${x.dateText()} · ${x.massif} · par ${x.auteur}"))
         detail.addView(text(x.line(), 14f, ink))
         if (x.conditions.isNotEmpty()) detail.addView(text(x.conditions))
-        detail.addView(Button(a).apply {
-            text = "Lire la sortie sur skitour.fr"
-            setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(x.url))) } }
+        detail.addView(LinearLayout(a).apply {
+            addView(Button(a).apply { text = "Fiche de la sortie"; setOnClickListener { onSheet(x) } }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(Button(a).apply {
+                text = "Sur skitour.fr"
+                setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(x.url))) } }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
         })
         view.post { view.smoothScrollTo(0, 0) }
     }

@@ -18,7 +18,7 @@ import { Expenses } from './Expenses';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
-import type { Outing } from './ski/skitour';
+import { rowOf, type Outing, type OutingRow } from './ski/skitour';
 import type { Bbox as SkiBbox } from './config';
 import type { CarRoute } from './travel/travel';
 import type { GeolocateControl } from 'maplibre-gl';
@@ -92,6 +92,8 @@ export function App() {
   const [skiOutings, setSkiOutings] = useState<Outing[]>([]);
   const [skiSel, setSkiSel] = useState<number | null>(null);
   const [skiText, setSkiText] = useState(false);
+  // Fiche d'une sortie choisie sur la carte (⛷🗺), par-dessus le panneau de la zone.
+  const [skiSheet, setSkiSheet] = useState<OutingRow | null>(null);
   const [travelRoutes, setTravelRoutes] = useState<CarRoute[]>([]);
   const [travelSel, setTravelSel] = useState(0);
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
@@ -573,8 +575,10 @@ export function App() {
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
       {skiZone && !framing && <SkiPanel zone={skiZone} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel}
-        onReframe={() => { setFramingFor('ski'); setFraming(true); }}
+        onReframe={() => { setFramingFor('ski'); setFraming(true); }} onSheet={(o) => setSkiSheet(rowOf(o))}
         onClose={() => { setSkiZone(null); setSkiOutings([]); setSkiSel(null); }} />}
+      {skiSheet && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={skiSheet}
+        onShowOnMap={() => setSkiSheet(null)} onClose={() => setSkiSheet(null)} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         onShowOnMap={(o) => { setSkiText(false); setSkiOutings([o]); setSkiSel(0); }} onClose={() => setSkiText(false)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}

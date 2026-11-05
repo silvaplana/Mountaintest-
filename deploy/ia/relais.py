@@ -354,7 +354,15 @@ def _page_sortie(id_: int) -> dict:
     texte = html.unescape(re.sub(r"<[^>]+>", "\n", page))
     m = re.search(r"Skiabilit[ée]\s*:\s*([^\w\s]{1,4})?\s*([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' -]{1,24}?)\s*(?:\n|  |$)", texte)
     dep = re.search(r"D[ée]part\s*:?\s*\n*\s*([^\n(]{2,60}?)\s*(?:\((\d{3,4})\s*m\))?\s*\n", texte)
-    out = {"etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else "",
+    # Liens de la page vers le départ, les topos et les sommets (pour les suivre depuis l'appli, comme sur le site).
+    liens = []
+    for m2 in re.finditer(r'href="(?:https://skitour\.fr)?/(departs|topos|sommets)/(\d+)[^"]*"[^>]*>(.*?)</a>', page, re.S | re.I):
+        nom = html.unescape(re.sub(r"<[^>]+>", "", m2.group(3))).strip()
+        if nom and not any(l["type"] == m2.group(1) and l["id"] == int(m2.group(2)) for l in liens):
+            liens.append({"type": m2.group(1), "id": int(m2.group(2)), "nom": nom, "url": f"https://skitour.fr/{m2.group(1)}/{m2.group(2)}"})
+    expo = re.search(r"Exposition\s*:?\s*\n*\s*(\d)", texte)
+    out = {"liens": liens, "exposition": expo.group(1) if expo else "",
+           "etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else "",
            "depart": dep.group(1).strip() if dep else "", "depart_alt": int(dep.group(2)) if dep and dep.group(2) else None}
     _PAGES[id_] = (time.time(), out)
     return out
@@ -563,10 +571,40 @@ def fiche_sortie(id_: int) -> dict:
     for n in x.get("neige") or []:
         if isinstance(n, dict):
             neige.append(" · ".join(str(n.get(k) or "").strip() for k in ("lieu", "alt", "ori", "heure", "qte", "type", "com") if str(n.get(k) or "").strip()))
+    base = _completer([_ligne(x)])[0]
+    page = (_PAGES.get(_entier(x.get("id"))) or (0, {}))[1] or {}
+    liens = page.get("liens") or []
+    pk = base.get("parking") or {}
+
+    def lien(typ, id_, nom):
+        """Lien vers la page skitour.fr (celui de la page de la sortie s'il existe, sinon construit avec l'id de l'API)."""
+        for l in liens:
+            if l["type"] == typ and (id_ and l["id"] == id_ or not id_ and l["nom"] == nom):
+                return l["url"]
+        return f"https://skitour.fr/{typ}/{id_}" if id_ else ""
+    dep_id = _entier(d.get("id"))
+    dep_nom = d.get("nom") or pk.get("nom") or next((l["nom"] for l in liens if l["type"] == "departs"), "")
+    dep_alt = _entier(d.get("altitude")) or pk.get("altitude")
+    som_api = [sm for sm in (x.get("sommets") or []) if isinstance(sm, dict)]
+    sommets_liens = [{"nom": sm.get("sommet") or sm.get("nom") or "", "altitude": _entier(sm.get("altitude")),
+                      "lat": _nombre(sm.get("lat")), "lon": _nombre(sm.get("lng")),
+                      "url": lien("sommets", _entier(sm.get("id")), sm.get("sommet") or sm.get("nom") or "")} for sm in som_api]
+    if not sommets_liens:
+        sommets_liens = [{"nom": l["nom"], "altitude": None, "lat": None, "lon": None, "url": l["url"]} for l in liens if l["type"] == "sommets"]
+    topos_api = [t for t in (x.get("topos") or []) if isinstance(t, dict)]
+    topos_liens = [{"nom": t.get("nom", ""), "url": lien("topos", _entier(t.get("id")), t.get("nom", ""))} for t in topos_api] \
+        or [{"nom": l["nom"], "url": l["url"]} for l in liens if l["type"] == "topos"]
     return {
-        **_completer([_ligne(x)])[0],
+        **base,
+        # Fiche façon skitour.fr : départ, topos et sommets avec leur lien (et leur point pour la carte).
+        "liens": {
+            "depart": {"nom": dep_nom, "altitude": dep_alt, "url": lien("departs", dep_id, dep_nom),
+                       "lat": pk.get("lat"), "lon": pk.get("lon")} if (dep_nom or pk) else None,
+            "topos": topos_liens, "sommets": sommets_liens,
+        },
+        "exposition": _texte(x.get("expo") or x.get("exposition")) or page.get("exposition", ""),
         "sommets": [sm.get("sommet") or sm.get("nom") or "" for sm in (x.get("sommets") or []) if isinstance(sm, dict)],
-        "depart": (d.get("nom") or "") + (f" ({d['altitude']} m)" if d.get("altitude") else ""),
+        "depart": (dep_nom or "") + (f" ({dep_alt} m)" if dep_alt else ""),
         "topos": [t.get("nom", "") for t in (x.get("topos") or []) if isinstance(t, dict)],
         "conditions": _texte(x.get("cond") or x.get("conditions")),
         "neige": neige,
@@ -878,7 +916,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche4:{id_}"
+            cle = f"fiche5:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)
