@@ -324,6 +324,7 @@ export function MapView(props: MapViewProps) {
       const el = document.createElement('div');
       el.className = `ski-tag${i === props.skiSel ? ' sel' : ''}`;
       el.textContent = outingLabel(o);
+      el.onclick = () => onSkiClick.current?.(i); // appui sur l'étiquette = ouvrir la fiche de la sortie
       add(el, [o.lon, o.lat], i === props.skiSel);
     });
     // Étiquette de chaque parking (une seule par endroit) : P bleu, nom et altitude ; un appui choisit la sortie.

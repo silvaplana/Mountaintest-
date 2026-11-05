@@ -9,7 +9,9 @@ export const SKI_MIN_ZOOM = 7;
  * Sorties skitour.fr de l'écran affiché : toute la liste de la période est chargée une fois, puis filtrée sur l'écran
  * à chaque arrêt de la carte (aucune requête) ; étoiles, skiabilité et parking demandés pour les sorties visibles.
  */
-export function SkiPanel({ map, password, outings, selected, onOutings, onSelect, onSheet, onClose }: {
+export function SkiPanel({ map, password, outings, selected, onOutings, onSelect, onSheet, onClose, hidden }: {
+  /** Caché (sans perdre la liste) pendant qu'une fiche de sortie est ouverte. */
+  hidden?: boolean;
   map: MlMap; password: string; outings: Outing[]; selected: number | null;
   onOutings: (o: Outing[]) => void; onSelect: (i: number | null) => void;
   /** Ouvre la fiche complète de la sortie (façon skitour.fr). */
@@ -83,9 +85,9 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       <button key={d} role="option" aria-selected={d === days} className={d === days ? 'on' : ''}
         onClick={() => { setDays(d); setMenu(false); }}>{t}</button>))}</div>}
   </>);
-  if (low) return <div className="travel">{head}</div>;
+  if (low) return <div className="travel" hidden={hidden}>{head}</div>;
   return (
-    <div className="travel">
+    <div className="travel" hidden={hidden}>
       {head}
       {error && <p className="error">{error}</p>}
       {offline != null && <p className="hint">📴 Hors ligne : sorties gardées sur le téléphone, recherche du {new Date(offline).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.</p>}

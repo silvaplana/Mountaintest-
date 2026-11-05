@@ -367,6 +367,9 @@ class SkiPanel(
         }
     }
 
+    /** Ouvre la fiche texte de la sortie (appui sur la carte). */
+    fun openSheet(x: Outing) = onSheet(x)
+
     /** Sortie choisie (dans la liste ou en touchant son point). */
     fun select(i: Int) {
         val x = outings.getOrNull(i) ?: return

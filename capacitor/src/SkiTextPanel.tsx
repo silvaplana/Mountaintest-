@@ -29,6 +29,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
   const [jours, setJours] = useState(() => { try { return Number(localStorage.getItem('skitourTexteJours')) || 14; } catch { return 14; } });
   const [list, setList] = useState<SavedList | null>(readList);
   const [offline, setOffline] = useState(false);
+  const [low, setLow] = useState(false); // fiche réduite à une barre en bas
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
@@ -104,9 +105,14 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
     ];
     const photos = sheetPhotos(f);
     return (
-      <div className="ski-page">
-        <div className="travel-head"><button onClick={() => { if (start) { onClose(); return; } setSheetRow(null); setSheet(null); setBig(null); }}>{start ? '← Carte' : '← Liste'}</button>
-          <button onClick={onClose} aria-label="Fermer">✕</button></div>
+      <div className={`ski-page${low ? ' low' : ''}`}>
+        {/* ▾ réduit la fiche à une barre en bas (titre, ▴, ✕) pour revoir la carte ; ▴ la remet ; ✕ la ferme. */}
+        <div className="travel-head">{low || start ? <b className="ski-low-title">{low ? o.titre : ''}</b>
+          : <button onClick={() => { setSheetRow(null); setSheet(null); setBig(null); }}>← Liste</button>}
+          <span className="head-btns">
+            <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir la fiche' : 'Réduire la fiche'}>{low ? '▴' : '▾'}</button>
+            <button onClick={onClose} aria-label="Fermer">✕</button></span></div>
+        {!low && <>
         {/* En-tête façon skitour.fr : titre et étoiles dans un cadre, puis date et auteurs. */}
         <div className="ski-title"><h2>{o.titre}</h2>{o.etoiles ? <div className="ski-stars">{'★'.repeat(o.etoiles)}</div> : null}</div>
         <p className="ski-meta">📅 <b>Sortie du</b> {new Date(o.date * 1000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
@@ -132,6 +138,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
           {o.lat != null && o.lon != null && <button onClick={onMap}>Sur la carte</button>}
         </div>
         <p className="hint">Texte de {o.auteurs} sur skitour.fr (CC BY-NC-ND), non modifié.</p>
+        </>}
       </div>
     );
   }

@@ -217,7 +217,7 @@ class MainActivity : AppCompatActivity() {
                 if (weather.active) m.queryRenderedFeatures(box, WeatherLayer.LAYER)
                     .firstOrNull()?.let { weather.describe(it) }?.let { toast(it); return@addOnMapClickListener true }
                 // Point d'une sortie skitour : on la choisit.
-                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI, LAYER_SKI_PARK, "ski-park-tags")
+                if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI, LAYER_SKI_PARK, "ski-park-tags", "ski-tags")
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectSki(it); return@addOnMapClickListener true }
                 // Trait d'un itinéraire du voyage : on le choisit.
                 if (travelPanel?.routes?.isNotEmpty() == true) m.queryRenderedFeatures(box, LAYER_TRAVEL)
@@ -1177,12 +1177,14 @@ class MainActivity : AppCompatActivity() {
             x.auteur, x.url, x.skiabilite, x.etoiles, x.parking)
         val p = SkiTextPanel(this, password, onShowOnMap = { closeSkiText() }, onClose = { closeSkiText() }, start = row)
         skiTextPanel = p
+        skiPanel?.view?.visibility = android.view.View.GONE // caché (liste gardée) tant que la fiche est ouverte
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
     }
     private fun closeSkiText() {
         skiTextPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
         skiTextPanel = null
+        skiPanel?.view?.visibility = android.view.View.VISIBLE
     }
     private fun closeSki() {
         skiPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
@@ -1272,10 +1274,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Étiquette d'une sortie skitour : fond blanc, bord bleu (violet si choisie), une ou deux lignes. */
-    /** Appui sur un point ou un parking de sortie : dans le panneau ⛷🗺 on la choisit ; venue de ⛷💬 (seule sortie), on la met en violet. */
+    /** Appui sur un point, une étiquette ou un parking de sortie : dans ⛷🗺 on la choisit et on ouvre sa fiche texte ; venue de ⛷💬 (seule sortie), on la met en violet. */
     private fun selectSki(i: Int) {
         val p = skiPanel
-        if (p != null) p.select(i) else drawSki(skiOutings, i)
+        if (p != null) { p.select(i); skiOutings.getOrNull(i)?.let { p.openSheet(it) } } else drawSki(skiOutings, i)
     }
 
     private fun skiTagBitmap(text: String, sel: Boolean, border: String = "#1D6FE0", park: Boolean = false): android.graphics.Bitmap {

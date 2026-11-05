@@ -565,7 +565,9 @@ export function App() {
         webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike}
         forests={forests} forestFilter={forestFilter}
         travelRoutes={travelRoutes} travelSel={travelSel} onTravelClick={setTravelSel}
-        skiOutings={skiOutings} skiSel={skiSel} onSkiClick={setSkiSel}
+        skiOutings={skiOutings} skiSel={skiSel}
+        // Appui sur une sortie (point, étiquette ou parking) : on la choisit et on ouvre sa fiche texte.
+        onSkiClick={(i) => { setSkiSel(i); const o = skiOutings[i]; if (o && skiOn) setSkiSheet(rowOf(o)); }}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} bottom={nature ? 34 : sheetH + 8} />}
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
@@ -586,10 +588,10 @@ export function App() {
         onSki={() => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiSel(null); setSkiOn(true); }}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
       {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
-        outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel}
+        outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel} hidden={!!skiSheet}
         onSheet={(o) => setSkiSheet(rowOf(o))}
         onClose={() => { setSkiOn(false); setSkiOutings([]); setSkiSel(null); }} />}
-      {skiSheet && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={skiSheet}
+      {skiSheet && <SkiTextPanel key={skiSheet.id} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={skiSheet}
         onShowOnMap={() => setSkiSheet(null)} onClose={() => setSkiSheet(null)} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         onShowOnMap={(o) => { setSkiText(false); setSkiOutings([o]); setSkiSel(0); }} onClose={() => setSkiText(false)} />}
