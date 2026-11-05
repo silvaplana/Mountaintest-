@@ -239,6 +239,8 @@ class SkiTextPanel(
     private val start: OutingRow? = null,
     /** 🗺 à droite du titre « Sorties ski » : recherche des sorties sur la carte (écran affiché). */
     private val onOpenMap: (() -> Unit)? = null,
+    /** Onglets en haut (Sorties, Carte sorties, Topos, Carte topos). */
+    private val onMode: ((SkiMode) -> Unit)? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -247,7 +249,6 @@ class SkiTextPanel(
     private val accent = Color.parseColor("#2F6F4F")
     private val listFile = java.io.File(a.filesDir, "skitour-liste.json")
     private val sheetsFile = java.io.File(a.filesDir, "skitour-fiches.json")
-    private val toposFile = java.io.File(a.filesDir, "skitour-topos.json")
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
     private val col = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(36), dp(14), dp(24)) }
     val view: ScrollView = ScrollView(a).apply {
@@ -320,7 +321,9 @@ class SkiTextPanel(
 
     private fun showList() {
         col.removeAllViews()
-        col.addView(header(LinearLayout(a).apply {
+        val tabs = onMode
+        if (tabs != null) col.addView(SkiTabs.view(a, SkiMode.SORTIES, tabs, onClose))
+        else col.addView(header(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(text("⛷ Sorties ski", 16f, ink, true))
             onOpenMap?.let { go -> addView(Button(a).apply { text = "🗺"; contentDescription = "Sorties ski sur la carte"; setOnClickListener { go() } },
@@ -501,71 +504,8 @@ class SkiTextPanel(
 
     private fun openTopo(id: Long, l: SheetLink, row: OutingRow, f: OutingSheet?, msg: String) {
         job?.cancel()
-        val saved = SkiText.savedTopo(toposFile, id)
-        renderTopo(l, saved, if (saved == null) "Chargement du topo…" else "", row, f, msg)
-        job = a.lifecycleScope.launch {
-            runCatching { withContext(Dispatchers.IO) { SkiText.fetchTopo(toposFile, id, password) } }
-                .onSuccess { renderTopo(l, it, "", row, f, msg) }
-                .onFailure { e ->
-                    if (e is kotlinx.coroutines.CancellationException) return@onFailure
-                    renderTopo(l, saved, if (saved != null) "📴 Hors ligne : topo gardé sur le téléphone."
-                        else "Topo impossible : ${if (e is java.io.IOException) "pas de réseau" else e.message}", row, f, msg)
-                }
-        }
-    }
-
-    /** Topo dans l'appli : infos, départ (Google Maps), textes ; « ← Sortie » revient à la fiche. */
-    private fun renderTopo(l: SheetLink, t: TopoSheet?, tmsg: String, row: OutingRow, f: OutingSheet?, msg: String) {
-        col.removeAllViews()
         if (low) setLow(false, Button(a), TextView(a), null)
-        col.addView(header(Button(a).apply { text = "← Sortie"; isAllCaps = false; setOnClickListener { job?.cancel(); renderSheet(row, f, msg) } }
-            .let { b -> LinearLayout(a).apply { addView(b) } }))
-        col.addView(box().apply { gravity = Gravity.CENTER_HORIZONTAL; addView(text("📖 " + (t?.nom?.ifEmpty { null } ?: l.nom), 20f, ink, true).apply { gravity = Gravity.CENTER }) }, lp())
-        if (tmsg.isNotEmpty()) col.addView(text(tmsg))
-        val blue = Color.parseColor("#2E6DB4")
-        fun open(url: String) = runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-        if (t != null) {
-            val dep = t.depart
-            val info: List<Pair<String, Any>> = listOf(
-                "Massif" to t.massif,
-                "Départ" to (dep?.let { p ->
-                    LinearLayout(a).apply {
-                        gravity = Gravity.CENTER_VERTICAL
-                        addView(text(p.text(), 14f, ink), LinearLayout.LayoutParams(0, -2, 1f))
-                        val url = if (p.lat != null && p.lon != null) "https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}"
-                            else "https://www.google.com/maps/search/?api=1&query=" + Uri.encode("${p.nom} ${t.massif}")
-                        addView(Button(a).apply {
-                            text = "🚗 Google Maps"; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
-                            setPadding(dp(8), dp(4), dp(8), dp(4)); contentDescription = "${p.nom} dans Google Maps"
-                            setOnClickListener { open(url) } })
-                    }
-                } ?: ""),
-                (if (t.sommets.size > 1) "Sommets" else "Sommet") to t.sommets.joinToString(", ") { it.text() },
-                "Orientation" to t.orientation, "Dénivelé" to (t.denivele?.let { "$it m" } ?: ""), "Ski" to t.difSki,
-                "Difficulté" to t.difficulte, "Exposition" to t.expo, "Auteur" to t.auteur,
-            ).filter { (_, v) -> (v as? String)?.isNotEmpty() ?: true }
-            col.addView(box().apply {
-                info.forEach { (k, v) ->
-                    addView(LinearLayout(a).apply {
-                        setPadding(0, dp(2), 0, dp(2))
-                        addView(text("$k :", 14f, blue, true), LinearLayout.LayoutParams(dp(110), -2))
-                        if (v is String) addView(text(v, 14f, ink), LinearLayout.LayoutParams(0, -2, 1f))
-                        else addView(v as android.view.View, LinearLayout.LayoutParams(0, -2, 1f))
-                    })
-                }
-            }, lp())
-            t.sections.filter { it.second.isNotBlank() }.forEach { (k, body) ->
-                col.addView(text(k, 16f, accent, true).apply { setPadding(0, dp(12), 0, dp(2)) })
-                col.addView(text(body, 15f, ink).apply { setLineSpacing(0f, 1.2f) })
-            }
-        }
-        col.addView(LinearLayout(a).apply {
-            setPadding(0, dp(10), 0, 0)
-            addView(Button(a).apply { text = "Voir sur skitour.fr"; setOnClickListener { open(l.url) } }, LinearLayout.LayoutParams(0, -2, 1f))
-            if (t != null && t.gpx.isNotEmpty()) addView(Button(a).apply { text = "GPX"; isAllCaps = false; setOnClickListener { open(t.gpx) } })
-        })
-        col.addView(text("Topo de ${t?.auteur?.ifEmpty { null } ?: "skitour.fr"} sur skitour.fr, non modifié."))
-        view.post { view.scrollTo(0, 0) }
+        TopoPage(a, password, col, view).show(id, l.nom, l.url, "Sortie", onBack = { renderSheet(row, f, msg) }, onClose = onClose)
     }
 
     private fun renderSheet(row: OutingRow, f: OutingSheet?, msg: String) {

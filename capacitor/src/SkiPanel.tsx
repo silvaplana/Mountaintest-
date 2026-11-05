@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Map as MlMap } from 'maplibre-gl';
+import { SkiTabs, type SkiMode } from './SkiTabs';
 import { PERIODS, SKI_LEVELS, fetchDetails, skiLabel, skiOk, hasDetails, inView, loadAll, outingDate, outingLine, periodLabel, periodOk, readDetails, withDetails, type Outing } from './ski/skitour';
 
 /** En dessous de ce zoom, l'écran couvre trop de pays : on ne montre pas les points. */
@@ -9,7 +10,9 @@ export const SKI_MIN_ZOOM = 7;
  * Sorties skitour.fr de l'écran affiché : toute la liste de la période est chargée une fois, puis filtrée sur l'écran
  * à chaque arrêt de la carte (aucune requête) ; étoiles, skiabilité et parking demandés pour les sorties visibles.
  */
-export function SkiPanel({ map, password, outings, selected, onOutings, onSelect, onSheet, onClose, hidden }: {
+export function SkiPanel({ map, password, outings, selected, onOutings, onSelect, onSheet, onClose, hidden, onMode }: {
+  /** Onglets en haut du panneau (Sorties, Carte sorties, Topos, Carte topos). */
+  onMode?: (m: SkiMode) => void;
   /** Caché (sans perdre la liste) pendant qu'une fiche de sortie est ouverte. */
   hidden?: boolean;
   map: MlMap; password: string; outings: Outing[]; selected: number | null;
@@ -97,6 +100,7 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
         onClick={() => { pick(v); setMenu(null); }}>{t}</button>))}</div>);
   // Filtres en pastilles, tous visibles ; celui qu'on touche se déplie au-dessus (un seul à la fois), un choix le replie.
   const head = (<>
+    {onMode && <SkiTabs mode="carte" onMode={onMode} />}
     {menu === 'days' && choices(PERIODS, days, setDays, '')}
     {menu === 'ski' && choices(SKI_LEVELS, skiMax, (v) => { setSkiMax(v); try { localStorage.setItem('skitourSkiMax', String(v)); } catch { /* ignoré */ } }, 'ski')}
     <div className="travel-head ski-head"><span className="hint">{count}</span>

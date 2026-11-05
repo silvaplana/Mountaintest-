@@ -469,3 +469,13 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .trace-menu .trail-list li { display: flex; align-items: center; }
 .trace-menu .trail-list li > button:first-child { flex: 1; }
 .trace-menu .trail-list .del { width: auto; flex: 0 0 auto; padding: 8px 12px; color: #c62828; }
+
+/* Onglets du ski : Sorties, Carte sorties, Topos, Carte topos. */
+.ski-tabs { display: flex; gap: 4px; align-items: stretch; margin: 0 0 8px; }
+.ski-tabs button { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 12px; line-height: 1.15; border-radius: 10px; white-space: normal; }
+.ski-tabs button.on { background: #2f6f4f; color: #fff; border-color: #2f6f4f; font-weight: 700; }
+.ski-tabs .ski-tabs-close { flex: 0 0 40px; }
+.topo-tag { border-color: #e07b00 !important; }
+.ski-topos { list-style: none; padding: 0; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.ski-topos button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; }
+.ski-topos small { color: var(--muted, #8a9590); }

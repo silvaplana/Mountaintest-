@@ -295,3 +295,57 @@ export function groupMassifs(ms: Massif[]): [string, string[]][] {
   for (const m of ms) g.set(m.groupe || 'Autres', [...(g.get(m.groupe || 'Autres') ?? []), m.nom]);
   return [...g.entries()].map(([k, v]) => [k, v.sort((a, b) => a.localeCompare(b, 'fr'))]);
 }
+
+// ---------- Topos (onglets « Topos » et « Carte topos ») ----------
+/** Un topo de la liste (départ placé sur la carte). */
+export interface TopoRow {
+  id: number; nom: string; url: string; massif: string; orientation: string; denivele: number | null; dif_ski: string;
+  difficulte: string; expo: string; gpx: boolean; depart: { nom: string; altitude: number | null; lat: number | null; lon: number | null } | null;
+}
+const TOPO_LIST_KEY = 'skitourToposListe';
+const TOPO_MAP_KEY = 'skitourToposCarte';
+/** Dernière liste de topos (massifs choisis), gardée pour le hors ligne. */
+export function readTopoList(): { massifs: number[]; t: number; topos: TopoRow[] } | null {
+  try { const v = JSON.parse(localStorage.getItem(TOPO_LIST_KEY) ?? 'null'); return v && Array.isArray(v.topos) ? v : null; } catch { return null; }
+}
+export async function fetchTopoList(massifs: number[], password: string): Promise<TopoRow[]> {
+  const r = await relayPost<{ topos?: TopoRow[] }>('skitour-topos', { massifs }, password);
+  const topos = r.topos ?? [];
+  try { localStorage.setItem(TOPO_LIST_KEY, JSON.stringify({ massifs, t: Date.now(), topos })); } catch { /* stockage plein */ }
+  return topos;
+}
+/** Case de 0,1° du centre de l'écran : une demande par case, gardée 7 jours sur le téléphone (et sur le serveur). */
+export const topoCell = (lat: number, lon: number) => `${(Math.round(lat * 10) / 10).toFixed(1)},${(Math.round(lon * 10) / 10).toFixed(1)}`;
+function readTopoCells(): Record<string, { t: number; topos: TopoRow[] }> {
+  try { const v = JSON.parse(localStorage.getItem(TOPO_MAP_KEY) ?? '{}'); return v && typeof v === 'object' ? v : {}; } catch { return {}; }
+}
+export function savedToposNear(lat: number, lon: number): TopoRow[] | null {
+  const c = readTopoCells()[topoCell(lat, lon)];
+  return c && Date.now() - c.t < 7 * 86400_000 ? c.topos : null;
+}
+export async function fetchToposNear(lat: number, lon: number, password: string): Promise<TopoRow[]> {
+  const k = topoCell(lat, lon);
+  const [la, lo] = k.split(',').map(Number);
+  const r = await relayPost<{ topos?: TopoRow[] }>('skitour-topos', { lat: la, lon: lo }, password);
+  const all = readTopoCells();
+  delete all[k];
+  all[k] = { t: Date.now(), topos: r.topos ?? [] };
+  const keys = Object.keys(all).slice(-40); // 40 cases au plus
+  try { localStorage.setItem(TOPO_MAP_KEY, JSON.stringify(Object.fromEntries(keys.map((x) => [x, all[x]])))); } catch { /* stockage plein */ }
+  return all[k].topos;
+}
+/** Toutes les cases gardées, pour garder les points déjà vus quand on bouge la carte. */
+export function allSavedTopos(): TopoRow[] {
+  const seen = new Set<number>(), out: TopoRow[] = [];
+  for (const c of Object.values(readTopoCells())) for (const t of c.topos) if (!seen.has(t.id)) { seen.add(t.id); out.push(t); }
+  return out;
+}
+/** Filtre de la liste des topos : chaque mot (sans accents) dans le nom, le massif ou le départ. */
+export function filterTopos(rows: TopoRow[], q: string): TopoRow[] {
+  const n = (t: string) => t.normalize('NFD').replace(/\p{Mn}+/gu, '').toLowerCase();
+  const words = n(q).split(/\s+/).filter(Boolean);
+  if (!words.length) return rows;
+  return rows.filter((t) => { const h = n(`${t.nom} ${t.massif} ${t.depart?.nom ?? ''}`); return words.every((w) => h.includes(w)); });
+}
+/** « ski 2.3 · D+ 780 m · E » */
+export const topoLine = (t: TopoRow) => [t.dif_ski && `ski ${t.dif_ski}`, t.denivele && `D+ ${t.denivele} m`, t.orientation, t.difficulte].filter(Boolean).join(' · ');

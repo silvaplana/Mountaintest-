@@ -205,6 +205,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 layoutSkiTags()
                 skiPanel?.refresh()
+                topoMapPanel?.refresh()
             }
             // Un glissement de carte arrête le suivi (comme côté Capacitor) ; la position reste affichée.
             m.addOnCameraMoveStartedListener { reason ->
@@ -228,8 +229,14 @@ class MainActivity : AppCompatActivity() {
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { openSkiFromTag(it); return@addOnMapClickListener true }
                 if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI, LAYER_SKI_PARK)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectSki(it); return@addOnMapClickListener true }
+                // Topos : l'étiquette ouvre la fiche, un point le choisit.
+                if (toposShown.isNotEmpty()) m.queryRenderedFeatures(box, "topo-tags")
+                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { i -> toposShown.getOrNull(i)?.let { openTopoSheet(it) }; return@addOnMapClickListener true }
+                if (toposShown.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_TOPOS)
+                    .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { topoMapPanel?.select(it); return@addOnMapClickListener true }
                 // Appui ailleurs : l'étiquette de la sortie choisie disparaît (le clic continue vers le reste).
                 if (skiSel != null) { skiPanel?.clearSelection() ?: drawSki(skiOutings, null) }
+                if (topoSel != null) topoMapPanel?.select(null)
                 // Trait d'un itinéraire du voyage : on le choisit.
                 if (travelPanel?.routes?.isNotEmpty() == true) m.queryRenderedFeatures(box, LAYER_TRAVEL)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { travelPanel?.select(it); return@addOnMapClickListener true }
@@ -538,6 +545,18 @@ class MainActivity : AppCompatActivity() {
                 circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(8f), Expression.literal(6f))),
                 circleColor("#3a4a44"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)).apply {
                 setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
+            // Topos (carte des topos) : point orange à leur départ, le choisi en violet avec son étiquette.
+            style.addSource(GeoJsonSource(SRC_TOPOS))
+            style.addLayer(org.maplibre.android.style.layers.SymbolLayer("topo-tags", SRC_TOPOS).withProperties(
+                org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAnchor(Property.ICON_ANCHOR_LEFT),
+                org.maplibre.android.style.layers.PropertyFactory.iconOffset(arrayOf(13f, 0f)),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)).apply { setFilter(Expression.eq(Expression.get("sel"), Expression.literal(true))) })
+            style.addLayer(CircleLayer(LAYER_TOPOS, SRC_TOPOS).withProperties(
+                circleRadius(Expression.switchCase(Expression.get("sel"), Expression.literal(11f), Expression.literal(8f))),
+                circleColor(Expression.switchCase(Expression.get("sel"), Expression.literal("#7b3fe4"), Expression.literal("#e07b00"))),
+                circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
             style.addSource(GeoJsonSource(SRC_SKI))
             // Étiquette de chaque sortie à droite de son point : nom, étoiles, skiabilité (image dessinée par skiTagBitmap).
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("ski-tags", SRC_SKI).withProperties(
@@ -1168,7 +1187,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSkiText).text = "⛷"
         findViewById<Button>(R.id.btnSkiText).setOnClickListener {
             pairOpen = 0; refreshQuickButtons()
-            closeTravel(); closeLodging(); closeSki(); openSkiText()
+            skiMode(SkiMode.SORTIES)
         }
         findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
             map?.projection?.visibleRegion?.latLngBounds?.let {
@@ -1205,7 +1224,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         val p = SkiPanel(this, password, viewport, onOutings = { o, sel -> drawSki(o, sel) }, onClose = { closeSki() },
-            onSheet = { x -> openSkiSheet(x, password) }, pinned = pinned)
+            onSheet = { x -> openSkiSheet(x, password) }, pinned = pinned, onMode = { skiMode(it) })
         skiPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
@@ -1216,11 +1235,82 @@ class MainActivity : AppCompatActivity() {
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         drawSki(emptyList(), null)
         val p = SkiTextPanel(this, password, onShowOnMap = { o, at -> closeSkiText(); closeTravel(); closeLodging(); openSki(o); flyToSki(at) }, onClose = { closeSkiText() },
-            onOpenMap = { closeSkiText(); closeTravel(); closeLodging(); closeSki(); openSki() })
+            onMode = { skiMode(it) })
         skiTextPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
     }
+    // ---------- Onglets du ski : Sorties, Carte sorties, Topos, Carte topos ----------
+    private fun skiPassword() = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
+    /** Ferme les autres écrans ski (et panneaux) puis ouvre celui choisi. */
+    private fun skiMode(m: SkiMode) {
+        pairOpen = 0; refreshQuickButtons()
+        closeTravel(); closeLodging(); closeSkiText(); closeSki(); closeTopoText(); closeTopoMap()
+        when (m) {
+            SkiMode.SORTIES -> openSkiText()
+            SkiMode.CARTE -> openSki()
+            SkiMode.TOPOS -> openTopoText()
+            SkiMode.CARTE_TOPOS -> openTopoMap()
+        }
+    }
+    private var topoTextPanel: TopoTextPanel? = null
+    private fun openTopoText(start: TopoRow? = null) {
+        closeTopoText()
+        val p = TopoTextPanel(this, skiPassword(), onMode = { skiMode(it) }, onClose = { closeTopoText() }, start = start,
+            onBackToMap = if (start != null) ({ closeTopoText() }) else null)
+        topoTextPanel = p
+        topoMapPanel?.view?.visibility = android.view.View.GONE
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
+    }
+    private fun closeTopoText() {
+        topoTextPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        topoTextPanel = null
+        topoMapPanel?.view?.visibility = android.view.View.VISIBLE
+    }
+    /** Fiche d'un topo touché sur la carte des topos ; « ← Carte » y revient. */
+    private fun openTopoSheet(t: TopoRow) = openTopoText(t)
+    private var topoMapPanel: TopoMapPanel? = null
+    private var toposShown: List<TopoRow> = emptyList()
+    private var topoSel: Int? = null
+    private fun openTopoMap() {
+        closeTopoMap()
+        val viewport = {
+            map?.let { m ->
+                val b = m.projection.visibleRegion.latLngBounds
+                Zone(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth) to m.cameraPosition.zoom
+            }
+        }
+        val center = { map?.cameraPosition?.target?.let { it.latitude to it.longitude } }
+        val p = TopoMapPanel(this, skiPassword(), viewport, center, onTopos = { t, sel -> drawTopos(t, sel) },
+            onOpen = { openTopoSheet(it) }, onMode = { skiMode(it) }, onClose = { closeTopoMap() })
+        topoMapPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
+    }
+    private fun closeTopoMap() {
+        topoMapPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        topoMapPanel = null; drawTopos(emptyList(), null)
+    }
+    private fun drawTopos(t: List<TopoRow>, sel: Int?) {
+        toposShown = t; topoSel = sel
+        val style = map?.style ?: return
+        style.getSourceAs<GeoJsonSource>(SRC_TOPOS)?.setGeoJson(FeatureCollection.fromFeatures(t.mapIndexedNotNull { i, x ->
+            val p = x.depart ?: return@mapIndexedNotNull null
+            val lat = p.lat ?: return@mapIndexedNotNull null
+            val lon = p.lon ?: return@mapIndexedNotNull null
+            Feature.fromGeometry(Point.fromLngLat(lon, lat)).apply {
+                addNumberProperty("i", i); addBooleanProperty("sel", i == sel)
+                if (i == sel) {
+                    val label = x.nom + "\n" + x.line()
+                    val img = "topo:$label"
+                    if (style.getImage(img) == null) style.addImage(img, skiTagBitmap(label, false, "#E07B00"))
+                    addStringProperty("img", img)
+                }
+            }
+        }))
+    }
+
     /** Fiche d'une sortie choisie sur la carte (⛷🗺), par-dessus le panneau de la zone ; « ← Carte » y revient. */
     private fun openSkiSheet(x: Outing, password: String) {
         closeSkiText()
@@ -2382,6 +2472,8 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_WEB_HIKES = "web-hikes-src"
         private const val SRC_TRAVEL = "travel-src"
         private const val SRC_SKI = "ski-src"
+        private const val SRC_TOPOS = "topos-src"
+        private const val LAYER_TOPOS = "topos"
         private const val SRC_SKI_PARK = "ski-park-src"
         private const val SRC_SKI_LINES = "ski-lines-src"
         private const val LAYER_SKI_PARK = "ski-park"

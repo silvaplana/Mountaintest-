@@ -741,6 +741,49 @@ def fiche_topo(id_: int) -> dict:
     return f
 
 
+def _topo_court(t: dict) -> dict:
+    """Un topo de la liste de l'API, pour la liste et la carte des topos de l'appli (départ placé)."""
+    dep = _point(t.get("depart")) if isinstance(t.get("depart"), dict) else None
+    return {"id": _entier(t.get("id")), "nom": _texte(t.get("nom")), "url": f"https://skitour.fr/topos/{_entier(t.get('id'))}",
+            "massif": _d(t.get("massif")).get("nom", "") if isinstance(t.get("massif"), dict) else _texte(t.get("massif")),
+            "orientation": _texte(t.get("orientation")), "denivele": _entier(t.get("denivele")), "dif_ski": _texte(t.get("dif_ski")),
+            "difficulte": _texte(t.get("difficulte")), "expo": _texte(t.get("expo")),
+            "gpx": t.get("gpx") is None or str(t.get("gpx")).strip() not in ("", "0", "false"),
+            "depart": dep and {"nom": dep["nom"], "altitude": dep["altitude"], "lat": dep["lat"], "lon": dep["lon"]}}
+
+
+def _liste_topos(fichier: str, q: dict, pages: int = 20) -> list:
+    """Topos de l'API (/api/topos?…), gardés 7 jours sur le disque : les topos changent peu, le quota est de 1000 par jour."""
+    with verrou:
+        c = _lire(fichier, None)
+    if c and time.time() - c.get("t", 0) < 7 * 86400:
+        return c["topos"]
+    out, vus = [], set()
+    for p in range(1, pages + 1):
+        with urllib.request.urlopen(_requete_api(f"https://skitour.fr/api/topos?{urllib.parse.urlencode({**q, 'p': p})}"), timeout=30) as r:
+            lot = json.loads(r.read())
+        if not isinstance(lot, list):
+            raise RuntimeError(f"skitour : {_d(lot).get('ERROR') or 'réponse inattendue'}")
+        neufs = [t for t in lot if isinstance(t, dict) and _entier(t.get("id")) and _entier(t.get("id")) not in vus]
+        for t in neufs:
+            vus.add(_entier(t.get("id"))); out.append(_topo_court(t))
+        if len(lot) < 100 or not neufs:  # dernière page (ou pagination ignorée par l'API)
+            break
+    with verrou:
+        _ecrire(fichier, {"t": time.time(), "topos": out})
+    return out
+
+
+def topos_du_massif(m: int) -> list:
+    return _liste_topos(f"cache-skitour-topos-m{m}.json", {"m": m})
+
+
+def topos_autour(lat: float, lon: float) -> list:
+    """Topos proches d'un point (carte des topos), par cases de 0,1° pour partager le cache entre écrans voisins."""
+    la, lo = round(lat, 1), round(lon, 1)
+    return _liste_topos(f"cache-skitour-topos-ll{la}_{lo}.json", {"ll": f"{la},{lo}"}, pages=3)
+
+
 _TOPOS_SOMMET: dict = {}  # id du sommet -> (heure, topos bruts de l'API)
 
 
@@ -1188,11 +1231,11 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo")):
+        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -1243,6 +1286,8 @@ class Relais(BaseHTTPRequestHandler):
             return self._skitour_texte(chemin.endswith("/skitour-liste"))
         if chemin.endswith("/skitour-topo"):
             return self._skitour_topo()
+        if chemin.endswith("/skitour-topos"):
+            return self._skitour_topos()
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         try:
@@ -1340,6 +1385,28 @@ class Relais(BaseHTTPRequestHandler):
         except Exception:  # noqa: BLE001 — bug de lecture : détail dans « docker logs », message simple pour l'appli
             traceback.print_exc()
             self._json(502, {"erreur": "fiche skitour illisible pour l'instant, ouvre-la sur skitour.fr"})
+
+    def _skitour_topos(self):
+        if not SKITOUR_CLE:
+            return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 4_000)) or b"{}")
+            massifs = [int(i) for i in (d.get("massifs") or [])][:20]
+            lat, lon = (float(d["lat"]), float(d["lon"])) if d.get("lat") is not None else (None, None)
+        except (ValueError, TypeError, KeyError):
+            return self._json(400, {"erreur": "demande invalide"})
+        try:
+            if lat is not None:
+                return self._json(200, {"topos": topos_autour(lat, lon)})
+            out, vus = [], set()
+            for m in massifs:
+                for t in topos_du_massif(m):
+                    if t["id"] not in vus:
+                        vus.add(t["id"]); out.append(t)
+            out.sort(key=lambda t: t["nom"].lower())
+            return self._json(200, {"topos": out})
+        except Exception as ex:  # noqa: BLE001
+            return self._json(502, {"erreur": str(ex)})
 
     def _skitour_topo(self):
         if not SKITOUR_CLE:
