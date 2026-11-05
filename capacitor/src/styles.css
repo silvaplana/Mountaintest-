@@ -374,13 +374,18 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-big .row { display: flex; gap: 16px; align-items: center; }
 .ski-big button { min-width: 48px; font-size: 22px; }
 /* Étiquette d'une sortie skitour à côté de son point bleu. */
+/* Étiquette d'un sommet (sortie) : bien visible, fond blanc, bord bleu épais, 1re ligne en gras. */
 .ski-tag {
-  background: #ffffffe8; color: #1d2421; font-size: 11px; line-height: 1.2; padding: 3px 6px; border-radius: 6px;
-  white-space: pre; pointer-events: none; border: 1px solid #1d6fe0; box-shadow: 0 1px 3px #0003;
+  background: #fff; color: #1d2421; font-size: 12px; line-height: 1.25; padding: 3px 6px; border-radius: 6px;
+  white-space: pre; pointer-events: none; border: 2px solid #1d6fe0; box-shadow: 0 1px 4px #0004;
 }
+.ski-tag:not(.park)::first-line { font-weight: 700; }
 .ski-tag.sel { border-color: #7b3fe4; font-weight: 700; }
 /* Étiquette du parking (nom, altitude) : appui = choisir la sortie. */
-.ski-tag.park { border-color: #3a4a44; pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+/* Parking : plus petit et discret (fond gris clair, texte gris), le « P » reste bleu. */
+.ski-tag.park { border: 1px solid #9aa5ae; background: #eef1f4d9; color: #4a5560; font-size: 10px; box-shadow: none;
+  pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.ski-tag.park.sel { border-color: #7b3fe4; }
 .ski-tag .park-p { background: #1d6fe0; color: #fff; border-radius: 3px; padding: 0 4px; font-weight: 700; }
 .ski-tags-off .ski-tag { display: none; }
 .ski-stars { color: #c9a800; }

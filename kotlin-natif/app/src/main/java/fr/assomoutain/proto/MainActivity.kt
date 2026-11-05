@@ -1287,31 +1287,41 @@ class MainActivity : AppCompatActivity() {
         if (p != null) { p.select(i); skiOutings.getOrNull(i)?.let { p.openSheet(it) } } else drawSki(skiOutings, i)
     }
 
+    /**
+     * Étiquette dessinée sur la carte. Sommet (sortie) : bien visible, fond blanc, bord bleu épais (violet si choisie),
+     * 1re ligne en gras. Parking : plus petit et discret, fond gris clair, texte gris, « P » bleu.
+     */
     private fun skiTagBitmap(text: String, sel: Boolean, border: String = "#1D6FE0", park: Boolean = false): android.graphics.Bitmap {
         val d = resources.displayMetrics.density
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#1D2421"); textSize = 11 * d; if (sel) typeface = android.graphics.Typeface.DEFAULT_BOLD
+            color = Color.parseColor(if (park) "#4A5560" else "#1D2421"); textSize = (if (park) 10 else 12) * d
+            if (sel && park) typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
+        val bold = android.graphics.Paint(paint).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD }
         val lines = text.split('\n')
-        val lh = 14 * d
-        val w = ((lines.maxOf { paint.measureText(it) }) + (if (park) 18 else 12) * d).toInt(); val h = (lines.size * lh + 6 * d).toInt()
-        val bmp = android.graphics.Bitmap.createBitmap(w + 2, h + 2, android.graphics.Bitmap.Config.ARGB_8888)
+        val lh = (if (park) 13 else 15) * d
+        val sw = (if (park) 1f else 2f) * d
+        val w = ((lines.mapIndexed { k, l -> (if (k == 0 && !park) bold else paint).measureText(l) }.max()) + (if (park) 18 else 12) * d).toInt()
+        val h = (lines.size * lh + 6 * d).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(w + 4, h + 4, android.graphics.Bitmap.Config.ARGB_8888)
         val c = android.graphics.Canvas(bmp)
-        val r = android.graphics.RectF(1f, 1f, w + 1f, h + 1f)
-        c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E8FFFFFF") })
+        val r = android.graphics.RectF(2f, 2f, w + 2f, h + 2f)
         c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            style = android.graphics.Paint.Style.STROKE; color = Color.parseColor(if (sel) "#7B3FE4" else border); strokeWidth = d })
+            color = Color.parseColor(if (park) "#D9EEF1F4" else "#FFFFFFFF") })
+        c.drawRoundRect(r, 6 * d, 6 * d, android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE; strokeWidth = sw
+            color = Color.parseColor(if (sel) "#7B3FE4" else if (park) "#9AA5AE" else border) })
         lines.forEachIndexed { k, l ->
-            val y = 1 + 3 * d + k * lh + lh / 2 - (paint.descent() + paint.ascent()) / 2
+            val y = 2 + 3 * d + k * lh + lh / 2 - (paint.descent() + paint.ascent()) / 2
             if (park && k == 0 && l.startsWith("P")) {
                 // Parking : « P » blanc sur carré bleu, puis le nom et l'altitude.
                 val pb = android.graphics.Paint(paint).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD; color = Color.WHITE }
                 val pw = pb.measureText("P")
-                c.drawRoundRect(android.graphics.RectF(1 + 5 * d, 1 + 3 * d + k * lh, 1 + 9 * d + pw, 1 + 3 * d + (k + 1) * lh), 3 * d, 3 * d,
+                c.drawRoundRect(android.graphics.RectF(2 + 5 * d, 2 + 3 * d + k * lh, 2 + 9 * d + pw, 2 + 3 * d + (k + 1) * lh), 3 * d, 3 * d,
                     android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1D6FE0") })
-                c.drawText("P", 1 + 7 * d, y, pb)
-                c.drawText(l.drop(1), 1 + 9 * d + pw, y, paint)
-            } else c.drawText(l, 1 + 6 * d, y, paint)
+                c.drawText("P", 2 + 7 * d, y, pb)
+                c.drawText(l.drop(1), 2 + 9 * d + pw, y, paint)
+            } else c.drawText(l, 2 + 6 * d, y, if (k == 0 && !park) bold else paint)
         }
         return bmp
     }
