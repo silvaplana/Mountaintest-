@@ -403,6 +403,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-menu { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 .ski-menu button { border-radius: 999px; padding: 3px 9px; font-size: 13px; }
 .ski-menu button.on { background: #2f6fd6; border-color: #2f6fd6; color: #fff; font-weight: 700; }
+.ski-pill.ski, .ski-menu.ski button.on { background: #e07b1d; border-color: #e07b1d; color: #fff; }
+.ski-head .head-btns { gap: 6px; }
+.ski-head .ski-pill { padding: 4px 9px; }
 /* Fiche de sortie réduite (▾) : une barre en bas avec le titre, ▴ et ✕, la carte reste visible au-dessus. */
 .ski-page.low { top: auto; bottom: 0; overflow: hidden; border-radius: 14px 14px 0 0; box-shadow: 0 -2px 12px rgba(0,0,0,.25);
   padding-top: 8px; padding-bottom: calc(env(safe-area-inset-bottom) + 48px); }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Map as MlMap } from 'maplibre-gl';
-import { PERIODS, fetchDetails, hasDetails, inView, loadAll, outingDate, outingLine, periodLabel, periodOk, readDetails, withDetails, type Outing } from './ski/skitour';
+import { PERIODS, SKI_LEVELS, fetchDetails, skiLabel, skiOk, hasDetails, inView, loadAll, outingDate, outingLine, periodLabel, periodOk, readDetails, withDetails, type Outing } from './ski/skitour';
 
 /** En dessous de ce zoom, l'écran couvre trop de pays : on ne montre pas les points. */
 export const SKI_MIN_ZOOM = 7;
@@ -18,7 +18,11 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   onSheet: (o: Outing) => void; onClose: () => void;
 }) {
   const [days, setDays] = useState(() => { try { return periodOk(Number(localStorage.getItem('skitourJours'))); } catch { return 30; } });
-  const [menu, setMenu] = useState(false);
+  const [skiMax, setSkiMax] = useState(() => { try { return Number(localStorage.getItem('skitourSkiMax')) || 0; } catch { return 0; } });
+  // Un seul filtre déplié à la fois, au-dessus de la ligne des pastilles.
+  const [menu, setMenu] = useState<'days' | 'ski' | null>(null);
+  const skiRef = useRef(skiMax);
+  skiRef.current = skiMax;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState<number | null>(null);
@@ -46,7 +50,7 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       const far = map.getZoom() < SKI_MIN_ZOOM;
       setTooFar(far);
       const b = map.getBounds();
-      const vis = far ? [] : inView(all, [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]).map((o) => withDetails(o, det.current));
+      const vis = far ? [] : inView(all.filter((o) => skiOk(o, skiRef.current)), [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]).map((o) => withDetails(o, det.current));
       onOutings(vis);
       const k = vis.findIndex((o) => o.id === selId.current);
       onSelect(k >= 0 ? k : null);
@@ -66,24 +70,30 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
     map.on('moveend', update);
     return () => { live = false; window.clearTimeout(timer); map.off('moveend', update); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, all, password]);
+  }, [map, all, password, skiMax]);
   const sel = selected != null ? outings[selected] : null;
   // Première ligne (sans titre : on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
   // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
   const [low, setLow] = useState(true); // ouvert réduit : juste la première ligne, la carte d'abord
-  const count = busy ? 'Recherche…' : error ? '' : tooFar ? 'Zoome sur une région'
-    : `${outings.length} sortie${outings.length > 1 ? 's' : ''} à l'écran`;
+  const count = busy ? 'Recherche…' : error ? '' : tooFar ? 'Zoome'
+    : `${outings.length} sortie${outings.length > 1 ? 's' : ''}`;
+  const choices = <T extends number>(list: [T, string][], cur: T, pick: (v: T) => void, cls: string) => (
+    <div className={`ski-menu ${cls}`} role="listbox">{list.map(([v, t]) => (
+      <button key={v} role="option" aria-selected={v === cur} className={v === cur ? 'on' : ''}
+        onClick={() => { pick(v); setMenu(null); }}>{t}</button>))}</div>);
+  // Filtres en pastilles, tous visibles ; celui qu'on touche se déplie au-dessus (un seul à la fois), un choix le replie.
   const head = (<>
+    {menu === 'days' && choices(PERIODS, days, setDays, '')}
+    {menu === 'ski' && choices(SKI_LEVELS, skiMax, (v) => { setSkiMax(v); try { localStorage.setItem('skitourSkiMax', String(v)); } catch { /* ignoré */ } }, 'ski')}
     <div className="travel-head ski-head"><span className="hint">{count}</span>
       <span className="head-btns">
-        {/* Pastille de période : touchée, elle ouvre la liste des choix juste en dessous ; un choix la referme. */}
-        <button className="ski-pill" aria-label="Période des sorties" aria-expanded={menu} onClick={() => setMenu(!menu)}>{periodLabel(days)} {menu ? '▴' : '▾'}</button>
+        <button className="ski-pill" aria-label="Période des sorties" aria-expanded={menu === 'days'}
+          onClick={() => setMenu(menu === 'days' ? null : 'days')}>{periodLabel(days)} {menu === 'days' ? '▴' : '▾'}</button>
+        <button className="ski-pill ski" aria-label="Difficulté ski maximale" aria-expanded={menu === 'ski'}
+          onClick={() => setMenu(menu === 'ski' ? null : 'ski')}>{skiLabel(skiMax)} {menu === 'ski' ? '▴' : '▾'}</button>
         <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir le panneau' : 'Réduire le panneau'}>{low ? '▴' : '▾'}</button>
         <button onClick={onClose} aria-label="Fermer">✕</button>
       </span></div>
-    {menu && <div className="ski-menu" role="listbox">{PERIODS.map(([d, t]) => (
-      <button key={d} role="option" aria-selected={d === days} className={d === days ? 'on' : ''}
-        onClick={() => { setDays(d); setMenu(false); }}>{t}</button>))}</div>}
   </>);
   if (low) return <div className="travel" hidden={hidden}>{head}</div>;
   return (
