@@ -3,6 +3,7 @@ import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { ShareIcon } from './Expenses';
+import { ICON_HELP, SLOPE_LEGEND, SLOPE_TAGS_HELP, type IconKey } from './iconHelp';
 
 /** Plugins natifs (android/.../PocketMode.java et BatterySettings.java, identiques côté Kotlin). */
 const PocketMode = registerPlugin<{
@@ -120,11 +121,44 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
   const show = help ? 0 : mode;
   const wx = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
+  // Appui long sur une icône : bulle d'aide à sa gauche (pour ⛰, la légende des couleurs en degrés) ; toucher ailleurs la ferme.
+  const [tip, setTip] = useState<{ key: IconKey; top: number; right: number; maxWidth: number } | null>(null);
+  const tipPress = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
+  const lp = (key: IconKey) => {
+    const stop = () => { if (tipPress.current.timer) { clearTimeout(tipPress.current.timer); tipPress.current.timer = null; } };
+    return {
+      onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+        stop(); tipPress.current.long = false;
+        const el = e.currentTarget;
+        tipPress.current.timer = setTimeout(() => {
+          tipPress.current.long = true;
+          const r = el.getBoundingClientRect();
+          setTip({ key, top: Math.max(8, Math.min(r.top, window.innerHeight - 260)), right: window.innerWidth - r.left + 8, maxWidth: Math.max(160, r.left - 16) });
+        }, 550);
+      },
+      onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop,
+      onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+      // Après un appui long, l'appui ne déclenche pas l'icône.
+      onClickCapture: (e: React.MouseEvent) => { if (tipPress.current.long) { tipPress.current.long = false; e.stopPropagation(); e.preventDefault(); } },
+    };
+  };
   return (
     <>
+    {tip && <div className="tip-close" onPointerDown={() => setTip(null)}>
+      <div className="icon-tip" style={{ top: tip.top, right: tip.right, maxWidth: tip.maxWidth }}>
+        <b>{ICON_HELP[tip.key].title}</b>
+        <p>{ICON_HELP[tip.key].text}</p>
+        {tip.key === 'slopes' && <>
+          <ul className="slope-legend">
+            {SLOPE_LEGEND.map((l) => <li key={l.label}><span style={{ background: l.color }} />{l.label}</li>)}
+          </ul>
+          <p>{SLOPE_TAGS_HELP}</p>
+        </>}
+      </div>
+    </div>}
     {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
     <div className={help ? 'quick help' : 'quick'}>
-      <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli"
+      <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli" {...lp('close')}
         onClick={() => { if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
       <button className="toggle arrow" aria-label={mode === 3 ? 'Afficher les icônes' : 'Changer les icônes'} data-help="Appui : icônes suivantes · appui long : aide"
         onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
@@ -133,25 +167,25 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         onContextMenu={(e) => e.preventDefault()}
         onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } nextMode(); }}>{mode === 3 ? '◂' : '▸'}</button>
       {show === 0 && <>
-      <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser"
+      <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser" {...lp('locate')}
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}>◎</button>
-      <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" onClick={onSearch}>🔍</button>
+      <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
       </>}
-      {show < 2 && <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo"
+      {show < 2 && <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
         onClick={() => {
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
         }}>📷</button>}
       {show === 0 && <>
-      <button aria-label="Changer de fond de carte" data-help="Fond de carte" onClick={onBaseLayer}>🗺</button>
+      <button aria-label="Changer de fond de carte" data-help="Fond de carte" {...lp('layer')} onClick={onBaseLayer}>🗺</button>
       <div className="pair" ref={pairRef}>
-      <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche"
+      <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche" {...lp('avion')}
         onClick={() => {
           if (!pair && !help) { setPairOpen('avion'); return; }
           if (!native) { onToast('Mode avion : seulement dans l’appli'); return; }
           onToast(airplane ? 'Désactive le mode avion' : 'Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.');
           void BatterySettings.open({ what: 'avion' });
         }}>✈</button>
-      {(pair || help) && <button className={pocket ? 'on' : ''} disabled={!native} aria-label="Mode poche (écran noir quand le téléphone est vertical)" data-help="Mode poche (écran noir)"
+      {(pair || help) && <button className={pocket ? 'on' : ''} disabled={!native} aria-label="Mode poche (écran noir quand le téléphone est vertical)" data-help="Mode poche (écran noir)" {...lp('poche')}
         onClick={() => {
           const on = !pocket;
           setPocket(on);
@@ -159,16 +193,16 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>}
       </div>
-      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" onClick={onDraw}>✏</button>
+      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏</button>
       <div className="pair" ref={reliefRef}>
-      <button className={slopes ? 'on' : ''} aria-label={relief ? 'Pentes' : 'Pentes et ombres'} data-help="Pentes · appui : montre aussi les ombres"
+      <button className={slopes ? 'on' : ''} aria-label={relief ? 'Pentes' : 'Pentes et ombres'} data-help="Pentes · appui : montre aussi les ombres" {...lp('slopes')}
         onClick={() => { if (!relief && !help) { setPairOpen('relief'); return; } onSlopes(!slopes); }}>⛰</button>
-      {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" onClick={() => onShade(!shade)}>🌗</button>}
+      {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       </div>
       <div className="pair" ref={skiRef}>
-      <button aria-label={ski ? 'Sorties ski de rando sur la carte (skitour.fr)' : 'Sorties ski de rando : carte ou question'} data-help="Sorties ski sur la carte · appui : montre aussi la question en texte"
+      <button aria-label={ski ? 'Sorties ski de rando sur la carte (skitour.fr)' : 'Sorties ski de rando : carte ou question'} data-help="Sorties ski sur la carte · appui : montre aussi la question en texte" {...lp('ski')}
         onClick={() => { if (!ski && !help) { setPairOpen('ski'); return; } setPairOpen(null); onSki(); }}>⛷<span className="badge">🗺</span></button>
-      {(ski || help) && <button aria-label="Question en texte sur les sorties ski (skitour.fr)" data-help="Question en texte sur les sorties ski"
+      {(ski || help) && <button aria-label="Question en texte sur les sorties ski (skitour.fr)" data-help="Question en texte sur les sorties ski" {...lp('skiText')}
         onClick={() => { setPairOpen(null); onSkiText(); }}>⛷<span className="badge">💬</span></button>}
       </div>
       </>}
@@ -179,10 +213,10 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         onPointerLeave={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
         onContextMenu={(e) => e.preventDefault()}
         onClick={() => { if (wx.current.long) { wx.current.long = false; return; } onWeather(!weather); }}>🌦</button>
-      <button aria-label="Météo montagne" data-help="Météo montagne" onClick={() => openWeather(true)}>🏔</button>
-      <button aria-label="Préparer un voyage en voiture" data-help="Voyage en voiture (km, coût, péages)" onClick={onTravel}>🚗</button>
-      <button aria-label="Trouver un hébergement" data-help="Hébergement (meilleurs prix, IA)" onClick={onLodging}>🏨</button>
-      <button aria-label="Partage des frais" data-help="Partage des frais (façon Tricount)" onClick={onExpenses}><ShareIcon /></button>
+      <button aria-label="Météo montagne" data-help="Météo montagne" {...lp('weatherMountain')} onClick={() => openWeather(true)}>🏔</button>
+      <button aria-label="Préparer un voyage en voiture" data-help="Voyage en voiture (km, coût, péages)" {...lp('travel')} onClick={onTravel}>🚗</button>
+      <button aria-label="Trouver un hébergement" data-help="Hébergement (meilleurs prix, IA)" {...lp('lodging')} onClick={onLodging}>🏨</button>
+      <button aria-label="Partage des frais" data-help="Partage des frais (façon Tricount)" {...lp('expenses')} onClick={onExpenses}><ShareIcon /></button>
       </>}
     </div>
     </>

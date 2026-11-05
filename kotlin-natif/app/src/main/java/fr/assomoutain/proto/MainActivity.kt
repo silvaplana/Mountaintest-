@@ -304,6 +304,13 @@ class MainActivity : AppCompatActivity() {
         // Flèche en haut à droite : affiche ou cache toutes les icônes (choix retenu).
         // Appui long sur la flèche : aide, une étiquette à gauche de chaque icône.
         findViewById<Button>(R.id.btnQuickToggle).setOnLongClickListener { showIconHelp(); true }
+        // Appui long sur une icône : sa bulle d'aide (pour ⛰, la légende des couleurs en degrés). 🌦 garde son appui long (Météo-France).
+        mapOf(
+            R.id.btnQuickClose to "close", R.id.btnLocate to "locate", R.id.btnQuickSearch to "search", R.id.btnQuickPhoto to "photo",
+            R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnQuickDraw to "draw",
+            R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnSki to "ski", R.id.btnSkiText to "skiText",
+            R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses",
+        ).forEach { (id, key) -> findViewById<View>(id).setOnLongClickListener { v -> showIconTip(v, key); true } }
         findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
             if (helpOverlay != null) { hideIconHelp(); return@setOnClickListener }
             // 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage, 3 = aucune, puis retour à 0.
@@ -1987,6 +1994,65 @@ class MainActivity : AppCompatActivity() {
             }
         }
         travelShown = routes
+    }
+
+    private var tipOverlay: View? = null
+    /** Aide d'une icône (appui long) : bulle à sa gauche ; pour ⛰, la légende des couleurs de la carte des pentes. Toucher n'importe où ferme. */
+    private fun showIconTip(anchor: View, key: String) {
+        val entry = IconHelp.ENTRIES[key] ?: return
+        hideIconTip()
+        val root = findViewById<android.widget.FrameLayout>(R.id.root)
+        val d = resources.displayMetrics.density
+        val overlay = android.widget.FrameLayout(this).apply {
+            isClickable = true
+            elevation = 22 * d
+            setOnClickListener { hideIconTip() }
+        }
+        fun line(text: String, size: Float, bold: Boolean = false) = TextView(this).apply {
+            this.text = text; setTextColor(Color.WHITE); textSize = size
+            if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setPadding(0, (3 * d).toInt(), 0, 0)
+        }
+        val bubble = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((12 * d).toInt(), (8 * d).toInt(), (12 * d).toInt(), (10 * d).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(Color.parseColor("#F01D2421")); cornerRadius = 10 * d }
+            addView(line(entry.title, 14f, true))
+            addView(line(entry.text, 13f))
+            if (key == "slopes") {
+                IconHelp.SLOPE_LEGEND.forEach { (color, label) ->
+                    addView(android.widget.LinearLayout(context).apply {
+                        orientation = android.widget.LinearLayout.HORIZONTAL
+                        gravity = android.view.Gravity.CENTER_VERTICAL
+                        setPadding(0, (4 * d).toInt(), 0, 0)
+                        addView(View(context).apply {
+                            background = android.graphics.drawable.GradientDrawable().apply {
+                                setColor(Color.parseColor(color)); cornerRadius = 3 * d; setStroke(d.toInt().coerceAtLeast(1), Color.parseColor("#88FFFFFF"))
+                            }
+                        }, android.widget.LinearLayout.LayoutParams((22 * d).toInt(), (14 * d).toInt()).apply { marginEnd = (8 * d).toInt() })
+                        addView(line(label, 13f).apply { setPadding(0, 0, 0, 0) })
+                    })
+                }
+                addView(line(IconHelp.SLOPE_TAGS_HELP, 13f).apply { setPadding(0, (6 * d).toInt(), 0, 0) })
+            }
+        }
+        val rootPos = IntArray(2).also { root.getLocationInWindow(it) }
+        val pos = IntArray(2).also { anchor.getLocationInWindow(it) }
+        val left = pos[0] - rootPos[0]
+        val maxW = (left - 16 * d).toInt().coerceAtLeast((160 * d).toInt())
+        bubble.measure(View.MeasureSpec.makeMeasureSpec(maxW, View.MeasureSpec.AT_MOST), View.MeasureSpec.UNSPECIFIED)
+        val top = (pos[1] - rootPos[1]).coerceAtMost(root.height - bubble.measuredHeight - (8 * d).toInt()).coerceAtLeast((8 * d).toInt())
+        overlay.addView(bubble, android.widget.FrameLayout.LayoutParams(bubble.measuredWidth, -2).apply {
+            gravity = android.view.Gravity.TOP or android.view.Gravity.END
+            topMargin = top
+            marginEnd = root.width - left + (8 * d).toInt()
+        })
+        root.addView(overlay, android.widget.FrameLayout.LayoutParams(-1, -1))
+        tipOverlay = overlay
+    }
+    private fun hideIconTip() {
+        tipOverlay?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
+        tipOverlay = null
     }
 
     /** Aide des icônes : toutes affichées, chacune avec son étiquette ; toucher n'importe où ferme. */
