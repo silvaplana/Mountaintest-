@@ -45,6 +45,55 @@ object Skitour {
                 it.optString("orientation"), it.optString("conditions"), it.optString("auteur"), it.optString("url"))
         } }.filter { !it.lat.isNaN() && !it.lon.isNaN() }.sortedByDescending { it.date }
     }
+
+    fun toJson(x: Outing): JSONObject = JSONObject().put("id", x.id).put("titre", x.titre).put("date", x.date).put("massif", x.massif)
+        .put("sommet", x.sommet).put("altitude", x.altitude ?: JSONObject.NULL).put("lat", x.lat).put("lon", x.lon)
+        .put("denivele", x.denivele ?: JSONObject.NULL).put("dif_ski", x.difSki).put("orientation", x.orientation)
+        .put("conditions", x.conditions).put("auteur", x.auteur).put("url", x.url)
+
+    fun fromJson(it: JSONObject) = Outing(it.optLong("id"), it.optString("titre"), it.optLong("date"), it.optString("massif"),
+        it.optString("sommet"), if (it.isNull("altitude")) null else it.optInt("altitude"), it.optDouble("lat"), it.optDouble("lon"),
+        if (it.isNull("denivele")) null else it.optInt("denivele"), it.optString("dif_ski"), it.optString("orientation"),
+        it.optString("conditions"), it.optString("auteur"), it.optString("url"))
+}
+
+/**
+ * Hors ligne : chaque recherche réussie est gardée dans un fichier (texte seulement : titre, date, sommet, point, D+,
+ * conditions, lien ; ni récit ni photos), 10 dernières zones. Sans réseau, on rassemble les sorties gardées qui tombent
+ * dans la zone et la période demandées. Même logique que addToCache / fromCache de src/ski/skitour.ts.
+ */
+class SkitourCache(private val file: java.io.File) {
+    private class Entry(val zone: Zone, val days: Int, val t: Long, val sorties: List<Outing>)
+    private val max = 10
+
+    private fun read(): List<Entry> = runCatching {
+        val a = org.json.JSONArray(file.readText())
+        (0 until a.length()).map { i -> a.getJSONObject(i).let { e ->
+            val z = e.getJSONArray("zone"); val s = e.getJSONArray("sorties")
+            Entry(Zone(z.getDouble(0), z.getDouble(1), z.getDouble(2), z.getDouble(3)), e.getInt("days"), e.getLong("t"),
+                (0 until s.length()).map { Skitour.fromJson(s.getJSONObject(it)) })
+        } }
+    }.getOrDefault(emptyList())
+
+    fun add(zone: Zone, days: Int, sorties: List<Outing>, now: Long = System.currentTimeMillis()) {
+        val list = (listOf(Entry(zone, days, now, sorties)) + read().filter { it.days != days || it.zone != zone }).take(max)
+        val a = org.json.JSONArray()
+        list.forEach { e ->
+            a.put(JSONObject().put("zone", org.json.JSONArray(listOf(e.zone.west, e.zone.south, e.zone.east, e.zone.north)))
+                .put("days", e.days).put("t", e.t).put("sorties", org.json.JSONArray(e.sorties.map { Skitour.toJson(it) })))
+        }
+        runCatching { file.writeText(a.toString()) }
+    }
+
+    /** Sorties gardées dans la zone et la période, et date de la plus ancienne recherche utilisée ; null si aucune ne couvre la zone. */
+    fun find(z: Zone, days: Int, now: Long = System.currentTimeMillis()): Pair<List<Outing>, Long>? {
+        val used = read().filter { it.zone.west < z.east && it.zone.east > z.west && it.zone.south < z.north && it.zone.north > z.south }
+        if (used.isEmpty()) return null
+        val since = now / 1000 - days * 86400L
+        val res = used.flatMap { it.sorties }.filter { it.lon in z.west..z.east && it.lat in z.south..z.north && it.date >= since }
+            .distinctBy { it.id }.sortedByDescending { it.date }
+        return res to used.minOf { it.t }
+    }
 }
 
 /** Liste des sorties de la zone encadrée (la plus récente d'abord) ; les points sont dessinés par MainActivity. */
@@ -78,6 +127,7 @@ class SkiPanel(
     private var outings: List<Outing> = emptyList()
     private val periods = listOf(7 to "7 derniers jours", 30 to "30 derniers jours", 90 to "3 derniers mois", 365 to "12 derniers mois")
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
+    private val cache = SkitourCache(java.io.File(a.filesDir, "skitour-cache.json"))
 
     init {
         col.addView(LinearLayout(a).apply {
@@ -110,11 +160,19 @@ class SkiPanel(
         status.text = "Recherche sur skitour.fr…"; list.removeAllViews(); detail.removeAllViews()
         outings = emptyList(); onOutings(outings, null)
         job = a.lifecycleScope.launch {
-            runCatching { withContext(Dispatchers.IO) { Skitour.fetch(zone, days, password) } }
-                .onSuccess { o ->
+            // Sans réseau (ou relais en panne) : sorties gardées sur le téléphone ; offline = date de cette recherche.
+            runCatching { withContext<Pair<List<Outing>, Long?>>(Dispatchers.IO) {
+                try { Skitour.fetch(zone, days, password).also { cache.add(zone, days, it) } to null }
+                catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                catch (e: Exception) { cache.find(zone, days) ?: throw e }
+            } }
+                .onSuccess { (o, offline) ->
                     outings = o; onOutings(o, null)
-                    status.text = if (o.isEmpty()) "Aucune sortie dans cette zone sur la période."
+                    val found = if (o.isEmpty()) "Aucune sortie dans cette zone sur la période."
                         else "${o.size} sortie${if (o.size > 1) "s" else ""} dans la zone (points bleus sur la carte)."
+                    status.text = if (offline == null) found else "📴 Hors ligne : sorties gardées sur le téléphone, recherche du " +
+                        Instant.ofEpochMilli(offline).atZone(ZoneId.systemDefault())
+                            .format(DateTimeFormatter.ofPattern("d MMM 'à' HH:mm", Locale.FRANCE)) + ".\n" + found
                     o.forEachIndexed { i, x ->
                         list.addView(LinearLayout(a).apply {
                             orientation = LinearLayout.VERTICAL; setPadding(dp(10), dp(8), dp(10), dp(8))

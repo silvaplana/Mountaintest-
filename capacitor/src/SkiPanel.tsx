@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Bbox } from './config';
-import { fetchOutings, outingDate, outingLine, type Outing } from './ski/skitour';
+import { loadOutings, outingDate, outingLine, type Outing } from './ski/skitour';
 
 /** Sorties skitour.fr de la zone encadrée : liste (la plus récente d'abord) et points sur la carte. */
 export function SkiPanel({ zone, password, outings, selected, onOutings, onSelect, onReframe, onClose }: {
@@ -10,12 +10,13 @@ export function SkiPanel({ zone, password, outings, selected, onOutings, onSelec
   const [days, setDays] = useState(() => { try { return Number(localStorage.getItem('skitourJours')) || 30; } catch { return 30; } });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [offline, setOffline] = useState<number | null>(null);
   useEffect(() => {
     let live = true;
-    setBusy(true); setError(''); onOutings([]);
+    setBusy(true); setError(''); setOffline(null); onOutings([]);
     try { localStorage.setItem('skitourJours', String(days)); } catch { /* ignoré */ }
-    fetchOutings(zone, days, password)
-      .then((o) => { if (live) onOutings(o); })
+    loadOutings(zone, days, password)
+      .then((r) => { if (live) { onOutings(r.outings); setOffline(r.offline ?? null); } })
       .catch((e) => { if (live) setError(`Recherche impossible : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`); })
       .finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
@@ -33,6 +34,7 @@ export function SkiPanel({ zone, password, outings, selected, onOutings, onSelec
       </span>
       {busy && <p className="hint">Recherche sur skitour.fr…</p>}
       {error && <p className="error">{error}</p>}
+      {offline != null && <p className="hint">📴 Hors ligne : sorties gardées sur le téléphone, recherche du {new Date(offline).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.</p>}
       {!busy && !error && <p className="hint">{outings.length ? `${outings.length} sortie${outings.length > 1 ? 's' : ''} dans la zone (points bleus sur la carte).` : 'Aucune sortie dans cette zone sur la période.'}</p>}
       {sel && <div className="cost">
         <p><b>{sel.titre}</b></p>

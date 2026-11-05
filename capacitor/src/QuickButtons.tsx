@@ -33,6 +33,8 @@ export interface QuickProps {
   onExpenses: () => void;
   onLodging: () => void;
   onSki: () => void;
+  /** ⛷ 💬 : question en texte sur les sorties skitour. */
+  onSkiText: () => void;
   /** Météo posée sur la carte (icône 🌦) ; appui long : ouvre l'appli Météo-France. */
   weather: boolean; onWeather: (on: boolean) => void;
 }
@@ -41,7 +43,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSki, weather, onWeather }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSki, onSkiText, weather, onWeather }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -55,15 +57,20 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   const [watch, setWatch] = useState<WatchState>('OFF');
   const [airplane, setAirplane] = useState(false);
   const [pocket, setPocket] = useState(false);
-  // ✈ seul d'habitude ; un appui le « déplie » : 👖 apparaît à côté, chacun bascule son mode ; toucher ailleurs replie.
-  const [pair, setPair] = useState(false);
+  // Duos : ✈ seul d'habitude, un appui le « déplie » et 👖 apparaît à sa gauche ; de même ⛰ puis 🌗.
+  // Ensuite chaque icône bascule son mode ; toucher ailleurs replie. La colonne ne bouge pas (alignée à droite).
+  const [pairOpen, setPairOpen] = useState<'avion' | 'relief' | 'ski' | null>(null);
+  const pair = pairOpen === 'avion', relief = pairOpen === 'relief', ski = pairOpen === 'ski';
   const pairRef = useRef<HTMLDivElement>(null);
+  const reliefRef = useRef<HTMLDivElement>(null);
+  const skiRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!pair) return;
-    const close = (e: PointerEvent) => { if (!pairRef.current?.contains(e.target as Node)) setPair(false); };
+    if (!pairOpen) return;
+    const ref = pairOpen === 'avion' ? pairRef : pairOpen === 'relief' ? reliefRef : skiRef;
+    const close = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setPairOpen(null); };
     document.addEventListener('pointerdown', close, true);
     return () => document.removeEventListener('pointerdown', close, true);
-  }, [pair]);
+  }, [pairOpen]);
 
   useEffect(() => {
     if (!geo) return;
@@ -139,7 +146,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       <div className="pair" ref={pairRef}>
       <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche"
         onClick={() => {
-          if (!pair && !help) { setPair(true); return; }
+          if (!pair && !help) { setPairOpen('avion'); return; }
           if (!native) { onToast('Mode avion : seulement dans l’appli'); return; }
           onToast(airplane ? 'Désactive le mode avion' : 'Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.');
           void BatterySettings.open({ what: 'avion' });
@@ -153,9 +160,17 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         }}>👖</button>}
       </div>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" onClick={onDraw}>✏</button>
-      <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" onClick={() => onSlopes(!slopes)}>⛰</button>
-      <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" onClick={() => onShade(!shade)}>🌗</button>
-      <button aria-label="Sorties ski de rando (skitour.fr)" data-help="Sorties ski de rando (skitour.fr)" onClick={onSki}>⛷</button>
+      <div className="pair" ref={reliefRef}>
+      <button className={slopes ? 'on' : ''} aria-label={relief ? 'Pentes' : 'Pentes et ombres'} data-help="Pentes · appui : montre aussi les ombres"
+        onClick={() => { if (!relief && !help) { setPairOpen('relief'); return; } onSlopes(!slopes); }}>⛰</button>
+      {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" onClick={() => onShade(!shade)}>🌗</button>}
+      </div>
+      <div className="pair" ref={skiRef}>
+      <button aria-label={ski ? 'Sorties ski de rando sur la carte (skitour.fr)' : 'Sorties ski de rando : carte ou question'} data-help="Sorties ski sur la carte · appui : montre aussi la question en texte"
+        onClick={() => { if (!ski && !help) { setPairOpen('ski'); return; } setPairOpen(null); onSki(); }}>⛷<span className="badge">🗺</span></button>
+      {(ski || help) && <button aria-label="Question en texte sur les sorties ski (skitour.fr)" data-help="Question en texte sur les sorties ski"
+        onClick={() => { setPairOpen(null); onSkiText(); }}>⛷<span className="badge">💬</span></button>}
+      </div>
       </>}
       {(show === 2 || help) && <>
       <button className={weather ? 'on' : ''} aria-label="Météo sur la carte" data-help="Météo sur la carte · appui long : appli Météo-France"

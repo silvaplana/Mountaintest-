@@ -125,8 +125,11 @@ progress { width: 100%; }
 .maplibregl-ctrl-group:has(.maplibregl-ctrl-geolocate) { display: none; }
 .quick {
   position: absolute; right: 10px; top: calc(env(safe-area-inset-top) + 10px); z-index: 2;
-  display: flex; flex-direction: column; gap: 8px; align-items: center;
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
 }
+/* Colonne alignée à droite (les icônes de 44 px centrées sous la flèche de 56 px) : un duo qui se déplie
+   vers la gauche ne la fait pas bouger. */
+.quick > button:not(.arrow), .quick > .pair { margin-right: 6px; }
 .quick button {
   width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%;
   font-size: 22px; line-height: 1; background: var(--bg); box-shadow: 0 1px 6px #0004;
@@ -135,9 +138,9 @@ progress { width: 100%; }
 /* La flèche, l'icône la plus utilisée (demande de Seb) : plus grosse. */
 .quick button.toggle.arrow { width: 56px; height: 56px; border-radius: 50%; font-size: 30px; }
 .quick button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-/* ✈ et 👖 : le duo se déplie vers la gauche (✈ reste à sa place dans la colonne) ; en aide, l'un sous l'autre. */
+/* Duos ✈ / 👖 et ⛰ / 🌗 : se déplient vers la gauche (✈ et ⛰ restent à leur place) ; en aide, l'un sous l'autre. */
 .quick .pair { display: flex; flex-direction: row-reverse; gap: 8px; align-items: center; }
-.quick.help .pair { flex-direction: column; }
+.quick.help .pair { flex-direction: column; align-items: flex-end; }
 .toast {
   position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 70px); z-index: 8;
   background: #1d2421e6; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 14px; text-align: center;
@@ -231,6 +234,9 @@ progress { width: 100%; }
 .travel .cost .total { font-size: 28px; font-weight: 700; margin: 0; }
 .travel .cost p { margin: 2px 0; }
 .travel .error { color: #c0392b; }
+.travel textarea { flex-shrink: 0; min-height: 56px; width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; padding: 8px; border-radius: 8px; border: 1px solid var(--line, #ccd); resize: vertical; }
+/* ⛷ avec un petit badge (🗺 recherche sur carte, 💬 question en texte). */
+.quick button .badge { position: absolute; right: -3px; bottom: -3px; font-size: 14px; line-height: 1; }
 .travel .hint { font-size: 13px; color: var(--muted); margin: 0; }
 .travel .summary { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 14px; }
 .travel .locate { align-self: flex-start; }
@@ -311,3 +317,40 @@ progress { width: 100%; }
 .wx-day { gap: 6px; justify-content: space-between; }
 .wx-day-label { flex: 1; text-align: center; font-size: 16px; }
 .wx-days button:disabled { opacity: 0.4; }
+
+/* ⛷💬 Sorties skitour en texte : page plein écran, tableau date / titre / auteurs, puis la fiche. */
+.ski-page {
+  position: absolute; inset: 0; z-index: 6; overflow-y: auto; background: var(--bg, #fff);
+  padding: calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 24px);
+  display: flex; flex-direction: column; gap: 8px; font-size: 15px;
+}
+.ski-page .row { display: flex; gap: 8px; align-items: center; }
+.ski-page .row input { flex: 1; min-width: 0; font: inherit; padding: 8px; }
+.ski-page .hint { font-size: 13px; color: var(--muted); margin: 0; }
+.ski-page .error { color: #c0392b; margin: 0; }
+.ski-page h2 { font-size: 20px; margin: 4px 0 0; }
+.ski-page h3 { font-size: 16px; margin: 10px 0 0; color: var(--accent); }
+.ski-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+.ski-table th { text-align: left; font-size: 13px; color: var(--muted); padding: 0 6px; }
+.ski-table td { padding: 8px 6px; vertical-align: top; background: #F2F4F1; }
+.ski-table td:first-child { border-radius: 8px 0 0 8px; white-space: nowrap; }
+.ski-table td:last-child { border-radius: 0 8px 8px 0; font-size: 13px; color: var(--muted); max-width: 30vw; overflow-wrap: anywhere; }
+.ski-table small { color: var(--muted); }
+.ski-dif { font-size: 12px; color: var(--accent); }
+.ski-info { margin: 4px 0; padding: 8px 10px; background: #F2F4F1; border-radius: 8px; }
+.ski-info div { display: flex; gap: 8px; padding: 2px 0; }
+.ski-info dt { font-weight: 700; min-width: 92px; }
+.ski-info dd { margin: 0; }
+.ski-text { white-space: pre-line; margin: 0; line-height: 1.45; }
+ul.ski-text { padding-left: 18px; white-space: normal; }
+.ski-filters > * { flex: 1; min-width: 0; }
+.ski-massifs { text-align: left; padding: 6px 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ski-massifs small, .ski-limit small { display: block; font-size: 11px; color: var(--muted); }
+.ski-limit { display: flex; flex-direction: column; }
+.ski-page > input[type=search] { font: inherit; padding: 8px; }
+.ski-picker { position: fixed; inset: 0; z-index: 7; overflow-y: auto; background: var(--bg, #fff);
+  padding: calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 24px); }
+.ski-picker .travel-head span { display: flex; gap: 8px; }
+.ski-picker h3 { margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 3px solid var(--accent); font-size: 17px; }
+.ski-picker .check { display: flex; gap: 10px; align-items: center; padding: 7px 0; font-size: 16px; }
+.ski-picker .check input { width: 20px; height: 20px; }

@@ -322,7 +322,9 @@ class MainActivity : AppCompatActivity() {
             // Ouvre l'application Appareil photo ; le bouton Retour ramène à la carte.
             if (!PhotoCapture.open(this)) toast("Pas d'appareil photo disponible")
         }
+        // ⛰ seul d'habitude : un premier appui montre 🌗 à côté (duo déplié), comme ✈ / 👖.
         findViewById<Button>(R.id.btnQuickSlopes).setOnClickListener {
+            if (pairOpen != R.id.pairRelief && helpOverlay == null) { pairOpen = R.id.pairRelief; refreshQuickButtons(); return@setOnClickListener }
             findViewById<CheckBox>(R.id.chkSlopes).apply { isChecked = !isChecked }
         }
         findViewById<Button>(R.id.btnQuickShade).setOnClickListener {
@@ -335,7 +337,7 @@ class MainActivity : AppCompatActivity() {
         }
         // ✈ seul d'habitude : un premier appui montre 👖 à côté (duo déplié) ; ensuite chaque icône bascule son mode.
         findViewById<Button>(R.id.btnQuickAvion).setOnClickListener {
-            if (!pairOpen && helpOverlay == null) { pairOpen = true; refreshQuickButtons(); return@setOnClickListener }
+            if (pairOpen != R.id.pairAvion && helpOverlay == null) { pairOpen = R.id.pairAvion; refreshQuickButtons(); return@setOnClickListener }
             toast(if (airplaneOn()) "Désactive le mode avion" else "Active le mode avion : ni réseau, ni Wi-Fi, ni Bluetooth. Le GPS continue.")
             BatterySettings.open(this, "avion")
         }
@@ -427,6 +429,7 @@ class MainActivity : AppCompatActivity() {
             navBottom = bars.bottom; navTop = bars.top
             expensesPanel?.insets(bars.top, bars.bottom)
             skiPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
+            skiTextPanel?.view?.updatePadding(bottom = bars.bottom + (24 * resources.displayMetrics.density).toInt())
             lodgingPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             sheet.updatePadding(bottom = bars.bottom + 4 * margin)
             travelPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
@@ -1059,9 +1062,20 @@ class MainActivity : AppCompatActivity() {
             setFraming(false); framingForOffline = false; framingForForests = false; framingForSki = false
             if (!ski) { sheetOpen = true; refreshTabs() }
         }
+        // ⛷🗺 seul d'habitude : un premier appui montre ⛷💬 à côté (duo déplié) ; ⛷🗺 = sorties sur la carte, ⛷💬 = question en texte.
+        fun badge(b: Int, e: String) = findViewById<Button>(b).apply {
+            text = android.text.SpannableString("⛷$e").apply { setSpan(android.text.style.RelativeSizeSpan(0.6f), 1, length, 0) }
+        }
+        badge(R.id.btnSki, "🗺"); badge(R.id.btnSkiText, "💬")
         findViewById<Button>(R.id.btnSki).setOnClickListener {
-            closeTravel(); closeLodging(); closeSki()
+            if (pairOpen != R.id.pairSki && helpOverlay == null) { pairOpen = R.id.pairSki; refreshQuickButtons(); return@setOnClickListener }
+            pairOpen = 0; refreshQuickButtons()
+            closeTravel(); closeLodging(); closeSki(); closeSkiText()
             framingForOffline = false; framingForForests = false; framingForSki = true; setFraming(true)
+        }
+        findViewById<Button>(R.id.btnSkiText).setOnClickListener {
+            pairOpen = 0; refreshQuickButtons()
+            closeTravel(); closeLodging(); closeSki(); openSkiText()
         }
         findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
             map?.projection?.visibleRegion?.latLngBounds?.let {
@@ -1096,6 +1110,20 @@ class MainActivity : AppCompatActivity() {
         skiPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
+    }
+    private var skiTextPanel: SkiTextPanel? = null
+    private fun openSkiText() {
+        closeSkiText()
+        val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
+        drawSki(emptyList(), null)
+        val p = SkiTextPanel(this, password, onShowOnMap = { closeSkiText(); drawSki(listOf(it), 0) }, onClose = { closeSkiText() })
+        skiTextPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
+    }
+    private fun closeSkiText() {
+        skiTextPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        skiTextPanel = null
     }
     private fun closeSki() {
         skiPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
@@ -1671,14 +1699,14 @@ class MainActivity : AppCompatActivity() {
         android.provider.Settings.Global.getInt(contentResolver, android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) == 1
 
     private var helpOverlay: View? = null
-    /** Duo ✈ / 👖 déplié (👖 visible à côté de ✈) ; toucher ailleurs le replie. */
-    private var pairOpen = false
+    /** Duo déplié (R.id.pairAvion : 👖 à côté de ✈, R.id.pairRelief : 🌗 à côté de ⛰), 0 si aucun ; toucher ailleurs le replie. */
+    private var pairOpen = 0
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
-        if (pairOpen && ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+        if (pairOpen != 0 && ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
             val r = android.graphics.Rect()
-            val dedans = findViewById<View>(R.id.pairAvion).getGlobalVisibleRect(r) && r.contains(ev.rawX.toInt(), ev.rawY.toInt())
-            if (!dedans) { pairOpen = false; refreshQuickButtons() }
+            val dedans = findViewById<View>(pairOpen).getGlobalVisibleRect(r) && r.contains(ev.rawX.toInt(), ev.rawY.toInt())
+            if (!dedans) { pairOpen = 0; refreshQuickButtons() }
         }
         return super.dispatchTouchEvent(ev)
     }
@@ -1798,16 +1826,16 @@ class MainActivity : AppCompatActivity() {
         val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
         icons.visibility = View.VISIBLE
         for (i in 0 until icons.childCount) icons.getChildAt(i).visibility = View.VISIBLE
-        // Le duo ✈ / 👖 : les deux visibles, l'un sous l'autre, pour que chaque étiquette ait sa place.
-        findViewById<View>(R.id.btnPoche).visibility = View.VISIBLE
-        findViewById<android.widget.LinearLayout>(R.id.pairAvion).orientation = android.widget.LinearLayout.VERTICAL
+        // Les duos ✈ / 👖 et ⛰ / 🌗 : tous visibles, l'un sous l'autre, pour que chaque étiquette ait sa place.
+        for (id in listOf(R.id.btnPoche, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
+        for (id in listOf(R.id.pairAvion, R.id.pairRelief, R.id.pairSki)) findViewById<android.widget.LinearLayout>(id).orientation = android.widget.LinearLayout.VERTICAL
         val labels = linkedMapOf(
             R.id.btnQuickClose to "Quitter l'appli",
             R.id.btnQuickToggle to "Appui : icônes suivantes · appui long : aide",
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)",
-            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes", R.id.btnQuickShade to "Ombres", R.id.btnSki to "Sorties ski de rando (skitour.fr)",
+            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSki to "Sorties ski sur la carte · appui : montre aussi la question en texte", R.id.btnSkiText to "Question en texte sur les sorties ski",
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
         )
@@ -1874,10 +1902,12 @@ class MainActivity : AppCompatActivity() {
             v.visibility = if (when (mode) { 0 -> v.id !in voyage; 1 -> v.id == R.id.btnQuickPhoto; else -> v.id in voyage }) View.VISIBLE else View.GONE
         }
         findViewById<Button>(R.id.btnQuickToggle).text = if (mode == 3) "◂" else "▸"
-        // Duo ✈ / 👖 : 👖 seulement quand le duo est déplié (ou en aide) ; déplié à l'horizontale, en aide à la verticale.
-        findViewById<View>(R.id.btnPoche).visibility = if (pairOpen || helpOverlay != null) View.VISIBLE else View.GONE
-        findViewById<android.widget.LinearLayout>(R.id.pairAvion).orientation =
-            if (helpOverlay != null) android.widget.LinearLayout.VERTICAL else android.widget.LinearLayout.HORIZONTAL
+        // Duos ✈ / 👖 et ⛰ / 🌗 : la 2e icône seulement quand son duo est déplié (ou en aide) ; déplié à l'horizontale, en aide à la verticale.
+        for ((pairId, second) in listOf(R.id.pairAvion to R.id.btnPoche, R.id.pairRelief to R.id.btnQuickShade, R.id.pairSki to R.id.btnSkiText)) {
+            findViewById<View>(second).visibility = if (pairOpen == pairId || helpOverlay != null) View.VISIBLE else View.GONE
+            findViewById<android.widget.LinearLayout>(pairId).orientation =
+                if (helpOverlay != null) android.widget.LinearLayout.VERTICAL else android.widget.LinearLayout.HORIZONTAL
+        }
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
     }
     override fun onPause() { mapView.onPause(); super.onPause() }

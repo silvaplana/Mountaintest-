@@ -406,14 +406,17 @@
         android:layout_gravity="top|end"
         android:layout_marginTop="10dp"
         android:layout_marginEnd="10dp"
-        android:gravity="center_horizontal"
+        android:gravity="end"
         android:orientation="vertical">
+        <!-- Colonne alignée à droite (icônes de 44 dp centrées sous la flèche de 56 dp grâce au paddingEnd de
+             quickIcons) : un duo qui se déplie vers la gauche ne la fait pas bouger. -->
         <!-- Croix : quitter l'appli (toujours visible, comme la flèche) -->
         <Button
             android:id="@+id/btnQuickClose"
             android:layout_width="44dp"
             android:layout_height="30dp"
-            android:layout_gravity="center_horizontal"
+            android:layout_gravity="end"
+            android:layout_marginEnd="6dp"
             android:background="@drawable/round_btn"
             android:contentDescription="Quitter l'appli"
             android:elevation="4dp"
@@ -427,7 +430,7 @@
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:layout_marginTop="8dp"
-            android:layout_gravity="center_horizontal"
+            android:layout_gravity="end"
             android:background="@drawable/round_btn"
             android:contentDescription="Afficher ou cacher les icônes"
             android:elevation="4dp"
@@ -440,7 +443,9 @@
             android:id="@+id/quickIcons"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center_horizontal"
+            android:layout_gravity="end"
+            android:paddingEnd="6dp"
+            android:gravity="end"
             android:orientation="vertical">
 
 
@@ -500,7 +505,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:gravity="center"
+                android:gravity="end|center_vertical"
                 android:orientation="horizontal">
 
                 <Button
@@ -543,44 +548,77 @@
                 android:textColor="#1D2421"
                 android:textSize="20sp" />
 
-            <Button
-                android:id="@+id/btnQuickSlopes"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+            <!-- ⛰ seul d'habitude ; un appui le déplie : 🌗 apparaît à sa gauche (voir pairOpen dans MainActivity). -->
+            <LinearLayout
+                android:id="@+id/pairRelief"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/round_btn"
-                android:contentDescription="Pentes"
-                android:elevation="4dp"
-                android:padding="0dp"
-                android:text="⛰"
-                android:textColor="#1D2421"
-                android:textSize="20sp" />
+                android:gravity="end|center_vertical"
+                android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/btnQuickShade"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/round_btn"
-                android:contentDescription="Ombres du relief"
-                android:elevation="4dp"
-                android:padding="0dp"
-                android:text="🌗"
-                android:textColor="#1D2421"
-                android:textSize="20sp" />
+                <Button
+                    android:id="@+id/btnQuickShade"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Ombres du relief"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="🌗"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp"
+                    android:visibility="gone" />
 
-            <Button
-                android:id="@+id/btnSki"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                <Button
+                    android:id="@+id/btnQuickSlopes"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Pentes et ombres"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="⛰"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp" />
+            </LinearLayout>
+
+            <!-- ⛷🗺 seul d'habitude ; un appui le déplie : ⛷💬 (question en texte) apparaît à sa gauche. -->
+            <LinearLayout
+                android:id="@+id/pairSki"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/round_btn"
-                android:contentDescription="Sorties ski de rando (skitour.fr)"
-                android:elevation="4dp"
-                android:padding="0dp"
-                android:text="⛷"
-                android:textColor="#1D2421"
-                android:textSize="20sp" />
+                android:gravity="end|center_vertical"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnSkiText"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Question en texte sur les sorties ski (skitour.fr)"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="⛷"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btnSki"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Sorties ski de rando : carte ou question"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="⛷"
+                    android:textColor="#1D2421"
+                    android:textSize="20sp" />
+            </LinearLayout>
             <!-- Menu Voyage -->
             <Button
                 android:id="@+id/btnWeather"
