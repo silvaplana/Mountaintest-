@@ -85,7 +85,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
       ['Sommet', f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
       ['Topo', f?.topos.join(', ') ?? ''], ['Orientation', o.orientation],
       ['Dénivelé', o.denivele ? `${o.denivele} m` : ''], ['Ski', o.dif_ski ? String(o.dif_ski) : ''],
-      ['Skiabilité', f?.skiabilite ?? ''],
+      ['Skiabilité', skiabText(f?.skiabilite).replace(/^skiabilité /, '')],
     ];
     const photos = sheetPhotos(f);
     return (
