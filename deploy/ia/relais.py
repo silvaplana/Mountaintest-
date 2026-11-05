@@ -14,6 +14,8 @@ Coût : chaque recherche payante est notée dans /data/couts.jsonl (date, zone, 
 la réponse donne son coût et les cumuls du mois et depuis le début, affichés dans l'appli.
 """
 import hashlib
+import sys
+import traceback
 import hmac
 import html
 import urllib.parse
@@ -327,6 +329,16 @@ SKITOUR_CLE = os.environ.get("SKITOUR_CLE", "")
 CHAMPS_VUS: set = set()
 
 
+def _d(v) -> dict:
+    """Le champ s'il est un objet, sinon {} : l'API skitour donne parfois une simple chaîne (ou une liste) à la place."""
+    return v if isinstance(v, dict) else {}
+
+
+def _pseudo(v) -> str:
+    """Pseudo d'un auteur, donné par l'API comme objet {"pseudo": …} ou directement comme chaîne."""
+    return str(v).strip() if isinstance(v, (str, int)) else str(_d(v).get("pseudo") or "")
+
+
 def _etoiles(x):
     """Étoiles de la sortie si l'API les donne (nom du champ non documenté : on essaie les plus probables)."""
     for k in ("etoiles", "note", "stars", "interet", "qualite"):
@@ -366,7 +378,10 @@ def _page_sortie(id_: int) -> dict:
         m3 = re.match(r"(.+?)\s*(?:\((\d{3,4})\s*m\))?$", lien_dep)
         dep = m3 if m3 else dep
     expo = re.search(r"Exposition\s*:?\s*\n*\s*(\d)", texte)
-    out = {"liens": liens, "exposition": expo.group(1) if expo else "",
+    # Texte « Conditions nivologiques, accès & météo » (secours si l'API ne donne pas la fiche).
+    cond = re.search(r"Conditions\s+nivologiques[^\n]*\n(.*?)\n\s*Skiabilit", texte, re.S)
+    cond_txt = re.sub(r"\n\s*\n+", "\n", cond.group(1)).strip()[:4000] if cond else ""
+    out = {"liens": liens, "conditions": cond_txt, "exposition": expo.group(1) if expo else "",
            "etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else "",
            "depart": dep.group(1).strip() if dep else "", "depart_alt": int(dep.group(2)) if dep and dep.group(2) else None}
     _PAGES[id_] = (time.time(), out)
@@ -476,18 +491,18 @@ def _sorties_brutes(jours: int, massif: int | None = None, pages: int = 3) -> li
 
 
 def _sommets(x) -> list:
-    return [sm for sm in (x.get("sommets") or []) if _nombre(sm.get("lat")) is not None and _nombre(sm.get("lng")) is not None]
+    return [sm for sm in (x.get("sommets") or []) if isinstance(sm, dict) and _nombre(sm.get("lat")) is not None and _nombre(sm.get("lng")) is not None]
 
 
 def _sortie(x, sm) -> dict:
     return {
         "id": _entier(x.get("id")), "titre": x.get("titre") or "", "date": _entier(x.get("date")),
-        "massif": (x.get("massif") or {}).get("nom", ""),
+        "massif": _d(x.get("massif")).get("nom", "") or (x.get("massif") if isinstance(x.get("massif"), str) else ""),
         "sommet": sm.get("sommet") or "", "altitude": _entier(sm.get("altitude")),
         "lat": float(sm["lat"]), "lon": float(sm["lng"]),
         "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
         "conditions": _texte(x.get("cond"))[:400],
-        "auteur": (x.get("auteur") or {}).get("pseudo", ""),
+        "auteur": _pseudo(x.get("auteur")),
         "url": f"https://skitour.fr/sorties/{x.get('id')}",
         "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x), "parking": _parking(x),
     }
@@ -548,17 +563,17 @@ _liste_memo: dict = {}
 
 
 def _personnes(x) -> str:
-    noms = [(x.get("auteur") or {}).get("pseudo", "")] + [p.get("pseudo", "") for p in (x.get("participants") or []) if isinstance(p, dict)]
+    noms = [_pseudo(x.get("auteur"))] + [_pseudo(p) for p in (x.get("participants") or []) if isinstance(p, (dict, str))]
     return ", ".join(n for n in noms if n)
 
 
 def _ligne(x) -> dict:
     """Une sortie pour la liste : texte court, sans les récits."""
     pts = _sommets(x)
-    sm = (pts or (x.get("sommets") or [{}]))[0]
+    sm = _d((pts or [s for s in (x.get("sommets") or []) if isinstance(s, dict)] or [{}])[0])
     return {
         "id": _entier(x.get("id")), "titre": x.get("titre") or "", "date": _entier(x.get("date")),
-        "massif": (x.get("massif") or {}).get("nom", ""),
+        "massif": _d(x.get("massif")).get("nom", "") or (x.get("massif") if isinstance(x.get("massif"), str) else ""),
         "sommet": sm.get("sommet") or sm.get("nom") or "", "altitude": _entier(sm.get("altitude")),
         "lat": float(sm["lat"]) if pts else None, "lon": float(sm["lng"]) if pts else None,
         "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
@@ -604,14 +619,24 @@ def fiche_sortie(id_: int) -> dict:
         x = json.loads(r.read())
     if isinstance(x, list):
         x = x[0] if x else {}
+    base = None
+    if not isinstance(x, dict) and _entier(id_) in _PAR_ID:
+        # Réponse inattendue de l'API (pas un objet) : on garde ce que la liste de la carte savait de la sortie,
+        # complété par sa page skitour.fr (étoiles, skiabilité, départ, topos, sommets).
+        print(f"fiche skitour {id_} : réponse {type(x).__name__} {str(x)[:200]!r}", file=sys.stderr, flush=True)
+        base = dict(_PAR_ID[_entier(id_)])
+        base["auteurs"] = base.get("auteur", "")
+        base = _completer([base])[0]
+        x = {"id": id_, "cond": ((_PAGES.get(_entier(id_)) or (0, {}))[1] or {}).get("conditions") or base.get("conditions", "")}
     if not isinstance(x, dict) or x.get("ERROR"):
-        raise RuntimeError(f"skitour : {(x or {}).get('ERROR', 'sortie introuvable')}")
+        # Erreur de l'API : {"ERROR": …}, ou parfois un simple texte à la place de la sortie.
+        raise RuntimeError(f"skitour : {_d(x).get('ERROR') or (x.strip()[:120] if isinstance(x, str) and x.strip() else 'sortie introuvable')}")
     d = x.get("depart") if isinstance(x.get("depart"), dict) else {}
     neige = []
     for n in x.get("neige") or []:
         if isinstance(n, dict):
             neige.append(" · ".join(str(n.get(k) or "").strip() for k in ("lieu", "alt", "ori", "heure", "qte", "type", "com") if str(n.get(k) or "").strip()))
-    base = _completer([_ligne(x)])[0]
+    base = base or _completer([_ligne(x)])[0]
     page = (_PAGES.get(_entier(x.get("id"))) or (0, {}))[1] or {}
     liens = page.get("liens") or []
     pk = base.get("parking") or {}
@@ -646,12 +671,12 @@ def fiche_sortie(id_: int) -> dict:
         "sommets": [sm.get("sommet") or sm.get("nom") or "" for sm in (x.get("sommets") or []) if isinstance(sm, dict)],
         "depart": (dep_nom or "") + (f" ({dep_alt} m)" if dep_alt else ""),
         "topos": [t.get("nom", "") for t in (x.get("topos") or []) if isinstance(t, dict)],
-        "conditions": _texte(x.get("cond") or x.get("conditions")),
+        "conditions": _texte(x.get("cond") or x.get("conditions")) or page.get("conditions", ""),
         "neige": neige,
         "recit": _texte(x.get("recit")),
         # Photos : seulement dans la fiche de leur sortie, auteur cité (conditions de l'API skitour).
         "photos": [{"url": urllib.parse.urljoin("https://skitour.fr/", str(ph.get("url") or "")),
-                    "legende": _texte(ph.get("com")), "auteur": (ph.get("auteur") or {}).get("pseudo", "") or (x.get("auteur") or {}).get("pseudo", "")}
+                    "legende": _texte(ph.get("com")), "auteur": _pseudo(ph.get("auteur")) or _pseudo(x.get("auteur"))}
                    for ph in (x.get("photos") or []) if isinstance(ph, dict) and ph.get("url")],
     }
 
@@ -983,8 +1008,11 @@ class Relais(BaseHTTPRequestHandler):
                 cache[cle] = {"t": time.time(), "r": r}
                 _ecrire("cache-skitour-fiches.json", cache)
             self._json(200, r)
-        except Exception as ex:  # noqa: BLE001
+        except (RuntimeError, OSError) as ex:
             self._json(502, {"erreur": str(ex)})
+        except Exception:  # noqa: BLE001 — bug de lecture : détail dans « docker logs », message simple pour l'appli
+            traceback.print_exc()
+            self._json(502, {"erreur": "fiche skitour illisible pour l'instant, ouvre-la sur skitour.fr"})
 
     def _facture(self):
         try:
