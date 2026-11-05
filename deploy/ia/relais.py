@@ -356,7 +356,7 @@ SKIAB_NOMS: dict = {}  # chiffre de l'API -> « 🙂 Bonne », appris sur les pa
 
 def _page_sortie(id_: int) -> dict:
     c = _PAGES.get(id_)
-    if c and time.time() - c[0] < 86400 and "liens" in c[1]:
+    if c and time.time() - c[0] < 86400 and "photos" in c[1]:
         return c[1]
     req = urllib.request.Request(f"https://skitour.fr/sorties/{id_}", headers={"User-Agent": "Assomoutain"})
     with urllib.request.urlopen(req, timeout=10) as r:
@@ -381,7 +381,18 @@ def _page_sortie(id_: int) -> dict:
     # Texte « Conditions nivologiques, accès & météo » (secours si l'API ne donne pas la fiche).
     cond = re.search(r"Conditions\s+nivologiques[^\n]*\n(.*?)\n\s*Skiabilit", texte, re.S)
     cond_txt = re.sub(r"\n\s*\n+", "\n", cond.group(1)).strip()[:4000] if cond else ""
-    out = {"liens": liens, "conditions": cond_txt, "exposition": expo.group(1) if expo else "",
+    # Photos de la page (secours si l'API n'en donne pas) : images de skitour.fr, sans logos, étoiles ni icônes.
+    # Les liens vers les grandes images d'abord ; les vignettes seulement s'il n'y en a pas.
+    photos = []
+    for attrs in (r"href|data-full|data-src", r"src"):
+        for u in re.findall(r'(?:' + attrs + r')="([^"]+?\.(?:jpe?g|png|webp))"', page, re.I):
+            u = urllib.parse.urljoin("https://skitour.fr/", html.unescape(u))
+            if PHOTO_CHEMIN.match(u) and not re.search(r"logo|star|icon|picto|avatar|drapeau|flag|meteo|pub|bann|bandeau|fond|sprite|/img/", u, re.I) \
+                    and u not in photos:
+                photos.append(u)
+        if photos:
+            break
+    out = {"liens": liens, "photos": photos[:30], "conditions": cond_txt, "exposition": expo.group(1) if expo else "",
            "etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else "",
            "depart": dep.group(1).strip() if dep else "", "depart_alt": int(dep.group(2)) if dep and dep.group(2) else None}
     _PAGES[id_] = (time.time(), out)
@@ -675,13 +686,35 @@ def fiche_sortie(id_: int) -> dict:
         "neige": neige,
         "recit": _texte(x.get("recit")),
         # Photos : seulement dans la fiche de leur sortie, auteur cité (conditions de l'API skitour).
-        "photos": [{"url": urllib.parse.urljoin("https://skitour.fr/", str(ph.get("url") or "")),
-                    "legende": _texte(ph.get("com")), "auteur": _pseudo(ph.get("auteur")) or _pseudo(x.get("auteur"))}
-                   for ph in (x.get("photos") or []) if isinstance(ph, dict) and ph.get("url")],
+        "photos": _photos(x, page),
     }
 
 
 PHOTO_CHEMIN = re.compile(r"^https://skitour\.fr/[\w/.%-]+\.(jpe?g|png|webp)$", re.I)
+PHOTO_CLES = ("url", "src", "fichier", "file", "photo", "image", "chemin", "lien", "big", "grand", "full", "mini")
+
+
+def _photos(x: dict, page: dict) -> list:
+    """Photos de la sortie : celles de l'API (objets ou simples adresses, noms de champ variables), sinon celles de sa page."""
+    brut = x.get("photos") or x.get("images") or x.get("img") or []
+    if isinstance(brut, dict):
+        brut = list(brut.values())
+    if brut and not isinstance(brut, list):
+        brut = [brut]
+    if brut:  # trace pour comprendre le format réel de l'API (journal du relais)
+        print(f"photos skitour {x.get('id')} : {str(brut[0])[:200]!r}", file=sys.stderr, flush=True)
+    out, vus = [], set()
+    auteur = _pseudo(x.get("auteur"))
+    for ph in brut:
+        d = _d(ph)
+        u = ph if isinstance(ph, str) else next((str(d[k]) for k in PHOTO_CLES if isinstance(d.get(k), str) and d[k].strip()), "")
+        u = urllib.parse.urljoin("https://skitour.fr/", u.strip()) if u else ""
+        if u and u not in vus:
+            vus.add(u)
+            out.append({"url": u, "legende": _texte(d.get("com") or d.get("legende") or d.get("titre")), "auteur": _pseudo(d.get("auteur")) or auteur})
+    if not out:
+        out = [{"url": u, "legende": "", "auteur": auteur} for u in (page.get("photos") or [])]
+    return out
 
 
 def photo_skitour(url: str) -> tuple:
@@ -1002,7 +1035,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche6:{id_}"
+            cle = f"fiche7:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)
