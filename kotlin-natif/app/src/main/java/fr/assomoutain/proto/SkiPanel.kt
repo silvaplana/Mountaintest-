@@ -186,7 +186,11 @@ class SkiDetails(private val file: java.io.File) {
         val o = JSONObject(file.readText()); val m = LinkedHashMap<Long, JSONObject>()
         val a = o.getJSONArray("ordre"); for (k in 0 until a.length()) { val id = a.getLong(k); o.optJSONObject("d$id")?.let { m[id] = it } }; m
     }.getOrDefault(LinkedHashMap())
-    fun has(id: Long) = map.containsKey(id)
+    /** Une sortie reçue sans parking est redemandée une heure après (l'API skitour a pu être en erreur, quota du jour). */
+    fun has(id: Long): Boolean {
+        val d = map[id] ?: return false
+        return d.optJSONObject("parking") != null || System.currentTimeMillis() - d.optLong("t", 0L) < 3_600_000L
+    }
     fun apply(x: Outing): Outing {
         val d = map[x.id] ?: return x
         return x.copy(etoiles = if (d.isNull("etoiles") || !d.has("etoiles")) x.etoiles else d.optInt("etoiles"),
@@ -200,7 +204,8 @@ class SkiDetails(private val file: java.io.File) {
             .filter { !it.first.isNaN() && !it.second.isNaN() }
     }
     fun add(add: Map<Long, JSONObject>) {
-        add.forEach { (k, v) -> map.remove(k); map[k] = v }
+        val t = System.currentTimeMillis()
+        add.forEach { (k, v) -> map.remove(k); map[k] = v.put("t", t) }
         while (map.size > max) map.remove(map.keys.first())
         val o = JSONObject().put("ordre", org.json.JSONArray(map.keys.toList()))
         map.forEach { (k, v) -> o.put("d$k", v) }
@@ -265,7 +270,7 @@ class SkiPanel(
     private var skiMax = 0.0
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
     private val allFile = java.io.File(a.filesDir, "skitour-tout.json")
-    private val details = SkiDetails(java.io.File(a.filesDir, "skitour-details3.json"))
+    private val details = SkiDetails(java.io.File(a.filesDir, "skitour-details4.json"))
     private val asked = mutableSetOf<Long>() // déjà demandés (une fois par ouverture, même si la réponse manque)
     private var all: List<Outing> = emptyList()
     private var offline: Long? = null

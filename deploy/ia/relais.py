@@ -453,11 +453,20 @@ def _parking(x) -> dict | None:
     return {"nom": html.unescape(nom), "altitude": alt, "lat": lat, "lon": lon}
 
 
+def _departs_connus() -> dict:
+    """Parkings déjà lus (sous verrou). L'ancien fichier gardait aussi « pas de parking » après une erreur de l'API
+    (quota atteint) : on n'en reprend que les parkings trouvés."""
+    c = _lire("cache-skitour-departs3.json", None)
+    if c is None:
+        c = {k: v for k, v in _lire("cache-skitour-departs2.json", {}).items() if v}
+    return c
+
+
 def _avec_parkings(lignes: list, maxi: int = 30) -> list:
     """Ajoute le parking aux sorties qui n'en ont pas (la liste de l'API ne le donne pas toujours) :
     lu dans la fiche de la sortie, gardé pour toujours (un départ ne bouge pas)."""
     with verrou:
-        connus = _lire("cache-skitour-departs2.json", {})
+        connus = _departs_connus()
     nouveaux = {}
     for o in lignes:
         k = str(o.get("id"))
@@ -469,15 +478,19 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
                 with urllib.request.urlopen(req, timeout=15) as r:
                     x = json.loads(r.read())
                 x = (x[0] if x else {}) if isinstance(x, list) else x
-                nouveaux[k] = _parking(x) if isinstance(x, dict) and not x.get("ERROR") else None
+                if not isinstance(x, dict) or x.get("ERROR"):
+                    # Erreur de l'API (quota du jour atteint…) : on ne retient rien, on redemandera plus tard.
+                    print(f"départ skitour {k} : {_d(x).get('ERROR') or 'réponse vide'}", file=sys.stderr, flush=True)
+                    continue
+                nouveaux[k] = _parking(x)
             except Exception:  # noqa: BLE001 (sans parking, la sortie s'affiche quand même)
                 continue
         o["parking"] = nouveaux.get(k, connus.get(k))
     if nouveaux:
         with verrou:
-            connus = _lire("cache-skitour-departs2.json", {})
+            connus = _departs_connus()
             connus.update(nouveaux)
-            _ecrire("cache-skitour-departs2.json", connus)
+            _ecrire("cache-skitour-departs3.json", connus)
     return lignes
 
 
@@ -608,17 +621,27 @@ _TOPOS_GPX: dict = {}  # id du topo -> adresse de son GPX ("" s'il n'en a pas)
 
 def _gpx_topo(id_: int) -> str:
     """Adresse du GPX d'un topo (itinéraire), lue une fois par topo dans l'API skitour."""
-    if id_ not in _TOPOS_GPX:
+    k = str(id_)
+    if not _TOPOS_GPX:
+        with verrou:
+            _TOPOS_GPX.update(_lire("cache-skitour-topos-gpx.json", {}))
+    if k not in _TOPOS_GPX:
         try:
             req = urllib.request.Request(f"https://skitour.fr/api/topo/{id_}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
             with urllib.request.urlopen(req, timeout=10) as r:
                 x = json.loads(r.read())
             x = x[0] if isinstance(x, list) and x else x
-            _TOPOS_GPX[id_] = _gpx(_d(x))
+            if not isinstance(x, dict) or x.get("ERROR"):
+                # Erreur de l'API (quota du jour atteint…) : rien de retenu, on redemandera.
+                print(f"topo skitour {id_} : {_d(x).get('ERROR') or 'réponse vide'}", file=sys.stderr, flush=True)
+                return ""
+            _TOPOS_GPX[k] = _gpx(x)
+            with verrou:  # gardé sur le disque : le relais redémarre à chaque mise à jour, le quota de l'API est de 1000 par jour
+                _ecrire("cache-skitour-topos-gpx.json", _TOPOS_GPX)
         except (OSError, ValueError) as ex:
             print(f"topo skitour {id_} : {ex}", file=sys.stderr, flush=True)
             return ""
-    return _TOPOS_GPX[id_]
+    return _TOPOS_GPX[k]
 
 
 _FICHES_TOPO: dict = {}  # id -> (heure, fiche)
@@ -678,7 +701,11 @@ def topos_du_sommet(sommet_id: int, depart_id: int | None = None, orientation: s
         except (OSError, ValueError) as ex:
             print(f"topos du sommet {sommet_id} : {ex}", file=sys.stderr, flush=True)
             return []
-        c = (time.time(), [t for t in (lot if isinstance(lot, list) else []) if isinstance(t, dict) and _entier(t.get("id"))])
+        if not isinstance(lot, list):
+            # Erreur de l'API (quota du jour atteint…) : rien de retenu, on redemandera.
+            print(f"topos du sommet {sommet_id} : {_d(lot).get('ERROR') or 'réponse inattendue'}", file=sys.stderr, flush=True)
+            return []
+        c = (time.time(), [t for t in lot if isinstance(t, dict) and _entier(t.get("id"))])
         _TOPOS_SOMMET[sommet_id] = c
     ori = (orientation or "").strip().upper()
     def rang(t):
