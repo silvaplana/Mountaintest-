@@ -178,6 +178,8 @@ export interface OutingRow {
   id: number; titre: string; date: number; massif: string; sommet: string; altitude: number | null;
   lat: number | null; lon: number | null; denivele: number | null; dif_ski: string | number | null; orientation: string;
   auteurs: string; url: string; skiabilite?: string; etoiles?: number | null; parking?: Parking | null;
+  /** Adresse de la trace GPX sur skitour.fr, quand la sortie en a une. */
+  gpx?: string;
 }
 /** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
 export interface SkiPhoto { url: string; legende: string; auteur: string }

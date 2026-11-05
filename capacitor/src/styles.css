@@ -431,3 +431,5 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* « Sorties ski » : 🗺 à droite du titre ouvre la recherche sur la carte. */
 .ski-head-title { display: flex; align-items: center; gap: 10px; }
 .ski-map-btn { font-size: 18px; padding: 4px 10px; }
+/* Petite pastille « GPX » : la sortie a une trace GPX sur skitour.fr. */
+.ski-gpx { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 4px; background: #c0392b; color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; vertical-align: 2px; }

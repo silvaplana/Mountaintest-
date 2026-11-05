@@ -505,6 +505,15 @@ def _sommets(x) -> list:
     return [sm for sm in (x.get("sommets") or []) if isinstance(sm, dict) and _nombre(sm.get("lat")) is not None and _nombre(sm.get("lng")) is not None]
 
 
+def _gpx(x) -> str:
+    """Trace GPX de la sortie : l'API donne « gpx » (adresse, relative dans la liste) seulement quand il y en a une."""
+    g = x.get("gpx") if isinstance(x, dict) else None
+    if not isinstance(g, str) or not g.strip():
+        return ""
+    g = g.strip()
+    return g if g.startswith("https://skitour.fr/") else ("https://skitour.fr" + g if g.startswith("/") else "")
+
+
 def _sortie(x, sm) -> dict:
     return {
         "id": _entier(x.get("id")), "titre": _texte(x.get("titre")), "date": _entier(x.get("date")),
@@ -514,7 +523,7 @@ def _sortie(x, sm) -> dict:
         "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
         "conditions": _texte(x.get("cond"))[:400],
         "auteur": _pseudo(x.get("auteur")),
-        "url": f"https://skitour.fr/sorties/{x.get('id')}",
+        "url": f"https://skitour.fr/sorties/{x.get('id')}", "gpx": _gpx(x),
         "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x), "parking": _parking(x),
     }
 
@@ -588,7 +597,7 @@ def _ligne(x) -> dict:
         "sommet": _texte(sm.get("sommet") or sm.get("nom")), "altitude": _entier(sm.get("altitude")),
         "lat": float(sm["lat"]) if pts else None, "lon": float(sm["lng"]) if pts else None,
         "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
-        "auteurs": _personnes(x), "url": f"https://skitour.fr/sorties/{x.get('id')}",
+        "auteurs": _personnes(x), "url": f"https://skitour.fr/sorties/{x.get('id')}", "gpx": _gpx(x),
         "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x), "parking": _parking(x),
     }
 
@@ -691,6 +700,7 @@ def fiche_sortie(id_: int) -> dict:
         "recit": _texte(x.get("recit")),
         # Photos : seulement dans la fiche de leur sortie, auteur cité (conditions de l'API skitour).
         "photos": _photos(x, page),
+        "gpx": _gpx(x) or base.get("gpx", ""),
     }
 
 
@@ -1039,7 +1049,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche7:{id_}"
+            cle = f"fiche8:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)
