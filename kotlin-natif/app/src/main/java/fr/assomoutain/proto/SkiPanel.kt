@@ -353,7 +353,7 @@ class SkiPanel(
         outings = vis
         val k = vis.indexOfFirst { it.id == selId }.takeIf { it >= 0 }
         onOutings(vis, k)
-        count.text = if (far) "Zoome" else "${vis.size} sortie${if (vis.size > 1) "s" else ""}"
+        count.text = if (far) "Zoome" else "" // pas de nombre de sorties (inutile)
         val notes = listOfNotNull(
             offline?.let { "📴 Hors ligne : sorties gardées sur le téléphone, liste du " +
                 Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM 'à' HH:mm", Locale.FRANCE)) + "." },
