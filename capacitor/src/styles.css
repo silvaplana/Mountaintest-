@@ -424,4 +424,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .slope-legend { list-style: none; margin: 6px 0 0; padding: 0; }
 .slope-legend li { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
 .slope-legend span { width: 22px; height: 14px; border-radius: 3px; border: 1px solid #fff8; flex: none; }
-.quick button { -webkit-touch-callout: none; user-select: none; }
+/* Appui long : ni sélection de texte ni menu « Traduire / Copier » sur les icônes et les bulles. */
+.quick, .quick *, .tip-close, .tip-close *, .help-close, .help-close * {
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+}

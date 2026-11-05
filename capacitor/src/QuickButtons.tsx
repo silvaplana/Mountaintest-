@@ -153,7 +153,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   };
   return (
     <>
-    {tip && <div className="tip-close" onPointerDown={() => setTip(null)}>
+    {tip && <div className="tip-close" onPointerDown={() => setTip(null)} onContextMenu={(e) => e.preventDefault()}>
       <div className="icon-tip" style={{ top: tip.top, right: tip.right, maxWidth: tip.maxWidth }}>
         <b>{ICON_HELP[tip.key].title}</b>
         <p>{ICON_HELP[tip.key].text}</p>
@@ -166,7 +166,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       </div>
     </div>}
     {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
-    <div className={help ? 'quick help' : 'quick'}>
+    <div className={help ? 'quick help' : 'quick'} onContextMenu={(e) => e.preventDefault()}>
       <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli" {...lp('close')}
         onClick={() => { if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
       <button className="toggle arrow" aria-label={mode === 3 ? 'Afficher les icônes' : 'Changer les icônes'} data-help="Appui : icônes suivantes · appui long : aide"
