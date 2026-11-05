@@ -48,7 +48,8 @@ data class SheetLink(val nom: String, val url: String, val altitude: Int? = null
     /** « Val Thorens (2300 m) » */
     fun text() = nom + (altitude?.let { " ($it m)" } ?: "")
 }
-class SheetLinks(val depart: SheetLink?, val topos: List<SheetLink>, val sommets: List<SheetLink>)
+class SheetLinks(val depart: SheetLink?, val topos: List<SheetLink>, val sommets: List<SheetLink>,
+                 /** Topos retrouvés par le sommet (la sortie n'en cite pas). */ val toposTrouves: Boolean = false)
 
 /** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
 data class SkiPhoto(val url: String, val legende: String, val auteur: String)
@@ -112,7 +113,7 @@ object SkiText {
         // Anciennes fiches gardées : « photos » était un nombre.
         o.optJSONArray("photos")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }
             .map { SkiPhoto(it.optString("url"), it.optString("legende"), it.optString("auteur")) }.filter { it.url.isNotEmpty() } } ?: emptyList(),
-        o.optJSONObject("liens")?.let { l -> SheetLinks(l.optJSONObject("depart")?.let { link(it) }, links(l.optJSONArray("topos")), links(l.optJSONArray("sommets"))) },
+        o.optJSONObject("liens")?.let { l -> SheetLinks(l.optJSONObject("depart")?.let { link(it) }, links(l.optJSONArray("topos")), links(l.optJSONArray("sommets")), l.optBoolean("topos_trouves")) },
         o.optString("exposition"))
 
     private fun link(o: JSONObject) = SheetLink(o.optString("nom"), o.optString("url"), intOrNull(o, "altitude"), dblOrNull(o, "lat"), dblOrNull(o, "lon"))
@@ -509,7 +510,7 @@ class SkiTextPanel(
         val info: List<Pair<String, Any>> = listOf(
             "Massif" to o.massif,
             "Départ" to (L?.depart?.let { listOf(linkView(it, true, o.parking?.let { p -> p.lat to p.lon })) } ?: (f?.depart ?: "")),
-            plural(L?.topos?.size ?: 0, "Topo associé") to (L?.topos?.takeIf { it.isNotEmpty() }?.map { linkView(it, false) } ?: (f?.topos?.joinToString(", ") ?: "")),
+            (if (L?.toposTrouves == true) (if (L.topos.size > 1) "Topos du sommet" else "Topo du sommet") else plural(L?.topos?.size ?: 0, "Topo associé")) to (L?.topos?.takeIf { it.isNotEmpty() }?.map { linkView(it, false) } ?: (f?.topos?.joinToString(", ") ?: "")),
             plural(L?.sommets?.size ?: 0, "Sommet associé") to (L?.sommets?.takeIf { it.isNotEmpty() }?.map { linkView(it, true) }
                 ?: (f?.sommets?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: (o.sommet + (o.altitude?.let { " ($it m)" } ?: "")))),
             "Orientation" to o.orientation, "Dénivelé" to (o.denivele?.let { "$it m" } ?: ""), "Ski" to o.difSki,
