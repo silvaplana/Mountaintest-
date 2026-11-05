@@ -442,7 +442,8 @@ class SkiTextPanel(
     }
 
     private fun renderSheet(row: OutingRow, f: OutingSheet?, msg: String) {
-        val o = f?.row ?: row
+        // Point de la sortie : celui de la fiche, sinon celui de la carte (la fiche n'en a pas toujours, sommets sans coordonnées).
+        val o = f?.row?.let { it.copy(lat = it.lat ?: row.lat, lon = it.lon ?: row.lon, parking = it.parking ?: row.parking) } ?: row
         col.removeAllViews()
         val back = if (start == null) Button(a).apply { text = "← Liste"; setOnClickListener { job?.cancel(); showList() } } else null
         val title = text(o.titre, 15f, ink, true).apply { isSingleLine = true; ellipsize = android.text.TextUtils.TruncateAt.END }
@@ -467,7 +468,7 @@ class SkiTextPanel(
         val blue = Color.parseColor("#2E6DB4")
         // Nom : lien vers la page skitour.fr (comme sur le site). Départ et sommet ont aussi « 🗺 Carte » : la carte de l'appli,
         // centrée sur leur point.
-        fun linkView(l: SheetLink, pin: Boolean) = LinearLayout(a).apply {
+        fun linkView(l: SheetLink, pin: Boolean, near: Pair<Double, Double>? = null) = LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(text(l.text(), 14f, ink).apply {
                 if (l.url.isNotEmpty()) {
@@ -478,14 +479,15 @@ class SkiTextPanel(
             if (pin && o.lat != null) addView(Button(a).apply {
                 text = "🗺 Carte"; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
                 setPadding(dp(8), dp(4), dp(8), dp(4)); contentDescription = "${l.nom} sur la carte"
-                val at = if (l.lat != null && l.lon != null) l.lat to l.lon else null
+                // Sans coordonnées propres : le parking pour le départ, le point de la sortie pour un sommet.
+                val at = if (l.lat != null && l.lon != null) l.lat to l.lon else near
                 setOnClickListener { toMap(at) } })
         }
         fun plural(n: Int, w: String) = if (n > 1) w.replace(" ", "s ") + "s" else w
         val L = f?.links
         val info: List<Pair<String, Any>> = listOf(
             "Massif" to o.massif,
-            "Départ" to (L?.depart?.let { listOf(linkView(it, true)) } ?: (f?.depart ?: "")),
+            "Départ" to (L?.depart?.let { listOf(linkView(it, true, o.parking?.let { p -> p.lat to p.lon })) } ?: (f?.depart ?: "")),
             plural(L?.topos?.size ?: 0, "Topo associé") to (L?.topos?.takeIf { it.isNotEmpty() }?.map { linkView(it, false) } ?: (f?.topos?.joinToString(", ") ?: "")),
             plural(L?.sommets?.size ?: 0, "Sommet associé") to (L?.sommets?.takeIf { it.isNotEmpty() }?.map { linkView(it, true) }
                 ?: (f?.sommets?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: (o.sommet + (o.altitude?.let { " ($it m)" } ?: "")))),
