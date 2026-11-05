@@ -96,7 +96,7 @@ export async function relayPost<T>(path: string, body: unknown, password: string
   let json: T & { erreur?: string } = {} as T & { erreur?: string };
   try { json = await res.json(); } catch { /* réponse non JSON */ }
   // 404 « inconnu » : le relais du VPS tourne encore l'ancienne version (mise à jour toutes les 5 à 10 min).
-  if (res.status === 404) throw new Error('le serveur IA n’est pas encore à jour, réessaie dans quelques minutes');
+  if (res.status === 404) throw new Error('le serveur n’est pas encore à jour, réessaie dans quelques minutes');
   if (!res.ok) throw new Error(json.erreur ?? `relais HTTP ${res.status}`);
   return json;
 }

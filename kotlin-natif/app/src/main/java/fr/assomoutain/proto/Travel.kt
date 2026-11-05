@@ -126,7 +126,7 @@ object Travel {
         val text = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
         // 404 « inconnu » : le relais du VPS tourne encore l'ancienne version (mise à jour toutes les 5 à 10 min).
         if (code == 401) throw Refused()
-        if (code == 404) error("le serveur IA n'est pas encore à jour, réessaie dans quelques minutes")
+        if (code == 404) error("le serveur n'est pas encore à jour, réessaie dans quelques minutes")
         if (code !in 200..299) error(runCatching { JSONObject(text).optString("erreur") }.getOrNull()?.ifEmpty { null } ?: "relais HTTP $code")
         return JSONObject(text)
     }
