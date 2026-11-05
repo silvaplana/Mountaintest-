@@ -1678,7 +1678,7 @@ class MainActivity : AppCompatActivity() {
             if ((drawnSlopes || drawnProfile) && elevated?.isFailure == true) View.VISIBLE else View.GONE
         findViewById<ProfileView>(R.id.traceProfile).apply {
             setData(e?.segments)
-            cursor = findViewById<ProfileView>(R.id.trailProfile).cursor
+            cursor = this@MainActivity.findViewById<ProfileView>(R.id.trailProfile).cursor
             visibility = if (drawnProfile && e != null) View.VISIBLE else View.GONE
         }
         findViewById<Button>(R.id.btnTraceSave).apply {
