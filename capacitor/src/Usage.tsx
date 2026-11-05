@@ -11,7 +11,15 @@ interface IaUsage {
   cumul_total_usd: number; cumul_mois_usd: number; recherches_payantes: number;
   par_type?: Record<string, { cout_usd: number; requetes: number; premiere?: string }>;
   donnees_serveur_octets?: number; modele?: string;
+  /** Demandes à l'API skitour.fr (gratuite mais limitée à « quota » par jour), comptées par le relais. */
+  skitour_appels?: { quota: number; aujourdhui: number; par_type: Record<string, number>; jours: Record<string, number> };
 }
+
+/** Types de demandes skitour (même tableau côté Kotlin : UsagePanel.kt). */
+export const SKITOUR_TYPES: Record<string, string> = {
+  sorties: 'Listes de sorties', sortie: 'Fiches et parkings', topos: 'Topos d’un sommet', topo: 'Topos (fiche, itinéraire)',
+  massifs: 'Massifs', autre: 'Autres',
+};
 
 /** Libellés des usages notés par le relais (le même tableau côté Kotlin : UsagePanel.kt). */
 export const IA_TYPES: Record<string, string> = {
@@ -87,6 +95,22 @@ export function Usage() {
         </>
       ) : !iaErr && <p className="hint">Chargement…</p>}
       {iaErr && <p className="hint">{iaErr}</p>}
+
+      {ia?.u.skitour_appels && (() => {
+        const k = ia.u.skitour_appels;
+        return (<>
+          <h4>⛷ Demandes à skitour.fr</h4>
+          <div className="stats">
+            <div><b>{k.aujourdhui} / {k.quota}</b><span>aujourd’hui</span></div>
+            <div><b>{Object.values(k.jours).reduce((a, b) => a + b, 0)}</b><span>sur 7 jours</span></div>
+          </div>
+          <table><tbody>
+            {Object.entries(k.par_type).sort((a, b) => b[1] - a[1]).map(([t, n]) => (
+              <tr key={t}><td>{SKITOUR_TYPES[t] ?? t}</td><td>{n}×</td></tr>))}
+          </tbody></table>
+          <p className="hint">Gratuit, mais skitour.fr limite à {k.quota} demandes par jour (tous les téléphones ensemble). Au-delà, plus de parkings ni d’itinéraires jusqu’au lendemain.</p>
+        </>);
+      })()}
 
       <h4>💾 Place sur le téléphone</h4>
       {mem ? (

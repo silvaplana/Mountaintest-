@@ -474,7 +474,7 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
             continue
         if k not in connus and len(nouveaux) < maxi:
             try:
-                req = urllib.request.Request(f"https://skitour.fr/api/sortie/{o['id']}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+                req = _requete_api(f"https://skitour.fr/api/sortie/{o['id']}")
                 with urllib.request.urlopen(req, timeout=15) as r:
                     x = json.loads(r.read())
                 x = (x[0] if x else {}) if isinstance(x, list) else x
@@ -494,14 +494,71 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
     return lignes
 
 
+# ---------- Demandes à l'API skitour : comptées (quota de 1000 par jour), affichées dans 📊 de l'appli ----------
+QUOTA_SKITOUR = 1000
+_APPELS_FICHIER = "skitour-appels.json"
+
+
+def _type_appel(url: str) -> str:
+    chemin = urllib.parse.urlparse(url).path.rstrip("/").split("/")
+    return {"sorties": "sorties", "sortie": "sortie", "topo": "topo", "topos": "topos", "massifs": "massifs"}.get(
+        chemin[2] if len(chemin) > 2 else "", "autre")
+
+
+def _requete_api(url: str):
+    """Requête vers l'API skitour (clé dans l'en-tête), comptée par jour et par type dans skitour-appels.json."""
+    jour, t = time.strftime("%Y-%m-%d"), _type_appel(url)
+    with verrou:
+        c = _lire(_APPELS_FICHIER, {})
+        j = c.setdefault(jour, {})
+        j[t] = j.get(t, 0) + 1
+        for vieux in sorted(c)[:-30]:  # 30 jours gardés
+            del c[vieux]
+        _ecrire(_APPELS_FICHIER, c)
+    return urllib.request.Request(url, headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+
+
+def appels_skitour() -> dict:
+    """Demandes faites aujourd'hui (par type) et les 7 derniers jours, pour l'écran 📊."""
+    with verrou:
+        c = _lire(_APPELS_FICHIER, {})
+    jour = time.strftime("%Y-%m-%d")
+    return {"skitour_appels": {"quota": QUOTA_SKITOUR, "aujourdhui": sum(c.get(jour, {}).values()), "par_type": c.get(jour, {}),
+                               "jours": {k: sum(v.values()) for k, v in sorted(c.items())[-7:]}}}
+
+
 def _sorties_brutes(jours: int, massif: int | None = None, pages: int = 3) -> list:
-    """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif."""
+    """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif.
+    Gardées sur le disque (1 h, 6 h au-delà d'un mois) : une liste plus longue encore fraîche sert aussi aux périodes
+    plus courtes, et un redémarrage du relais ne coûte plus rien au quota de l'API."""
+    garde = 3600 if jours <= 30 else 6 * 3600
+    m = massif or "tous"
+    try:
+        noms = os.listdir(DOSSIER)
+    except OSError:
+        noms = []
+    for nom in noms:
+        g = re.fullmatch(r"cache-skitour-sorties-(\d+)-(\w+)\.json", nom)
+        if not g or g.group(2) != str(m) or int(g.group(1)) < jours:
+            continue
+        with verrou:
+            c = _lire(nom, {})
+        if time.time() - c.get("t", 0) < garde:
+            depuis = time.time() - jours * 86400
+            return [x for x in c.get("data", []) if isinstance(x, dict) and (_entier(x.get("date")) or 0) >= depuis]
+    data = _sorties_api(jours, massif, pages)
+    with verrou:
+        _ecrire(f"cache-skitour-sorties-{jours}-{m}.json", {"t": time.time(), "data": data})
+    return data
+
+
+def _sorties_api(jours: int, massif: int | None, pages: int) -> list:
     # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
     # on prend donc les sorties des derniers jours, par pages de 1000.
     data = []
     for page in range(1, pages + 1):
         q = urllib.parse.urlencode({"j": jours, "c": 1, "l": 1000, "p": page, **({"m": massif} if massif else {})})
-        req = urllib.request.Request(f"https://skitour.fr/api/sorties?{q}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+        req = _requete_api(f"https://skitour.fr/api/sorties?{q}")
         with urllib.request.urlopen(req, timeout=30) as r:
             lot = json.loads(r.read())
         if isinstance(lot, dict):
@@ -627,7 +684,7 @@ def _gpx_topo(id_: int) -> str:
             _TOPOS_GPX.update(_lire("cache-skitour-topos-gpx.json", {}))
     if k not in _TOPOS_GPX:
         try:
-            req = urllib.request.Request(f"https://skitour.fr/api/topo/{id_}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+            req = _requete_api(f"https://skitour.fr/api/topo/{id_}")
             with urllib.request.urlopen(req, timeout=10) as r:
                 x = json.loads(r.read())
             x = x[0] if isinstance(x, list) and x else x
@@ -661,7 +718,7 @@ def fiche_topo(id_: int) -> dict:
     c = _FICHES_TOPO.get(id_)
     if c and time.time() - c[0] < 86400:
         return c[1]
-    req = urllib.request.Request(f"https://skitour.fr/api/topo/{id_}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+    req = _requete_api(f"https://skitour.fr/api/topo/{id_}")
     with urllib.request.urlopen(req, timeout=15) as r:
         x = json.loads(r.read())
     x = x[0] if isinstance(x, list) and x else x
@@ -692,10 +749,13 @@ def topos_du_sommet(sommet_id: int, depart_id: int | None = None, orientation: s
     Sert quand une sortie n'a pas de topo associé : on va voir son sommet, comme on le ferait sur le site."""
     if not sommet_id or not SKITOUR_CLE:
         return []
+    if not _TOPOS_SOMMET:
+        with verrou:
+            _TOPOS_SOMMET.update({int(k): tuple(v) for k, v in _lire("cache-skitour-topos-sommets.json", {}).items()})
     c = _TOPOS_SOMMET.get(sommet_id)
-    if not (c and time.time() - c[0] < 86400):
+    if not (c and time.time() - c[0] < 7 * 86400):  # les topos d'un sommet changent rarement : 7 jours
         try:
-            req = urllib.request.Request(f"https://skitour.fr/api/topos?s={sommet_id}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+            req = _requete_api(f"https://skitour.fr/api/topos?s={sommet_id}")
             with urllib.request.urlopen(req, timeout=10) as r:
                 lot = json.loads(r.read())
         except (OSError, ValueError) as ex:
@@ -705,13 +765,20 @@ def topos_du_sommet(sommet_id: int, depart_id: int | None = None, orientation: s
             # Erreur de l'API (quota du jour atteint…) : rien de retenu, on redemandera.
             print(f"topos du sommet {sommet_id} : {_d(lot).get('ERROR') or 'réponse inattendue'}", file=sys.stderr, flush=True)
             return []
-        c = (time.time(), [t for t in lot if isinstance(t, dict) and _entier(t.get("id"))])
+        # Gardés en bref (et sur le disque) : id, nom, orientation, départ, GPX ou pas.
+        c = (time.time(), [{"id": _entier(t.get("id")), "nom": t.get("nom"), "orientation": t.get("orientation"),
+                            "depart": {"id": _entier(_d(t.get("depart")).get("id"))},
+                            "gpx": t.get("gpx") is None or str(t.get("gpx")).strip() not in ("", "0", "false")}
+                           for t in lot if isinstance(t, dict) and _entier(t.get("id"))])
         _TOPOS_SOMMET[sommet_id] = c
+        with verrou:
+            _ecrire("cache-skitour-topos-sommets.json", {str(k): list(v) for k, v in _TOPOS_SOMMET.items()})
     ori = (orientation or "").strip().upper()
     def rang(t):
         return (0 if depart_id and _entier(_d(t.get("depart")).get("id")) == depart_id else 1,
                 0 if ori and str(t.get("orientation") or "").strip().upper() == ori else 1)
-    return [{"id": _entier(t.get("id")), "nom": _texte(t.get("nom")), "url": f"https://skitour.fr/topos/{_entier(t.get('id'))}"}
+    return [{"id": _entier(t.get("id")), "nom": _texte(t.get("nom")), "url": f"https://skitour.fr/topos/{_entier(t.get('id'))}",
+             "gpx": t.get("gpx", True) is not False}
             for t in (lambda tri: [t for t in tri if rang(t) != (1, 1)] or tri)(sorted(c[1], key=rang))[:maxi]]
 
 
@@ -720,8 +787,9 @@ def _itineraire(o: dict) -> list:
     ids = list(o.get("topos_ids") or [])
     if not ids:
         for sid in o.get("sommets_ids") or []:
-            ids += [t["id"] for t in topos_du_sommet(sid, o.get("depart_id"), o.get("orientation") or "")]
-    for t in ids[:4]:
+            # Seulement les topos qui ont un GPX (la liste de l'API le dit) : pas de demande inutile.
+            ids += [t["id"] for t in topos_du_sommet(sid, o.get("depart_id"), o.get("orientation") or "") if t.get("gpx")]
+    for t in ids[:2]:  # deux essais au plus par sortie, pour ménager le quota
         tr = _trace(_gpx_topo(t))
         if tr:
             return tr
@@ -789,7 +857,7 @@ def liste_massifs() -> list:
     c = _liste_memo.get("massifs")
     if c and time.time() - c[0] < 86400:
         return c[1]
-    req = urllib.request.Request("https://skitour.fr/api/massifs", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+    req = _requete_api("https://skitour.fr/api/massifs")
     with urllib.request.urlopen(req, timeout=30) as r:
         data = json.loads(r.read())
     if isinstance(data, dict):
@@ -801,7 +869,7 @@ def liste_massifs() -> list:
 
 
 def fiche_sortie(id_: int) -> dict:
-    req = urllib.request.Request(f"https://skitour.fr/api/sortie/{id_}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+    req = _requete_api(f"https://skitour.fr/api/sortie/{id_}")
     with urllib.request.urlopen(req, timeout=30) as r:
         x = json.loads(r.read())
     if isinstance(x, list):
@@ -1119,7 +1187,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
