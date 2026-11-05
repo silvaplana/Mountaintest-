@@ -186,7 +186,11 @@ class MainActivity : AppCompatActivity() {
             if (prefs.contains("vueLat")) m.moveCamera(CameraUpdateFactory.newLatLngZoom(
                 LatLng(prefs.getFloat("vueLat", 43.172f).toDouble(), prefs.getFloat("vueLon", 5.6f).toDouble()),
                 prefs.getFloat("vueZoom", 14f).toDouble()))
-            m.addOnCameraIdleListener {
+            // Barre d'échelle : recalculée à chaque mouvement de la carte (calcul léger).
+            fun scale() { m.cameraPosition.let { c -> c.target?.let { findViewById<ScaleBarView>(R.id.scaleBar).update(it.latitude, c.zoom) } } }
+            scale()
+            m.addOnCameraMoveListener { scale() }
+                        m.addOnCameraIdleListener {
                 val c = m.cameraPosition
                 c.target?.let { t ->
                     prefs.edit().putFloat("vueLat", t.latitude.toFloat()).putFloat("vueLon", t.longitude.toFloat())
@@ -419,6 +423,10 @@ class MainActivity : AppCompatActivity() {
         val targetTop = (10 * resources.displayMetrics.density).toInt()
         val sheet = findViewById<View>(R.id.sheet)
         val margin = (10 * resources.displayMetrics.density).toInt()
+        // Le menu du bas change de hauteur (onglet ouvert/fermé) : la barre d'échelle suit.
+        sheet.addOnLayoutChangeListener { v, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) v.post { placeScaleBar() }
+        }
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.root)) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             top.forEach { v -> v.updateLayoutParams<android.widget.FrameLayout.LayoutParams> { topMargin = bars.top + margin } }
@@ -435,6 +443,7 @@ class MainActivity : AppCompatActivity() {
             sheet.updatePadding(bottom = bars.bottom + 4 * margin)
             travelPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
+            placeScaleBar()
             insets
         }
     }
@@ -857,6 +866,17 @@ class MainActivity : AppCompatActivity() {
         } else ids.forEach { id -> findViewById<View>(id).visibility = hiddenInNature[id] ?: View.VISIBLE }
         findViewById<View>(R.id.btnRestore).visibility = if (on) View.VISIBLE else View.GONE
         map?.uiSettings?.isCompassEnabled = false
+        placeScaleBar()
+    }
+
+    /** Barre d'échelle juste au-dessus du menu du bas (ou de la barre de gestes en mode nature). */
+    private fun placeScaleBar() {
+        val sheet = findViewById<View>(R.id.sheet)
+        val gap = (8 * resources.displayMetrics.density).toInt()
+        val b = if (sheet.visibility == View.VISIBLE) sheet.height + gap else navBottom + 3 * gap + gap / 2
+        findViewById<View>(R.id.scaleBar).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
+            if (bottomMargin != b) bottomMargin = b
+        }
     }
 
     // ---------- Versions ----------

@@ -151,7 +151,6 @@ export function MapView(props: MapViewProps) {
       const c = m.getCenter();
       try { localStorage.setItem(VIEW_KEY, JSON.stringify({ lon: c.lng, lat: c.lat, zoom: m.getZoom() })); } catch { /* ignoré */ }
     });
-    m.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
     m.once('idle', () => {
       metrics.firstMapRenderMs = Math.round(performance.now() - metrics.appStart);
       bench('startup', { startup: 'map_idle', ms: metrics.firstMapRenderMs });
