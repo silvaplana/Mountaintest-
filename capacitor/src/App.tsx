@@ -586,7 +586,7 @@ export function App() {
       {skiSheet && <SkiTextPanel key={skiSheet.id} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={skiSheet}
         onShowOnMap={(_o, at) => { setSkiSheet(null); flyTo(at); }} onClose={() => setSkiSheet(null)} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
-        onShowOnMap={(o, at) => { setSkiText(false); setSkiOutings([o]); setSkiSel(0); flyTo(at); }} onClose={() => setSkiText(false)}
+        onShowOnMap={(o, at) => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiOutings([o]); setSkiSel(0); setSkiOn(true); flyTo(at); }} onClose={() => setSkiText(false)}
         onOpenMap={() => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiSel(null); setSkiOn(true); }} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}

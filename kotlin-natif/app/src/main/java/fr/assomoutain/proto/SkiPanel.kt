@@ -222,6 +222,8 @@ class SkiPanel(
     private val onClose: () -> Unit,
     /** Ouvre la fiche complète de la sortie (façon skitour.fr). */
     private val onSheet: (Outing) -> Unit = {},
+    /** Sortie venue de la fiche texte (🗺 Carte) : choisie et gardée sur la carte même hors de la période choisie. */
+    private val pinned: Outing? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -253,9 +255,8 @@ class SkiPanel(
     private val skiPill = Button(a)
     private val menu = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; visibility = android.view.View.GONE }
     private val skiMenu = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; visibility = android.view.View.GONE }
-    /** 〰 : cases « Trace GPX » (rouge sur la carte) et « Itinéraire » (vert), comme sur skitour.fr. */
-    private val linesPill = Button(a)
-    private val linesMenu = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END; visibility = android.view.View.GONE }
+    /** Cases « Trace GPX » (rouge, comme sa ligne) et « Itinéraire » (vert), toujours visibles sous les filtres. */
+    private val linesMenu = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
     private val traceBtn = Button(a)
     private val itiBtn = Button(a)
     private var showTrace = true
@@ -268,7 +269,7 @@ class SkiPanel(
     private val asked = mutableSetOf<Long>() // déjà demandés (une fois par ouverture, même si la réponse manque)
     private var all: List<Outing> = emptyList()
     private var offline: Long? = null
-    private var selId: Long? = null
+    private var selId: Long? = pinned?.id
     private var low = false
     private val lowBtn = Button(a)
 
@@ -290,25 +291,24 @@ class SkiPanel(
         }
         fillMenu(skiMenu, skiLevels) { v -> skiMax = v; prefs.edit().putFloat("skitourSkiMax", v.toFloat()).apply(); refresh() }
         showTrace = prefs.getBoolean("skitourTrace", true); showIti = prefs.getBoolean("skitourItineraire", true)
-        pillStyle(linesPill, "#2E9D4F", "Traces et itinéraires").setOnClickListener { showMenu(if (linesMenu.visibility == android.view.View.VISIBLE) null else linesMenu) }
         for (b in listOf(traceBtn, itiBtn)) linesMenu.addView(b.apply {
             isAllCaps = false; textSize = 13f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0; setPadding(dp(10), dp(6), dp(10), dp(6))
             setOnClickListener {
                 if (b === traceBtn) showTrace = !showTrace else showIti = !showIti
                 prefs.edit().putBoolean("skitourTrace", showTrace).putBoolean("skitourItineraire", showIti).apply()
-                showMenu(linesMenu); refresh()
+                showMenu(if (menu.visibility == android.view.View.VISIBLE) menu else if (skiMenu.visibility == android.view.View.VISIBLE) skiMenu else null); refresh()
             }
         }, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(4) })
-        col.addView(menu); col.addView(skiMenu); col.addView(linesMenu)
+        col.addView(menu); col.addView(skiMenu)
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(count, LinearLayout.LayoutParams(0, -2, 1f))
             addView(pill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
             addView(skiPill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
-            addView(linesPill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
             addView(lowBtn.apply { setOnClickListener { setLow(!low) } }, LinearLayout.LayoutParams(dp(44), dp(44)))
             addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(44), dp(44)))
         })
+        col.addView(linesMenu)
         showMenu(null)
         col.addView(status); col.addView(detail); col.addView(list)
         col.addView(text("Données skitour.fr (CC BY-NC-ND pour les récits)."))
@@ -332,7 +332,7 @@ class SkiPanel(
         }
     }
 
-    /** Les 3 menus (enfants 0 à 2) et la ligne des pastilles (enfant 3) restent ; ▾ cache le reste, ▴ le remet. */
+    /** Les 2 menus (enfants 0 et 1), la ligne des pastilles (2) et les cases Trace / Itinéraire (3) restent ; ▾ cache le reste. */
     private fun setLow(v: Boolean) {
         low = v
         lowBtn.text = if (v) "▴" else "▾"; lowBtn.contentDescription = if (v) "Agrandir le panneau" else "Réduire le panneau"
@@ -345,13 +345,11 @@ class SkiPanel(
     private fun showMenu(open: LinearLayout?) {
         menu.visibility = if (open === menu) android.view.View.VISIBLE else android.view.View.GONE
         skiMenu.visibility = if (open === skiMenu) android.view.View.VISIBLE else android.view.View.GONE
-        linesMenu.visibility = if (open === linesMenu) android.view.View.VISIBLE else android.view.View.GONE
-        linesPill.text = "〰" + if (open === linesMenu) " ▴" else " ▾"
-        for ((b, on, t) in listOf(Triple(traceBtn, showTrace, "Trace GPX"), Triple(itiBtn, showIti, "Itinéraire"))) {
+        for ((b, on, t, c) in listOf(Quad(traceBtn, showTrace, "Trace GPX", "#D7301F"), Quad(itiBtn, showIti, "Itinéraire", "#2E9D4F"))) {
             b.text = (if (on) "☑ " else "☐ ") + t
             b.setTypeface(null, if (on) Typeface.BOLD else Typeface.NORMAL)
-            b.background = GradientDrawable().apply { setColor(Color.parseColor(if (on) "#2E9D4F" else "#F2F4F1")); cornerRadius = 999f }
-            b.setTextColor(if (on) Color.WHITE else ink)
+            b.background = GradientDrawable().apply { setColor(if (on) Color.parseColor(c) else Color.parseColor("#F2F4F1")); setStroke(dp(2), Color.parseColor(c)); cornerRadius = 999f }
+            b.setTextColor(if (on) Color.WHITE else Color.parseColor(c))
         }
         pill.text = (periods.firstOrNull { it.first == days }?.second ?: "< $days j") + if (open === menu) " ▴" else " ▾"
         skiPill.text = (if (skiMax > 0) "≤ $skiMax" else "Ski : tout") + if (open === skiMenu) " ▴" else " ▾"
@@ -370,7 +368,7 @@ class SkiPanel(
     private fun load(days: Int) {
         job?.cancel()
         status.text = ""; status.visibility = android.view.View.GONE; count.text = "Recherche…"; list.removeAllViews(); detail.removeAllViews()
-        all = emptyList(); outings = emptyList(); onOutings(outings, null)
+        all = emptyList(); outings = listOfNotNull(pinned?.takeIf { it.id == selId }); onOutings(outings, if (outings.isEmpty()) null else 0)
         job = a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { Skitour.fetchAll(allFile, days, password) } }
                 .onSuccess { (o, off) -> all = o; offline = off; refresh() }
@@ -386,6 +384,7 @@ class SkiPanel(
         val far = zoom < SKI_MIN_ZOOM
         val vis = if (far) emptyList() else all.filter { it.lon in z.west..z.east && it.lat in z.south..z.north && skiOk(it.difSki, skiMax) }.take(150).map { details.apply(it) }
             .map { it.copy(trace = if (showTrace) it.trace else emptyList(), itineraire = if (showIti) it.itineraire else emptyList()) }
+            .let { v -> if (pinned != null && pinned.id == selId && v.none { it.id == pinned.id }) listOf(pinned) + v else v }
         outings = vis
         val k = vis.indexOfFirst { it.id == selId }.takeIf { it >= 0 }
         onOutings(vis, k)
@@ -464,3 +463,6 @@ fun daysAgo(date: Long, now: Long = System.currentTimeMillis()): String {
 }
 
 fun skiabText(v: String): String = if (v.isNotEmpty() && v.all { it.isDigit() }) "skiabilité $v" else v
+
+/** Quatre valeurs (bouton, coché, texte, couleur) pour les cases Trace / Itinéraire. */
+private data class Quad<A, B, C, D>(val a: A, val b: B, val c: C, val d: D)
