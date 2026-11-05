@@ -4,6 +4,7 @@ import { fetchList, fetchMassifs, linkText, fetchSheet, filterRows, groupMassifs
 
 import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
 import { storedPhoto } from './ski/photoStore';
+import { App as CapApp } from '@capacitor/app';
 
 /** Une photo : la copie gardée sur le téléphone si elle existe, sinon celle de skitour.fr. */
 function Photo({ p, onOpen }: { p: SkiPhoto; onOpen?: () => void }) {
@@ -40,6 +41,13 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
   const [sheetRow, setSheetRow] = useState<OutingRow | null>(null);
   const [sheetMsg, setSheetMsg] = useState('');
   const [big, setBig] = useState<number | null>(null);
+  // Photo en grand : le bouton retour d'Android la ferme (sans quitter l'appli).
+  useEffect(() => {
+    if (big == null) return;
+    let sub: { remove: () => void } | null = null, live = true;
+    void CapApp.addListener('backButton', () => setBig(null)).then((h) => { if (live) sub = h; else void h.remove(); }).catch(() => { /* web */ });
+    return () => { live = false; sub?.remove(); };
+  }, [big]);
   // Massifs choisis (vide = tous), retenus d'une fois sur l'autre, comme la disquette du site.
   const [massifs, setMassifs] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('skitourMassifs') ?? '[]'); } catch { return []; } });
   const [picking, setPicking] = useState(false);
@@ -135,6 +143,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
         {photos.length > 0 && <><h3>Photos</h3>
           <div className="ski-photos">{photos.map((p, i) => <figure key={p.url}><Photo p={p} onOpen={() => setBig(i)} /><figcaption>© {p.auteur}</figcaption></figure>)}</div></>}
         {big != null && photos[big] && <div className="ski-big" onClick={() => setBig(null)}>
+          <button className="ski-big-close" onClick={() => setBig(null)} aria-label="Fermer la photo">✕</button>
           <Photo p={photos[big]} />
           <p>{photos[big].legende}{photos[big].legende ? ' · ' : ''}© {photos[big].auteur} · skitour.fr</p>
           <div className="row">

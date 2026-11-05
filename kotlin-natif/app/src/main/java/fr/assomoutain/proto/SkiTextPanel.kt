@@ -447,7 +447,10 @@ class SkiTextPanel(
         prev.setOnClickListener { if (i > 0) { i--; show() } }
         next.setOnClickListener { if (i < list.size - 1) { i++; show() } }
         dlg.setContentView(LinearLayout(a).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setBackgroundColor(Color.BLACK); setPadding(dp(12), dp(12), dp(12), dp(12))
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setBackgroundColor(Color.BLACK); setPadding(dp(12), dp(28), dp(12), dp(12))
+            // ✕ en haut à droite (le bouton retour d'Android ferme aussi la photo).
+            addView(Button(a).apply { text = "✕"; contentDescription = "Fermer la photo"; setOnClickListener { dlg.dismiss() } },
+                LinearLayout.LayoutParams(dp(52), dp(48)).apply { gravity = Gravity.END })
             addView(img, LinearLayout.LayoutParams(-1, 0, 1f))
             addView(cap, LinearLayout.LayoutParams(-1, -2))
             addView(LinearLayout(a).apply {
@@ -455,6 +458,7 @@ class SkiTextPanel(
                 addView(prev); addView(count.apply { setPadding(dp(16), 0, dp(16), 0) }); addView(next)
             }, LinearLayout.LayoutParams(-1, -2))
         })
+        dlg.setCancelable(true)
         show(); dlg.show()
     }
 
