@@ -389,6 +389,45 @@ def _completer(lignes: list, maxi: int = 60) -> list:
     return out
 
 
+def _parking(x) -> dict | None:
+    """Point de départ (parking) d'une sortie : {nom, altitude, lat, lon}, ou None si l'API ne le place pas."""
+    d = x.get("depart") if isinstance(x.get("depart"), dict) else {}
+    lat, lon = _nombre(d.get("lat")), _nombre(d.get("lng") if d.get("lng") is not None else d.get("lon"))
+    if (lat is None or lon is None) and isinstance(d.get("latlon"), str) and "," in d["latlon"]:
+        lat, lon = (_nombre(v) for v in d["latlon"].split(",")[:2])
+    if lat is None or lon is None or (lat == 0 and lon == 0):
+        return None
+    return {"nom": d.get("nom") or "", "altitude": _entier(d.get("altitude")), "lat": lat, "lon": lon}
+
+
+def _avec_parkings(lignes: list, maxi: int = 30) -> list:
+    """Ajoute le parking aux sorties qui n'en ont pas (la liste de l'API ne le donne pas toujours) :
+    lu dans la fiche de la sortie, gardé pour toujours (un départ ne bouge pas)."""
+    with verrou:
+        connus = _lire("cache-skitour-departs.json", {})
+    nouveaux = {}
+    for o in lignes:
+        k = str(o.get("id"))
+        if o.get("parking") or not o.get("id"):
+            continue
+        if k not in connus and len(nouveaux) < maxi:
+            try:
+                req = urllib.request.Request(f"https://skitour.fr/api/sortie/{o['id']}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    x = json.loads(r.read())
+                x = (x[0] if x else {}) if isinstance(x, list) else x
+                nouveaux[k] = _parking(x) if isinstance(x, dict) and not x.get("ERROR") else None
+            except Exception:  # noqa: BLE001 (sans parking, la sortie s'affiche quand même)
+                continue
+        o["parking"] = nouveaux.get(k, connus.get(k))
+    if nouveaux:
+        with verrou:
+            connus = _lire("cache-skitour-departs.json", {})
+            connus.update(nouveaux)
+            _ecrire("cache-skitour-departs.json", connus)
+    return lignes
+
+
 def _sorties_brutes(jours: int, massif: int | None = None) -> list:
     """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif."""
     # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
@@ -423,7 +462,7 @@ def _sortie(x, sm) -> dict:
         "conditions": _texte(x.get("cond"))[:400],
         "auteur": (x.get("auteur") or {}).get("pseudo", ""),
         "url": f"https://skitour.fr/sorties/{x.get('id')}",
-        "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x),
+        "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x), "parking": _parking(x),
     }
 
 
@@ -436,7 +475,7 @@ def sorties_skitour(o: float, s: float, e: float, n: float, jours: int) -> list:
         dedans = [sm for sm in _sommets(x) if s <= float(sm["lat"]) <= n and o <= float(sm["lng"]) <= e]
         if dedans:
             out.append(_sortie(x, dedans[0]))
-    return _completer(out)
+    return _avec_parkings(_completer(out))
 
 
 # ---------- Sorties en texte (icône ⛷💬) : liste façon skitour.fr, puis fiche détaillée ----------
@@ -462,7 +501,7 @@ def _ligne(x) -> dict:
         "lat": float(sm["lat"]) if pts else None, "lon": float(sm["lng"]) if pts else None,
         "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
         "auteurs": _personnes(x), "url": f"https://skitour.fr/sorties/{x.get('id')}",
-        "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x),
+        "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x), "parking": _parking(x),
     }
 
 
@@ -796,7 +835,7 @@ class Relais(BaseHTTPRequestHandler):
                 raise ValueError
         except (ValueError, KeyError, TypeError):
             return self._json(400, {"erreur": "zone invalide (2° au plus)"})
-        cle = f"skitour:{o:.3f},{s:.3f},{e:.3f},{n:.3f},{jours}"
+        cle = f"skitour2:{o:.3f},{s:.3f},{e:.3f},{n:.3f},{jours}"
         with verrou:
             cache = _lire("cache-skitour.json", {})
             c = cache.get(cle)

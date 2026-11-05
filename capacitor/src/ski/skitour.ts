@@ -10,7 +10,12 @@ export interface Outing {
   conditions: string; auteur: string; url: string;
   /** Skiabilité notée par l'auteur (texte, ou chiffre selon l'API) et étoiles si l'API les donne. */
   skiabilite?: string; etoiles?: number | null;
+  /** Point de départ (parking), si skitour le place. */
+  parking?: Parking | null;
 }
+export interface Parking { nom: string; altitude: number | null; lat: number; lon: number }
+/** « 🅿 Parking de Chiazale (1650 m) » */
+export const parkingText = (p: Parking) => `🅿 ${p.nom || 'Parking'}${p.altitude ? ` (${p.altitude} m)` : ''}`;
 
 export async function fetchOutings(b: Bbox, days: number, password: string): Promise<Outing[]> {
   const r = await relayPost<{ sorties?: Outing[] }>('skitour', { ouest: b[0], sud: b[1], est: b[2], nord: b[3], jours: days }, password);
@@ -23,12 +28,20 @@ export const outingDate = (o: Outing) => new Date(o.date * 1000).toLocaleDateStr
  *  si le relais n'a que le chiffre de l'API, « skiabilité 1 ». */
 export const skiabText = (v?: string) => (!v ? '' : /^\d+$/.test(v) ? `skiabilité ${v}` : v);
 
-/** Étiquette à côté du point bleu : nom de la course, étoiles, skiabilité. */
-export function outingLabel(o: Outing): string {
-  const t = o.titre.length > 26 ? `${o.titre.slice(0, 25)}…` : o.titre;
-  const sk = skiabText(o.skiabilite);
-  const meta = [o.etoiles ? '★'.repeat(o.etoiles) : '', sk].filter(Boolean).join(' · ');
-  return meta ? `${t}\n${meta}` : t;
+/** « il y a 8 j » depuis la date de la sortie (secondes Unix). */
+export const daysAgo = (date: number, now = Date.now()) => {
+  const n = Math.max(0, Math.floor((now - date * 1000) / 86400000));
+  return n === 0 ? "aujourd'hui" : `il y a ${n} j`;
+};
+
+/** Étiquette à côté du point bleu (format demandé par Seb) :
+ *  « Monte Bellino (2942 m), NE / ski 2.3, D+200 m, ★★ / skiabilité 🤢 Mauvaise, il y a 8 j ». */
+export function outingLabel(o: Outing, now = Date.now()): string {
+  const nom = o.sommet || o.titre;
+  const l1 = [(nom.length > 28 ? `${nom.slice(0, 27)}…` : nom) + (o.altitude ? ` (${o.altitude} m)` : ''), o.orientation].filter(Boolean).join(', ');
+  const l2 = [o.dif_ski ? `ski ${o.dif_ski}` : '', o.denivele ? `D+${o.denivele} m` : '', o.etoiles ? '★'.repeat(o.etoiles) : ''].filter(Boolean).join(', ');
+  const l3 = [o.skiabilite ? `skiabilité ${o.skiabilite}` : '', o.date ? daysAgo(o.date, now) : ''].filter(Boolean).join(', ');
+  return [l1, l2, l3].filter(Boolean).join('\n');
 }
 
 export const outingLine = (o: Outing) => [o.sommet + (o.altitude ? ` ${o.altitude} m` : ''), o.denivele ? `D+ ${o.denivele} m` : '',
@@ -80,7 +93,7 @@ export async function loadOutings(b: Bbox, days: number, password: string): Prom
 export interface OutingRow {
   id: number; titre: string; date: number; massif: string; sommet: string; altitude: number | null;
   lat: number | null; lon: number | null; denivele: number | null; dif_ski: string | number | null; orientation: string;
-  auteurs: string; url: string; skiabilite?: string; etoiles?: number | null;
+  auteurs: string; url: string; skiabilite?: string; etoiles?: number | null; parking?: Parking | null;
 }
 /** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
 export interface SkiPhoto { url: string; legende: string; auteur: string }

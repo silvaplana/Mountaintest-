@@ -29,18 +29,40 @@ data class Outing(val id: Long, val titre: String, val date: Long, val massif: S
                   val lat: Double, val lon: Double, val denivele: Int?, val difSki: String, val orientation: String,
                   val conditions: String, val auteur: String, val url: String,
                   /** Skiabilité notée par l'auteur (texte, ou chiffre selon l'API) et étoiles si l'API les donne. */
-                  val skiabilite: String = "", val etoiles: Int? = null) {
-    /** Étiquette à côté du point bleu : nom de la course, puis étoiles et skiabilité (même texte que outingLabel). */
-    fun label(): String {
-        val t = if (titre.length > 26) titre.take(25) + "…" else titre
-        val sk = skiabText(skiabilite)
-        val meta = listOf(etoiles?.takeIf { it > 0 }?.let { "★".repeat(it) } ?: "", sk).filter { it.isNotEmpty() }.joinToString(" · ")
-        return if (meta.isEmpty()) t else "$t\n$meta"
+                  val skiabilite: String = "", val etoiles: Int? = null,
+                  /** Point de départ (parking), si skitour le place. */
+                  val parking: Parking? = null) {
+    /** Étiquette à côté du point bleu (même texte que outingLabel) :
+     *  « Monte Bellino (2942 m), NE / ski 2.3, D+200 m, ★★ / skiabilité 🤢 Mauvaise, il y a 8 j ». */
+    fun label(now: Long = System.currentTimeMillis()): String {
+        val nom = sommet.ifEmpty { titre }
+        val l1 = listOf((if (nom.length > 28) nom.take(27) + "…" else nom) + (altitude?.let { " ($it m)" } ?: ""), orientation)
+            .filter { it.isNotEmpty() }.joinToString(", ")
+        val l2 = listOf(if (difSki.isNotEmpty()) "ski $difSki" else "", denivele?.let { "D+$it m" } ?: "",
+            etoiles?.takeIf { it > 0 }?.let { "★".repeat(it) } ?: "").filter { it.isNotEmpty() }.joinToString(", ")
+        val l3 = listOf(if (skiabilite.isNotEmpty()) "skiabilité $skiabilite" else "", if (date > 0) daysAgo(date, now) else "")
+            .filter { it.isNotEmpty() }.joinToString(", ")
+        return listOf(l1, l2, l3).filter { it.isNotEmpty() }.joinToString("\n")
     }
     fun dateText(): String = Instant.ofEpochSecond(date).atZone(ZoneId.systemDefault()).toLocalDate()
         .format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRANCE))
     fun line() = listOfNotNull(sommet + (altitude?.let { " $it m" } ?: ""), denivele?.let { "D+ $it m" },
         difSki.ifEmpty { null }?.let { "ski $it" }, orientation.ifEmpty { null }).joinToString(" · ")
+}
+
+/** Parking (point de départ) d'une sortie, même modèle que Parking de src/ski/skitour.ts. */
+data class Parking(val nom: String, val altitude: Int?, val lat: Double, val lon: Double) {
+    /** « 🅿 Parking de Chiazale (1650 m) » */
+    fun text() = "🅿 " + nom.ifEmpty { "Parking" } + (altitude?.let { " ($it m)" } ?: "")
+    fun toJson(): JSONObject = JSONObject().put("nom", nom).put("altitude", altitude ?: JSONObject.NULL).put("lat", lat).put("lon", lon)
+    companion object {
+        fun from(o: JSONObject?): Parking? {
+            if (o == null) return null
+            val lat = o.optDouble("lat"); val lon = o.optDouble("lon")
+            if (lat.isNaN() || lon.isNaN()) return null
+            return Parking(o.optString("nom"), if (o.isNull("altitude") || !o.has("altitude")) null else o.optInt("altitude"), lat, lon)
+        }
+    }
 }
 
 object Skitour {
@@ -52,7 +74,8 @@ object Skitour {
                 if (it.isNull("altitude")) null else it.optInt("altitude"), it.optDouble("lat"), it.optDouble("lon"),
                 if (it.isNull("denivele")) null else it.optInt("denivele"), if (it.isNull("dif_ski")) "" else it.optString("dif_ski"),
                 it.optString("orientation"), it.optString("conditions"), it.optString("auteur"), it.optString("url"),
-                it.optString("skiabilite"), if (it.isNull("etoiles") || !it.has("etoiles")) null else it.optInt("etoiles"))
+                it.optString("skiabilite"), if (it.isNull("etoiles") || !it.has("etoiles")) null else it.optInt("etoiles"),
+                Parking.from(it.optJSONObject("parking")))
         } }.filter { !it.lat.isNaN() && !it.lon.isNaN() }.sortedByDescending { it.date }
     }
 
@@ -60,13 +83,14 @@ object Skitour {
         .put("sommet", x.sommet).put("altitude", x.altitude ?: JSONObject.NULL).put("lat", x.lat).put("lon", x.lon)
         .put("denivele", x.denivele ?: JSONObject.NULL).put("dif_ski", x.difSki).put("orientation", x.orientation)
         .put("conditions", x.conditions).put("auteur", x.auteur).put("url", x.url)
-        .put("skiabilite", x.skiabilite).put("etoiles", x.etoiles ?: JSONObject.NULL)
+        .put("skiabilite", x.skiabilite).put("etoiles", x.etoiles ?: JSONObject.NULL).put("parking", x.parking?.toJson() ?: JSONObject.NULL)
 
     fun fromJson(it: JSONObject) = Outing(it.optLong("id"), it.optString("titre"), it.optLong("date"), it.optString("massif"),
         it.optString("sommet"), if (it.isNull("altitude")) null else it.optInt("altitude"), it.optDouble("lat"), it.optDouble("lon"),
         if (it.isNull("denivele")) null else it.optInt("denivele"), it.optString("dif_ski"), it.optString("orientation"),
         it.optString("conditions"), it.optString("auteur"), it.optString("url"),
-        it.optString("skiabilite"), if (it.isNull("etoiles") || !it.has("etoiles")) null else it.optInt("etoiles"))
+        it.optString("skiabilite"), if (it.isNull("etoiles") || !it.has("etoiles")) null else it.optInt("etoiles"),
+        Parking.from(it.optJSONObject("parking")))
 }
 
 /**
@@ -221,4 +245,10 @@ class SkiPanel(
 
 /** Skiabilité comme sur skitour.fr (« 🙂 Bonne », lue par le relais sur la page de la sortie) ;
  *  si le relais n'a que le chiffre de l'API, « skiabilité 1 » (même texte que skiabText de l'appli web). */
+/** « il y a 8 j » depuis la date de la sortie (secondes Unix), comme daysAgo de l'appli web. */
+fun daysAgo(date: Long, now: Long = System.currentTimeMillis()): String {
+    val n = maxOf(0L, (now - date * 1000) / 86_400_000L)
+    return if (n == 0L) "aujourd'hui" else "il y a $n j"
+}
+
 fun skiabText(v: String): String = if (v.isNotEmpty() && v.all { it.isDigit() }) "skiabilité $v" else v

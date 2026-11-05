@@ -10,7 +10,7 @@ import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
-import { outingLabel, type Outing } from './ski/skitour';
+import { outingLabel, parkingText, type Outing } from './ski/skitour';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -100,7 +100,7 @@ export function MapView(props: MapViewProps) {
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
-          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY },
+          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
@@ -123,6 +123,11 @@ export function MapView(props: MapViewProps) {
           { id: 'travel-casing', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': ['case', ['get', 'sel'], 9, 6] } },
           { id: 'travel', type: 'line', source: 'travel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['get', 'sel'], 6, 3], 'line-opacity': ['case', ['get', 'sel'], 1, 0.6] } },
           { id: 'travel-hit', type: 'line', source: 'travel', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
+          // Trait sommet ↔ parking et parking (point gris foncé), sous les points des sommets.
+          { id: 'ski-link', type: 'line', source: 'skiPark', filter: ['==', ['geometry-type'], 'LineString'],
+            paint: { 'line-color': ['case', ['get', 'sel'], '#7b3fe4', '#1d6fe0'], 'line-width': ['case', ['get', 'sel'], 3, 2], 'line-dasharray': [2, 1.5], 'line-opacity': 0.85 } },
+          { id: 'ski-park', type: 'circle', source: 'skiPark', filter: ['==', ['geometry-type'], 'Point'],
+            paint: { 'circle-radius': ['case', ['get', 'sel'], 8, 6], 'circle-color': '#3a4a44', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'ski', type: 'circle', source: 'ski', paint: { 'circle-radius': 8, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
         ],
@@ -155,6 +160,11 @@ export function MapView(props: MapViewProps) {
       if (i != null) onHikeClick.current?.(Number(i));
     });
     m.on('click', 'ski', (e) => {
+      const i = e.features?.[0]?.properties?.i;
+      if (i != null) onSkiClick.current?.(Number(i));
+    });
+    // Parking d'une sortie (son nom et son altitude sont dans l'étiquette) : on choisit la sortie.
+    m.on('click', 'ski-park', (e) => {
       const i = e.features?.[0]?.properties?.i;
       if (i != null) onSkiClick.current?.(Number(i));
     });
@@ -276,10 +286,17 @@ export function MapView(props: MapViewProps) {
     (m.getSource('ski') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).map((o, i) => ({
       type: 'Feature', properties: { i }, geometry: { type: 'Point', coordinates: [o.lon, o.lat] } })) });
     const sel = props.skiSel ?? -1;
+    (m.getSource('skiPark') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).flatMap((o, i) => o.parking ? [
+      { type: 'Feature' as const, properties: { i, sel: i === sel }, geometry: { type: 'LineString' as const, coordinates: [[o.lon, o.lat], [o.parking.lon, o.parking.lat]] } },
+      { type: 'Feature' as const, properties: { i, sel: i === sel }, geometry: { type: 'Point' as const, coordinates: [o.parking.lon, o.parking.lat] } },
+    ] : []) });
     m.setPaintProperty('ski', 'circle-color', ['case', ['==', ['get', 'i'], sel], '#7b3fe4', '#1d6fe0']);
     m.setPaintProperty('ski', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
     const o = props.skiOutings?.[sel];
-    if (o) m.easeTo({ center: [o.lon, o.lat], duration: 600 });
+    // Sortie choisie : on montre le sommet et son parking ensemble.
+    if (o?.parking) m.fitBounds([[Math.min(o.lon, o.parking.lon), Math.min(o.lat, o.parking.lat)], [Math.max(o.lon, o.parking.lon), Math.max(o.lat, o.parking.lat)]],
+      { padding: { top: 60, left: 40, right: 200, bottom: Math.round(m.getContainer().clientHeight * 0.45) }, maxZoom: 15, duration: 600 });
+    else if (o) m.easeTo({ center: [o.lon, o.lat], duration: 600 });
   }, [props.skiOutings, props.skiSel, ready]);
 
   // Étiquettes des sorties skitour à droite des points bleus (nom, étoiles, skiabilité) ; cachées en dessous du zoom 9.
@@ -294,6 +311,14 @@ export function MapView(props: MapViewProps) {
       el.className = `ski-tag${i === props.skiSel ? ' sel' : ''}`;
       el.textContent = outingLabel(o);
       skiMarkers.current.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [13, 0] }).setLngLat([o.lon, o.lat]).addTo(m));
+      if (o.parking) {
+        // Étiquette du parking : nom et altitude ; un appui choisit la sortie.
+        const p = document.createElement('div');
+        p.className = `ski-tag park${i === props.skiSel ? ' sel' : ''}`;
+        p.textContent = parkingText(o.parking);
+        p.onclick = () => onSkiClick.current?.(i);
+        skiMarkers.current.push(new maplibregl.Marker({ element: p, anchor: 'left', offset: [11, 0] }).setLngLat([o.parking.lon, o.parking.lat]).addTo(m));
+      }
     });
     const zoom = () => m.getContainer().classList.toggle('ski-tags-off', m.getZoom() < 9);
     zoom(); m.on('zoom', zoom);

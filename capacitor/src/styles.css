@@ -370,5 +370,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
   white-space: pre; pointer-events: none; border: 1px solid #1d6fe0; box-shadow: 0 1px 3px #0003;
 }
 .ski-tag.sel { border-color: #7b3fe4; font-weight: 700; }
+/* Étiquette du parking (nom, altitude) : appui = choisir la sortie. */
+.ski-tag.park { border-color: #3a4a44; pointer-events: auto; cursor: pointer; }
 .ski-tags-off .ski-tag { display: none; }
 .ski-stars { color: #c9a800; }
