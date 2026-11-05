@@ -356,6 +356,7 @@
             style="@style/Hint" />
     </LinearLayout>
 
+    <!-- Bandeau du rectangle (en haut) ou du tracé au doigt (tout en bas, au-dessus du panneau) : placé par setFraming. -->
     <LinearLayout
         android:id="@+id/frameBanner"
         android:layout_width="match_parent"
@@ -365,12 +366,17 @@
         android:layout_marginTop="10dp"
         android:layout_marginEnd="68dp"
         android:background="@drawable/card_bg"
-        android:elevation="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:elevation="12dp"
+        android:orientation="vertical"
         android:paddingStart="12dp"
         android:paddingEnd="4dp"
         android:visibility="gone">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
         <TextView
             android:id="@+id/frameText"
@@ -395,6 +401,17 @@
             android:layout_height="wrap_content"
             android:text="Annuler"
             android:textAllCaps="false" />
+    </LinearLayout>
+
+        <Button
+            android:id="@+id/btnLoadTraces"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="6dp"
+            android:text="📂 Charger des traces"
+            android:textAllCaps="false"
+            android:visibility="gone" />
     </LinearLayout>
 
 
@@ -824,6 +841,9 @@
                         <Button android:id="@+id/btnDrawPath" style="@style/Btn" android:text="✏ Tracer au doigt" />
                         <Button android:id="@+id/btnTrailsView" style="@style/Btn" android:text="Zone affichée" />
                     </LinearLayout>
+                    <LinearLayout style="@style/Row">
+                        <Button android:id="@+id/btnMyTraces" style="@style/Btn" android:text="📂 Mes traces" />
+                    </LinearLayout>
 
                     <TextView android:id="@+id/trailsInfo" style="@style/Hint" android:visibility="gone" />
                     <TextView android:id="@+id/webInfo" style="@style/Hint" android:visibility="gone" />
@@ -1026,6 +1046,89 @@
         android:layout_gravity="top|start"
         android:layout_marginStart="10dp"
         android:elevation="9dp" />
+
+    <!-- Menu du bas de la trace violette (tracée au doigt ou chargée) : pente, profil, sauvegarder, supprimer -->
+    <LinearLayout
+        android:id="@+id/traceMenu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@drawable/sheet_bg"
+        android:elevation="14dp"
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="12dp"
+        android:clickable="true"
+        android:visibility="gone">
+
+        <View android:layout_width="match_parent" android:layout_height="4dp" android:background="#7B3FE4" android:layout_marginBottom="6dp" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:id="@+id/traceName" android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:textColor="#1D2421" android:textSize="16sp" android:textStyle="bold" />
+            <Button android:id="@+id/btnTraceClose" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✕"
+                android:contentDescription="Fermer le menu de la trace" />
+        </LinearLayout>
+
+        <TextView android:id="@+id/traceInfo" style="@style/Hint" android:layout_marginTop="0dp" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <CheckBox android:id="@+id/chkTraceSlopes" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginEnd="16dp" android:text="Afficher la pente" android:textSize="15sp" />
+            <CheckBox android:id="@+id/chkTraceProfile" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Afficher le profil" android:textSize="15sp" />
+        </LinearLayout>
+
+        <TextView android:id="@+id/traceAltError" style="@style/Hint" android:visibility="gone"
+            android:text="Altitudes indisponibles (pas de réseau ?) : pente et profil ne peuvent pas être calculés." />
+
+        <fr.assomoutain.proto.ProfileView android:id="@+id/traceProfile"
+            android:layout_width="match_parent" android:layout_height="120dp"
+            android:layout_marginTop="6dp" android:visibility="gone" />
+
+        <LinearLayout style="@style/Row">
+            <Button android:id="@+id/btnTraceSave" style="@style/Btn.Primary" android:text="💾 Sauvegarder" />
+            <Button android:id="@+id/btnTraceDelete" style="@style/Btn" android:text="🗑 Supprimer" android:textColor="#C62828" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 📂 Mes traces : traces enregistrées sur le téléphone -->
+    <LinearLayout
+        android:id="@+id/traceListPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@drawable/sheet_bg"
+        android:elevation="14dp"
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="12dp"
+        android:clickable="true"
+        android:visibility="gone">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center_vertical" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="📂 Mes traces" android:textColor="#1D2421" android:textSize="16sp" android:textStyle="bold" />
+            <Button android:id="@+id/btnTraceListClose" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✕"
+                android:contentDescription="Fermer la liste des traces" />
+        </LinearLayout>
+
+        <TextView android:id="@+id/traceListEmpty" style="@style/Hint" android:visibility="gone"
+            android:text="Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder »." />
+
+        <ScrollView android:id="@+id/traceListScroll" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <LinearLayout android:id="@+id/traceList" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:orientation="vertical" />
+        </ScrollView>
+    </LinearLayout>
 
     <!-- Mode nature : petit bouton discret pour faire revenir l'interface -->
     <Button

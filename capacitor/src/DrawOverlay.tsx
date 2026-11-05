@@ -6,9 +6,11 @@ import type { LonLat } from './trails/osmTrails';
  * Tracé au doigt : un calque posé sur la carte capte le doigt et dessine la ligne ;
  * au lâcher, on la convertit en coordonnées (même principe côté Kotlin, DrawPathView).
  */
-export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel }: {
+export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad }: {
   map: MlMap; onPaths: boolean; setOnPaths: (v: boolean) => void;
   onDone: (line: LonLat[]) => void; onCancel: () => void;
+  /** 📂 Charger une trace enregistrée sur le téléphone. */
+  onLoad: () => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const pts = useRef<[number, number][]>([]);
@@ -39,10 +41,14 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel }: {
         // Le calque couvre exactement la carte : mêmes coordonnées écran.
         onDone(p.map(([x, y]) => { const ll = map.unproject([x, y]); return { lon: ll.lng, lat: ll.lat }; }));
       }}>
-      <div className="frame-banner" onPointerDown={(e) => e.stopPropagation()}>
-        <span>Trace ton parcours du doigt</span>
+      {/* Bandeau tout en bas de l'écran (demande de Seb) : le haut de la carte reste libre pour dessiner. */}
+      <div className="frame-banner draw-banner" onPointerDown={(e) => e.stopPropagation()}>
+        <span className="draw-title">✏ Trace ton parcours du doigt</span>
         <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
-        <button onClick={onCancel}>Annuler</button>
+        <div className="draw-actions">
+          <button onClick={onLoad}>📂 Charger des traces</button>
+          <button onClick={onCancel}>Annuler</button>
+        </div>
       </div>
       <svg className="draw-svg"><path d={path} /></svg>
     </div>

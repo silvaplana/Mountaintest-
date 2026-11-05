@@ -255,7 +255,8 @@ object Trails {
     const val MAX_WAYPOINTS = 12
     /** Identifiant réservé au tracé au doigt (les randos OSM ont des identifiants positifs). */
     const val DRAWN_ID = -1L
-    const val DRAWN_COLOR = "#e4572e"
+    /** Violet : la trace dessinée se distingue des randos OSM et de l'enregistrement GPS (rouge). */
+    const val DRAWN_COLOR = "#7b3fe4"
 
     fun lineLengthM(line: List<LonLat>) = line.zipWithNext { a, b -> distanceM(a, b) }.sum()
 

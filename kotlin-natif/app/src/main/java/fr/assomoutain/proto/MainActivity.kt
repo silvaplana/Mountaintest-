@@ -115,6 +115,13 @@ class MainActivity : AppCompatActivity() {
     private val shade by lazy { ShadeFilm(this, { map }, LAYER_FORESTS) }
     private val weather by lazy { WeatherLayer(this, { map }, { shade.active }, LAYER_FORESTS) }
     private val prefs by lazy { getSharedPreferences("reglages", MODE_PRIVATE) }
+    // ✏ Trace violette : son menu du bas, ses cases, et si elle est déjà enregistrée (📂 Mes traces).
+    private val savedTraces by lazy { SavedTraces(this) }
+    private var traceMenuOpen = false
+    private var drawnSlopes = false
+    private var drawnProfile = false
+    private var drawnSavedId: Long? = null
+    private var drawnOnPaths = false
     private var apiKey = ""
 
     private val askTrackPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
@@ -235,7 +242,11 @@ class MainActivity : AppCompatActivity() {
                         // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
                         val prof = findViewById<ProfileView>(R.id.trailProfile)
                         val pd = prof.profile
-                        if (selectedTrail?.id == id && pd != null) {
+                        if (id == Trails.DRAWN_ID && selectedTrail?.id == id) {
+                            // Toucher la trace violette : son menu du bas (et la pente à cet endroit).
+                            if (pd != null) { prof.cursor = pd.nearestD(p.longitude, p.latitude); findViewById<ProfileView>(R.id.traceProfile).cursor = prof.cursor }
+                            showTraceList(null); traceMenuOpen = true; refreshTraceMenu(); showSlopeCursor()
+                        } else if (selectedTrail?.id == id && pd != null) {
                             prof.cursor = pd.nearestD(p.longitude, p.latitude)
                             sheetOpen = true; refreshTabs(); showSlopeCursor()
                         } else trails.firstOrNull { it.id == id }?.let { selectTrail(it) }
@@ -454,6 +465,8 @@ class MainActivity : AppCompatActivity() {
             skiTextPanel?.view?.updatePadding(bottom = bars.bottom + (24 * resources.displayMetrics.density).toInt())
             lodgingPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             sheet.updatePadding(bottom = bars.bottom + 4 * margin)
+            findViewById<View>(R.id.traceMenu).updatePadding(bottom = bars.bottom + margin)
+            findViewById<View>(R.id.traceListPanel).updatePadding(bottom = bars.bottom + margin)
             travelPanel?.view?.updatePadding(bottom = bars.bottom + (48 * resources.displayMetrics.density).toInt())
             findViewById<View>(R.id.btnRestore).updateLayoutParams<android.widget.FrameLayout.LayoutParams> { bottomMargin = bars.bottom + 3 * margin }
             placeScaleBar()
@@ -608,9 +621,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        val labels = if (!slopes) emptyList() else
-            (findViewById<ProfileView>(R.id.trailProfile).profile?.slopeLabels() ?: emptyList()) +
-            (importProfile?.takeIf { imp.size >= 2 }?.let { (p, gps) -> p.slopeLabels(if (gps) 100.0 else 50.0) } ?: emptyList())
+        // « Afficher la pente » du menu de la trace violette : étiquettes sur cette trace seule.
+        val own = slopes || (drawnSlopes && selectedTrail?.id == Trails.DRAWN_ID)
+        val ownLabels = if (!own) null else findViewById<ProfileView>(R.id.trailProfile).profile?.slopeLabels()
+        val importLabels = if (!slopes) null else importProfile?.takeIf { imp.size >= 2 }?.let { (p, gps) -> p.slopeLabels(if (gps) 100.0 else 50.0) }
+        val labels = (ownLabels ?: emptyList()) + (importLabels ?: emptyList())
         val feats = labels.map { l ->
             val img = "slope:" + l.text + ":" + (if (Math.abs(l.deg) >= 17) 2 else if (Math.abs(l.deg) >= 9) 1 else 0)
             if (style.getImage(img) == null) style.addImage(img, slopeTagBitmap(l.text, Math.abs(l.deg)))
@@ -1114,12 +1129,29 @@ class MainActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("recaler", c).apply() }
         }
         val startDrawing = View.OnClickListener {
+            traceMenuOpen = false; showTraceList(null)
             // Nouveau tracé : l'ancien disparaît tout de suite.
             trails = trails.filter { it.id != Trails.DRAWN_ID }
             if (selectedTrail?.id == Trails.DRAWN_ID) selectTrail(null) else drawTrails(fit = false)
             framingForOffline = false; framingForForests = false; setFraming(true, freehand = true)
         }
         findViewById<Button>(R.id.btnDrawPath).setOnClickListener(startDrawing)
+        findViewById<Button>(R.id.btnLoadTraces).setOnClickListener { setFraming(false); openTraceList() }
+        findViewById<Button>(R.id.btnMyTraces).setOnClickListener { openTraceList() }
+        findViewById<Button>(R.id.btnTraceListClose).setOnClickListener { showTraceList(null) }
+        findViewById<Button>(R.id.btnTraceClose).setOnClickListener { traceMenuOpen = false; refreshTraceMenu() }
+        findViewById<CheckBox>(R.id.chkTraceSlopes).setOnCheckedChangeListener { _, c -> drawnSlopes = c; refreshTraceMenu(); refreshSlopeTags() }
+        findViewById<CheckBox>(R.id.chkTraceProfile).setOnCheckedChangeListener { _, c -> drawnProfile = c; refreshTraceMenu() }
+        findViewById<ProfileView>(R.id.traceProfile).onCursor = { c ->
+            findViewById<ProfileView>(R.id.trailProfile).cursor = c; showSlopeCursor()
+        }
+        findViewById<Button>(R.id.btnTraceSave).setOnClickListener { saveDrawn() }
+        findViewById<Button>(R.id.btnTraceDelete).setOnClickListener {
+            // La trace quitte la carte ; une trace enregistrée reste dans 📂 Mes traces.
+            trails = trails.filter { it.id != Trails.DRAWN_ID }
+            drawnSavedId = null
+            selectTrail(null)
+        }
         findViewById<Button>(R.id.btnQuickDraw).setOnClickListener(startDrawing)
         draw.onLine = { pts ->
             val proj = map?.projection
@@ -1127,8 +1159,9 @@ class MainActivity : AppCompatActivity() {
             if (proj != null) drawDone(pts.map { val ll = proj.fromScreenLocation(it); LonLat(ll.longitude, ll.latitude) })
         }
         findViewById<Button>(R.id.btnFrameCancel).setOnClickListener {
+            val freehand = draw.freehand
             setFraming(false); framingForOffline = false; framingForForests = false
-            sheetOpen = true; refreshTabs()
+            if (!freehand) { sheetOpen = true; refreshTabs() }
         }
         // Une seule icône ⛷ : la liste « Sorties ski » ; sa carte s'ouvre avec 🗺 à droite du titre.
         findViewById<Button>(R.id.btnSki).visibility = View.GONE
@@ -1366,6 +1399,16 @@ class MainActivity : AppCompatActivity() {
             else -> "Trace un rectangle du doigt sur la zone"
         }
         findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnLoadTraces).visibility = if (freehand) View.VISIBLE else View.GONE
+        // Tracé au doigt : bandeau tout en bas de l'écran (demande de Seb), le haut reste libre pour dessiner.
+        val m = (10 * resources.displayMetrics.density).toInt()
+        findViewById<View>(R.id.frameBanner).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
+            gravity = if (freehand) android.view.Gravity.BOTTOM or android.view.Gravity.START else android.view.Gravity.TOP or android.view.Gravity.START
+            topMargin = if (freehand) 0 else navTop + m
+            bottomMargin = if (freehand) navBottom + m else 0
+            marginEnd = if (freehand) m else (68 * resources.displayMetrics.density).toInt()
+        }
+        if (on) { traceMenuOpen = false; refreshTraceMenu(); showTraceList(null) }
         findViewById<View>(R.id.quickButtons).visibility = if (on) View.GONE else View.VISIBLE
         draw.visibility = if (on) View.VISIBLE else View.GONE
         findViewById<View>(R.id.frameBanner).visibility = if (on) View.VISIBLE else View.GONE
@@ -1507,20 +1550,140 @@ class MainActivity : AppCompatActivity() {
 
     /** Ligne dessinée : recalée sur les chemins (IGN) si demandé et possible, puis mesurée comme une rando. */
     private fun drawDone(line: List<LonLat>) {
-        tab = Tab.RANDOS; sheetOpen = true; refreshTabs()
         val onPaths = findViewById<CheckBox>(R.id.chkOnPaths).isChecked
-        trailsMessage = if (onPaths) "Calcul du chemin sur les sentiers…" else ""
-        refreshTrails()
+        if (onPaths) Toast.makeText(this, "Calcul du chemin sur les sentiers…", Toast.LENGTH_SHORT).show()
         trailsJob?.cancel()
         trailsJob = lifecycleScope.launch {
             var used = onPaths
             val final = if (!onPaths) line else withContext(Dispatchers.IO) {
                 runCatching { Trails.routeOnPaths(Trails.waypoints(line)) }.getOrNull()
             } ?: line.also { used = false }
-            trailsMessage = if (onPaths && !used) "Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle." else ""
-            val t = Trails.drawnTrail(final, used)
-            trails = listOf(t) + trails.filter { it.id != Trails.DRAWN_ID }
-            selectTrail(t)
+            if (onPaths && !used) toast("Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle.")
+            showDrawn(Trails.drawnTrail(final, used), used, null)
+        }
+    }
+
+    /** Affiche une trace violette (dessinée ou chargée) et ouvre son menu en bas. */
+    private fun showDrawn(t: Trail, used: Boolean, savedId: Long?) {
+        drawnOnPaths = used; drawnSavedId = savedId
+        trails = listOf(t) + trails.filter { it.id != Trails.DRAWN_ID }
+        selectTrail(t)
+    }
+
+    private fun openTraceList() {
+        traceMenuOpen = false; refreshTraceMenu()
+        sheetOpen = false; refreshTabs()
+        showTraceList(savedTraces.list())
+    }
+
+    /** Liste 📂 des traces enregistrées (null : fermée). Toucher : l'afficher ; 🗑 : l'effacer du téléphone. */
+    private fun showTraceList(list: List<SavedTrace>?) {
+        val panel = findViewById<View>(R.id.traceListPanel)
+        panel.visibility = if (list != null) View.VISIBLE else View.GONE
+        if (list == null) return
+        findViewById<View>(R.id.traceListEmpty).visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        val box = findViewById<android.widget.LinearLayout>(R.id.traceList)
+        box.removeAllViews()
+        val d = resources.displayMetrics.density
+        list.forEach { st ->
+            box.addView(android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                addView(android.widget.LinearLayout(this@MainActivity).apply {
+                    orientation = android.widget.LinearLayout.HORIZONTAL
+                    setPadding((4 * d).toInt(), (10 * d).toInt(), (4 * d).toInt(), (10 * d).toInt())
+                    setBackgroundResource(android.R.drawable.list_selector_background)
+                    isClickable = true
+                    addView(View(this@MainActivity).apply { setBackgroundColor(Color.parseColor(Trails.DRAWN_COLOR)) },
+                        android.widget.LinearLayout.LayoutParams((6 * d).toInt(), android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+                            .apply { marginEnd = (10 * d).toInt() })
+                    addView(TextView(this@MainActivity).apply {
+                        val sub = String.format(Locale.FRANCE, "%.2f km", st.distanceM / 1000) + (if (st.onPaths) " · recalée sur les chemins" else "")
+                        text = android.text.SpannableString("${st.name}\n$sub").apply {
+                            setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, st.name.length, 0)
+                            setSpan(android.text.style.ForegroundColorSpan(Color.parseColor("#1D2421")), 0, st.name.length, 0)
+                            setSpan(android.text.style.RelativeSizeSpan(0.85f), st.name.length + 1, st.name.length + 1 + sub.length, 0)
+                        }
+                        textSize = 15f
+                        setTextColor(ContextCompat.getColor(this@MainActivity, R.color.muted))
+                    })
+                    setOnClickListener {
+                        showTraceList(null)
+                        showDrawn(Trails.drawnTrail(st.line, st.onPaths).copy(name = st.name), st.onPaths, st.id)
+                    }
+                }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(Button(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
+                    text = "🗑"; contentDescription = "Effacer ${st.name}"
+                    setOnClickListener {
+                        android.app.AlertDialog.Builder(this@MainActivity)
+                            .setMessage("Effacer « ${st.name} » du téléphone ?")
+                            .setPositiveButton("Effacer") { _, _ ->
+                                savedTraces.delete(st.id)
+                                if (drawnSavedId == st.id) { drawnSavedId = null; refreshTraceMenu() }
+                                showTraceList(savedTraces.list())
+                            }
+                            .setNegativeButton("Annuler", null).show()
+                    }
+                })
+            })
+            box.addView(View(this).apply { setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.line)) },
+                android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, 1))
+        }
+        // Longue liste : la moitié de l'écran au plus, elle défile.
+        val scroll = findViewById<View>(R.id.traceListScroll)
+        scroll.updateLayoutParams<android.widget.LinearLayout.LayoutParams> {
+            height = if (list.size > 6) resources.displayMetrics.heightPixels / 2 else android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        }
+    }
+
+    /** 💾 Sauvegarder : on propose un nom, la trace est rangée dans 📂 Mes traces. */
+    private fun saveDrawn() {
+        val sel = selectedTrail?.takeIf { it.id == Trails.DRAWN_ID } ?: return
+        val input = EditText(this).apply { setText(SavedTraces.defaultName()); selectAll() }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Nom de la trace")
+            .setView(input)
+            .setPositiveButton("Sauvegarder") { _, _ ->
+                val name = input.text.toString().trim().ifEmpty { SavedTraces.defaultName() }
+                val st = savedTraces.save(name, sel.segments.flatten(), drawnOnPaths)
+                val t = sel.copy(name = st.name)
+                selectedTrail = t
+                trails = trails.map { if (it.id == Trails.DRAWN_ID) t else it }
+                drawnSavedId = st.id
+                refreshTrails()
+                toast("💾 Trace « ${st.name} » enregistrée sur le téléphone")
+            }
+            .setNegativeButton("Annuler", null).show()
+    }
+
+    /** Menu du bas de la trace violette : visible quand elle est choisie et que le menu est ouvert. */
+    private fun refreshTraceMenu() {
+        val sel = selectedTrail?.takeIf { it.id == Trails.DRAWN_ID }
+        val menu = findViewById<View>(R.id.traceMenu)
+        val show = sel != null && traceMenuOpen
+        menu.visibility = if (show) View.VISIBLE else View.GONE
+        if (!show || sel == null) return
+        findViewById<TextView>(R.id.traceName).text = sel.name
+        val e = elevated?.getOrNull()
+        val wait = if (elevated == null) "…" else "—"
+        val walk = e?.let {
+            val min = Math.round(Trails.walkingHours(sel.distanceM, it.gainM, it.lossM) * 60).toInt()
+            String.format(Locale.FRANCE, " · %dh%02d de marche", min / 60, min % 60)
+        } ?: ""
+        findViewById<TextView>(R.id.traceInfo).text = String.format(Locale.FRANCE, "%.2f km", sel.distanceM / 1000) +
+            " · D+ ${e?.let { "${it.gainM.toInt()} m" } ?: wait} · D− ${e?.let { "${it.lossM.toInt()} m" } ?: wait}$walk"
+        findViewById<CheckBox>(R.id.chkTraceSlopes).isChecked = drawnSlopes
+        findViewById<CheckBox>(R.id.chkTraceProfile).isChecked = drawnProfile
+        findViewById<View>(R.id.traceAltError).visibility =
+            if ((drawnSlopes || drawnProfile) && elevated?.isFailure == true) View.VISIBLE else View.GONE
+        findViewById<ProfileView>(R.id.traceProfile).apply {
+            setData(e?.segments)
+            cursor = findViewById<ProfileView>(R.id.trailProfile).cursor
+            visibility = if (drawnProfile && e != null) View.VISIBLE else View.GONE
+        }
+        findViewById<Button>(R.id.btnTraceSave).apply {
+            isEnabled = drawnSavedId == null
+            text = if (drawnSavedId == null) "💾 Sauvegarder" else "✓ Enregistrée"
         }
     }
 
@@ -1528,7 +1691,10 @@ class MainActivity : AppCompatActivity() {
         selectedTrail = t
         elevated = null
         elevJob?.cancel()
-        if (t != null) { tab = Tab.RANDOS; sheetOpen = true; refreshTabs() }
+        // La trace violette a son propre menu en bas ; les randos s'ouvrent dans le panneau.
+        traceMenuOpen = t?.id == Trails.DRAWN_ID
+        if (t?.id == Trails.DRAWN_ID) { showTraceList(null); sheetOpen = false; refreshTabs() }
+        else if (t != null) { tab = Tab.RANDOS; sheetOpen = true; refreshTabs() }
         drawTrails(fit = t != null)
         refreshTrails()
         if (t == null) return
@@ -1569,7 +1735,9 @@ class MainActivity : AppCompatActivity() {
             val sheet = findViewById<View>(R.id.sheet)
             sheet.post {
                 val h = mapView.height
-                val bottom = (sheet.height + 20 * d).toInt().coerceAtMost(h - (200 * d).toInt()).coerceAtLeast((20 * d).toInt())
+                // Trace violette : son menu du bas mesure environ 230 dp.
+                val below = if (sel.id == Trails.DRAWN_ID) maxOf(sheet.height, (230 * d).toInt()) else sheet.height
+                val bottom = (below + 20 * d).toInt().coerceAtMost(h - (200 * d).toInt()).coerceAtLeast((20 * d).toInt())
                 runCatching {
                     map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(),
                         (30 * d).toInt(), (140 * d).toInt(), (70 * d).toInt(), bottom), 800)
@@ -1654,6 +1822,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.btnTrailsClear).visibility = if (trails.isNotEmpty() || webHikes.isNotEmpty()) View.VISIBLE else View.GONE
         refreshWebHikes()
+        refreshTraceMenu()
     }
 
     private fun exportTrailTo(uri: Uri) {

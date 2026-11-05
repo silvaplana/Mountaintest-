@@ -155,7 +155,7 @@ progress { width: 100%; }
 
 /* Tracé au doigt et profil en coupe */
 .draw-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.draw-svg path { fill: none; stroke: #e4572e; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.draw-svg path { fill: none; stroke: #7b3fe4; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .frame-banner label.paths { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .profile { width: 100%; height: auto; display: block; }
 .profile text { font-size: 9px; fill: var(--muted); }
@@ -446,3 +446,26 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-menu.lines button.iti.on { background: #2e9d4f; color: #fff; }
 /* ✕ en haut à droite de la photo en grand (le retour Android la ferme aussi). */
 .ski-big .ski-big-close { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; background: #fff; color: #000; border-radius: 999px; }
+
+/* ✏ Tracé au doigt : bandeau en bas, menu de la trace violette, liste des traces enregistrées. */
+.frame-banner.draw-banner { top: auto; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 10px); flex-wrap: wrap; padding: 8px 10px; }
+.draw-banner .draw-title { flex: 1 1 auto; font-weight: 600; }
+.draw-banner .draw-actions { display: flex; gap: 8px; flex: 1 1 100%; }
+.draw-banner .draw-actions button { flex: 1; }
+.trace-menu {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; max-height: 70%; overflow-y: auto;
+  background: var(--bg); border-radius: 16px 16px 0 0; box-shadow: 0 -2px 12px #0004;
+  padding: 10px 14px calc(env(safe-area-inset-bottom) + 12px); display: flex; flex-direction: column; gap: 8px;
+  border-top: 4px solid #7b3fe4;
+}
+.trace-menu .head { display: flex; align-items: center; gap: 8px; }
+.trace-menu .head b { flex: 1; }
+.trace-menu .head .close { min-height: 36px; padding: 4px 10px; }
+.trace-menu .checks { display: flex; gap: 18px; flex-wrap: wrap; }
+.trace-menu .checks label { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+.trace-menu .row button { flex: 1; }
+.trace-menu button.danger { color: #c62828; border-color: #c6282855; }
+.trace-menu .trail-list button { padding: 10px 4px; }
+.trace-menu .trail-list li { display: flex; align-items: center; }
+.trace-menu .trail-list li > button:first-child { flex: 1; }
+.trace-menu .trail-list .del { width: auto; flex: 0 0 auto; padding: 8px 12px; color: #c62828; }

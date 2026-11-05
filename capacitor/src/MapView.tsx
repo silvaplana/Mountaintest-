@@ -276,7 +276,8 @@ export function MapView(props: MapViewProps) {
       // Haut : barres « fond de carte » et « Y aller » ; bas : le panneau ouvert.
       const sheet = document.querySelector('.sheet')?.getBoundingClientRect().height ?? 0;
       const h = m.getContainer().clientHeight;
-      const bottom = Math.min(sheet + 20, h - 200);
+      // Trace violette (id -1) : son menu du bas mesure environ 230 px.
+      const bottom = Math.min(Math.max(sheet, t.id === -1 ? 230 : 0) + 20, h - 200);
       m.fitBounds(b, { padding: { top: 140, left: 30, right: 70, bottom: Math.max(20, bottom) }, duration: 800 });
     }
   }, [props.selectedTrail, ready]);
