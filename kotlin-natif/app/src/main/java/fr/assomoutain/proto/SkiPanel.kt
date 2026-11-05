@@ -423,6 +423,11 @@ class SkiPanel(
     /** Ouvre la fiche texte de la sortie (appui sur la carte). */
     fun openSheet(x: Outing) = onSheet(x)
 
+    /** Plus de sortie choisie (appui ailleurs sur la carte) : son étiquette disparaît. */
+    fun clearSelection() {
+        selId = null; detail.removeAllViews(); onOutings(outings, null)
+    }
+
     /** Sortie choisie (dans la liste ou en touchant son point). */
     fun select(i: Int) {
         val x = outings.getOrNull(i) ?: return

@@ -221,6 +221,8 @@ class MainActivity : AppCompatActivity() {
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { openSkiFromTag(it); return@addOnMapClickListener true }
                 if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, LAYER_SKI, LAYER_SKI_PARK)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { selectSki(it); return@addOnMapClickListener true }
+                // Appui ailleurs : l'étiquette de la sortie choisie disparaît (le clic continue vers le reste).
+                if (skiSel != null) { skiPanel?.clearSelection() ?: drawSki(skiOutings, null) }
                 // Trait d'un itinéraire du voyage : on le choisit.
                 if (travelPanel?.routes?.isNotEmpty() == true) m.queryRenderedFeatures(box, LAYER_TRAVEL)
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { travelPanel?.select(it); return@addOnMapClickListener true }

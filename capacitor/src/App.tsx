@@ -560,6 +560,7 @@ export function App() {
         skiOutings={skiOutings} skiSel={skiSel}
         // Appui sur une sortie (point, étiquette ou parking) : on la choisit et on ouvre sa fiche texte.
         onSkiClick={(i) => setSkiSel(i)}
+        onSkiClear={() => setSkiSel(null)}
         onSkiOpen={(i) => { setSkiSel(i); const o = skiOutings[i]; if (o) setSkiSheet(rowOf(o)); }}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} top={10} />}

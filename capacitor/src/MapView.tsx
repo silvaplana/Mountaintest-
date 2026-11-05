@@ -54,6 +54,8 @@ export interface MapViewProps {
   onSkiClick?: (i: number) => void;
   /** Appui sur l'étiquette de la sortie choisie : ouvrir sa fiche. */
   onSkiOpen?: (i: number) => void;
+  /** Appui ailleurs sur la carte : l'étiquette de la sortie choisie disparaît. */
+  onSkiClear?: () => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -89,6 +91,8 @@ export function MapView(props: MapViewProps) {
   onSkiClick.current = props.onSkiClick;
   const onSkiOpen = useRef(props.onSkiOpen);
   onSkiOpen.current = props.onSkiOpen;
+  const onSkiClear = useRef(props.onSkiClear);
+  onSkiClear.current = props.onSkiClear;
   const onTravelClick = useRef(props.onTravelClick);
   onTravelClick.current = props.onTravelClick;
 
@@ -169,6 +173,12 @@ export function MapView(props: MapViewProps) {
     m.on('click', 'web-hikes', (e) => {
       const i = e.features?.[0]?.properties?.i;
       if (i != null) onHikeClick.current?.(Number(i));
+    });
+    // Appui ailleurs que sur un point, un parking ou une étiquette de sortie : on enlève l'étiquette.
+    m.on('click', (e) => {
+      if ((e.originalEvent.target as HTMLElement | null)?.closest?.('.ski-tag')) return;
+      const layers = ['ski', 'ski-park'].filter((l) => m.getLayer(l));
+      if (!m.queryRenderedFeatures(e.point, { layers }).length) onSkiClear.current?.();
     });
     m.on('click', 'ski', (e) => {
       const i = e.features?.[0]?.properties?.i;
