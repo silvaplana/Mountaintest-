@@ -11,6 +11,7 @@ import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
 import { outingLabel, parkingText, type Outing } from './ski/skitour';
+import { placeLabels } from './ski/labels';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -306,23 +307,43 @@ export function MapView(props: MapViewProps) {
     skiMarkers.current.forEach((k) => k.remove());
     skiMarkers.current = [];
     if (!m) return;
+    // Étiquettes posées en haut à gauche, décalées par placeLabels pour éviter les chevauchements (sortie choisie d'abord).
+    const tags: { mk: maplibregl.Marker; el: HTMLElement; ll: [number, number]; sel: boolean }[] = [];
+    const add = (el: HTMLElement, ll: [number, number], sel: boolean) => {
+      const mk = new maplibregl.Marker({ element: el, anchor: 'top-left', offset: [13, -8] }).setLngLat(ll).addTo(m);
+      skiMarkers.current.push(mk); tags.push({ mk, el, ll, sel });
+    };
     (props.skiOutings ?? []).forEach((o, i) => {
       const el = document.createElement('div');
       el.className = `ski-tag${i === props.skiSel ? ' sel' : ''}`;
       el.textContent = outingLabel(o);
-      skiMarkers.current.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [13, 0] }).setLngLat([o.lon, o.lat]).addTo(m));
+      add(el, [o.lon, o.lat], i === props.skiSel);
       if (o.parking) {
         // Étiquette du parking : nom et altitude ; un appui choisit la sortie.
         const p = document.createElement('div');
         p.className = `ski-tag park${i === props.skiSel ? ' sel' : ''}`;
-        p.textContent = parkingText(o.parking);
+        const pp = document.createElement('b');
+        pp.className = 'park-p'; pp.textContent = 'P';
+        p.append(pp, parkingText(o.parking));
         p.onclick = () => onSkiClick.current?.(i);
-        skiMarkers.current.push(new maplibregl.Marker({ element: p, anchor: 'left', offset: [11, 0] }).setLngLat([o.parking.lon, o.parking.lat]).addTo(m));
+        add(p, [o.parking.lon, o.parking.lat], i === props.skiSel);
       }
     });
+    const order = [...tags.filter((t) => t.sel), ...tags.filter((t) => !t.sel)];
+    const layout = () => {
+      if (m.getZoom() < 9 || !order.length) return;
+      const pts = order.map((t) => m.project(t.ll));
+      const c = m.getContainer();
+      // Écran sans la colonne d'icônes de droite (≈ 70 px).
+      const offs = placeLabels(order.map((t, n) => ({ x: pts[n].x, y: pts[n].y, w: t.el.offsetWidth, h: t.el.offsetHeight })), pts,
+        { w: c.clientWidth - 70, h: c.clientHeight });
+      order.forEach((t, n) => t.mk.setOffset(offs[n]));
+    };
     const zoom = () => m.getContainer().classList.toggle('ski-tags-off', m.getZoom() < 9);
     zoom(); m.on('zoom', zoom);
-    return () => { m.off('zoom', zoom); };
+    m.on('moveend', layout);
+    requestAnimationFrame(layout);
+    return () => { m.off('zoom', zoom); m.off('moveend', layout); };
   }, [props.skiOutings, props.skiSel, ready]);
 
   const slopeMarkers = useRef<maplibregl.Marker[]>([]);

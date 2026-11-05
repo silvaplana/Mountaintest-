@@ -52,8 +52,8 @@ data class Outing(val id: Long, val titre: String, val date: Long, val massif: S
 
 /** Parking (point de départ) d'une sortie, même modèle que Parking de src/ski/skitour.ts. */
 data class Parking(val nom: String, val altitude: Int?, val lat: Double, val lon: Double) {
-    /** « 🅿 Parking de Chiazale (1650 m) » */
-    fun text() = "🅿 " + nom.ifEmpty { "Parking" } + (altitude?.let { " ($it m)" } ?: "")
+    /** « P Val Thorens (2300 m) » : le P est dessiné en bleu par skiTagBitmap (même texte que parkingText de l'appli web). */
+    fun text() = listOf("P", nom, altitude?.let { "($it m)" } ?: "").filter { it.isNotEmpty() }.joinToString(" ")
     fun toJson(): JSONObject = JSONObject().put("nom", nom).put("altitude", altitude ?: JSONObject.NULL).put("lat", lat).put("lon", lon)
     companion object {
         fun from(o: JSONObject?): Parking? {
@@ -164,11 +164,22 @@ class SkiPanel(
     private val periods = listOf(7 to "7 derniers jours", 30 to "30 derniers jours", 90 to "3 derniers mois", 365 to "12 derniers mois")
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
     private val cache = SkitourCache(java.io.File(a.filesDir, "skitour-cache.json"))
+    private var low = false
 
     init {
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(text("⛷ Sorties ski de rando", 16f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
+            // ▾ réduit le panneau à cette seule ligne (titre, flèche, croix) pour voir la carte ; ▴ le remet.
+            addView(Button(a).apply {
+                text = "▾"; contentDescription = "Réduire le panneau"
+                setOnClickListener {
+                    low = !low
+                    text = if (low) "▴" else "▾"; contentDescription = if (low) "Agrandir le panneau" else "Réduire le panneau"
+                    for (k in 1 until col.childCount) col.getChildAt(k).visibility = if (low) android.view.View.GONE else android.view.View.VISIBLE
+                    view.layoutParams = view.layoutParams.apply { height = -2 }
+                }
+            }, LinearLayout.LayoutParams(dp(48), dp(44)))
             addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
         })
         val spin = Spinner(a).apply {
