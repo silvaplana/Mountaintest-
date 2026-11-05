@@ -20,7 +20,7 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   const [days, setDays] = useState(() => { try { return periodOk(Number(localStorage.getItem('skitourJours'))); } catch { return 30; } });
   const [skiMax, setSkiMax] = useState(() => { try { return Number(localStorage.getItem('skitourSkiMax')) || 0; } catch { return 0; } });
   // Un seul filtre déplié à la fois, au-dessus de la ligne des pastilles.
-  const [menu, setMenu] = useState<'days' | 'ski' | 'lines' | null>(null);
+  const [menu, setMenu] = useState<'days' | 'ski' | null>(null);
   const skiRef = useRef(skiMax);
   skiRef.current = skiMax;
   // Cases « Trace » (GPX de la sortie) et « Itinéraire » (GPX de son topo), dessinées sur la carte comme sur skitour.fr.
@@ -39,6 +39,8 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   const asked = useRef(new Set<number>()); // déjà demandés (une fois par ouverture, même si la réponse manque)
   const selId = useRef<number | null>(null);
   selId.current = selected != null ? outings[selected]?.id ?? null : null;
+  // Sortie venue de la fiche texte (🗺 Carte) : gardée sur la carte même si elle sort de la période choisie.
+  const pinned = useRef<Outing | null>(selected != null ? outings[selected] ?? null : null);
   useEffect(() => {
     let live = true;
     setBusy(true); setError(''); setOffline(null); setAll([]);
@@ -58,9 +60,11 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       setTooFar(far);
       const b = map.getBounds();
       const L = linesRef.current;
-      const vis = far ? [] : inView(all.filter((o) => skiOk(o, skiRef.current)), [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
+      const vis: Outing[] = far ? [] : inView(all.filter((o) => skiOk(o, skiRef.current)), [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()])
         .map((o) => withDetails(o, det.current))
         .map((o) => ({ ...o, trace: L.trace ? o.trace : undefined, itineraire: L.iti ? o.itineraire : undefined }));
+      const p = pinned.current;
+      if (p && p.id === selId.current && !vis.some((o) => o.id === p.id)) vis.unshift(p);
       onOutings(vis);
       const k = vis.findIndex((o) => o.id === selId.current);
       onSelect(k >= 0 ? k : null);
@@ -94,12 +98,6 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   // Filtres en pastilles, tous visibles ; celui qu'on touche se déplie au-dessus (un seul à la fois), un choix le replie.
   const head = (<>
     {menu === 'days' && choices(PERIODS, days, setDays, '')}
-    {menu === 'lines' && <div className="ski-menu lines">
-      {([['trace', 'Trace GPX'], ['iti', 'Itinéraire']] as const).map(([k, t]) => (
-        <button key={k} role="checkbox" aria-checked={lines[k]} className={lines[k] ? 'on' : ''} onClick={() => {
-          const v = { ...lines, [k]: !lines[k] }; setLines(v);
-          try { localStorage.setItem('skitourLignes', JSON.stringify(v)); } catch { /* ignoré */ }
-        }}>{lines[k] ? '☑' : '☐'} {t}</button>))}</div>}
     {menu === 'ski' && choices(SKI_LEVELS, skiMax, (v) => { setSkiMax(v); try { localStorage.setItem('skitourSkiMax', String(v)); } catch { /* ignoré */ } }, 'ski')}
     <div className="travel-head ski-head"><span className="hint">{count}</span>
       <span className="head-btns">
@@ -107,11 +105,16 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
           onClick={() => setMenu(menu === 'days' ? null : 'days')}>{periodLabel(days)} {menu === 'days' ? '▴' : '▾'}</button>
         <button className="ski-pill ski" aria-label="Difficulté ski maximale" aria-expanded={menu === 'ski'}
           onClick={() => setMenu(menu === 'ski' ? null : 'ski')}>{skiLabel(skiMax)} {menu === 'ski' ? '▴' : '▾'}</button>
-        <button className="ski-pill lines" aria-label="Traces et itinéraires" aria-expanded={menu === 'lines'}
-          onClick={() => setMenu(menu === 'lines' ? null : 'lines')}>〰 {menu === 'lines' ? '▴' : '▾'}</button>
         <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir le panneau' : 'Réduire le panneau'}>{low ? '▴' : '▾'}</button>
         <button onClick={onClose} aria-label="Fermer">✕</button>
       </span></div>
+    {/* Cases toujours visibles, sous les filtres, aux couleurs des lignes de la carte. */}
+    <div className="ski-menu lines">
+      {([['trace', 'Trace GPX'], ['iti', 'Itinéraire']] as const).map(([k, t]) => (
+        <button key={k} role="checkbox" aria-checked={lines[k]} className={`${k}${lines[k] ? ' on' : ''}`} onClick={() => {
+          const v = { ...lines, [k]: !lines[k] }; setLines(v);
+          try { localStorage.setItem('skitourLignes', JSON.stringify(v)); } catch { /* ignoré */ }
+        }}>{lines[k] ? '☑' : '☐'} {t}</button>))}</div>
   </>);
   if (low) return <div className="travel" hidden={hidden}>{head}</div>;
   return (

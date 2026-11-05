@@ -1157,7 +1157,7 @@ class MainActivity : AppCompatActivity() {
     private var skiPanel: SkiPanel? = null
     private var skiOutings: List<Outing> = emptyList()
     /** ⛷🗺 : sorties de l'écran affiché (plus de zone à encadrer), mises à jour à chaque arrêt de la carte. */
-    private fun openSki() {
+    private fun openSki(pinned: Outing? = null) {
         closeSki()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         val viewport = {
@@ -1167,7 +1167,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         val p = SkiPanel(this, password, viewport, onOutings = { o, sel -> drawSki(o, sel) }, onClose = { closeSki() },
-            onSheet = { x -> openSkiSheet(x, password) })
+            onSheet = { x -> openSkiSheet(x, password) }, pinned = pinned)
         skiPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
@@ -1177,7 +1177,7 @@ class MainActivity : AppCompatActivity() {
         closeSkiText()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         drawSki(emptyList(), null)
-        val p = SkiTextPanel(this, password, onShowOnMap = { o, at -> closeSkiText(); drawSki(listOf(o), 0); flyToSki(at) }, onClose = { closeSkiText() },
+        val p = SkiTextPanel(this, password, onShowOnMap = { o, at -> closeSkiText(); closeTravel(); closeLodging(); openSki(o); flyToSki(at) }, onClose = { closeSkiText() },
             onOpenMap = { closeSkiText(); closeTravel(); closeLodging(); closeSki(); openSki() })
         skiTextPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
