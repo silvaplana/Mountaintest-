@@ -70,7 +70,7 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   const sel = selected != null ? outings[selected] : null;
   // Première ligne (sans titre : on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
   // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
-  const [low, setLow] = useState(false);
+  const [low, setLow] = useState(true); // ouvert réduit : juste la première ligne, la carte d'abord
   const count = busy ? 'Recherche…' : error ? '' : tooFar ? 'Zoome sur une région'
     : `${outings.length} sortie${outings.length > 1 ? 's' : ''} à l'écran`;
   const head = (<>

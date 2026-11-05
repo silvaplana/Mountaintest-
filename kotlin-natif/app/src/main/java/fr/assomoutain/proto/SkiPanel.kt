@@ -249,6 +249,7 @@ class SkiPanel(
     private var offline: Long? = null
     private var selId: Long? = null
     private var low = false
+    private val lowBtn = Button(a)
 
     init {
         days = prefs.getInt("skitourJours", 30).takeIf { d -> periods.any { it.first == d } } ?: 30
@@ -265,17 +266,7 @@ class SkiPanel(
             gravity = Gravity.CENTER_VERTICAL
             addView(count, LinearLayout.LayoutParams(0, -2, 1f))
             addView(pill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
-            addView(Button(a).apply {
-                text = "▾"; contentDescription = "Réduire le panneau"
-                setOnClickListener {
-                    low = !low
-                    text = if (low) "▴" else "▾"; contentDescription = if (low) "Agrandir le panneau" else "Réduire le panneau"
-                    // Le menu de période (enfant 1) reste utilisable même panneau réduit.
-                    for (k in 2 until col.childCount) col.getChildAt(k).visibility = if (low) android.view.View.GONE else android.view.View.VISIBLE
-                    if (status.text.isEmpty()) status.visibility = android.view.View.GONE
-                    view.layoutParams = view.layoutParams.apply { height = -2 }
-                }
-            }, LinearLayout.LayoutParams(dp(48), dp(44)))
+            addView(lowBtn.apply { setOnClickListener { setLow(!low) } }, LinearLayout.LayoutParams(dp(48), dp(44)))
             addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
         })
         // Les choix de période sur deux lignes, juste sous la pastille ; un choix referme la liste.
@@ -297,7 +288,17 @@ class SkiPanel(
         showMenu(false)
         col.addView(status); col.addView(detail); col.addView(list)
         col.addView(text("Données skitour.fr (CC BY-NC-ND pour les récits)."))
+        setLow(true) // ouvert réduit : juste la première ligne, la carte d'abord
         view.post { load(days) } // après l'init complet (job, detJob)
+    }
+
+    /** ▾ réduit le panneau à sa première ligne (le menu de période, enfant 1, reste utilisable) ; ▴ le remet. */
+    private fun setLow(v: Boolean) {
+        low = v
+        lowBtn.text = if (v) "▴" else "▾"; lowBtn.contentDescription = if (v) "Agrandir le panneau" else "Réduire le panneau"
+        for (k in 2 until col.childCount) col.getChildAt(k).visibility = if (v) android.view.View.GONE else android.view.View.VISIBLE
+        if (status.text.isEmpty()) status.visibility = android.view.View.GONE
+        view.layoutParams = view.layoutParams.apply { height = -2 }
     }
 
     private fun showMenu(open: Boolean) {
