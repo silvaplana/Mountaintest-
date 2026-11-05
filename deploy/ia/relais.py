@@ -956,6 +956,31 @@ def cumuls():
     return {"cumul_mois_usd": round(du_mois, 4), "cumul_total_usd": round(total, 4), "recherches_payantes": n}
 
 
+def detail_couts():
+    """Cumul par usage (randos, voiture, voyage, hebergement, facture…) pour l'écran « Usage IA et mémoire » de l'appli."""
+    par = {}
+    try:
+        with open(_fichier("couts.jsonl")) as f:
+            for l in f:
+                try:
+                    c = json.loads(l)
+                except ValueError:
+                    continue
+                t = c.get("type", "randos")
+                d = par.setdefault(t, {"cout_usd": 0.0, "requetes": 0, "premiere": c.get("date", "")})
+                d["cout_usd"] = round(d["cout_usd"] + c.get("cout_usd", 0), 4); d["requetes"] += 1
+    except OSError:
+        pass
+    serveur = 0
+    for racine, _, fichiers in os.walk(DOSSIER):
+        for n in fichiers:
+            try:
+                serveur += os.path.getsize(os.path.join(racine, n))
+            except OSError:
+                pass
+    return {"par_type": par, "donnees_serveur_octets": serveur}
+
+
 def cle_zone(z):
     # Zones arrondies au centième de degré (~1 km) : un cadre presque identique réutilise la réponse.
     return hashlib.sha1(json.dumps([round(z[k], 2) for k in ("ouest", "sud", "est", "nord")]).encode()).hexdigest()
@@ -983,7 +1008,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")

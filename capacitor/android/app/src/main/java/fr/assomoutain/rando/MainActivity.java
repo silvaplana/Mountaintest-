@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PocketModePlugin.class);
         registerPlugin(PhotoPlugin.class);
         registerPlugin(WeatherPlugin.class);
+        registerPlugin(StorageUsagePlugin.class);
         super.onCreate(savedInstanceState);
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "capacitor");
