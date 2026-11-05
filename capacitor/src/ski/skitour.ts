@@ -19,14 +19,9 @@ export async function fetchOutings(b: Bbox, days: number, password: string): Pro
 
 export const outingDate = (o: Outing) => new Date(o.date * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/** Skiabilité lisible : l'API donne souvent un chiffre (1 = « Mauvaise » sur le site). */
-/** Skiabilité skitour (1 = mauvaise … 5 = excellente) en étoiles : « skiabilité ★★☆☆☆ ». */
-export const skiabText = (v?: string) => {
-  if (!v) return '';
-  if (!/^\d+$/.test(v)) return v;
-  const n = Math.min(5, Number(v));
-  return `skiabilité ${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
-};
+/** Skiabilité comme sur skitour.fr (« 🙂 Bonne », lue par le relais sur la page de la sortie) ;
+ *  si le relais n'a que le chiffre de l'API, « skiabilité 1 ». */
+export const skiabText = (v?: string) => (!v ? '' : /^\d+$/.test(v) ? `skiabilité ${v}` : v);
 
 /** Étiquette à côté du point bleu : nom de la course, étoiles, skiabilité. */
 export function outingLabel(o: Outing): string {

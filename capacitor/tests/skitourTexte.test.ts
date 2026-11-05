@@ -18,9 +18,9 @@ describe('skitour en texte', () => {
       .toEqual([['Isère', ['Belledonne', 'Vercors']], ['Savoie', ['Bauges']]]);
   });
   it('étiquette du point : nom, étoiles, skiabilité', () => {
-    const o = { titre: 'Monte Bellino, versant NE', etoiles: 2, skiabilite: 'Mauvaise' } as Outing;
-    expect(outingLabel(o)).toBe('Monte Bellino, versant NE\n★★ · Mauvaise');
-    expect(outingLabel({ ...o, etoiles: null, skiabilite: '2' })).toBe('Monte Bellino, versant NE\nskiabilité ★★☆☆☆');
+    const o = { titre: 'Monte Bellino, versant NE', etoiles: 2, skiabilite: '🤢 Mauvaise' } as Outing;
+    expect(outingLabel(o)).toBe('Monte Bellino, versant NE\n★★ · 🤢 Mauvaise');
+    expect(outingLabel({ ...o, etoiles: null, skiabilite: '2' })).toBe('Monte Bellino, versant NE\nskiabilité 2');
     expect(outingLabel({ ...o, titre: 'x'.repeat(40), etoiles: 0, skiabilite: '' })).toBe('x'.repeat(25) + '…');
   });
 });

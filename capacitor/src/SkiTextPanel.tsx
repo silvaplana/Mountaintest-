@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { skiabText, fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
+import { fetchList, fetchMassifs, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate,
   type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList } from './ski/skitour';
 
 import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
@@ -85,7 +85,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
       ['Sommet', f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
       ['Topo', f?.topos.join(', ') ?? ''], ['Orientation', o.orientation],
       ['Dénivelé', o.denivele ? `${o.denivele} m` : ''], ['Ski', o.dif_ski ? String(o.dif_ski) : ''],
-      ['Skiabilité', skiabText(f?.skiabilite).replace(/^skiabilité /, '')],
+      ['Étoiles', o.etoiles ? '★'.repeat(o.etoiles) : ''], ['Skiabilité', f?.skiabilite ?? ''],
     ];
     const photos = sheetPhotos(f);
     return (
@@ -150,7 +150,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
           {rows.map((o) => (
             <tr key={o.id} onClick={() => open(o)}>
               <td>{shortDate(o.date)}</td>
-              <td><b>{o.titre}</b>{o.etoiles ? <span className="ski-stars"> {'★'.repeat(o.etoiles)}</span> : null}{o.dif_ski ? <span className="ski-dif"> ski {o.dif_ski}</span> : null}<br /><small>{o.massif}{o.skiabilite ? ` · ${skiabText(o.skiabilite)}` : ''}</small></td>
+              <td><b>{o.titre}</b>{o.etoiles ? <span className="ski-stars"> {'★'.repeat(o.etoiles)}</span> : null}{o.dif_ski ? <span className="ski-dif"> ski {o.dif_ski}</span> : null}<br /><small>{o.massif}{o.skiabilite ? ` · skiabilité ${o.skiabilite}` : ''}</small></td>
               <td>{o.auteurs}</td>
             </tr>
           ))}

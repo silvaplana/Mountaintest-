@@ -219,10 +219,6 @@ class SkiPanel(
     }
 }
 
-/** Skiabilité skitour (1 = mauvaise … 5 = excellente) en étoiles : « skiabilité ★★☆☆☆ » (même texte que l'appli web). */
-fun skiabText(v: String): String {
-    if (v.isEmpty()) return ""
-    if (!v.all { it.isDigit() }) return v
-    val n = v.toInt().coerceAtMost(5)
-    return "skiabilité " + "★".repeat(n) + "☆".repeat(5 - n)
-}
+/** Skiabilité comme sur skitour.fr (« 🙂 Bonne », lue par le relais sur la page de la sortie) ;
+ *  si le relais n'a que le chiffre de l'API, « skiabilité 1 » (même texte que skiabText de l'appli web). */
+fun skiabText(v: String): String = if (v.isNotEmpty() && v.all { it.isDigit() }) "skiabilité $v" else v
