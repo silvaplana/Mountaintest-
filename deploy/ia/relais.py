@@ -648,6 +648,10 @@ def fiche_sortie(id_: int) -> dict:
         if isinstance(n, dict):
             neige.append(" · ".join(str(n.get(k) or "").strip() for k in ("lieu", "alt", "ori", "heure", "qte", "type", "com") if str(n.get(k) or "").strip()))
     base = base or _completer([_ligne(x)])[0]
+    connu = _PAR_ID.get(_entier(x.get("id"))) or {}
+    if base.get("lat") is None and connu.get("lat") is not None:
+        # Sommets de la fiche sans coordonnées : on garde le point que la carte connaissait (pour « 🗺 Carte »).
+        base = {**base, "lat": connu["lat"], "lon": connu.get("lon"), "parking": base.get("parking") or connu.get("parking")}
     page = (_PAGES.get(_entier(x.get("id"))) or (0, {}))[1] or {}
     liens = page.get("liens") or []
     pk = base.get("parking") or {}

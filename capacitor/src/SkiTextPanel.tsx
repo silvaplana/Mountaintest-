@@ -85,7 +85,8 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
 
   if (sheetRow) {
     const f = sheet;
-    const o = f ?? sheetRow;
+    // Point de la sortie : celui de la fiche, sinon celui de la carte (la fiche n'en a pas toujours, sommets sans coordonnées).
+    const o = f ? { ...f, lat: f.lat ?? sheetRow.lat, lon: f.lon ?? sheetRow.lon, parking: f.parking ?? sheetRow.parking } : sheetRow;
     const go = (url: string) => { if (url) window.open(url, '_system'); };
     const onMap = (at?: [number, number]) => {
       if (o.lat != null && o.lon != null) onShowOnMap({ ...o, lat: o.lat, lon: o.lon, auteur: o.auteurs, conditions: f?.conditions ?? '' }, at);
@@ -93,8 +94,9 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
     const L = f?.liens;
     // Nom : lien vers la page skitour.fr (comme sur le site). Départ et sommet ont aussi « 🗺 Carte » : la carte de l'appli,
     // centrée sur leur point.
-    const link = (l: { nom: string; url: string; altitude?: number | null; lat?: number | null; lon?: number | null }, onAppMap: boolean, k?: number) => {
-      const at: [number, number] | undefined = l.lat != null && l.lon != null ? [l.lon, l.lat] : undefined;
+    const link = (l: { nom: string; url: string; altitude?: number | null; lat?: number | null; lon?: number | null }, onAppMap: boolean, k?: number, near?: { lat: number; lon: number } | null) => {
+      // Sans coordonnées propres : le parking pour le départ, le point de la sortie pour un sommet.
+      const at: [number, number] | undefined = l.lat != null && l.lon != null ? [l.lon, l.lat] : near ? [near.lon, near.lat] : undefined;
       return (<span key={k ?? l.url} className="ski-link">
         {l.url ? <a href={l.url} onClick={(e) => { e.preventDefault(); go(l.url); }}>{linkText(l)}</a> : linkText(l)}
         {onAppMap && o.lat != null && <button className="ski-pin" onClick={() => onMap(at)} aria-label={`${l.nom} sur la carte`}>🗺 Carte</button>}
@@ -102,7 +104,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onClose }: {
     };
     const info: [string, React.ReactNode][] = [
       ['Massif', o.massif],
-      ['Départ', L?.depart ? link(L.depart, true) : f?.depart ?? ''],
+      ['Départ', L?.depart ? link(L.depart, true, undefined, o.parking) : f?.depart ?? ''],
       [`Topo${(L?.topos.length ?? 0) > 1 ? 's' : ''} associé${(L?.topos.length ?? 0) > 1 ? 's' : ''}`, L?.topos.length ? L.topos.map((t, k) => link(t, false, k)) : f?.topos.join(', ') ?? ''],
       [`Sommet${(L?.sommets.length ?? 0) > 1 ? 's' : ''} associé${(L?.sommets.length ?? 0) > 1 ? 's' : ''}`,
         L?.sommets.length ? L.sommets.map((t, k) => link(t, true, k)) : f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
