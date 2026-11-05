@@ -505,11 +505,21 @@ class SkiTextPanel(
                 val at = if (l.lat != null && l.lon != null) l.lat to l.lon else near
                 setOnClickListener { toMap(at) } })
         }
+        // Départ : lien Google Maps (itinéraire jusqu'au parking), à la place de « 🗺 Carte ».
+        fun departView(l: SheetLink) = linkView(l, false).apply {
+            val p = if (l.lat != null && l.lon != null) l.lat to l.lon else o.parking?.let { it.lat to it.lon }
+            val url = if (p != null) "https://www.google.com/maps/dir/?api=1&destination=${p.first},${p.second}"
+                else "https://www.google.com/maps/search/?api=1&query=" + Uri.encode("${l.nom} ${o.massif}")
+            addView(Button(a).apply {
+                text = "🚗 Google Maps"; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                setPadding(dp(8), dp(4), dp(8), dp(4)); contentDescription = "${l.nom} dans Google Maps"
+                setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } } })
+        }
         fun plural(n: Int, w: String) = if (n > 1) w.replace(" ", "s ") + "s" else w
         val L = f?.links
         val info: List<Pair<String, Any>> = listOf(
             "Massif" to o.massif,
-            "Départ" to (L?.depart?.let { listOf(linkView(it, true, o.parking?.let { p -> p.lat to p.lon })) } ?: (f?.depart ?: "")),
+            "Départ" to (L?.depart?.let { listOf(departView(it)) } ?: (f?.depart ?: "")),
             (if (L?.toposTrouves == true) (if (L.topos.size > 1) "Topos du sommet" else "Topo du sommet") else plural(L?.topos?.size ?: 0, "Topo associé")) to (L?.topos?.takeIf { it.isNotEmpty() }?.map { linkView(it, false) } ?: (f?.topos?.joinToString(", ") ?: "")),
             plural(L?.sommets?.size ?: 0, "Sommet associé") to (L?.sommets?.takeIf { it.isNotEmpty() }?.map { linkView(it, true) }
                 ?: (f?.sommets?.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: (o.sommet + (o.altitude?.let { " ($it m)" } ?: "")))),

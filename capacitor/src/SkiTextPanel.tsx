@@ -112,9 +112,19 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
         {onAppMap && o.lat != null && <button className="ski-pin" onClick={() => onMap(at)} aria-label={`${l.nom} sur la carte`}>🗺 Carte</button>}
       </span>);
     };
+    // Départ : lien Google Maps (itinéraire jusqu'au parking), à la place de « 🗺 Carte ».
+    const gmaps = (l: { nom: string; lat?: number | null; lon?: number | null }, near?: { lat: number; lon: number } | null) => {
+      const p = l.lat != null && l.lon != null ? { lat: l.lat, lon: l.lon } : near;
+      return p ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${l.nom} ${o.massif}`)}`;
+    };
+    const depart = (l: { nom: string; url: string; altitude?: number | null; lat?: number | null; lon?: number | null }) => (<span className="ski-link">
+      {l.url ? <a href={l.url} onClick={(e) => { e.preventDefault(); go(l.url); }}>{linkText(l)}</a> : linkText(l)}
+      <button className="ski-pin" onClick={() => go(gmaps(l, o.parking))} aria-label={`${l.nom} dans Google Maps`}>🚗 Google Maps</button>
+    </span>);
     const info: [string, React.ReactNode][] = [
       ['Massif', o.massif],
-      ['Départ', L?.depart ? link(L.depart, true, undefined, o.parking) : f?.depart ?? ''],
+      ['Départ', L?.depart ? depart(L.depart) : f?.depart ?? ''],
       [L?.topos_trouves ? `Topo${L.topos.length > 1 ? 's' : ''} du sommet` : `Topo${(L?.topos.length ?? 0) > 1 ? 's' : ''} associé${(L?.topos.length ?? 0) > 1 ? 's' : ''}`, L?.topos.length ? L.topos.map((t, k) => link(t, false, k)) : f?.topos.join(', ') ?? ''],
       [`Sommet${(L?.sommets.length ?? 0) > 1 ? 's' : ''} associé${(L?.sommets.length ?? 0) > 1 ? 's' : ''}`,
         L?.sommets.length ? L.sommets.map((t, k) => link(t, true, k)) : f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
