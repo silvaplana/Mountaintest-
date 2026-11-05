@@ -323,6 +323,19 @@ def lire_facture(image_b64: str, media: str):
 SKITOUR_CLE = os.environ.get("SKITOUR_CLE", "")
 
 
+# Champs vus dans les sorties de l'API (affichés par GET /mountaintest-ia/ : la doc de l'API n'est pas à jour).
+CHAMPS_VUS: set = set()
+
+
+def _etoiles(x):
+    """Étoiles de la sortie si l'API les donne (nom du champ non documenté : on essaie les plus probables)."""
+    for k in ("etoiles", "note", "stars", "interet", "qualite"):
+        n = _entier(x.get(k))
+        if n is not None and 0 <= n <= 5:
+            return n
+    return None
+
+
 def _sorties_brutes(jours: int, massif: int | None = None) -> list:
     """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif."""
     # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
@@ -336,6 +349,8 @@ def _sorties_brutes(jours: int, massif: int | None = None) -> list:
         if isinstance(lot, dict):
             raise RuntimeError(f"skitour : {lot.get('ERROR', 'erreur')}")
         data += lot
+        if lot and isinstance(lot[0], dict):
+            CHAMPS_VUS.update(lot[0].keys())
         if len(lot) < 1000:
             break
     return data
@@ -355,6 +370,7 @@ def _sortie(x, sm) -> dict:
         "conditions": _texte(x.get("cond"))[:400],
         "auteur": (x.get("auteur") or {}).get("pseudo", ""),
         "url": f"https://skitour.fr/sorties/{x.get('id')}",
+        "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x),
     }
 
 
@@ -393,6 +409,7 @@ def _ligne(x) -> dict:
         "lat": float(sm["lat"]) if pts else None, "lon": float(sm["lng"]) if pts else None,
         "denivele": _entier(x.get("denivele")), "dif_ski": x.get("dif_ski") or None, "orientation": x.get("orientation") or "",
         "auteurs": _personnes(x), "url": f"https://skitour.fr/sorties/{x.get('id')}",
+        "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x),
     }
 
 
@@ -638,7 +655,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo"], "skitour": bool(SKITOUR_CLE), "mail": MAIL_ACTIF, **cumuls()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "mail": MAIL_ACTIF, **cumuls()})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")

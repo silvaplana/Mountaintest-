@@ -10,7 +10,7 @@ import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
-import type { Outing } from './ski/skitour';
+import { outingLabel, type Outing } from './ski/skitour';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -280,6 +280,24 @@ export function MapView(props: MapViewProps) {
     m.setPaintProperty('ski', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
     const o = props.skiOutings?.[sel];
     if (o) m.easeTo({ center: [o.lon, o.lat], duration: 600 });
+  }, [props.skiOutings, props.skiSel, ready]);
+
+  // Étiquettes des sorties skitour à droite des points bleus (nom, étoiles, skiabilité) ; cachées en dessous du zoom 9.
+  const skiMarkers = useRef<maplibregl.Marker[]>([]);
+  useEffect(() => {
+    const m = map.current;
+    skiMarkers.current.forEach((k) => k.remove());
+    skiMarkers.current = [];
+    if (!m) return;
+    (props.skiOutings ?? []).forEach((o, i) => {
+      const el = document.createElement('div');
+      el.className = `ski-tag${i === props.skiSel ? ' sel' : ''}`;
+      el.textContent = outingLabel(o);
+      skiMarkers.current.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [13, 0] }).setLngLat([o.lon, o.lat]).addTo(m));
+    });
+    const zoom = () => m.getContainer().classList.toggle('ski-tags-off', m.getZoom() < 9);
+    zoom(); m.on('zoom', zoom);
+    return () => { m.off('zoom', zoom); };
   }, [props.skiOutings, props.skiSel, ready]);
 
   const slopeMarkers = useRef<maplibregl.Marker[]>([]);

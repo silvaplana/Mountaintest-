@@ -363,3 +363,11 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-big p { margin: 0; font-size: 14px; text-align: center; }
 .ski-big .row { display: flex; gap: 16px; align-items: center; }
 .ski-big button { min-width: 48px; font-size: 22px; }
+/* Étiquette d'une sortie skitour à côté de son point bleu. */
+.ski-tag {
+  background: #ffffffe8; color: #1d2421; font-size: 11px; line-height: 1.2; padding: 3px 6px; border-radius: 6px;
+  white-space: pre; pointer-events: none; border: 1px solid #1d6fe0; box-shadow: 0 1px 3px #0003;
+}
+.ski-tag.sel { border-color: #7b3fe4; font-weight: 700; }
+.ski-tags-off .ski-tag { display: none; }
+.ski-stars { color: #c9a800; }

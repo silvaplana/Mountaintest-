@@ -8,6 +8,8 @@ export interface Outing {
   id: number; titre: string; date: number; massif: string; sommet: string; altitude: number | null;
   lat: number; lon: number; denivele: number | null; dif_ski: string | number | null; orientation: string;
   conditions: string; auteur: string; url: string;
+  /** Skiabilité notée par l'auteur (texte, ou chiffre selon l'API) et étoiles si l'API les donne. */
+  skiabilite?: string; etoiles?: number | null;
 }
 
 export async function fetchOutings(b: Bbox, days: number, password: string): Promise<Outing[]> {
@@ -16,6 +18,14 @@ export async function fetchOutings(b: Bbox, days: number, password: string): Pro
 }
 
 export const outingDate = (o: Outing) => new Date(o.date * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+
+/** Étiquette à côté du point bleu : nom de la course, étoiles, skiabilité. */
+export function outingLabel(o: Outing): string {
+  const t = o.titre.length > 26 ? `${o.titre.slice(0, 25)}…` : o.titre;
+  const sk = o.skiabilite ? (/^\d+$/.test(o.skiabilite) ? `skiab. ${o.skiabilite}` : o.skiabilite) : '';
+  const meta = [o.etoiles ? '★'.repeat(o.etoiles) : '', sk].filter(Boolean).join(' · ');
+  return meta ? `${t}\n${meta}` : t;
+}
 
 export const outingLine = (o: Outing) => [o.sommet + (o.altitude ? ` ${o.altitude} m` : ''), o.denivele ? `D+ ${o.denivele} m` : '',
   o.dif_ski ? `ski ${o.dif_ski}` : '', o.orientation].filter(Boolean).join(' · ');
@@ -66,7 +76,7 @@ export async function loadOutings(b: Bbox, days: number, password: string): Prom
 export interface OutingRow {
   id: number; titre: string; date: number; massif: string; sommet: string; altitude: number | null;
   lat: number | null; lon: number | null; denivele: number | null; dif_ski: string | number | null; orientation: string;
-  auteurs: string; url: string;
+  auteurs: string; url: string; skiabilite?: string; etoiles?: number | null;
 }
 /** Photo d'une sortie : affichée seulement dans sa fiche, avec son auteur (conditions de l'API skitour). */
 export interface SkiPhoto { url: string; legende: string; auteur: string }

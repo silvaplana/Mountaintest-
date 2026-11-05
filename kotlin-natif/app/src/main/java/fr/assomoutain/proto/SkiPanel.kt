@@ -27,7 +27,16 @@ import java.util.Locale
 /** Sortie de ski de rando publiée sur skitour.fr (via le relais du VPS, qui garde la clé API). Même modèle que src/ski/skitour.ts. */
 data class Outing(val id: Long, val titre: String, val date: Long, val massif: String, val sommet: String, val altitude: Int?,
                   val lat: Double, val lon: Double, val denivele: Int?, val difSki: String, val orientation: String,
-                  val conditions: String, val auteur: String, val url: String) {
+                  val conditions: String, val auteur: String, val url: String,
+                  /** Skiabilité notée par l'auteur (texte, ou chiffre selon l'API) et étoiles si l'API les donne. */
+                  val skiabilite: String = "", val etoiles: Int? = null) {
+    /** Étiquette à côté du point bleu : nom de la course, puis étoiles et skiabilité (même texte que outingLabel). */
+    fun label(): String {
+        val t = if (titre.length > 26) titre.take(25) + "…" else titre
+        val sk = if (skiabilite.all { it.isDigit() } && skiabilite.isNotEmpty()) "skiab. $skiabilite" else skiabilite
+        val meta = listOf(etoiles?.takeIf { it > 0 }?.let { "★".repeat(it) } ?: "", sk).filter { it.isNotEmpty() }.joinToString(" · ")
+        return if (meta.isEmpty()) t else "$t\n$meta"
+    }
     fun dateText(): String = Instant.ofEpochSecond(date).atZone(ZoneId.systemDefault()).toLocalDate()
         .format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRANCE))
     fun line() = listOfNotNull(sommet + (altitude?.let { " $it m" } ?: ""), denivele?.let { "D+ $it m" },
@@ -42,7 +51,8 @@ object Skitour {
             Outing(it.optLong("id"), it.optString("titre"), it.optLong("date"), it.optString("massif"), it.optString("sommet"),
                 if (it.isNull("altitude")) null else it.optInt("altitude"), it.optDouble("lat"), it.optDouble("lon"),
                 if (it.isNull("denivele")) null else it.optInt("denivele"), if (it.isNull("dif_ski")) "" else it.optString("dif_ski"),
-                it.optString("orientation"), it.optString("conditions"), it.optString("auteur"), it.optString("url"))
+                it.optString("orientation"), it.optString("conditions"), it.optString("auteur"), it.optString("url"),
+                it.optString("skiabilite"), if (it.isNull("etoiles") || !it.has("etoiles")) null else it.optInt("etoiles"))
         } }.filter { !it.lat.isNaN() && !it.lon.isNaN() }.sortedByDescending { it.date }
     }
 
@@ -50,11 +60,13 @@ object Skitour {
         .put("sommet", x.sommet).put("altitude", x.altitude ?: JSONObject.NULL).put("lat", x.lat).put("lon", x.lon)
         .put("denivele", x.denivele ?: JSONObject.NULL).put("dif_ski", x.difSki).put("orientation", x.orientation)
         .put("conditions", x.conditions).put("auteur", x.auteur).put("url", x.url)
+        .put("skiabilite", x.skiabilite).put("etoiles", x.etoiles ?: JSONObject.NULL)
 
     fun fromJson(it: JSONObject) = Outing(it.optLong("id"), it.optString("titre"), it.optLong("date"), it.optString("massif"),
         it.optString("sommet"), if (it.isNull("altitude")) null else it.optInt("altitude"), it.optDouble("lat"), it.optDouble("lon"),
         if (it.isNull("denivele")) null else it.optInt("denivele"), it.optString("dif_ski"), it.optString("orientation"),
-        it.optString("conditions"), it.optString("auteur"), it.optString("url"))
+        it.optString("conditions"), it.optString("auteur"), it.optString("url"),
+        it.optString("skiabilite"), if (it.isNull("etoiles") || !it.has("etoiles")) null else it.optInt("etoiles"))
 }
 
 /**

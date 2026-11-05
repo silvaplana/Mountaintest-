@@ -33,7 +33,7 @@ import java.util.Locale
 /** Une sortie de la liste en texte (même modèle que OutingRow de src/ski/skitour.ts). */
 data class OutingRow(val id: Long, val titre: String, val date: Long, val massif: String, val sommet: String, val altitude: Int?,
                      val lat: Double?, val lon: Double?, val denivele: Int?, val difSki: String, val orientation: String,
-                     val auteurs: String, val url: String)
+                     val auteurs: String, val url: String, val skiabilite: String = "", val etoiles: Int? = null)
 
 /** La fiche d'une sortie (même modèle que OutingSheet). */
 class OutingSheet(val row: OutingRow, val sommets: List<String>, val depart: String, val topos: List<String>,
@@ -93,7 +93,8 @@ object SkiText {
 
     fun row(o: JSONObject) = OutingRow(o.optLong("id"), o.optString("titre"), o.optLong("date"), o.optString("massif"), o.optString("sommet"),
         intOrNull(o, "altitude"), dblOrNull(o, "lat"), dblOrNull(o, "lon"), intOrNull(o, "denivele"),
-        if (o.isNull("dif_ski")) "" else o.optString("dif_ski"), o.optString("orientation"), o.optString("auteurs"), o.optString("url"))
+        if (o.isNull("dif_ski")) "" else o.optString("dif_ski"), o.optString("orientation"), o.optString("auteurs"), o.optString("url"),
+        o.optString("skiabilite"), intOrNull(o, "etoiles"))
 
     fun sheet(o: JSONObject) = OutingSheet(row(o), strs(o.optJSONArray("sommets")), o.optString("depart"), strs(o.optJSONArray("topos")),
         o.optString("conditions"), strs(o.optJSONArray("neige")), o.optString("recit"), o.optString("skiabilite"),
@@ -316,8 +317,9 @@ class SkiTextPanel(
                 addView(text(Instant.ofEpochSecond(o.date).atZone(ZoneId.systemDefault()).format(fmt), 14f, ink), LinearLayout.LayoutParams(dp(46), -2))
                 addView(LinearLayout(a).apply {
                     orientation = LinearLayout.VERTICAL
-                    addView(text(o.titre + if (o.difSki.isNotEmpty()) "  ${o.difSki}" else "", 15f, ink, true))
-                    addView(text(o.massif))
+                    addView(text(o.titre + (o.etoiles?.takeIf { it > 0 }?.let { " " + "★".repeat(it) } ?: "") +
+                        if (o.difSki.isNotEmpty()) "  ${o.difSki}" else "", 15f, ink, true))
+                    addView(text(o.massif + if (o.skiabilite.isNotEmpty()) " · ${o.skiabilite}" else ""))
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(text(o.auteurs), LinearLayout.LayoutParams(dp(96), -2))
                 setOnClickListener { openSheet(o) }
@@ -463,7 +465,7 @@ class SkiTextPanel(
                 text = "Sur la carte"
                 setOnClickListener {
                     onShowOnMap(Outing(o.id, o.titre, o.date, o.massif, o.sommet, o.altitude, o.lat, o.lon, o.denivele, o.difSki,
-                        o.orientation, f?.conditions ?: "", o.auteurs, o.url))
+                        o.orientation, f?.conditions ?: "", o.auteurs, o.url, o.skiabilite, o.etoiles))
                 }
             })
         })

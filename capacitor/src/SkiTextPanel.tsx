@@ -150,7 +150,7 @@ export function SkiTextPanel({ password, onShowOnMap, onClose }: {
           {rows.map((o) => (
             <tr key={o.id} onClick={() => open(o)}>
               <td>{shortDate(o.date)}</td>
-              <td><b>{o.titre}</b>{o.dif_ski ? <span className="ski-dif"> {o.dif_ski}</span> : null}<br /><small>{o.massif}</small></td>
+              <td><b>{o.titre}</b>{o.etoiles ? <span className="ski-stars"> {'★'.repeat(o.etoiles)}</span> : null}{o.dif_ski ? <span className="ski-dif"> {o.dif_ski}</span> : null}<br /><small>{o.massif}{o.skiabilite ? ` · ${o.skiabilite}` : ''}</small></td>
               <td>{o.auteurs}</td>
             </tr>
           ))}
