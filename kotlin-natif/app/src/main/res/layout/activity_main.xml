@@ -1006,6 +1006,15 @@
         <TextView android:id="@+id/status" style="@style/Hint" android:visibility="gone" />
     </LinearLayout>
 
+    <!-- Barre d'échelle (2 km, 5 km…) : en bas à gauche, au-dessus du menu du bas, visible aussi en mode nature -->
+    <fr.assomoutain.proto.ScaleBarView
+        android:id="@+id/scaleBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="10dp"
+        android:elevation="9dp" />
+
     <!-- Mode nature : petit bouton discret pour faire revenir l'interface -->
     <Button
         android:id="@+id/btnRestore"

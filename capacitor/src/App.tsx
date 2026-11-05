@@ -13,6 +13,7 @@ import { defaultSource, ReplaySource, type LocationSource } from './gps/sources'
 import type { GpsFix, GpsMode, GpsSettings } from './gps/types';
 import { MapView } from './MapView';
 import { QuickButtons } from './QuickButtons';
+import { ScaleBar } from './map/ScaleBar';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { LodgingPanel } from './Lodging';
@@ -187,6 +188,16 @@ export function App() {
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
   const [map, setMap] = useState<MlMap | null>(null);
+  // Hauteur du menu du bas : la barre d'échelle se pose juste au-dessus.
+  const sheetRef = useRef<HTMLElement>(null);
+  const [sheetH, setSheetH] = useState(0);
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setSheetH(el.offsetHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [nature]);
   const [camBench, setCamBench] = useState<CameraBenchResult | 'running' | null>(null);
 
   useEffect(() => {
@@ -556,6 +567,7 @@ export function App() {
         travelRoutes={travelRoutes} travelSel={travelSel} onTravelClick={setTravelSel}
         skiOutings={skiOutings} skiSel={skiSel} onSkiClick={setSkiSel}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
+      {map && <ScaleBar map={map} bottom={nature ? 34 : sheetH + 8} />}
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => { setDrawing(false); setOpen(true); }} />}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
@@ -619,7 +631,7 @@ export function App() {
         </div>
       )}
 
-      <section className={`sheet ${open ? 'open' : ''}`}>
+      <section ref={sheetRef} className={`sheet ${open ? 'open' : ''}`}>
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
           <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
