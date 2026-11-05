@@ -6,12 +6,10 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.view.Gravity
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -236,7 +234,13 @@ class SkiPanel(
     private val detail = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val list = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private var outings: List<Outing> = emptyList()
-    private val periods = listOf(7 to "7 derniers jours", 30 to "30 derniers jours", 90 to "3 derniers mois")
+    /** Choix de période (jours ; 3650 = « Tout »), comme PERIODS de l'appli web. */
+    private val periods = listOf(1 to "< 1 j", 2 to "< 2 j", 3 to "< 3 j", 4 to "< 4 j", 5 to "< 5 j", 7 to "< 1 sem.",
+        15 to "< 15 j", 30 to "< 30 j", 90 to "< 3 mois", 365 to "< 1 an", 3650 to "Tout")
+    private val count = text("", 13f, muted)
+    private val pill = Button(a)
+    private val menu = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; visibility = android.view.View.GONE }
+    private var days = 30
     private val prefs = a.getSharedPreferences("reglages", AppCompatActivity.MODE_PRIVATE)
     private val allFile = java.io.File(a.filesDir, "skitour-tout.json")
     private val details = SkiDetails(java.io.File(a.filesDir, "skitour-details.json"))
@@ -247,45 +251,77 @@ class SkiPanel(
     private var low = false
 
     init {
+        days = prefs.getInt("skitourJours", 30).takeIf { d -> periods.any { it.first == d } } ?: 30
+        // Première ligne, sans titre (on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
+        // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
+        pill.apply {
+            isAllCaps = false; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); textSize = 14f; minWidth = 0; minimumWidth = 0
+            setPadding(dp(12), 0, dp(12), 0)
+            background = GradientDrawable().apply { setColor(Color.parseColor("#2F6FD6")); cornerRadius = 999f }
+            contentDescription = "Période des sorties"
+            setOnClickListener { showMenu(menu.visibility != android.view.View.VISIBLE) }
+        }
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL
-            addView(text("⛷ Sorties ski de rando", 16f, ink, true), LinearLayout.LayoutParams(0, -2, 1f))
-            // ▾ réduit le panneau à cette seule ligne (titre, flèche, croix) pour voir la carte ; ▴ le remet.
+            addView(count, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(pill, LinearLayout.LayoutParams(-2, dp(36)).apply { marginEnd = dp(4) })
             addView(Button(a).apply {
                 text = "▾"; contentDescription = "Réduire le panneau"
                 setOnClickListener {
                     low = !low
                     text = if (low) "▴" else "▾"; contentDescription = if (low) "Agrandir le panneau" else "Réduire le panneau"
-                    for (k in 1 until col.childCount) col.getChildAt(k).visibility = if (low) android.view.View.GONE else android.view.View.VISIBLE
+                    // Le menu de période (enfant 1) reste utilisable même panneau réduit.
+                    for (k in 2 until col.childCount) col.getChildAt(k).visibility = if (low) android.view.View.GONE else android.view.View.VISIBLE
+                    if (status.text.isEmpty()) status.visibility = android.view.View.GONE
                     view.layoutParams = view.layoutParams.apply { height = -2 }
                 }
             }, LinearLayout.LayoutParams(dp(48), dp(44)))
             addView(Button(a).apply { text = "✕"; setOnClickListener { onClose() } }, LinearLayout.LayoutParams(dp(48), dp(44)))
         })
-        val spin = Spinner(a).apply {
-            adapter = ArrayAdapter(a, android.R.layout.simple_spinner_dropdown_item, periods.map { it.second })
-            setSelection(periods.indexOfFirst { it.first == prefs.getInt("skitourJours", 30) }.coerceAtLeast(0))
+        // Les choix de période sur deux lignes, juste sous la pastille ; un choix referme la liste.
+        periods.chunked(6).forEach { row ->
+            menu.addView(LinearLayout(a).apply {
+                row.forEach { (d0, t) ->
+                    addView(Button(a).apply {
+                        text = t; tag = d0; isAllCaps = false; textSize = 12f; minWidth = 0; minimumWidth = 0; minHeight = 0; minimumHeight = 0
+                        setPadding(dp(2), dp(6), dp(2), dp(6))
+                        setOnClickListener {
+                            days = d0; prefs.edit().putInt("skitourJours", d0).apply(); showMenu(false); load(d0)
+                        }
+                    }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(3) })
+                }
+                if (row.size < 6) addView(android.view.View(a), LinearLayout.LayoutParams(0, 0, (6 - row.size).toFloat()))
+            })
         }
-        col.addView(spin)
-        spin.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(p: android.widget.AdapterView<*>?, v: android.view.View?, pos: Int, id: Long) {
-                prefs.edit().putInt("skitourJours", periods[pos].first).apply(); load(periods[pos].first)
-            }
-            override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
-        }
+        col.addView(menu)
+        showMenu(false)
         col.addView(status); col.addView(detail); col.addView(list)
         col.addView(text("Données skitour.fr (CC BY-NC-ND pour les récits)."))
+        view.post { load(days) } // après l'init complet (job, detJob)
+    }
+
+    private fun showMenu(open: Boolean) {
+        menu.visibility = if (open) android.view.View.VISIBLE else android.view.View.GONE
+        pill.text = (periods.firstOrNull { it.first == days }?.second ?: "< $days j") + if (open) " ▴" else " ▾"
+        for (k in 0 until menu.childCount) (menu.getChildAt(k) as LinearLayout).let { row ->
+            for (j in 0 until row.childCount) (row.getChildAt(j) as? Button)?.let { b ->
+                val on = b.tag == days
+                b.setTypeface(null, if (on) Typeface.BOLD else Typeface.NORMAL)
+                b.background = GradientDrawable().apply { setColor(Color.parseColor(if (on) "#2F6FD6" else "#F2F4F1")); cornerRadius = 999f }
+                b.setTextColor(if (on) Color.WHITE else ink)
+            }
+        }
     }
 
     private var job: kotlinx.coroutines.Job? = null
     private fun load(days: Int) {
         job?.cancel()
-        status.text = "Recherche sur skitour.fr…"; list.removeAllViews(); detail.removeAllViews()
+        status.text = ""; status.visibility = android.view.View.GONE; count.text = "Recherche…"; list.removeAllViews(); detail.removeAllViews()
         all = emptyList(); outings = emptyList(); onOutings(outings, null)
         job = a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { Skitour.fetchAll(allFile, days, password) } }
                 .onSuccess { (o, off) -> all = o; offline = off; refresh() }
-                .onFailure { if (it !is kotlinx.coroutines.CancellationException) status.text = "Recherche impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}" }
+                .onFailure { if (it !is kotlinx.coroutines.CancellationException) { count.text = ""; status.visibility = android.view.View.VISIBLE; status.text = "Recherche impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}" } }
         }
     }
 
@@ -299,13 +335,13 @@ class SkiPanel(
         outings = vis
         val k = vis.indexOfFirst { it.id == selId }.takeIf { it >= 0 }
         onOutings(vis, k)
-        val found = when {
-            far -> "Zoome sur une région pour voir ses sorties (${all.size} sur la période)."
-            vis.isEmpty() -> "Aucune sortie à l'écran sur la période."
-            else -> "${vis.size} sortie${if (vis.size > 1) "s" else ""} à l'écran : bouge la carte pour en voir d'autres."
-        }
-        status.text = offline?.let { "📴 Hors ligne : sorties gardées sur le téléphone, liste du " +
-            Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM 'à' HH:mm", Locale.FRANCE)) + ".\n" + found } ?: found
+        count.text = if (far) "Zoome sur une région" else "${vis.size} sortie${if (vis.size > 1) "s" else ""} à l'écran"
+        val notes = listOfNotNull(
+            offline?.let { "📴 Hors ligne : sorties gardées sur le téléphone, liste du " +
+                Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM 'à' HH:mm", Locale.FRANCE)) + "." },
+            if (far) "Rapproche la carte pour voir les sorties (${all.size} sur la période)." else null)
+        status.text = notes.joinToString("\n")
+        status.visibility = if (notes.isEmpty() || low) android.view.View.GONE else android.view.View.VISIBLE
         list.removeAllViews()
         if (k == null) detail.removeAllViews()
         vis.forEachIndexed { i, x ->

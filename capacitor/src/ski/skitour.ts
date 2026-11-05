@@ -114,6 +114,13 @@ const dk = (id: number | string) => `i${id}`;
 export const DETAILS_MAX = 800;
 export interface Details { etoiles?: number | null; skiabilite?: string; parking?: Parking | null }
 
+/** Choix de période de la carte ⛷🗺 (jours ; 3650 = « Tout »), du plus court au plus long. */
+export const PERIODS: [number, string][] = [[1, '< 1 j'], [2, '< 2 j'], [3, '< 3 j'], [4, '< 4 j'], [5, '< 5 j'], [7, '< 1 sem.'],
+  [15, '< 15 j'], [30, '< 30 j'], [90, '< 3 mois'], [365, '< 1 an'], [3650, 'Tout']];
+export const periodLabel = (d: number) => PERIODS.find((p) => p[0] === d)?.[1] ?? `< ${d} j`;
+/** Période gardée valide (sinon 30 jours). */
+export const periodOk = (d: number) => (PERIODS.some((p) => p[0] === d) ? d : 30);
+
 export async function loadAll(days: number, password: string): Promise<{ outings: Outing[]; offline?: number }> {
   try {
     const r = await relayPost<{ sorties?: Outing[] }>('skitour-tout', { jours: days }, password);

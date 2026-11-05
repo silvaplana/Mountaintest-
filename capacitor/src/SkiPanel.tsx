@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Map as MlMap } from 'maplibre-gl';
-import { fetchDetails, hasDetails, inView, loadAll, outingDate, outingLine, readDetails, withDetails, type Outing } from './ski/skitour';
+import { PERIODS, fetchDetails, hasDetails, inView, loadAll, outingDate, outingLine, periodLabel, periodOk, readDetails, withDetails, type Outing } from './ski/skitour';
 
 /** En dessous de ce zoom, l'écran couvre trop de pays : on ne montre pas les points. */
 export const SKI_MIN_ZOOM = 7;
@@ -15,7 +15,8 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   /** Ouvre la fiche complète de la sortie (façon skitour.fr). */
   onSheet: (o: Outing) => void; onClose: () => void;
 }) {
-  const [days, setDays] = useState(() => { try { return Math.min(90, Number(localStorage.getItem('skitourJours')) || 30); } catch { return 30; } });
+  const [days, setDays] = useState(() => { try { return periodOk(Number(localStorage.getItem('skitourJours'))); } catch { return 30; } });
+  const [menu, setMenu] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [offline, setOffline] = useState<number | null>(null);
@@ -65,29 +66,30 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, all, password]);
   const sel = selected != null ? outings[selected] : null;
-  // ▾ réduit le panneau à sa première ligne (titre, flèche, croix) pour voir la carte ; ▴ le remet.
+  // Première ligne (sans titre : on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
+  // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
   const [low, setLow] = useState(false);
-  const head = (
-    <div className="travel-head"><b>⛷ Sorties ski de rando</b>
+  const count = busy ? 'Recherche…' : error ? '' : tooFar ? 'Zoome sur une région'
+    : `${outings.length} sortie${outings.length > 1 ? 's' : ''} à l'écran`;
+  const head = (<>
+    <div className="travel-head ski-head"><span className="hint">{count}</span>
       <span className="head-btns">
+        {/* Pastille de période : touchée, elle ouvre la liste des choix juste en dessous ; un choix la referme. */}
+        <button className="ski-pill" aria-label="Période des sorties" aria-expanded={menu} onClick={() => setMenu(!menu)}>{periodLabel(days)} {menu ? '▴' : '▾'}</button>
         <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir le panneau' : 'Réduire le panneau'}>{low ? '▴' : '▾'}</button>
         <button onClick={onClose} aria-label="Fermer">✕</button>
       </span></div>
-  );
+    {menu && <div className="ski-menu" role="listbox">{PERIODS.map(([d, t]) => (
+      <button key={d} role="option" aria-selected={d === days} className={d === days ? 'on' : ''}
+        onClick={() => { setDays(d); setMenu(false); }}>{t}</button>))}</div>}
+  </>);
   if (low) return <div className="travel">{head}</div>;
   return (
     <div className="travel">
       {head}
-      <span className="row">
-        <label className="field">Période<select value={days} onChange={(e) => setDays(Number(e.target.value))}>
-          <option value={7}>7 derniers jours</option><option value={30}>30 derniers jours</option>
-          <option value={90}>3 derniers mois</option></select></label>
-      </span>
-      {busy && <p className="hint">Recherche sur skitour.fr…</p>}
       {error && <p className="error">{error}</p>}
       {offline != null && <p className="hint">📴 Hors ligne : sorties gardées sur le téléphone, recherche du {new Date(offline).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.</p>}
-      {!busy && !error && <p className="hint">{tooFar ? `Zoome sur une région pour voir ses sorties (${all.length} sur la période).`
-        : outings.length ? `${outings.length} sortie${outings.length > 1 ? 's' : ''} à l'écran : bouge la carte pour en voir d'autres.` : 'Aucune sortie à l\'écran sur la période.'}</p>}
+      {!busy && !error && tooFar && <p className="hint">Rapproche la carte pour voir les sorties ({all.length} sur la période).</p>}
       {sel && <div className="cost">
         <p><b>{sel.titre}</b></p>
         <p className="hint">{outingDate(sel)} · {sel.massif} · par {sel.auteur}</p>

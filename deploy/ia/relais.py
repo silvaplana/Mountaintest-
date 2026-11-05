@@ -455,12 +455,12 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
     return lignes
 
 
-def _sorties_brutes(jours: int, massif: int | None = None) -> list:
+def _sorties_brutes(jours: int, massif: int | None = None, pages: int = 3) -> list:
     """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif."""
     # Le filtre « autour d'une position » de l'API (ll=lat,lon) répond en erreur 500 (constaté le 5 nov. 2026) :
     # on prend donc les sorties des derniers jours, par pages de 1000.
     data = []
-    for page in range(1, 4):
+    for page in range(1, pages + 1):
         q = urllib.parse.urlencode({"j": jours, "c": 1, "l": 1000, "p": page, **({"m": massif} if massif else {})})
         req = urllib.request.Request(f"https://skitour.fr/api/sorties?{q}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -513,10 +513,13 @@ _PAR_ID: dict = {}  # id -> sortie brute de l'API (pour les détails)
 
 
 def toutes_sorties(jours: int) -> list:
+    """Toutes les sorties de la période (jours ≥ 3650 = « Tout »), avec un sommet placé sur la carte."""
     c = _liste_memo.get(("tout", jours))
-    if not (c and time.time() - c[0] < 3600):
+    # Longue période : plus de pages (1000 sorties chacune) mais gardée plus longtemps, pour ménager le quota skitour.
+    garde = 3600 if jours <= 30 else 6 * 3600
+    if not (c and time.time() - c[0] < garde):
         out = []
-        for x in _sorties_brutes(jours):
+        for x in _sorties_brutes(jours, pages=3 if jours <= 90 else 10):
             pts = _sommets(x)
             if pts:
                 o = _sortie(x, pts[0])
@@ -869,7 +872,7 @@ class Relais(BaseHTTPRequestHandler):
                 return self._json(503, {"erreur": "clé skitour pas encore installée sur le serveur"})
             try:
                 d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 4_000)) or b"{}")
-                jours = max(1, min(int(d.get("jours", 30)), 186))
+                jours = max(1, min(int(d.get("jours", 30)), 3650))
                 ids = [int(i) for i in (d.get("ids") or [])][:30]
             except (ValueError, TypeError):
                 return self._json(400, {"erreur": "demande invalide"})
