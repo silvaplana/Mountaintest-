@@ -38,6 +38,7 @@ import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from '
 import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
+import { Usage } from './Usage';
 import { ShadeFilm } from './ShadeFilm';
 import { WeatherLayer } from './WeatherLayer';
 import { MNT_LAYER, mntTileUrl, mntTilesForZone } from './shade/dem';
@@ -48,7 +49,7 @@ import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } fr
 import { BDFORET_ATTRIBUTION, fetchForests, forestZoneTooBig, formatHa, groupByEssence, MAX_FOREST_DEG, type Forest } from './forests/bdForet';
 import { computeStats, formatDuration, formatKm } from './track/stats';
 
-type Tab = 'sortie' | 'randos' | 'forets' | 'horsligne' | 'mesures' | 'versions';
+type Tab = 'sortie' | 'randos' | 'forets' | 'horsligne' | 'mesures' | 'versions' | 'usage';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
 
 const prefs = { apiKey: DEFAULT_SCAN_KEY, cacheViewed: true };
@@ -629,7 +630,9 @@ export function App() {
         <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
         <nav className="tabs">
           <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
-          {(['sortie', 'randos', 'forets', 'horsligne', 'mesures', 'versions'] as Tab[]).map((t) => (
+          <button className={`icon ${tab === 'usage' ? 'active' : ''}`} onClick={() => { setTab('usage'); setOpen(true); }}
+            aria-label="Usage IA et mémoire" title="Usage IA et mémoire">📊</button>
+          {(['sortie', 'randos', 'forets', 'horsligne', 'mesures', 'versions'] as Exclude<Tab, 'usage'>[]).map((t) => (
             <button key={t} className={tab === t ? 'active' : ''} onClick={() => { setTab(t); setOpen(true); void refreshStored(); }}>
               {{ sortie: 'Sortie', randos: 'Randos', forets: 'Forêts', horsligne: 'Hors ligne', mesures: 'Mesures', versions: 'Versions' }[t]}
             </button>
@@ -812,6 +815,7 @@ export function App() {
         )}
 
         {open && tab === 'versions' && <div className="pane"><Versions /></div>}
+        {open && tab === 'usage' && <div className="pane"><Usage /></div>}
 
         {open && tab === 'mesures' && (
           <div className="pane">

@@ -719,6 +719,11 @@
                 android:layout_width="40dp" android:layout_height="wrap_content"
                 android:contentDescription="Masquer l'interface (mode nature)" android:text="✕"
                 android:textColor="@color/muted" android:textSize="18sp" />
+            <Button android:id="@+id/tabUsage" style="@style/Widget.AppCompat.Button.Borderless"
+                android:layout_width="40dp" android:layout_height="wrap_content"
+                android:minWidth="0dp" android:paddingStart="0dp" android:paddingEnd="0dp"
+                android:contentDescription="Usage IA et mémoire"
+                android:text="📊" android:textSize="18sp" />
             <Button android:id="@+id/tabSortie" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_weight="1"
                 android:minWidth="0dp" android:paddingStart="2dp" android:paddingEnd="2dp" android:maxLines="2"
@@ -974,6 +979,14 @@
                         android:visibility="gone" />
                     <TextView android:id="@+id/offlineInfo" style="@style/Hint" />
                 </LinearLayout>
+
+                <!-- Burger ☰ → 📊 : coût cumulé de l'IA et place prise par l'appli et ses données (UsagePanel.kt) -->
+                <LinearLayout
+                    android:id="@+id/paneUsage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone" />
 
                 <!-- Onglet Versions : historique embarqué par la CI (assets/changelog.json) -->
                 <LinearLayout

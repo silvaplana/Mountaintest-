@@ -89,7 +89,7 @@ import kotlin.math.roundToInt
 class MainActivity : AppCompatActivity() {
 
     private enum class Source(val label: String) { GPS("GPS réel"), SIM10("Simulation ×10"), SIM60("Simulation ×60") }
-    private enum class Tab { SORTIE, RANDOS, FORETS, OFFLINE, MESURES, VERSIONS }
+    private enum class Tab { SORTIE, RANDOS, FORETS, OFFLINE, MESURES, VERSIONS, USAGE }
 
     private lateinit var mapView: MapView
     private var map: MapLibreMap? = null
@@ -286,6 +286,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.tabOffline).setOnClickListener { showTab(Tab.OFFLINE) }
         findViewById<Button>(R.id.tabMesures).setOnClickListener { showTab(Tab.MESURES) }
         findViewById<Button>(R.id.tabVersions).setOnClickListener { showTab(Tab.VERSIONS) }
+        findViewById<Button>(R.id.tabUsage).setOnClickListener { showTab(Tab.USAGE) }
         findViewById<Button>(R.id.btnNature).setOnClickListener { setNature(true) }
         findViewById<Button>(R.id.btnRestore).setOnClickListener { setNature(false) }
 
@@ -835,6 +836,7 @@ class MainActivity : AppCompatActivity() {
             Tab.OFFLINE -> refreshOffline()
             Tab.MESURES -> refreshMesures()
             Tab.VERSIONS -> showVersions()
+            Tab.USAGE -> UsagePanel.show(this, findViewById(R.id.paneUsage))
         }
     }
 
@@ -842,7 +844,7 @@ class MainActivity : AppCompatActivity() {
         val accent = ContextCompat.getColor(this, R.color.accent)
         val muted = ContextCompat.getColor(this, R.color.muted)
         mapOf(Tab.SORTIE to R.id.tabSortie, Tab.RANDOS to R.id.tabRandos, Tab.FORETS to R.id.tabForets, Tab.OFFLINE to R.id.tabOffline, Tab.MESURES to R.id.tabMesures,
-            Tab.VERSIONS to R.id.tabVersions).forEach { (t, id) ->
+            Tab.VERSIONS to R.id.tabVersions, Tab.USAGE to R.id.tabUsage).forEach { (t, id) ->
             findViewById<Button>(id).setTextColor(if (t == tab && sheetOpen) accent else muted)
         }
         findViewById<View>(R.id.content).visibility = if (sheetOpen) View.VISIBLE else View.GONE
@@ -852,6 +854,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.paneOffline).visibility = if (tab == Tab.OFFLINE) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneMesures).visibility = if (tab == Tab.MESURES) View.VISIBLE else View.GONE
         findViewById<View>(R.id.paneVersions).visibility = if (tab == Tab.VERSIONS) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.paneUsage).visibility = if (tab == Tab.USAGE) View.VISIBLE else View.GONE
         val status = findViewById<TextView>(R.id.status)
         status.visibility = if (sheetOpen && status.text.isNotEmpty()) View.VISIBLE else View.GONE
         // Panneau limité à 45 % de l'écran, comme côté Capacitor.
