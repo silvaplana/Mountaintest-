@@ -23,6 +23,11 @@ import kotlin.concurrent.thread
  */
 object UsagePanel {
     /** Libellés des usages notés par le relais (le même tableau côté Capacitor : IA_TYPES). */
+    /** Types de demandes skitour (même tableau côté Capacitor : SKITOUR_TYPES). */
+    private val SKITOUR_TYPES = mapOf(
+        "sorties" to "Listes de sorties", "sortie" to "Fiches et parkings", "topos" to "Topos d’un sommet",
+        "topo" to "Topos (fiche, itinéraire)", "massifs" to "Massifs", "autre" to "Autres",
+    )
     private val IA_TYPES = mapOf(
         "randos" to "Randos trouvées sur le web",
         "voiture" to "Voiture (modèle, consommation)",
@@ -87,6 +92,18 @@ object UsagePanel {
                 hint("Toutes les requêtes payantes, de tous les téléphones, comptées par le relais IA (réponses en cache gratuites). Chiffres du $at.")
             } ?: run { if (iaErr.isEmpty()) hint("Chargement…") }
             if (iaErr.isNotEmpty()) hint(iaErr)
+
+            ia?.first?.optJSONObject("skitour_appels")?.let { k ->
+                title("⛷ Demandes à skitour.fr")
+                val quota = k.optInt("quota", 1000)
+                val jours = k.optJSONObject("jours")
+                val semaine = jours?.keys()?.asSequence()?.sumOf { jours.optInt(it) } ?: 0
+                stats("${k.optInt("aujourdhui")} / $quota" to "aujourd’hui", "$semaine" to "sur 7 jours")
+                val par = k.optJSONObject("par_type")
+                par?.keys()?.asSequence()?.map { it to par.optInt(it) }?.sortedByDescending { it.second }
+                    ?.forEach { (t, n) -> row(SKITOUR_TYPES[t] ?: t, "$n×", "") }
+                hint("Gratuit, mais skitour.fr limite à $quota demandes par jour (tous les téléphones ensemble). Au-delà, plus de parkings ni d’itinéraires jusqu’au lendemain.")
+            }
 
             title("💾 Place sur le téléphone")
             mem?.let { m ->
