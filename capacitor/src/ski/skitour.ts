@@ -189,7 +189,7 @@ export const sheetPhotos = (f: OutingSheet | null): SkiPhoto[] => (f && Array.is
 
 /** Liens de la fiche vers les pages skitour.fr du départ, des topos et des sommets (et leur point pour la carte). */
 export interface SheetLink { nom: string; url: string; altitude?: number | null; lat?: number | null; lon?: number | null }
-export interface SheetLinks { depart: SheetLink | null; topos: SheetLink[]; sommets: SheetLink[] }
+export interface SheetLinks { depart: SheetLink | null; topos: SheetLink[]; sommets: SheetLink[]; /** Topos retrouvés par le sommet (la sortie n'en cite pas). */ topos_trouves?: boolean }
 /** « Val Thorens (2300 m) » */
 export const linkText = (l: SheetLink) => l.nom + (l.altitude ? ` (${l.altitude} m)` : '');
 /** Une sortie de la carte (⛷🗺) vue comme une ligne de la liste, pour ouvrir sa fiche. */

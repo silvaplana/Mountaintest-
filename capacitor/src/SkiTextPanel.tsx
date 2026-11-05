@@ -115,7 +115,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onClose 
     const info: [string, React.ReactNode][] = [
       ['Massif', o.massif],
       ['Départ', L?.depart ? link(L.depart, true, undefined, o.parking) : f?.depart ?? ''],
-      [`Topo${(L?.topos.length ?? 0) > 1 ? 's' : ''} associé${(L?.topos.length ?? 0) > 1 ? 's' : ''}`, L?.topos.length ? L.topos.map((t, k) => link(t, false, k)) : f?.topos.join(', ') ?? ''],
+      [L?.topos_trouves ? `Topo${L.topos.length > 1 ? 's' : ''} du sommet` : `Topo${(L?.topos.length ?? 0) > 1 ? 's' : ''} associé${(L?.topos.length ?? 0) > 1 ? 's' : ''}`, L?.topos.length ? L.topos.map((t, k) => link(t, false, k)) : f?.topos.join(', ') ?? ''],
       [`Sommet${(L?.sommets.length ?? 0) > 1 ? 's' : ''} associé${(L?.sommets.length ?? 0) > 1 ? 's' : ''}`,
         L?.sommets.length ? L.sommets.map((t, k) => link(t, true, k)) : f?.sommets.length ? f.sommets.join(', ') : o.sommet + (o.altitude ? ` (${o.altitude} m)` : '')],
       ['Orientation', o.orientation], ['Dénivelé', o.denivele ? `${o.denivele} m` : ''], ['Ski', o.dif_ski ? String(o.dif_ski) : ''],

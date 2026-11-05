@@ -527,6 +527,8 @@ def _sortie(x, sm) -> dict:
         "skiabilite": _texte(x.get("skiabilite")), "etoiles": _etoiles(x), "parking": _parking(x),
         # Topos liés (leur itinéraire GPX est lu à la demande, pour la case « Itinéraire » de la carte).
         "topos_ids": [i for i in (_entier(_d(t).get("id")) for t in (x.get("topos") or [])) if i][:3],
+        "sommets_ids": [i for i in (_entier(_d(t).get("id")) for t in (x.get("sommets") or [])) if i][:2],
+        "depart_id": _entier(_d(x.get("depart")).get("id")),
     }
 
 
@@ -619,9 +621,40 @@ def _gpx_topo(id_: int) -> str:
     return _TOPOS_GPX[id_]
 
 
+_TOPOS_SOMMET: dict = {}  # id du sommet -> (heure, topos bruts de l'API)
+
+
+def topos_du_sommet(sommet_id: int, depart_id: int | None = None, orientation: str = "", maxi: int = 3) -> list:
+    """Topos d'un sommet (API /topos?s=…), ceux du même départ puis de la même orientation d'abord.
+    Sert quand une sortie n'a pas de topo associé : on va voir son sommet, comme on le ferait sur le site."""
+    if not sommet_id or not SKITOUR_CLE:
+        return []
+    c = _TOPOS_SOMMET.get(sommet_id)
+    if not (c and time.time() - c[0] < 86400):
+        try:
+            req = urllib.request.Request(f"https://skitour.fr/api/topos?s={sommet_id}", headers={"cle": SKITOUR_CLE, "User-Agent": "Assomoutain"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                lot = json.loads(r.read())
+        except (OSError, ValueError) as ex:
+            print(f"topos du sommet {sommet_id} : {ex}", file=sys.stderr, flush=True)
+            return []
+        c = (time.time(), [t for t in (lot if isinstance(lot, list) else []) if isinstance(t, dict) and _entier(t.get("id"))])
+        _TOPOS_SOMMET[sommet_id] = c
+    ori = (orientation or "").strip().upper()
+    def rang(t):
+        return (0 if depart_id and _entier(_d(t.get("depart")).get("id")) == depart_id else 1,
+                0 if ori and str(t.get("orientation") or "").strip().upper() == ori else 1)
+    return [{"id": _entier(t.get("id")), "nom": _texte(t.get("nom")), "url": f"https://skitour.fr/topos/{_entier(t.get('id'))}"}
+            for t in (lambda tri: [t for t in tri if rang(t) != (1, 1)] or tri)(sorted(c[1], key=rang))[:maxi]]
+
+
 def _itineraire(o: dict) -> list:
-    """Itinéraire du premier topo lié qui a un GPX."""
-    for t in o.get("topos_ids") or []:
+    """Itinéraire du premier topo lié qui a un GPX (sinon d'un topo de son sommet)."""
+    ids = list(o.get("topos_ids") or [])
+    if not ids:
+        for sid in o.get("sommets_ids") or []:
+            ids += [t["id"] for t in topos_du_sommet(sid, o.get("depart_id"), o.get("orientation") or "")]
+    for t in ids[:4]:
         tr = _trace(_gpx_topo(t))
         if tr:
             return tr
@@ -750,6 +783,15 @@ def fiche_sortie(id_: int) -> dict:
     topos_api = [t for t in (x.get("topos") or []) if isinstance(t, dict)]
     topos_liens = [{"nom": t.get("nom", ""), "url": lien("topos", _entier(t.get("id")), t.get("nom", ""))} for t in topos_api] \
         or [{"nom": l["nom"], "url": l["url"]} for l in liens if l["type"] == "topos"]
+    topos_trouves = False
+    if not topos_liens:
+        # Pas de topo associé : on cherche ceux de son sommet (même départ et même orientation d'abord).
+        sids = [i for i in (_entier(sm.get("id")) for sm in som_api) if i] or [l["id"] for l in liens if l["type"] == "sommets"]
+        for sid in sids[:2]:
+            topos_liens += [{"nom": t["nom"], "url": t["url"]} for t in topos_du_sommet(sid, dep_id, str(x.get("orientation") or ""))
+                            if t["url"] not in {u["url"] for u in topos_liens}]
+        topos_liens = topos_liens[:3]
+        topos_trouves = bool(topos_liens)
     return {
         **base,
         # Fiche façon skitour.fr : départ, topos et sommets avec leur lien (et leur point pour la carte).
@@ -757,6 +799,8 @@ def fiche_sortie(id_: int) -> dict:
             "depart": {"nom": dep_nom, "altitude": dep_alt, "url": lien("departs", dep_id, dep_nom),
                        "lat": pk.get("lat"), "lon": pk.get("lon")} if (dep_nom or pk) else None,
             "topos": topos_liens, "sommets": sommets_liens,
+            # Topos retrouvés par le sommet (la sortie n'en cite pas) : les applis l'écrivent « Topos du sommet ».
+            "topos_trouves": topos_trouves,
         },
         "exposition": _texte(x.get("expo") or x.get("exposition")) or page.get("exposition", ""),
         "sommets": [sm.get("sommet") or sm.get("nom") or "" for sm in (x.get("sommets") or []) if isinstance(sm, dict)],
@@ -1141,7 +1185,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             if liste:
                 return self._json(200, {"sorties": liste_sorties(jours, massifs)})
-            cle = f"fiche8:{id_}"
+            cle = f"fiche9:{id_}"
             with verrou:
                 cache = _lire("cache-skitour-fiches.json", {})
                 c = cache.get(cle)
