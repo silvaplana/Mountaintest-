@@ -14,6 +14,22 @@ export interface Outing {
   parking?: Parking | null;
 }
 export interface Parking { nom: string; altitude: number | null; lat: number; lon: number }
+/**
+ * Un seul parking par endroit quand plusieurs sorties partent du même : la sortie choisie le représente si elle en fait
+ * partie (sinon la première) ; nom et altitude pris sur celle qui les a.
+ */
+export function uniqueParkings(outings: Outing[], sel: number | null): { i: number; p: Parking; sel: boolean }[] {
+  const by = new Map<string, { i: number; p: Parking; sel: boolean }>();
+  outings.forEach((o, i) => {
+    if (!o.parking) return;
+    const k = `${o.parking.lat.toFixed(4)},${o.parking.lon.toFixed(4)}`;
+    const cur = by.get(k);
+    if (!cur) { by.set(k, { i, p: o.parking, sel: i === sel }); return; }
+    const p = { ...cur.p, nom: cur.p.nom || o.parking.nom, altitude: cur.p.altitude ?? o.parking.altitude };
+    by.set(k, i === sel ? { i, p, sel: true } : { ...cur, p });
+  });
+  return [...by.values()];
+}
 /** « Val Thorens (2300 m) » : nom et altitude du parking (le P bleu est ajouté devant par la carte). */
 export const parkingText = (p: Parking) => [p.nom, p.altitude ? `(${p.altitude} m)` : ''].filter(Boolean).join(' ');
 

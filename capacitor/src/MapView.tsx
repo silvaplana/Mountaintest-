@@ -10,7 +10,7 @@ import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
-import { outingLabel, parkingText, type Outing } from './ski/skitour';
+import { outingLabel, parkingText, uniqueParkings, type Outing } from './ski/skitour';
 import { placeLabels } from './ski/labels';
 
 export interface MapViewProps {
@@ -286,10 +286,13 @@ export function MapView(props: MapViewProps) {
     (m.getSource('ski') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).map((o, i) => ({
       type: 'Feature', properties: { i }, geometry: { type: 'Point', coordinates: [o.lon, o.lat] } })) });
     const sel = props.skiSel ?? -1;
-    (m.getSource('skiPark') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).flatMap((o, i) => o.parking ? [
-      { type: 'Feature' as const, properties: { i, sel: i === sel }, geometry: { type: 'LineString' as const, coordinates: [[o.lon, o.lat], [o.parking.lon, o.parking.lat]] } },
-      { type: 'Feature' as const, properties: { i, sel: i === sel }, geometry: { type: 'Point' as const, coordinates: [o.parking.lon, o.parking.lat] } },
-    ] : []) });
+    // Un trait par sortie, mais un seul point par parking (plusieurs sorties peuvent partir du même).
+    (m.getSource('skiPark') as GeoJSONSource).setData({ type: 'FeatureCollection', features: [
+      ...(props.skiOutings ?? []).flatMap((o, i) => o.parking ? [
+        { type: 'Feature' as const, properties: { i, sel: i === sel }, geometry: { type: 'LineString' as const, coordinates: [[o.lon, o.lat], [o.parking.lon, o.parking.lat]] } }] : []),
+      ...uniqueParkings(props.skiOutings ?? [], sel).map(({ i, p, sel: s }) =>
+        ({ type: 'Feature' as const, properties: { i, sel: s }, geometry: { type: 'Point' as const, coordinates: [p.lon, p.lat] } })),
+    ] });
     m.setPaintProperty('ski', 'circle-color', ['case', ['==', ['get', 'i'], sel], '#7b3fe4', '#1d6fe0']);
     m.setPaintProperty('ski', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
     const o = props.skiOutings?.[sel];
@@ -317,16 +320,16 @@ export function MapView(props: MapViewProps) {
       el.className = `ski-tag${i === props.skiSel ? ' sel' : ''}`;
       el.textContent = outingLabel(o);
       add(el, [o.lon, o.lat], i === props.skiSel);
-      if (o.parking) {
-        // Étiquette du parking : nom et altitude ; un appui choisit la sortie.
-        const p = document.createElement('div');
-        p.className = `ski-tag park${i === props.skiSel ? ' sel' : ''}`;
-        const pp = document.createElement('b');
-        pp.className = 'park-p'; pp.textContent = 'P';
-        p.append(pp, parkingText(o.parking));
-        p.onclick = () => onSkiClick.current?.(i);
-        add(p, [o.parking.lon, o.parking.lat], i === props.skiSel);
-      }
+    });
+    // Étiquette de chaque parking (une seule par endroit) : P bleu, nom et altitude ; un appui choisit la sortie.
+    uniqueParkings(props.skiOutings ?? [], props.skiSel ?? null).forEach(({ i, p: pk, sel }) => {
+      const p = document.createElement('div');
+      p.className = `ski-tag park${sel ? ' sel' : ''}`;
+      const pp = document.createElement('b');
+      pp.className = 'park-p'; pp.textContent = 'P';
+      p.append(pp, parkingText(pk));
+      p.onclick = () => onSkiClick.current?.(i);
+      add(p, [pk.lon, pk.lat], sel);
     });
     const order = [...tags.filter((t) => t.sel), ...tags.filter((t) => !t.sel)];
     const layout = () => {
