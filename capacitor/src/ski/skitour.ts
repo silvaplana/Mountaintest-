@@ -238,7 +238,7 @@ export async function fetchSheet(id: number, password: string): Promise<OutingSh
   const kept = [f, ...readSheets().filter((x) => x.id !== id)].slice(0, 50);
   try { localStorage.setItem(SHEETS_KEY, JSON.stringify(kept)); } catch { /* stockage plein */ }
   // Photos gardées pour le hors ligne : celles des 50 fiches gardées, pas plus.
-  void keepPhotos(sheetPhotos(f).map((p) => p.url), password).then(() => prunePhotos(new Set(kept.flatMap((x) => sheetPhotos(x).map((p) => p.url)))));
+  void keepPhotos(sheetPhotos(f).map((p) => p.url), password).then(() => prunePhotos(keptPhotoUrls()));
   return f;
 }
 
@@ -252,6 +252,12 @@ export interface TopoSheet {
   auteur: string; gpx: string;
   /** Itinéraire GPX simplifié [[lon, lat], …] (vide sans GPX). */
   trace?: [number, number][];
+  /** Photos du topo (comme celles des sorties : avec leur auteur, seulement dans la fiche). */
+  photos?: SkiPhoto[];
+}
+/** Photos à garder sur le téléphone : celles des 50 fiches de sorties et des 50 topos gardés. */
+function keptPhotoUrls(): Set<string> {
+  return new Set([...readSheets().flatMap((x) => sheetPhotos(x).map((p) => p.url)), ...readTopos().flatMap((t) => (t.photos ?? []).map((p) => p.url))]);
 }
 const TOPOS_KEY = 'skitourTopos';
 /** Numéro d'un topo d'après son lien skitour.fr (…/topos/123). */
@@ -265,6 +271,7 @@ export async function fetchTopo(id: number, password: string): Promise<TopoSheet
   const t = await relayPost<TopoSheet>('skitour-topo', { id }, password);
   const kept = [t, ...readTopos().filter((x) => x.id !== id)].slice(0, 50);
   try { localStorage.setItem(TOPOS_KEY, JSON.stringify(kept)); } catch { /* stockage plein */ }
+  void keepPhotos((t.photos ?? []).map((p) => p.url), password).then(() => prunePhotos(keptPhotoUrls()));
   return t;
 }
 

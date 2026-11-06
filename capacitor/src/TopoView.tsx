@@ -1,6 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
 import { fetchTopo, savedTopo, topoRowOf, type TopoSheet } from './ski/skitour';
+import { storedPhoto } from './ski/photoStore';
+
+/** Une photo : la copie gardée sur le téléphone si elle existe, sinon celle de skitour.fr. */
+function Photo({ url, alt, onOpen }: { url: string; alt: string; onOpen?: () => void }) {
+  const [src, setSrc] = useState(url);
+  useEffect(() => {
+    let u: string | null = null, live = true;
+    void storedPhoto(url).then((x) => { u = x; if (live && x) setSrc(x); });
+    return () => { live = false; if (u) URL.revokeObjectURL(u); };
+  }, [url]);
+  return <img src={src} alt={alt} loading="lazy" onClick={onOpen} />;
+}
 
 const go = (url: string) => { if (url) window.open(url, '_system'); };
 /** Itinéraire Google Maps jusqu'au départ (sinon recherche par nom). */
@@ -19,6 +31,9 @@ export function TopoView({ topo, password, backLabel, onBack, onClose, onMap }: 
 }) {
   const [t, setT] = useState<TopoSheet | null>(() => savedTopo(topo.id));
   const [msg, setMsg] = useState('');
+  const [big, setBig] = useState<number | null>(null);
+  const bigRef = useRef<number | null>(null);
+  bigRef.current = big;
   useEffect(() => {
     let live = true;
     const saved = savedTopo(topo.id);
@@ -30,9 +45,10 @@ export function TopoView({ topo, password, backLabel, onBack, onClose, onMap }: 
   }, [topo.id, password]);
   useEffect(() => {
     let sub: { remove: () => void } | null = null, live = true;
-    void CapApp.addListener('backButton', onBack).then((h) => { if (live) sub = h; else void h.remove(); }).catch(() => { /* web */ });
+    void CapApp.addListener('backButton', () => { if (bigRef.current != null) setBig(null); else onBack(); }).then((h) => { if (live) sub = h; else void h.remove(); }).catch(() => { /* web */ });
     return () => { live = false; sub?.remove(); };
   }, [onBack]);
+  const photos = t?.photos ?? [];
   const pt = (p: { nom: string; altitude?: number | null }) => p.nom + (p.altitude ? ` (${p.altitude} m)` : '');
   const info: [string, React.ReactNode][] = t ? [
     ['Massif', t.massif],
@@ -52,6 +68,18 @@ export function TopoView({ topo, password, backLabel, onBack, onClose, onMap }: 
       {msg && <p className="hint">{msg}</p>}
       <dl className="ski-info">{info.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k} :</dt><dd>{v}</dd></div>)}</dl>
       {sections.filter(([, v]) => v).map(([k, v]) => <div key={k}><h3>{k}</h3><p className="ski-text">{v}</p></div>)}
+      {photos.length > 0 && <><h3>Photos</h3>
+        <div className="ski-photos">{photos.map((p, i) => <figure key={p.url}><Photo url={p.url} alt={p.legende || `Photo de ${p.auteur}`} onOpen={() => setBig(i)} /><figcaption>© {p.auteur}</figcaption></figure>)}</div></>}
+      {big != null && photos[big] && <div className="ski-big" onClick={() => setBig(null)}>
+        <button className="ski-big-close" onClick={() => setBig(null)} aria-label="Fermer la photo">✕</button>
+        <Photo url={photos[big].url} alt={photos[big].legende} />
+        <p>{photos[big].legende}{photos[big].legende ? ' · ' : ''}© {photos[big].auteur} · skitour.fr</p>
+        <div className="row">
+          <button disabled={big === 0} onClick={(e) => { e.stopPropagation(); setBig(big - 1); }}>‹</button>
+          <span>{big + 1} / {photos.length}</span>
+          <button disabled={big === photos.length - 1} onClick={(e) => { e.stopPropagation(); setBig(big + 1); }}>›</button>
+        </div>
+      </div>}
       <div className="row">
         {onMap && t && topoRowOf(t) && <button className="primary" onClick={() => onMap(t)}>🗺 Sur la carte</button>}
         <button className={onMap && t && topoRowOf(t) ? '' : 'primary'} onClick={() => go(topo.url)}>Voir sur skitour.fr</button>

@@ -61,7 +61,8 @@ class TopoSheet(val id: Long, val nom: String, val url: String, val massif: Stri
                 val difSki: String, val difficulte: String, val expo: String, val depart: TopoPoint?, val sommets: List<TopoPoint>,
                 /** Présentation, Itinéraire, Variantes, Remarques, Matériel, Bibliographie. */ val sections: List<Pair<String, String>>,
                 val auteur: String, val gpx: String,
-                /** Itinéraire GPX simplifié (lon, lat), vide sans GPX. */ val trace: List<Pair<Double, Double>> = emptyList()) {
+                /** Itinéraire GPX simplifié (lon, lat), vide sans GPX. */ val trace: List<Pair<Double, Double>> = emptyList(),
+                /** Photos du topo (avec leur auteur, seulement dans la fiche). */ val photos: List<SkiPhoto> = emptyList()) {
     /** Le topo vu comme un point de la carte des topos : à son départ, sinon à son premier sommet placé (ou au début de l'itinéraire). */
     fun row(): TopoRow? {
         val p = (listOfNotNull(depart) + sommets).firstOrNull { it.lat != null && it.lon != null }
@@ -185,7 +186,15 @@ object SkiText {
         listOf("presentation" to "Présentation", "itineraire" to "Itinéraire", "variantes" to "Variantes", "remarques" to "Remarques",
             "materiel" to "Matériel", "biblio" to "Bibliographie").map { (k, t) -> t to o.optString(k) },
         o.optString("auteur"), o.optString("gpx"),
-        o.optJSONArray("trace")?.let { a -> (0 until a.length()).mapNotNull { k -> a.optJSONArray(k)?.takeIf { it.length() >= 2 }?.let { it.optDouble(0) to it.optDouble(1) } } } ?: emptyList())
+        o.optJSONArray("trace")?.let { a -> (0 until a.length()).mapNotNull { k -> a.optJSONArray(k)?.takeIf { it.length() >= 2 }?.let { it.optDouble(0) to it.optDouble(1) } } } ?: emptyList(),
+        photos(o.optJSONArray("photos")))
+    private fun photos(a: JSONArray?) = a?.let { (0 until it.length()).mapNotNull { k -> it.optJSONObject(k) }
+        .map { p -> SkiPhoto(p.optString("url"), p.optString("legende"), p.optString("auteur")) }.filter { p -> p.url.isNotEmpty() } } ?: emptyList()
+    /** Photos des 50 topos gardés (à garder avec celles des fiches de sorties). */
+    fun keptTopoPhotoUrls(f: java.io.File): List<String> {
+        val a = readSheets(f)
+        return (0 until a.length()).flatMap { photos(a.getJSONObject(it).optJSONArray("photos")).map { p -> p.url } }
+    }
     fun savedTopo(f: java.io.File, id: Long): TopoSheet? {
         val a = readSheets(f)
         return (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optLong("id") == id }?.let { topo(it) }
@@ -228,7 +237,7 @@ object SkiText {
     /** « Limiter à » de skitour.fr, en jours. */
     val LIMITS = listOf(1 to "1 jour", 2 to "2 jours", 3 to "3 jours", 4 to "4 jours", 5 to "5 jours", 6 to "6 jours",
         7 to "1 sem.", 14 to "2 sem.", 30 to "1 mois", 60 to "2 mois", 90 to "3 mois", 180 to "6 mois",
-        365 to "1 an", 730 to "2 ans", 3650 to "Tout")
+        365 to "1 an", 730 to "2 ans", 1095 to "3 ans", 1460 to "4 ans", 3650 to "Tout")
 
     private fun norm(t: String) = Normalizer.normalize(t, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
 
@@ -461,7 +470,8 @@ class SkiTextPanel(
             runCatching { withContext(Dispatchers.IO) { SkiText.fetchSheet(sheetsFile, o.id, password) } }
                 .onSuccess {
                     renderSheet(o, it, "")
-                    withContext(Dispatchers.IO) { runCatching { SkiPhotos.prune(a, SkiText.keptPhotoUrls(sheetsFile)) } }
+                    withContext(Dispatchers.IO) { runCatching { SkiPhotos.prune(a, SkiText.keptPhotoUrls(sheetsFile) +
+                        SkiText.keptTopoPhotoUrls(java.io.File(a.filesDir, "skitour-topos.json"))) } }
                 }
                 .onFailure { e ->
                     if (e is kotlinx.coroutines.CancellationException) return@onFailure

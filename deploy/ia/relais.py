@@ -354,6 +354,20 @@ _PAGES: dict = {}
 SKIAB_NOMS: dict = {}  # chiffre de l'API -> « 🙂 Bonne », appris sur les pages lues
 
 
+def _photos_html(page: str) -> list:
+    """Photos d'une page skitour.fr : images du site, sans logos, étoiles ni icônes ; grandes images d'abord."""
+    photos = []
+    for attrs in (r"href|data-full|data-src", r"src"):
+        for u in re.findall(r'(?:' + attrs + r')="([^"]+?\.(?:jpe?g|png|webp))"', page, re.I):
+            u = urllib.parse.urljoin("https://skitour.fr/", html.unescape(u))
+            if PHOTO_CHEMIN.match(u) and not re.search(r"logo|star|icon|picto|avatar|drapeau|flag|meteo|pub|bann|bandeau|fond|sprite|/img/", u, re.I) \
+                    and u not in photos:
+                photos.append(u)
+        if photos:
+            break
+    return photos[:30]
+
+
 def _page_sortie(id_: int) -> dict:
     c = _PAGES.get(id_)
     if c and time.time() - c[0] < 86400 and "photos" in c[1]:
@@ -383,15 +397,7 @@ def _page_sortie(id_: int) -> dict:
     cond_txt = re.sub(r"\n\s*\n+", "\n", cond.group(1)).strip()[:4000] if cond else ""
     # Photos de la page (secours si l'API n'en donne pas) : images de skitour.fr, sans logos, étoiles ni icônes.
     # Les liens vers les grandes images d'abord ; les vignettes seulement s'il n'y en a pas.
-    photos = []
-    for attrs in (r"href|data-full|data-src", r"src"):
-        for u in re.findall(r'(?:' + attrs + r')="([^"]+?\.(?:jpe?g|png|webp))"', page, re.I):
-            u = urllib.parse.urljoin("https://skitour.fr/", html.unescape(u))
-            if PHOTO_CHEMIN.match(u) and not re.search(r"logo|star|icon|picto|avatar|drapeau|flag|meteo|pub|bann|bandeau|fond|sprite|/img/", u, re.I) \
-                    and u not in photos:
-                photos.append(u)
-        if photos:
-            break
+    photos = _photos_html(page)
     out = {"liens": liens, "photos": photos[:30], "conditions": cond_txt, "exposition": expo.group(1) if expo else "",
            "etoiles": zone.count("star1."), "skiabilite": " ".join(x for x in (m.group(1), m.group(2).strip()) if x) if m else "",
            "depart": dep.group(1).strip() if dep else "", "depart_alt": int(dep.group(2)) if dep and dep.group(2) else None}
@@ -527,11 +533,22 @@ def appels_skitour() -> dict:
                                "jours": {k: sum(v.values()) for k, v in sorted(c.items())[-7:]}}}
 
 
+def _pages(jours: int) -> int:
+    """Pages de 1000 sorties à demander : plus pour les longues périodes (sinon « Tout » ou « 4 ans » ne montraient
+    que la dernière année, toutes les sorties de tous les massifs ne tenant pas dans 10 pages)."""
+    return 3 if jours <= 90 else 10 if jours <= 365 else 25
+
+
+def _garde(jours: int) -> int:
+    """Durée pendant laquelle une liste reste fraîche : 1 h, 6 h au-delà d'un mois, 1 jour au-delà d'un an."""
+    return 3600 if jours <= 30 else 6 * 3600 if jours <= 365 else 86400
+
+
 def _sorties_brutes(jours: int, massif: int | None = None, pages: int = 3) -> list:
     """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif.
     Gardées sur le disque (1 h, 6 h au-delà d'un mois) : une liste plus longue encore fraîche sert aussi aux périodes
     plus courtes, et un redémarrage du relais ne coûte plus rien au quota de l'API."""
-    garde = 3600 if jours <= 30 else 6 * 3600
+    garde = _garde(jours)
     m = massif or "tous"
     try:
         noms = os.listdir(DOSSIER)
@@ -625,10 +642,10 @@ def toutes_sorties(jours: int) -> list:
     """Toutes les sorties de la période (jours ≥ 3650 = « Tout »), avec un sommet placé sur la carte."""
     c = _liste_memo.get(("tout", jours))
     # Longue période : plus de pages (1000 sorties chacune) mais gardée plus longtemps, pour ménager le quota skitour.
-    garde = 3600 if jours <= 30 else 6 * 3600
+    garde = _garde(jours)
     if not (c and time.time() - c[0] < garde):
         out = []
-        for x in _sorties_brutes(jours, pages=3 if jours <= 90 else 10):
+        for x in _sorties_brutes(jours, pages=_pages(jours)):
             pts = _sommets(x)
             if pts:
                 o = _sortie(x, pts[0])
@@ -705,12 +722,80 @@ _FICHES_TOPO: dict = {}  # id -> (heure, fiche)
 
 
 def _point(x) -> dict:
-    """Départ ou sommet d'un topo : nom, altitude, position (latlon [lat, lon] ou lat/lng)."""
-    x = _d(x)
-    ll = x.get("latlon") if isinstance(x.get("latlon"), list) else []
-    lat = _nombre(ll[0]) if len(ll) > 1 else _nombre(x.get("lat"))
-    lon = _nombre(ll[1]) if len(ll) > 1 else _nombre(x.get("lng") if x.get("lng") is not None else x.get("lon"))
-    return {"id": _entier(x.get("id")), "nom": _texte(x.get("nom") or x.get("sommet")), "altitude": _entier(x.get("altitude")), "lat": lat, "lon": lon}
+    """Départ ou sommet d'un topo : nom, altitude, position. Formats vus ou documentés : latlon [lat, lon] ou "lat,lon",
+    lat/lng (comme les sorties), lat/lon, latitude/longitude."""
+    x = _d(x) if not isinstance(x, str) else {"nom": x}
+    ll = x.get("latlon")
+    if isinstance(ll, str) and "," in ll:
+        ll = ll.split(",")
+    ll = ll if isinstance(ll, list) else []
+    lat = _nombre(ll[0]) if len(ll) > 1 else _nombre(next((x[k] for k in ("lat", "latitude") if x.get(k) is not None), None))
+    lon = _nombre(ll[1]) if len(ll) > 1 else _nombre(next((x[k] for k in ("lng", "lon", "longitude") if x.get(k) is not None), None))
+    if lat is not None and lon is not None and (lat == 0 and lon == 0):
+        lat = lon = None
+    return {"id": _entier(x.get("id")), "nom": _texte(x.get("nom") or x.get("sommet") or x.get("titre")), "altitude": _entier(x.get("altitude")),
+            "lat": lat, "lon": lon}
+
+
+def _points(v) -> list:
+    """Liste de sommets d'un topo, quelle que soit sa forme (liste, objet unique, objet indexé par id)."""
+    if isinstance(v, dict):
+        v = [v] if any(k in v for k in ("nom", "sommet", "lat", "latlon", "id")) else list(v.values())
+    return [_point(s) for s in (v or []) if isinstance(s, (dict, str))] if isinstance(v, list) else []
+
+
+_POS_PAGES: dict = {}  # adresse d'une page skitour.fr -> (lat, lon) ou None
+_HTML: dict = {}  # adresse -> (heure, page) : une lecture par page et par jour
+
+
+def _html(url: str):
+    """Page skitour.fr (texte), gardée un jour en mémoire ; None si illisible."""
+    c = _HTML.get(url)
+    if c and time.time() - c[0] < 86400:
+        return c[1]
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Assomoutain"}), timeout=10) as r:
+            page = r.read(800_000).decode("utf-8", "replace")
+    except OSError as ex:
+        print(f"page skitour {url} : {ex}", file=sys.stderr, flush=True)
+        return None
+    if len(_HTML) > 200:
+        _HTML.clear()
+    _HTML[url] = (time.time(), page)
+    return page
+
+
+def _position_page(url: str):
+    """Position lue sur une page skitour.fr (sommet, départ ou topo) : sa carte, ou son lien Géoportail.
+    Une page n'est pas une demande à l'API (pas de quota)."""
+    if url in _POS_PAGES:
+        return _POS_PAGES[url]
+    page = _html(url)
+    if page is None:
+        return None
+    ok = lambda la, lo: 40 < la < 52 and -6 < lo < 18  # Alpes, Pyrénées, Corse… (France et voisins)
+    pos = None
+    for motif, ordre in ((r"[?&]c=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)", "lonlat"),  # lien Géoportail : c=lon,lat
+                         (r"(?:lat|latitude)[\"']?\s*[:=]\s*[\"']?(-?\d+\.\d{3,})[\s\S]{0,80}?(?:lng|lon|longitude)[\"']?\s*[:=]\s*[\"']?(-?\d+\.\d{3,})", "latlon"),
+                         (r"data-lat=[\"'](-?\d+\.\d+)[\"'][^>]*data-(?:lng|lon)=[\"'](-?\d+\.\d+)", "latlon"),
+                         (r"\[\s*(4\d\.\d{3,})\s*,\s*(-?\d{1,2}\.\d{3,})\s*\]", "latlon")):
+        for m in re.finditer(motif, page, re.I):
+            a, b = float(m.group(1)), float(m.group(2))
+            la, lo = (b, a) if ordre == "lonlat" else (a, b)
+            if ok(la, lo):
+                pos = (la, lo)
+                break
+        if pos:
+            break
+    if not pos:
+        print(f"page skitour {url} : pas de position trouvée", file=sys.stderr, flush=True)
+    if len(_POS_PAGES) > 2000:
+        _POS_PAGES.clear()
+    _POS_PAGES[url] = pos
+    return pos
+
+
+TOPO_BRUT: dict = {}  # forme réelle des champs départ / sommets de l'API (affichée sur GET /mountaintest-ia/, pour vérifier)
 
 
 def fiche_topo(id_: int) -> dict:
@@ -731,10 +816,30 @@ def fiche_topo(id_: int) -> dict:
         "orientation": _texte(x.get("orientation")), "denivele": _entier(x.get("denivele")), "dif_ski": _texte(x.get("dif_ski")),
         "difficulte": _texte(x.get("difficulte")), "expo": _texte(x.get("expo")),
         "depart": _point(x.get("depart")) if x.get("depart") else None,
-        "sommets": [_point(s) for s in (x.get("sommets") or []) if isinstance(s, dict)],
+        "sommets": _points(x.get("sommets") or x.get("sommet")),
         **{k: _texte(x.get(k)) for k in ("presentation", "itineraire", "variantes", "remarques", "materiel", "biblio")},
         "auteur": _pseudo(x.get("auteur")), "gpx": gpx, "trace": _trace(gpx),
     }
+    # Photos du topo : celles de l'API, sinon celles de sa page skitour.fr.
+    f["photos"] = _photos(x, {"photos": None})
+    if not f["photos"]:
+        page = _html(f["url"])
+        f["photos"] = [{"url": u, "legende": "", "auteur": f["auteur"]} for u in (_photos_html(page) if page else [])]
+    TOPO_BRUT["fiche"] = {"cles": sorted(x.keys()), "depart": x.get("depart"), "sommets": x.get("sommets") or x.get("sommet")}
+    # Sans position dans l'API : celle de la page du sommet (sa carte), sinon du départ, sinon du topo.
+    if not any(p and p.get("lat") is not None for p in [f["depart"], *f["sommets"]]) and not f["trace"]:
+        pages = [f"https://skitour.fr/sommets/{p['id']}" for p in f["sommets"] if p.get("id")]
+        pages += [f"https://skitour.fr/departs/{f['depart']['id']}"] if f["depart"] and f["depart"].get("id") else []
+        for u in pages + [f["url"]]:
+            pos = _position_page(u)
+            if pos:
+                cible = next((p for p in f["sommets"] if u.endswith(f"/{p.get('id')}")), None) or f["depart"] \
+                    or (f["sommets"][0] if f["sommets"] else None)
+                if cible is None:
+                    cible = {"id": None, "nom": f["nom"], "altitude": None}
+                    f["sommets"].append(cible)
+                cible["lat"], cible["lon"] = pos
+                break
     if len(_FICHES_TOPO) > 500:
         _FICHES_TOPO.clear()
     _FICHES_TOPO[id_] = (time.time(), f)
@@ -743,7 +848,8 @@ def fiche_topo(id_: int) -> dict:
 
 def _topo_court(t: dict) -> dict:
     """Un topo de la liste de l'API, pour la liste et la carte des topos de l'appli (départ placé)."""
-    dep = _point(t.get("depart")) if isinstance(t.get("depart"), dict) else None
+    TOPO_BRUT.setdefault("liste", {"cles": sorted(t.keys()), "depart": t.get("depart"), "sommets": t.get("sommets")})
+    dep = _point(t.get("depart")) if isinstance(t.get("depart"), (dict, str)) else None
     return {"id": _entier(t.get("id")), "nom": _texte(t.get("nom")), "url": f"https://skitour.fr/topos/{_entier(t.get('id'))}",
             "massif": _d(t.get("massif")).get("nom", "") if isinstance(t.get("massif"), dict) else _texte(t.get("massif")),
             "orientation": _texte(t.get("orientation")), "denivele": _entier(t.get("denivele")), "dif_ski": _texte(t.get("dif_ski")),
@@ -929,9 +1035,9 @@ def liste_sorties(jours: int, massifs: list | None = None) -> list:
     out, vus = [], set()
     for m in (massifs or [None]):
         c = _liste_memo.get((jours, m))
-        if not (c and time.time() - c[0] < (3600 if jours <= 30 else 6 * 3600)):
+        if not (c and time.time() - c[0] < _garde(jours)):
             # Longues périodes : plus de pages (1000 sorties chacune) ; gardées sur le disque, voir _sorties_brutes.
-            c = (time.time(), [_ligne(x) for x in _sorties_brutes(jours, m, pages=3 if jours <= 90 else 10)])
+            c = (time.time(), [_ligne(x) for x in _sorties_brutes(jours, m, pages=_pages(jours))])
             _liste_memo[(jours, m)] = c
         for o in c[1]:
             if o["id"] not in vus:
@@ -1275,7 +1381,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour()})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
