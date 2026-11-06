@@ -12,4 +12,4 @@ export const MASSIF_GROUPS: [string, string[]][] = [
 /** « Limiter à » de skitour.fr, en jours. */
 export const LIMITS: [number, string][] = [[1, '1 jour'], [2, '2 jours'], [3, '3 jours'], [4, '4 jours'], [5, '5 jours'], [6, '6 jours'],
   [7, '1 sem.'], [14, '2 sem.'], [30, '1 mois'], [60, '2 mois'], [90, '3 mois'], [180, '6 mois'],
-  [365, '1 an'], [730, '2 ans'], [3650, 'Tout']];
+  [365, '1 an'], [730, '2 ans'], [1095, '3 ans'], [1460, '4 ans'], [3650, 'Tout']];

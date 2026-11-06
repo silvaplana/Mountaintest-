@@ -39,13 +39,59 @@ class TopoPage(private val a: AppCompatActivity, private val password: String, p
     /** « 🗺 Sur la carte » : carte des topos centrée sur celui-ci (départ, sommets, itinéraire). */
     private var onMap: ((TopoSheet) -> Unit)? = null
 
+    /** Vignette : la photo (gardée, sinon téléchargée puis gardée pour le hors ligne), avec l'auteur en bas. */
+    private fun photoTile(ph: SkiPhoto, onClick: () -> Unit) = android.widget.FrameLayout(a).apply {
+        val img = android.widget.ImageView(a).apply { scaleType = android.widget.ImageView.ScaleType.CENTER_CROP; setBackgroundColor(Color.parseColor("#DDDDDD")) }
+        addView(img, android.widget.FrameLayout.LayoutParams(-1, -1))
+        addView(text("© ${ph.auteur}", 11f, Color.WHITE).apply { setBackgroundColor(Color.parseColor("#88000000")); setPadding(dp(5), dp(1), dp(5), dp(1)) },
+            android.widget.FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(4), 0, 0, dp(4)) })
+        setOnClickListener { onClick() }
+        a.lifecycleScope.launch { withContext(Dispatchers.IO) { SkiPhotos.load(a, ph.url) }?.let { img.setImageBitmap(it) } }
+    }
+
+    /** Photo en grand (fond noir), ‹ › pour passer à la suivante, ✕ ou retour d'Android pour fermer. */
+    private fun showPhoto(list: List<SkiPhoto>, start: Int) {
+        val dlg = android.app.Dialog(a, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        var i = start
+        val img = android.widget.ImageView(a).apply { scaleType = android.widget.ImageView.ScaleType.FIT_CENTER; setOnClickListener { dlg.dismiss() } }
+        val cap = text("", 14f, Color.WHITE).apply { gravity = Gravity.CENTER }
+        val count = text("", 14f, Color.WHITE)
+        val prev = Button(a).apply { text = "‹" }
+        val next = Button(a).apply { text = "›" }
+        fun show() {
+            val ph = list[i]
+            cap.text = listOf(ph.legende, "© ${ph.auteur} · skitour.fr").filter { it.isNotBlank() }.joinToString(" · ")
+            count.text = "${i + 1} / ${list.size}"; prev.isEnabled = i > 0; next.isEnabled = i < list.size - 1
+            img.setImageDrawable(null)
+            a.lifecycleScope.launch { withContext(Dispatchers.IO) { SkiPhotos.load(a, ph.url) }?.let { if (list[i] == ph) img.setImageBitmap(it) } }
+        }
+        prev.setOnClickListener { if (i > 0) { i--; show() } }
+        next.setOnClickListener { if (i < list.size - 1) { i++; show() } }
+        dlg.setContentView(LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setBackgroundColor(Color.BLACK); setPadding(dp(12), dp(28), dp(12), dp(12))
+            addView(Button(a).apply { text = "✕"; contentDescription = "Fermer la photo"; setOnClickListener { dlg.dismiss() } },
+                LinearLayout.LayoutParams(dp(52), dp(48)).apply { gravity = Gravity.END })
+            addView(img, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(cap, LinearLayout.LayoutParams(-1, -2))
+            addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER
+                addView(prev); addView(count.apply { setPadding(dp(16), 0, dp(16), 0) }); addView(next)
+            }, LinearLayout.LayoutParams(-1, -2))
+        })
+        dlg.setCancelable(true)
+        show(); dlg.show()
+    }
+
     fun show(id: Long, nom: String, url: String, backLabel: String, onBack: () -> Unit, onClose: () -> Unit, onMap: ((TopoSheet) -> Unit)? = null) {
         this.onMap = onMap
         val saved = SkiText.savedTopo(toposFile, id)
         render(nom, url, saved, if (saved == null) "Chargement du topo…" else "", backLabel, onBack, onClose)
         job = a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { SkiText.fetchTopo(toposFile, id, password) } }
-                .onSuccess { render(nom, url, it, "", backLabel, onBack, onClose) }
+                .onSuccess {
+                    render(nom, url, it, "", backLabel, onBack, onClose)
+                    withContext(Dispatchers.IO) { runCatching { SkiPhotos.prune(a, SkiText.keptPhotoUrls(java.io.File(a.filesDir, "skitour-fiches.json")) + SkiText.keptTopoPhotoUrls(toposFile)) } }
+                }
                 .onFailure { e ->
                     if (e is kotlinx.coroutines.CancellationException) return@onFailure
                     render(nom, url, saved, if (saved != null) "📴 Hors ligne : topo gardé sur le téléphone."
@@ -99,6 +145,17 @@ class TopoPage(private val a: AppCompatActivity, private val password: String, p
             t.sections.filter { it.second.isNotBlank() }.forEach { (k, body) ->
                 col.addView(text(k, 16f, accent, true).apply { setPadding(0, dp(12), 0, dp(2)) })
                 col.addView(text(body, 15f, ink).apply { setLineSpacing(0f, 1.2f) })
+            }
+        }
+        if (t != null && t.photos.isNotEmpty()) {
+            col.addView(text("Photos", 16f, accent, true).apply { setPadding(0, dp(12), 0, dp(2)) })
+            t.photos.chunked(2).forEachIndexed { r, pair ->
+                col.addView(LinearLayout(a).apply {
+                    pair.forEachIndexed { c, ph ->
+                        addView(photoTile(ph) { showPhoto(t.photos, r * 2 + c) }, LinearLayout.LayoutParams(0, dp(200), 1f).apply { if (c == 0) marginEnd = dp(6) })
+                    }
+                    if (pair.size == 1) addView(android.view.View(a), LinearLayout.LayoutParams(0, dp(200), 1f))
+                }, lp())
             }
         }
         col.addView(LinearLayout(a).apply {
