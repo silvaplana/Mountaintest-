@@ -1,0 +1,827 @@
+{
+ "build": 112,
+ "entries": [
+  {
+   "date": "2026-11-06 02:06",
+   "title": "Sortie choisie : la carte ne bouge plus pour le parking (#55)",
+   "details": [],
+   "commit": "50c66c2"
+  },
+  {
+   "date": "2026-11-06 02:04",
+   "title": "Topos : position lue sur la page du sommet, photos du topo ; sorties : 3 et 4 ans, « Tout » plus complet (#54)",
+   "details": [],
+   "commit": "0f50dd3"
+  },
+  {
+   "date": "2026-11-06 01:39",
+   "title": "Icône Mountain Buddies : montagne seule, centrée, sans les lettres MB",
+   "details": [],
+   "commit": "3b5a46b"
+  },
+  {
+   "date": "2026-11-06 01:31",
+   "title": "Topos sur la carte : bouton « 🗺 Sur la carte » et carte des topos remplie",
+   "details": [
+    "Fiche d'un topo (deux applis) : « 🗺 Sur la carte » ouvre la carte des topos, ce topo choisi, son itinéraire GPX en vert pointillé, cadré sur départ, sommets et itinéraire.",
+    "Relais : quand le filtre « autour d'un point » de l'API échoue (erreur 500 comme pour les sorties) ou ne place rien, la carte prend les topos des massifs du coin (repérés par les sorties), gardés 7 jours.",
+    "La carte montre aussi les topos de la dernière liste par massifs, déjà sur le téléphone.",
+    "Fiche topo : itinéraire GPX gardé avec la fiche (hors ligne)."
+   ],
+   "commit": "d945d3a"
+  },
+  {
+   "date": "2026-11-06 00:54",
+   "title": "Ski : quatre onglets (Sorties, Carte sorties, Topos, Carte topos)",
+   "details": [
+    "Relais : /skitour-topos, liste des topos par massifs ou autour d'un point (cases de 0,1°), gardée 7 jours sur le disque pour ménager le quota skitour.",
+    "Les deux applis : onglets en haut des écrans ski (et en tête du panneau du bas des cartes) ; onglet Topos = liste des topos des massifs choisis avec recherche, topo ouvert dans l'appli ; Carte topos = points orange au départ des topos, étiquette puis fiche ; fiche du topo commune (TopoView / TopoPage)."
+   ],
+   "commit": "90bf216"
+  },
+  {
+   "date": "2026-11-06 00:39",
+   "title": "Kotlin : menu de la trace, lire le curseur du profil depuis l'activité",
+   "details": [],
+   "commit": "d25c70a"
+  },
+  {
+   "date": "2026-11-06 00:39",
+   "title": "Trace au doigt : bandeau en bas, trace violette avec menu (pente, profil, sauvegarder, supprimer), charger des traces",
+   "details": [
+    "le bandeau « Trace ton parcours du doigt » passe tout en bas de l'écran ;",
+    "bouton « 📂 Charger des traces » (bandeau et onglet Randos) : traces enregistrées sur le téléphone, hors ligne ;",
+    "la trace dessinée est violette ; la toucher ouvre un menu en bas : afficher la pente, afficher le profil, sauvegarder (nom proposé), supprimer."
+   ],
+   "commit": "8eed6e9"
+  },
+  {
+   "date": "2026-11-06 00:18",
+   "title": "Sorties ski en texte : périodes 1 an, 2 ans et Tout",
+   "details": [],
+   "commit": "dcc1140"
+  },
+  {
+   "date": "2026-11-06 00:12",
+   "title": "Carte auto : SCAN 25 visible un zoom plus loin (fondu 12→13 au lieu de 13→14)",
+   "details": [],
+   "commit": "3b5ec5a"
+  },
+  {
+   "date": "2026-11-06 00:08",
+   "title": "Demandes skitour comptées (écran 📊) et moins nombreuses",
+   "details": [
+    "Relais : chaque demande à l'API skitour est comptée par jour et par type (skitour-appels.json, 30 jours), renvoyée par GET /mountaintest-ia/ (aujourd'hui / quota 1000, 7 derniers jours).",
+    "Économies : listes de sorties gardées sur le disque (1 h, 6 h au-delà d'un mois) et une liste plus longue sert aux périodes plus courtes ; topos des sommets gardés 7 jours sur le disque ; itinéraire cherché seulement dans les topos qui ont un GPX, deux essais au plus par sortie.",
+    "Les deux applis : section « ⛷ Demandes à skitour.fr » dans 📊 Usage."
+   ],
+   "commit": "57626f3"
+  },
+  {
+   "date": "2026-11-06 00:03",
+   "title": "Parkings et itinéraires : ne plus garder « rien » quand l'API skitour est en erreur",
+   "details": [
+    "relais : une erreur de l'API n'est plus retenue (parkings, topos du sommet, GPX des topos) ; ancien fichier des départs repris sans ses « pas de parking » ; GPX des topos gardés sur le disque ;",
+    "les deux applis : détails repartis de zéro, et une sortie reçue sans parking est redemandée une heure après ; un parking connu par la liste n'est plus effacé par des détails sans parking."
+   ],
+   "commit": "3bd75ca"
+  },
+  {
+   "date": "2026-11-05 23:58",
+   "title": "Mountain Buddies : nouveau logo et nouveau nom dans les deux applis",
+   "details": [],
+   "commit": "ee5536f"
+  },
+  {
+   "date": "2026-11-05 23:35",
+   "title": "Topos skitour lus dans l'appli et gardés hors ligne (50 derniers)",
+   "details": [],
+   "commit": "6d576ad"
+  },
+  {
+   "date": "2026-11-05 23:31",
+   "title": "Fiche ski : départ avec « 🚗 Google Maps » (itinéraire jusqu'au parking) au lieu de « 🗺 Carte »",
+   "details": [],
+   "commit": "1d5f3f4"
+  },
+  {
+   "date": "2026-11-05 23:28",
+   "title": "Fiche ski : sans topo associé, les topos du sommet (même départ / orientation d'abord)",
+   "details": [],
+   "commit": "a1d7f68"
+  },
+  {
+   "date": "2026-11-05 23:23",
+   "title": "Burger ☰ : icône 📊 « Usage IA et mémoire » dans les deux applis",
+   "details": [
+    "Coût cumulé de toutes les requêtes IA (depuis le début, ce mois-ci, nombre, détail par usage), lu sur le relais du VPS qui note déjà chaque requête payante ; derniers chiffres gardés pour le hors-ligne.",
+    "Place prise sur le téléphone : données (classées : tuiles SCAN 25, Plan IGN, relief, sorties ski, traces…), appli, cache (shared/StorageUsage.java, identique dans les deux applis).",
+    "Relais IA : cumul par usage et taille des données du serveur sur GET /mountaintest-ia/.",
+    "Capacitor : onglets un peu plus serrés pour faire place à l'icône."
+   ],
+   "commit": "92902fc"
+  },
+  {
+   "date": "2026-11-05 23:18",
+   "title": "Carte ski : un appui ailleurs sur la carte enlève l'étiquette de la sortie choisie",
+   "details": [],
+   "commit": "2106c4a"
+  },
+  {
+   "date": "2026-11-05 23:16",
+   "title": "Carte ski : cases Trace GPX (rouge) / Itinéraire (vert) toujours visibles sous les filtres ; panneau du bas affiché en venant d'une fiche",
+   "details": [
+    "Plus de pastille 〰 : les deux cases sont sous la ligne période / ski, aux couleurs des lignes.",
+    "🗺 Carte depuis une fiche texte ouvre la carte ski avec son panneau ; la sortie reste choisie même hors de la période. Deux applis."
+   ],
+   "commit": "33cc337"
+  },
+  {
+   "date": "2026-11-05 23:05",
+   "title": "Photo en grand : ✕ pour revenir, retour Android qui la ferme",
+   "details": [],
+   "commit": "270be77"
+  },
+  {
+   "date": "2026-11-05 22:53",
+   "title": "Carte ⛷🗺 : traces GPX des sorties et itinéraires des topos, avec cases à cocher",
+   "details": [
+    "Relais : /skitour-details renvoie la trace GPX de la sortie et l'itinéraire GPX de son topo (API /topo/{id}), simplifiés à 80 points, gardés en mémoire.",
+    "Deux applis : pastille 〰 avec « Trace GPX » (rouge) et « Itinéraire » (vert pointillé), choix gardés ; lignes plus épaisses pour la sortie choisie."
+   ],
+   "commit": "117d13e"
+  },
+  {
+   "date": "2026-11-05 22:52",
+   "title": "Échelle toujours en haut à gauche (plus cachée par les panneaux du bas), dans les deux applis",
+   "details": [],
+   "commit": "2ff227c"
+  },
+  {
+   "date": "2026-11-05 22:45",
+   "title": "Carte ⛷🗺 : toujours seulement les points ; un point touché montre son étiquette, l'étiquette ouvre la fiche",
+   "details": [],
+   "commit": "bdb5c38"
+  },
+  {
+   "date": "2026-11-05 22:41",
+   "title": "Sorties ski : pastille « GPX » dans la liste et bouton GPX dans la fiche",
+   "details": [],
+   "commit": "edb4b3f"
+  },
+  {
+   "date": "2026-11-05 22:39",
+   "title": "Ski : une seule icône ⛷ (liste « Sorties ski »), 🗺 à droite du titre ouvre la carte",
+   "details": [],
+   "commit": "45a54e4"
+  },
+  {
+   "date": "2026-11-05 22:33",
+   "title": "Fiche ski : « 🗺 Carte » aussi quand skitour ne donne pas les coordonnées",
+   "details": [
+    "Applis : le point de la sortie vient de la carte si la fiche n'en a pas ; départ sans coordonnées → parking, sommet sans coordonnées → point de la sortie.",
+    "Relais : fiche complétée avec le point connu de la carte quand ses sommets n'en ont pas."
+   ],
+   "commit": "6a816a2"
+  },
+  {
+   "date": "2026-11-05 22:22",
+   "title": "Aide des icônes : bulles beaucoup plus courtes, et plus de sélection de texte ni de menu « Traduire / Copier » à l'appui long",
+   "details": [],
+   "commit": "b57f733"
+  },
+  {
+   "date": "2026-11-05 22:16",
+   "title": "Carte ⛷🗺 : de loin des points seuls ; étiquettes des sommets à partir du zoom 12, parkings à partir de 13, dans les deux applis",
+   "details": [],
+   "commit": "4c62826"
+  },
+  {
+   "date": "2026-11-05 22:04",
+   "title": "Relais skitour : photos lues dans tous les formats de l'API, sinon prises sur la page de la sortie",
+   "details": [],
+   "commit": "9ca33cb"
+  },
+  {
+   "date": "2026-11-05 22:03",
+   "title": "Fiche ski : « 🗺 Carte » à côté du départ et du sommet (carte de l'appli centrée dessus), le nom garde le lien skitour.fr ; titres sans « &nbsp; », dans les deux applis",
+   "details": [],
+   "commit": "816a687"
+  },
+  {
+   "date": "2026-11-05 22:00",
+   "title": "⛷🗺 : plus de nombre de sorties dans le panneau, dans les deux applis",
+   "details": [],
+   "commit": "9f114cb"
+  },
+  {
+   "date": "2026-11-05 21:57",
+   "title": "⛷🗺 : filtre de difficulté ski (≤ 1.3 à ≤ 5.4, Tout) ; pastilles toutes visibles, une seule dépliée au-dessus, dans les deux applis",
+   "details": [],
+   "commit": "6a66696"
+  },
+  {
+   "date": "2026-11-05 21:52",
+   "title": "⛷🗺 : panneau ouvert réduit (première ligne seulement), dans les deux applis",
+   "details": [],
+   "commit": "e87a8f0"
+  },
+  {
+   "date": "2026-11-05 21:45",
+   "title": "Étiquettes : sommets bien visibles (bord bleu épais, nom en gras), parkings plus petits et gris, dans les deux applis",
+   "details": [],
+   "commit": "c464757"
+  },
+  {
+   "date": "2026-11-05 21:44",
+   "title": "Relais skitour : fiche lisible même quand l'API répond bizarrement (texte, sommets ou auteurs en chaînes), secours par la page skitour.fr, message d'erreur simple",
+   "details": [],
+   "commit": "8069d4b"
+  },
+  {
+   "date": "2026-11-05 21:38",
+   "title": "Me localiser : nouvelle icône, cercle traversé d'une croix horizontale et verticale avec un point au centre, dans les deux applis",
+   "details": [],
+   "commit": "2acd0c6"
+  },
+  {
+   "date": "2026-11-05 21:35",
+   "title": "Message « serveur pas encore à jour » sans « IA » (le relais sert aussi skitour), dans les deux applis",
+   "details": [],
+   "commit": "b0924b8"
+  },
+  {
+   "date": "2026-11-05 21:34",
+   "title": "Appui long sur une icône : bulle d'aide, avec la légende des couleurs en degrés pour ⛰ Pentes, dans les deux applis",
+   "details": [],
+   "commit": "42359b9"
+  },
+  {
+   "date": "2026-11-05 21:34",
+   "title": "Étiquettes de la carte : parkings et sorties ne se chevauchent plus (places plus loin si besoin, plusieurs passages), dans les deux applis",
+   "details": [],
+   "commit": "f46e5fa"
+  },
+  {
+   "date": "2026-11-05 21:30",
+   "title": "⛷🗺 : toucher une sortie sur la carte ouvre sa fiche, avec ▾ pour la réduire et ✕, dans les deux applis",
+   "details": [],
+   "commit": "c30d201"
+  },
+  {
+   "date": "2026-11-05 21:25",
+   "title": "Kotlin : noms des bords de l'écran (longitudeWest…) pour la recherche ⛷🗺",
+   "details": [],
+   "commit": "e8e86d8"
+  },
+  {
+   "date": "2026-11-05 21:20",
+   "title": "⛷🗺 : pastille de période (< 1 j à 1 an, Tout) et première ligne sans titre, dans les deux applis",
+   "details": [],
+   "commit": "d98ac46"
+  },
+  {
+   "date": "2026-11-05 21:11",
+   "title": "⛷🗺 : sorties de l'écran affiché, sans zone à encadrer, dans les deux applis",
+   "details": [
+    "Relais : /skitour-tout (toute la liste d'une période, une requête skitour gardée 1 h) et /skitour-details (étoiles, skiabilité, parking pour 30 sorties au plus).",
+    "Applis : liste chargée une fois par période (gardée pour le hors ligne), filtrée sur l'écran à chaque arrêt de la carte ; détails demandés une seconde après l'arrêt, pour les sorties visibles qui n'en ont pas, gardés sur le téléphone (800). Pas de points en dessous du zoom 7. Recadrage seulement quand le choix change."
+   ],
+   "commit": "58ce8c4"
+  },
+  {
+   "date": "2026-11-05 21:07",
+   "title": "Parkings skitour : un seul P par parking partagé, nom et altitude lus dans le lien du départ de la page, dans les deux applis",
+   "details": [],
+   "commit": "b6af0eb"
+  },
+  {
+   "date": "2026-11-05 21:04",
+   "title": "Barre d'échelle sur la carte (200 m, 2 km, 5 km… selon le zoom), au-dessus du menu, visible en mode nature, dans les deux applis",
+   "details": [],
+   "commit": "f6d1f64"
+  },
+  {
+   "date": "2026-11-05 20:56",
+   "title": "Fiche de sortie façon skitour.fr : départ, topos et sommets cliquables (page skitour.fr, 📍 sur la carte), dans les deux applis",
+   "details": [
+    "Relais : liens lus sur la page de la sortie (sinon construits avec les id de l'API), exposition.",
+    "Fiche : titre et étoiles dans un cadre, date, auteurs, Massif / Départ / Topos / Sommet / Orientation / Dénivelé / Ski / Exposition / Skiabilité.",
+    "Panneau ⛷🗺 : bouton « Fiche de la sortie » qui ouvre cette fiche par-dessus la carte."
+   ],
+   "commit": "49c77aa"
+  },
+  {
+   "date": "2026-11-05 20:51",
+   "title": "Parking : P bleu, nom et altitude (lus sur la page skitour.fr si l'API ne les donne pas), dans les deux applis",
+   "details": [],
+   "commit": "d0f16bf"
+  },
+  {
+   "date": "2026-11-05 20:50",
+   "title": "Sorties ski : panneau réductible (▾/▴) et étiquettes de la carte placées sans chevauchement, dans les deux applis",
+   "details": [],
+   "commit": "37502c5"
+  },
+  {
+   "date": "2026-11-05 20:32",
+   "title": "Carte skitour : étiquette complète, parking cliquable (nom, altitude) relié au sommet, dans les deux applis",
+   "details": [],
+   "commit": "eac91a2"
+  },
+  {
+   "date": "2026-11-05 20:08",
+   "title": "Sorties skitour : étoiles et skiabilité « 🙂 Bonne » lues sur la page skitour.fr, dans les deux applis",
+   "details": [],
+   "commit": "c252d0d"
+  },
+  {
+   "date": "2026-11-05 20:03",
+   "title": "Skiabilité affichée en étoiles (★★☆☆☆) dans les deux applis",
+   "details": [],
+   "commit": "70224bf"
+  },
+  {
+   "date": "2026-11-05 20:03",
+   "title": "Liste skitour lisible en mode sombre, libellés ski/skiabilité, dans les deux applis",
+   "details": [],
+   "commit": "138b823"
+  },
+  {
+   "date": "2026-11-05 19:28",
+   "title": "Sorties skitour : nom de la course, étoiles et skiabilité à côté de chaque point bleu, dans les deux applis",
+   "details": [
+    "Relais : chaque sortie renvoie sa skiabilité et ses étoiles si l'API les donne (champ non documenté : on essaie etoiles / note / stars / interet / qualite) ; GET /mountaintest-ia/ liste les champs vus dans les sorties (skitour_champs) pour trouver le bon nom.",
+    "Capacitor : étiquette HTML à droite du point (2 lignes : nom, puis ★ · skiabilité), cachée sous le zoom 9.",
+    "Kotlin : couche de symboles « ski-tags » (image dessinée par skiTagBitmap), à partir du zoom 9, sans chevauchement. La liste en texte montre aussi étoiles et skiabilité."
+   ],
+   "commit": "1a93549"
+  },
+  {
+   "date": "2026-11-05 18:28",
+   "title": "Photos des sorties skitour dans la fiche, gardées hors ligne, et skiabilité, dans les deux applis",
+   "details": [
+    "Relais : la fiche renvoie les photos (adresse, légende, auteur) et la skiabilité ; /skitour-photo relaie une photo de skitour.fr pour l'appli web (CORS), adresses limitées à skitour.fr.",
+    "Applis : grille de 2 photos avec l'auteur, photo en grand avec légende, ‹ › ; chaque photo vue est gardée réduite à 1024 px (IndexedDB / filesDir), seulement pour les 50 fiches gardées. Photos montrées uniquement dans la fiche de leur sortie, auteur cité (conditions de l'API skitour)."
+   ],
+   "commit": "5dd5288"
+  },
+  {
+   "date": "2026-11-05 18:19",
+   "title": "Ski texte : sorties skitour en texte façon site (liste date / titre / auteurs, fiche détaillée), massifs et « Limiter à », dans les deux applis",
+   "details": [
+    "Remplace la question à Claude par un affichage textuel (demande de Seb) : plus de coût IA.",
+    "Relais : /skitour-liste (jours jusqu'à 6 mois, massifs choisis : un appel par massif, gardé 1 h), /skitour-sortie (fiche : départ, sommets, topos, conditions, neige, récit ; gardée 24 h), /skitour-massifs (id, nom, groupe ; gardée 1 jour).",
+    "Applis : choix des massifs groupés comme sur skitour.fr (retenu), « Limiter à » 1 jour à 6 mois, filtre texte, fiche avec lien skitour.fr (photos) et point sur la carte ; dernière liste et 50 dernières fiches gardées hors ligne."
+   ],
+   "commit": "5d89828"
+  },
+  {
+   "date": "2026-11-05 18:09",
+   "title": "Retire un fichier Python compilé ajouté par erreur",
+   "details": [],
+   "commit": "8352b2f"
+  },
+  {
+   "date": "2026-11-05 18:09",
+   "title": "Duo ski : ⛷🗺 sorties sur la carte, ⛷💬 question en texte (réponse de Claude via le relais), dans les deux applis",
+   "details": [
+    "Relais : POST /skitour-texte ; Claude cherche dans les sorties skitour des 60 derniers jours (outil chercher_sorties exécuté sur le serveur, par mots ou autour d'un point) puis répond en quelques phrases ; seules les sorties qu'il a vues sont renvoyées. Quota et journal des coûts partagés avec les autres routes.",
+    "Applis : panneau question / réponse, sorties citées en points bleus et liens skitour.fr ; les 10 dernières réponses restent sur le téléphone, relisibles hors ligne."
+   ],
+   "commit": "0f5cb78"
+  },
+  {
+   "date": "2026-11-05 18:01",
+   "title": "Icônes : la colonne ne bouge plus quand un duo se déplie ; ⛰ seul, un appui montre 🌗 à côté (duo pentes / ombres), dans les deux applis",
+   "details": [],
+   "commit": "7f69274"
+  },
+  {
+   "date": "2026-11-05 17:59",
+   "title": "Sorties skitour hors ligne : chaque recherche est gardée sur le téléphone (10 dernières zones), réutilisée sans réseau, dans les deux applis",
+   "details": [],
+   "commit": "88bc8af"
+  },
+  {
+   "date": "2026-11-05 17:15",
+   "title": "Icônes : ✈ seul, un appui montre 👖 à côté (duo avion / poche), toucher ailleurs replie, dans les deux applis",
+   "details": [
+    "React : état « pair » dans QuickButtons ; 👖 apparaît à gauche de ✈ au premier appui, chaque icône bascule ensuite son mode ; un toucher hors du duo (écouteur pointerdown) le replie. En aide : les deux, l'un sous l'autre, pour laisser la place aux étiquettes.",
+    "Kotlin : ✈ et 👖 dans un LinearLayout horizontal (pairAvion), 👖 masqué tant que pairOpen est faux ; dispatchTouchEvent replie le duo quand on touche ailleurs ; même présentation verticale en aide."
+   ],
+   "commit": "d4b70ac"
+  },
+  {
+   "date": "2026-11-05 17:03",
+   "title": "Relais skitour : recherche par jours (le filtre ll de l'API répond 500) et lecture du vrai format des sorties",
+   "details": [
+    "sorties_skitour : plus de paramètre ll (erreur 500 côté skitour.fr), on lit les sorties des derniers jours par pages de 1000 et on garde celles dont un sommet est dans la zone.",
+    "Format réel de l'API : sommets avec lat/lng/sommet, conditions dans « cond » (HTML nettoyé), tout en chaînes ; les nombres (id, date, altitude, dénivelé) sont convertis pour les applis.",
+    "installer-ia.sh demande la clé skitour (SKITOUR_CLE) ; README : où la trouver, comment l'ajouter."
+   ],
+   "commit": "9fd2f6e"
+  },
+  {
+   "date": "2026-11-04 19:31",
+   "title": "Météo : choix du moment façon Météo-France (jour avec ‹ ›, Matin / Après-midi / Soir / Nuit) dans les deux applis",
+   "details": [],
+   "commit": "8082ad0"
+  },
+  {
+   "date": "2026-11-04 19:11",
+   "title": "Kotlin : correction de compilation (paramètre color masquant Paint.color dans windBitmap)",
+   "details": [],
+   "commit": "761ca23"
+  },
+  {
+   "date": "2026-11-04 19:06",
+   "title": "Météo : étiquette plus claire, « 4 °C » en mode Temps et « 12 (30) km/h » en mode Vent",
+   "details": [],
+   "commit": "5bba13e"
+  },
+  {
+   "date": "2026-11-04 19:02",
+   "title": "Météo : icônes plus grosses, mode Vent (flèches colorées, vitesse / rafales), carte simplifiée sous la météo (fond pâle, quelques villes), dans les deux applis",
+   "details": [],
+   "commit": "cf6c3c0"
+  },
+  {
+   "date": "2026-11-04 16:58",
+   "title": "L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰, dans les deux applis",
+   "details": [],
+   "commit": "e6c8275"
+  },
+  {
+   "date": "2026-11-04 16:50",
+   "title": "Le panneau du bas reste fermé à chaque ouverture de l'appli (même au retour de l'arrière-plan), dans les deux applis",
+   "details": [],
+   "commit": "6aeebd9"
+  },
+  {
+   "date": "2026-11-04 16:31",
+   "title": "🌦 Météo posée sur la carte : icônes Météo-France (AROME, ARPEGE via Open-Meteo), curseur d'heure sur 4 jours, cache hors ligne ; appui long = appli Météo-France",
+   "details": [],
+   "commit": "6941d6e"
+  },
+  {
+   "date": "2026-11-04 16:20",
+   "title": "Flèche des icônes plus grosse (56 px), colonne centrée",
+   "details": [],
+   "commit": "451d649"
+  },
+  {
+   "date": "2026-11-03 22:14",
+   "title": "⛷ Sorties ski de rando skitour.fr dans une zone encadrée (API officielle via le relais, clé sur le serveur)",
+   "details": [],
+   "commit": "0ce5ffa"
+  },
+  {
+   "date": "2026-11-03 21:47",
+   "title": "Partage des frais : photo d'une facture, Claude remplit titre, montant et date",
+   "details": [],
+   "commit": "937a849"
+  },
+  {
+   "date": "2026-11-03 21:34",
+   "title": "Voyage : après le calcul du coût, ajout au partage des frais (groupe, qui a payé)",
+   "details": [],
+   "commit": "b429862"
+  },
+  {
+   "date": "2026-11-03 21:18",
+   "title": "Partage des frais : plus d'icônes, enregistrement toujours possible (titre par défaut) ; hébergement : sites à cocher (gites-refuges.com, capverb.org, ajout libre)",
+   "details": [],
+   "commit": "dec9088"
+  },
+  {
+   "date": "2026-11-03 21:10",
+   "title": "Hébergement (menu Voyage) : ville, personnes, prix maxi, dates ; Claude cherche les meilleurs prix, liste du moins cher au plus cher",
+   "details": [],
+   "commit": "b781ffd"
+  },
+  {
+   "date": "2026-11-03 21:00",
+   "title": "Partage des frais façon Tricount (menu Voyage) : groupes, participants avec e-mail et invitation (Brevo via le relais, sinon appli mail), dépenses, équilibres",
+   "details": [],
+   "commit": "7943817"
+  },
+  {
+   "date": "2026-11-03 20:47",
+   "title": "Kotlin : correction de compilation (champ erreur du panneau Voyage)",
+   "details": [],
+   "commit": "3b64983"
+  },
+  {
+   "date": "2026-11-03 20:42",
+   "title": "Voyage : plus de « centre de la carte » comme départ (bouton « Partir de ma position »), message clair quand l'IGN ne trouve pas de chemin",
+   "details": [],
+   "commit": "67b80d7"
+  },
+  {
+   "date": "2026-11-03 20:26",
+   "title": "IA : mot de passe intégré prioritaire, mot de passe tapé en secours (essayé si le premier est refusé)",
+   "details": [],
+   "commit": "e0a9339"
+  },
+  {
+   "date": "2026-11-03 20:15",
+   "title": "Fenêtres du bas remontées au-dessus de la barre de gestes (menu et voyage)",
+   "details": [],
+   "commit": "ef5fddd"
+  },
+  {
+   "date": "2026-11-03 20:08",
+   "title": "Voyage : temps écoulé pendant le calcul du coût, erreurs bien visibles, abandon au bout de 4 min",
+   "details": [],
+   "commit": "e1cef1f"
+  },
+  {
+   "date": "2026-11-03 19:21",
+   "title": "Voyage : prix moyen du carburant affiché, km d'autoroute par itinéraire, message clair si le serveur IA n'est pas encore à jour",
+   "details": [],
+   "commit": "4ec7b4d"
+  },
+  {
+   "date": "2026-11-03 19:06",
+   "title": "Croix pour quitter, menu Voyage (météo, météo montagne, voiture : itinéraires IGN au choix, coût et péages par l'IA)",
+   "details": [],
+   "commit": "5238fcb"
+  },
+  {
+   "date": "2026-11-03 18:41",
+   "title": "Mot de passe IA intégré aux deux APK par la CI (secret IA_MOT_DE_PASSE), champ caché quand il est présent",
+   "details": [],
+   "commit": "f4f2dee"
+  },
+  {
+   "date": "2026-11-03 18:35",
+   "title": "Relais IA : l'installeur ne s'arrête plus en silence sur un .env sans clé Anthropic",
+   "details": [],
+   "commit": "e6cab74"
+  },
+  {
+   "date": "2026-11-03 15:39",
+   "title": "Pentes cochées : étiquettes régulières de pente (degrés et %) le long du tracé affiché et du GPX importé, dans les deux applis",
+   "details": [],
+   "commit": "b337469"
+  },
+  {
+   "date": "2026-11-03 15:30",
+   "title": "Aide des icônes : appui long sur la flèche, une étiquette à gauche de chaque icône, dans les deux applis",
+   "details": [],
+   "commit": "c7e8dee"
+  },
+  {
+   "date": "2026-11-03 15:21",
+   "title": "Flèche des icônes en 3 temps : toutes, appareil photo seul, aucune, dans les deux applis",
+   "details": [],
+   "commit": "3912f7c"
+  },
+  {
+   "date": "2026-11-03 00:13",
+   "title": "📷 ouvre l'application Appareil photo (la capture intégrée bloquait au OK), dans les deux applis",
+   "details": [],
+   "commit": "b91773a"
+  },
+  {
+   "date": "2026-11-02 23:56",
+   "title": "Ombres : curseur plus grand et boutons − / + (30 min), dans les deux applis",
+   "details": [],
+   "commit": "ca25291"
+  },
+  {
+   "date": "2026-11-02 23:51",
+   "title": "Mode poche : GPS du bouton ◎ coupé pendant l'écran noir et relancé au réveil (l'enregistrement continue), dans les deux applis",
+   "details": [],
+   "commit": "07db841"
+  },
+  {
+   "date": "2026-11-02 23:47",
+   "title": "Icône 📷 : photo sans quitter l'appli (album Assomoutain) ; mode poche : écran noir aussi quand le capteur de proximité est couvert, dans les deux applis",
+   "details": [],
+   "commit": "1d3e7c0"
+  },
+  {
+   "date": "2026-11-02 23:34",
+   "title": "Démarrage menu fermé et croix du menu à gauche, dans les deux applis",
+   "details": [],
+   "commit": "a11731c"
+  },
+  {
+   "date": "2026-11-02 12:07",
+   "title": "Flèche des icônes horizontale : ◂ pour les afficher, ▸ pour les cacher, dans les deux applis",
+   "details": [],
+   "commit": "086cfab"
+  },
+  {
+   "date": "2026-11-02 12:03",
+   "title": "Carte épurée : bande du haut et boussole retirées (carte nord en haut), fond de carte en icône 🗺, dans les deux applis",
+   "details": [],
+   "commit": "762c763"
+  },
+  {
+   "date": "2026-11-02 11:53",
+   "title": "Icônes de la carte : loupe (recherche), pentes et ombres, flèche pour afficher ou cacher les icônes, dans les deux applis",
+   "details": [],
+   "commit": "9bc1e3d"
+  },
+  {
+   "date": "2026-11-02 11:35",
+   "title": "Ombres : film sur 24 h (48 images, une toutes les 30 min), dans les deux applis",
+   "details": [
+    "Le film démarre à l'heure actuelle (ou à 8 h pour un autre jour) et se regarde pendant le calcul",
+    "Nuit : une seule image sombre, sans calcul ; Kotlin garde les ombres sur un bit par maille"
+   ],
+   "commit": "e4e6898"
+  },
+  {
+   "date": "2026-11-02 10:10",
+   "title": "Ombres du relief : film de 8 h à midi toutes les 30 min avec l'heure affichée, calculé sur le téléphone (soleil NOAA + relief IGN RGE ALTI, aussi hors ligne), dans les deux applis",
+   "details": [
+    "Case « Ombres » en haut : barre avec l'heure en gros, lecture ▶/⏸, curseur d'heure et date (aujourd'hui par défaut)",
+    "Ombre portée par le relief (balayage depuis le soleil) et versants dos au soleil, en bleu translucide",
+    "Relief IGN gardé sur le téléphone ; « Hors ligne » télécharge aussi le relief de la zone (zooms 10 à 14)",
+    "Recalcul seulement quand la carte sort de la zone calculée ou que la date change"
+   ],
+   "commit": "a3a93c5"
+  },
+  {
+   "date": "2026-11-01 23:30",
+   "title": "Pente le long du tracé : curseur sur le profil et toucher du tracé sur la carte (pente en degrés et %, moyenne glissante sur 50 m, distance, altitude), dans les deux applis",
+   "details": [],
+   "commit": "3b45611"
+  },
+  {
+   "date": "2026-11-01 23:14",
+   "title": "Forêts par essence (carte forestière IGN BD Forêt V2) : nouvel onglet Forêts, couleurs par essence, filtre sur une ou plusieurs essences, détail au toucher, dans les deux applis",
+   "details": [],
+   "commit": "86f0fc2"
+  },
+  {
+   "date": "2026-11-01 23:07",
+   "title": "Randos trouvées sur le web par Claude : un point par rando avec le lien de sa page, coût affiché et cumulé, dans les deux applis",
+   "details": [
+    "Onglet Randos : en encadrant une zone, en plus des tracés OSM, l'appli demande à Claude (recherche web) les randos décrites en ligne ; un point orange par rando, sa fiche ouvre la page source, « Y aller » vers le départ. Mot de passe IA saisi une fois dans l'onglet.",
+    "Relais sur le VPS (deploy/ia/) : garde la clé API Anthropic, mot de passe, 40 recherches par jour, cache 7 jours par zone, ne garde que les liens réellement vus par la recherche web.",
+    "Coût : chaque recherche est notée dans ia-data/couts.jsonl ; l'appli affiche son coût et les cumuls du mois et total."
+   ],
+   "commit": "e8628c4"
+  },
+  {
+   "date": "2026-11-01 22:22",
+   "title": "Icône ✏ permanente sur la carte pour lancer le tracé au doigt, dans les deux applis",
+   "details": [],
+   "commit": "862b1d5"
+  },
+  {
+   "date": "2026-11-01 22:17",
+   "title": "Tracé au doigt : l'ancien tracé est effacé dès qu'on en commence un nouveau, dans les deux applis",
+   "details": [],
+   "commit": "0c20a0c"
+  },
+  {
+   "date": "2026-11-01 22:14",
+   "title": "Tracé au doigt : ligne libre par défaut, recalage sur les sentiers en option (choix retenu), dans les deux applis",
+   "details": [],
+   "commit": "7a30af1"
+  },
+  {
+   "date": "2026-11-01 21:05",
+   "title": "Kotlin : ordre d'initialisation du tracé au doigt",
+   "details": [],
+   "commit": "7dd25b7"
+  },
+  {
+   "date": "2026-11-01 21:01",
+   "title": "Tracé au doigt : chemin recalé sur les sentiers (itinéraire piéton IGN), km, D+/D−, temps de marche et profil en coupe, dans les deux applis",
+   "details": [],
+   "commit": "129572b"
+  },
+  {
+   "date": "2026-11-01 20:54",
+   "title": "Boutons permanents remontés en haut à droite, boutons de zoom supprimés (zoom aux doigts), dans les deux applis",
+   "details": [],
+   "commit": "b776764"
+  },
+  {
+   "date": "2026-11-01 20:50",
+   "title": "Rouvrir la carte sur la dernière vue (position et zoom) au lieu de La Ciotat, dans les deux applis",
+   "details": [],
+   "commit": "5ca5fe3"
+  },
+  {
+   "date": "2026-11-01 20:45",
+   "title": "Boutons permanents sur la carte (même en plein écran) : me localiser, mode avion, mode poche ; encadré des coordonnées retiré, dans les deux applis",
+   "details": [],
+   "commit": "380fc42"
+  },
+  {
+   "date": "2026-11-01 20:40",
+   "title": "Mode poche : luminosité au plus bas pendant l'écran noir (économie aussi sur écran LCD)",
+   "details": [],
+   "commit": "0516812"
+  },
+  {
+   "date": "2026-11-01 15:12",
+   "title": "Mode poche : la position verticale seule suffit (plus besoin de couvrir le capteur de proximité)",
+   "details": [],
+   "commit": "b99481f"
+  },
+  {
+   "date": "2026-11-01 14:52",
+   "title": "Mode poche : écran noir quand le téléphone est debout dans la poche, rallumé à plat ou par deux secousses, dans les deux applis",
+   "details": [],
+   "commit": "7fd763f"
+  },
+  {
+   "date": "2026-11-01 11:02",
+   "title": "Afficher ma position GPS en coordonnées (copiables) dans les deux applis",
+   "details": [],
+   "commit": "d09d3f7"
+  },
+  {
+   "date": "2026-11-01 10:56",
+   "title": "Économie batterie : raccourcis mode avion, Wi-Fi, données, Bluetooth, dans les deux applis",
+   "details": [
+    "Android interdit aux applis de couper ces radios elles-mêmes : chaque bouton ouvre le réglage ou le panneau rapide",
+    "shared/BatterySettings.java copié dans les deux applis (plugin Capacitor BatterySettings côté React)"
+   ],
+   "commit": "735a847"
+  },
+  {
+   "date": "2026-11-01 10:52",
+   "title": "Onglet Versions, mode nature (plein écran carte) et hors ligne par rectangle, dans les deux applis",
+   "details": [
+    "Versions : historique des changements (le plus récent en haut), généré à la compilation depuis les commits (shared/changelog.py)",
+    "Mode nature : la croix du panneau masque toute l'interface, un petit bouton ☰ la fait revenir",
+    "Hors ligne : la zone La Ciotat est retirée ; « Tracer un rectangle » réutilise l'outil des randos OSM et télécharge les tuiles du rectangle (estimation du nombre de tuiles et de la taille)"
+   ],
+   "commit": "7d96fc3"
+  },
+  {
+   "date": "2026-11-01 10:51",
+   "title": "Randos libres d'une zone : encadrer, randos balisées OpenStreetMap, km/D+/D−, export GPX, dans les deux applis",
+   "details": [],
+   "commit": "2a2c3c7"
+  },
+  {
+   "date": "2026-11-01 10:40",
+   "title": "Hors ligne : télécharger la zone affichée (pas seulement La Ciotat), dans les deux applis",
+   "details": [],
+   "commit": "83dc17b"
+  },
+  {
+   "date": "2026-11-01 10:39",
+   "title": "« Y aller » : itinéraire Google Maps vers le lieu choisi, dans les deux applis",
+   "details": [],
+   "commit": "a019568"
+  },
+  {
+   "date": "2026-11-01 10:37",
+   "title": "Hors ligne : place occupée affichée, tuiles gardées et reprises",
+   "details": [
+    "Capacitor : taille de chaque tuile dans l'index (ancien index relu une fois), index des tuiles vues enregistré (avant : perdu au redémarrage), place totale dans Hors ligne et Mesures",
+    "Kotlin : la zone déjà téléchargée est reprise au lieu d'être effacée puis retéléchargée, taille de la base mbgl-offline.db affichée"
+   ],
+   "commit": "ed09a90"
+  },
+  {
+   "date": "2026-11-01 10:25",
+   "title": "Recherche de lieux (ville, département, sommet, adresse) dans les deux applis",
+   "details": [],
+   "commit": "2f2a58a"
+  },
+  {
+   "date": "2026-11-01 10:08",
+   "title": "Mises à jour intégrées aux deux applis + clé de signature fixe",
+   "details": [
+    "shared/Updater.java (copié dans les deux applis) : à l'ouverture, propose la nouvelle version publiée par GitHub Actions, la télécharge et ouvre l'installeur ; vérification en arrière-plan toutes les 12 h avec notification (WorkManager)",
+    "versionCode = numéro de build GitHub ; version.json publié avec les APK (release + VPS)",
+    "clé de signature créée une fois par la CI, chiffrée par le secret SIGNING_PASSWORD"
+   ],
+   "commit": "4d0e9a8"
+  },
+  {
+   "date": "2026-11-01 09:25",
+   "title": "Bouton me localiser, carte auto (Plan IGN de loin, SCAN 25 de près), Kotlin au niveau de la version React",
+   "details": [
+    "Capacitor : GeolocateControl, mode Auto par défaut avec fondu z13-14, hors ligne Plan IGN z10-13 + SCAN 25 z13-16",
+    "Kotlin : même écran à onglets (Sortie, Hors ligne, Mesures), pentes, import/export GPX, simulation x10/x60, clé IGN modifiable et testée, annuler/vider le hors ligne, LocationComponent pour me localiser, même mode Auto"
+   ],
+   "commit": "b20988b"
+  },
+  {
+   "date": "2026-10-31 12:15",
+   "title": "Mise en ligne sur le VPS (silvaplana.cloud/mountaintest) au lieu de GitHub Pages",
+   "details": [],
+   "commit": "353d774"
+  },
+  {
+   "date": "2026-10-31 11:31",
+   "title": "Prototypes Capacitor et Kotlin + build APK et site web par GitHub Actions",
+   "details": [],
+   "commit": "5f512c6"
+  }
+ ]
+}
