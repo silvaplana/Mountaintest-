@@ -36,7 +36,11 @@ class TopoPage(private val a: AppCompatActivity, private val password: String, p
     private fun lp(top: Int = 6) = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(top) }
     private var job: kotlinx.coroutines.Job? = null
 
-    fun show(id: Long, nom: String, url: String, backLabel: String, onBack: () -> Unit, onClose: () -> Unit) {
+    /** « 🗺 Sur la carte » : carte des topos centrée sur celui-ci (départ, sommets, itinéraire). */
+    private var onMap: ((TopoSheet) -> Unit)? = null
+
+    fun show(id: Long, nom: String, url: String, backLabel: String, onBack: () -> Unit, onClose: () -> Unit, onMap: ((TopoSheet) -> Unit)? = null) {
+        this.onMap = onMap
         val saved = SkiText.savedTopo(toposFile, id)
         render(nom, url, saved, if (saved == null) "Chargement du topo…" else "", backLabel, onBack, onClose)
         job = a.lifecycleScope.launch {
@@ -99,6 +103,8 @@ class TopoPage(private val a: AppCompatActivity, private val password: String, p
         }
         col.addView(LinearLayout(a).apply {
             setPadding(0, dp(10), 0, 0)
+            val m = onMap
+            if (m != null && t != null && t.row() != null) addView(Button(a).apply { text = "🗺 Sur la carte"; isAllCaps = false; setOnClickListener { job?.cancel(); m(t) } }, LinearLayout.LayoutParams(0, -2, 1f))
             addView(Button(a).apply { text = "Voir sur skitour.fr"; setOnClickListener { open(url) } }, LinearLayout.LayoutParams(0, -2, 1f))
             if (t != null && t.gpx.isNotEmpty()) addView(Button(a).apply { text = "GPX"; isAllCaps = false; setOnClickListener { open(t.gpx) } })
         })

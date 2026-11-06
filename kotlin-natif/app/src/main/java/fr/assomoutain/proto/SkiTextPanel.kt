@@ -60,7 +60,18 @@ data class TopoPoint(val nom: String, val altitude: Int?, val lat: Double?, val 
 class TopoSheet(val id: Long, val nom: String, val url: String, val massif: String, val orientation: String, val denivele: Int?,
                 val difSki: String, val difficulte: String, val expo: String, val depart: TopoPoint?, val sommets: List<TopoPoint>,
                 /** Présentation, Itinéraire, Variantes, Remarques, Matériel, Bibliographie. */ val sections: List<Pair<String, String>>,
-                val auteur: String, val gpx: String)
+                val auteur: String, val gpx: String,
+                /** Itinéraire GPX simplifié (lon, lat), vide sans GPX. */ val trace: List<Pair<Double, Double>> = emptyList()) {
+    /** Le topo vu comme un point de la carte des topos : à son départ, sinon à son premier sommet placé (ou au début de l'itinéraire). */
+    fun row(): TopoRow? {
+        val p = (listOfNotNull(depart) + sommets).firstOrNull { it.lat != null && it.lon != null }
+            ?: trace.firstOrNull()?.let { TopoPoint(depart?.nom ?: nom, null, it.second, it.first) } ?: return null
+        return TopoRow(id, nom, url, massif, orientation, denivele, difSki, difficulte, gpx.isNotEmpty(), p, trace)
+    }
+    /** Points à cadrer sur la carte : départ, sommets, itinéraire (lat, lon). */
+    fun points(): List<Pair<Double, Double>> = (listOfNotNull(depart) + sommets).mapNotNull { p -> p.lat?.let { la -> p.lon?.let { lo -> la to lo } } } +
+        trace.map { it.second to it.first }
+}
 
 data class SkiPhoto(val url: String, val legende: String, val auteur: String)
 
@@ -173,7 +184,8 @@ object SkiText {
         o.optJSONArray("sommets")?.let { a -> (0 until a.length()).mapNotNull { point(a.optJSONObject(it)) } } ?: emptyList(),
         listOf("presentation" to "Présentation", "itineraire" to "Itinéraire", "variantes" to "Variantes", "remarques" to "Remarques",
             "materiel" to "Matériel", "biblio" to "Bibliographie").map { (k, t) -> t to o.optString(k) },
-        o.optString("auteur"), o.optString("gpx"))
+        o.optString("auteur"), o.optString("gpx"),
+        o.optJSONArray("trace")?.let { a -> (0 until a.length()).mapNotNull { k -> a.optJSONArray(k)?.takeIf { it.length() >= 2 }?.let { it.optDouble(0) to it.optDouble(1) } } } ?: emptyList())
     fun savedTopo(f: java.io.File, id: Long): TopoSheet? {
         val a = readSheets(f)
         return (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optLong("id") == id }?.let { topo(it) }
@@ -181,7 +193,6 @@ object SkiText {
     /** Topo lu par le relais ; les 50 derniers ouverts sont gardés (le plus ancien est effacé). */
     fun fetchTopo(f: java.io.File, id: Long, password: String): TopoSheet {
         val o = Travel.post("skitour-topo", JSONObject().put("id", id), password)
-        o.remove("trace")
         val old = readSheets(f)
         val a = JSONArray().put(o)
         (0 until old.length()).map { old.getJSONObject(it) }.filter { it.optLong("id") != id }.take(49).forEach { a.put(it) }
@@ -241,6 +252,8 @@ class SkiTextPanel(
     private val onOpenMap: (() -> Unit)? = null,
     /** Onglets en haut (Sorties, Carte sorties, Topos, Carte topos). */
     private val onMode: ((SkiMode) -> Unit)? = null,
+    /** « 🗺 Sur la carte » d'un topo ouvert depuis la fiche. */
+    private val onTopoOnMap: ((TopoSheet) -> Unit)? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -505,7 +518,7 @@ class SkiTextPanel(
     private fun openTopo(id: Long, l: SheetLink, row: OutingRow, f: OutingSheet?, msg: String) {
         job?.cancel()
         if (low) setLow(false, Button(a), TextView(a), null)
-        TopoPage(a, password, col, view).show(id, l.nom, l.url, "Sortie", onBack = { renderSheet(row, f, msg) }, onClose = onClose)
+        TopoPage(a, password, col, view).show(id, l.nom, l.url, "Sortie", onBack = { renderSheet(row, f, msg) }, onClose = onClose, onMap = onTopoOnMap)
     }
 
     private fun renderSheet(row: OutingRow, f: OutingSheet?, msg: String) {

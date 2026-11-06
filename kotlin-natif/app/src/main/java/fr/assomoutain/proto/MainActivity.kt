@@ -546,6 +546,10 @@ class MainActivity : AppCompatActivity() {
                 circleColor("#3a4a44"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)).apply {
                 setFilter(Expression.eq(Expression.geometryType(), Expression.literal("Point"))) })
             // Topos (carte des topos) : point orange à leur départ, le choisi en violet avec son étiquette.
+            style.addSource(GeoJsonSource(SRC_TOPO_LINE))
+            style.addLayer(LineLayer("topo-line", SRC_TOPO_LINE).withProperties(lineColor("#2e9d4f"), lineWidth(4f), lineOpacity(0.95f),
+                org.maplibre.android.style.layers.PropertyFactory.lineDasharray(arrayOf(2f, 1f)),
+                org.maplibre.android.style.layers.PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND)))
             style.addSource(GeoJsonSource(SRC_TOPOS))
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("topo-tags", SRC_TOPOS).withProperties(
                 org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
@@ -1235,7 +1239,7 @@ class MainActivity : AppCompatActivity() {
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         drawSki(emptyList(), null)
         val p = SkiTextPanel(this, password, onShowOnMap = { o, at -> closeSkiText(); closeTravel(); closeLodging(); openSki(o); flyToSki(at) }, onClose = { closeSkiText() },
-            onMode = { skiMode(it) })
+            onMode = { skiMode(it) }, onTopoOnMap = { showTopoOnMap(it) })
         skiTextPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
@@ -1243,21 +1247,21 @@ class MainActivity : AppCompatActivity() {
     // ---------- Onglets du ski : Sorties, Carte sorties, Topos, Carte topos ----------
     private fun skiPassword() = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
     /** Ferme les autres écrans ski (et panneaux) puis ouvre celui choisi. */
-    private fun skiMode(m: SkiMode) {
+    private fun skiMode(m: SkiMode, pinnedTopo: TopoRow? = null) {
         pairOpen = 0; refreshQuickButtons()
         closeTravel(); closeLodging(); closeSkiText(); closeSki(); closeTopoText(); closeTopoMap()
         when (m) {
             SkiMode.SORTIES -> openSkiText()
             SkiMode.CARTE -> openSki()
             SkiMode.TOPOS -> openTopoText()
-            SkiMode.CARTE_TOPOS -> openTopoMap()
+            SkiMode.CARTE_TOPOS -> openTopoMap(pinnedTopo)
         }
     }
     private var topoTextPanel: TopoTextPanel? = null
     private fun openTopoText(start: TopoRow? = null) {
         closeTopoText()
         val p = TopoTextPanel(this, skiPassword(), onMode = { skiMode(it) }, onClose = { closeTopoText() }, start = start,
-            onBackToMap = if (start != null) ({ closeTopoText() }) else null)
+            onBackToMap = if (start != null) ({ closeTopoText() }) else null, onShowOnMap = { showTopoOnMap(it) })
         topoTextPanel = p
         topoMapPanel?.view?.visibility = android.view.View.GONE
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
@@ -1273,7 +1277,20 @@ class MainActivity : AppCompatActivity() {
     private var topoMapPanel: TopoMapPanel? = null
     private var toposShown: List<TopoRow> = emptyList()
     private var topoSel: Int? = null
-    private fun openTopoMap() {
+    /** « 🗺 Sur la carte » d'un topo : carte des topos, ce topo choisi (avec son itinéraire) et cadré. */
+    private fun showTopoOnMap(t: TopoSheet) {
+        val row = t.row() ?: return
+        skiMode(SkiMode.CARTE_TOPOS, row)
+        val pts = t.points()
+        val m = map ?: return
+        val dm = resources.displayMetrics
+        if (pts.size >= 2 && pts.any { it != pts[0] }) {
+            val b = org.maplibre.android.geometry.LatLngBounds.Builder().apply { pts.forEach { include(LatLng(it.first, it.second)) } }.build()
+            m.animateCamera(CameraUpdateFactory.newLatLngBounds(b, (40 * dm.density).toInt(), (60 * dm.density).toInt(),
+                (200 * dm.density).toInt(), (dm.heightPixels * 0.3).toInt()), 700)
+        } else pts.firstOrNull()?.let { m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(it.first, it.second), maxOf(m.cameraPosition.zoom, 13.0)), 700) }
+    }
+    private fun openTopoMap(pinned: TopoRow? = null) {
         closeTopoMap()
         val viewport = {
             map?.let { m ->
@@ -1283,7 +1300,7 @@ class MainActivity : AppCompatActivity() {
         }
         val center = { map?.cameraPosition?.target?.let { it.latitude to it.longitude } }
         val p = TopoMapPanel(this, skiPassword(), viewport, center, onTopos = { t, sel -> drawTopos(t, sel) },
-            onOpen = { openTopoSheet(it) }, onMode = { skiMode(it) }, onClose = { closeTopoMap() })
+            onOpen = { openTopoSheet(it) }, onMode = { skiMode(it) }, onClose = { closeTopoMap() }, pinned = pinned)
         topoMapPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
@@ -1295,6 +1312,10 @@ class MainActivity : AppCompatActivity() {
     private fun drawTopos(t: List<TopoRow>, sel: Int?) {
         toposShown = t; topoSel = sel
         val style = map?.style ?: return
+        // Itinéraire GPX du topo choisi (vert pointillé, comme les itinéraires des sorties).
+        val tr = t.getOrNull(sel ?: -1)?.trace.orEmpty()
+        style.getSourceAs<GeoJsonSource>(SRC_TOPO_LINE)?.setGeoJson(FeatureCollection.fromFeatures(
+            if (tr.size > 1) listOf(Feature.fromGeometry(LineString.fromLngLats(tr.map { Point.fromLngLat(it.first, it.second) }))) else emptyList()))
         style.getSourceAs<GeoJsonSource>(SRC_TOPOS)?.setGeoJson(FeatureCollection.fromFeatures(t.mapIndexedNotNull { i, x ->
             val p = x.depart ?: return@mapIndexedNotNull null
             val lat = p.lat ?: return@mapIndexedNotNull null
@@ -2473,6 +2494,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRAVEL = "travel-src"
         private const val SRC_SKI = "ski-src"
         private const val SRC_TOPOS = "topos-src"
+        private const val SRC_TOPO_LINE = "topo-line-src"
         private const val LAYER_TOPOS = "topos"
         private const val SRC_SKI_PARK = "ski-park-src"
         private const val SRC_SKI_LINES = "ski-lines-src"

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchList, fetchMassifs, linkText, fetchSheet, filterRows, groupMassifs, readList, readMassifs, sheetPhotos, savedSheet, shortDate, topoId,
-  type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList } from './ski/skitour';
+  type Massif, type Outing, type OutingRow, type SkiPhoto, type OutingSheet, type SavedList, type TopoSheet } from './ski/skitour';
 
 import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
 import { storedPhoto } from './ski/photoStore';
@@ -23,7 +23,9 @@ function Photo({ p, onOpen }: { p: SkiPhoto; onOpen?: () => void }) {
  * ⛷💬 : sorties skitour.fr en texte, comme sur le site : tableau date / titre / auteurs, puis la fiche
  * (massif, départ, sommet, orientation, dénivelé, ski, conditions, neige, récit). Liste et fiches gardées hors ligne.
  */
-export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onMode, onClose }: {
+export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onMode, onClose, onTopoOnMap }: {
+  /** « 🗺 Sur la carte » d'un topo ouvert depuis la fiche. */
+  onTopoOnMap?: (t: TopoSheet) => void;
   /** Onglets en haut (Sorties, Carte sorties, Topos, Carte topos). */
   onMode?: (m: SkiMode) => void;
   password: string;
@@ -143,7 +145,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onMode, 
       ['Exposition', f?.exposition ?? ''], ['Skiabilité', f?.skiabilite ?? ''],
     ];
     const photos = sheetPhotos(f);
-    if (topoOpen) return <TopoView topo={topoOpen} password={password} backLabel="Sortie" onBack={() => setTopoOpen(null)} onClose={onClose} />;
+    if (topoOpen) return <TopoView topo={topoOpen} password={password} backLabel="Sortie" onBack={() => setTopoOpen(null)} onClose={onClose} onMap={onTopoOnMap} />;
     return (
       <div className={`ski-page${low ? ' low' : ''}`}>
         {/* ▾ réduit la fiche à une barre en bas (titre, ▴, ✕) pour revoir la carte ; ▴ la remet ; ✕ la ferme. */}

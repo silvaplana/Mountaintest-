@@ -29,6 +29,8 @@ class TopoMapPanel(
     private val onOpen: (TopoRow) -> Unit,
     private val onMode: (SkiMode) -> Unit,
     private val onClose: () -> Unit,
+    /** Topo venu de sa fiche (🗺 Sur la carte) : choisi et toujours montré, avec son itinéraire. */
+    private val pinned: TopoRow? = null,
 ) {
     companion object { const val TOPO_MIN_ZOOM = 9.0 }
     private val d = a.resources.displayMetrics.density
@@ -55,7 +57,8 @@ class TopoMapPanel(
     private var low = true
     var topos: List<TopoRow> = emptyList()
         private set
-    private var selId: Long? = null
+    private var selId: Long? = pinned?.id
+    private val listFile = java.io.File(a.filesDir, "skitour-topos-liste.json")
     private var busy = false
     private var msg = ""
     private var job: kotlinx.coroutines.Job? = null
@@ -102,8 +105,9 @@ class TopoMapPanel(
         val vp = viewport() ?: return
         val (z, zoom) = vp
         val far = zoom < TOPO_MIN_ZOOM
-        val vis = if (far) emptyList() else Topos.allSaved(cellsFile).filter { t ->
-            val p = t.depart; p?.lat != null && p.lon != null && p.lon in z.west..z.east && p.lat in z.south..z.north }.take(300)
+        val vis = (if (far) emptyList() else Topos.allSaved(cellsFile, listFile).filter { t ->
+            val p = t.depart; p?.lat != null && p.lon != null && p.lon in z.west..z.east && p.lat in z.south..z.north }.take(300))
+            .let { v -> if (pinned != null) listOf(pinned) + v.filter { it.id != pinned.id } else v }
         topos = vis
         val k = vis.indexOfFirst { it.id == selId }.takeIf { it >= 0 }
         onTopos(vis, k)
