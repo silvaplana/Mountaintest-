@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { fetchTopo, savedTopo, type TopoSheet } from './ski/skitour';
+import { fetchTopo, savedTopo, topoRowOf, type TopoSheet } from './ski/skitour';
 
 const go = (url: string) => { if (url) window.open(url, '_system'); };
 /** Itinéraire Google Maps jusqu'au départ (sinon recherche par nom). */
@@ -12,8 +12,10 @@ export const gmapsTo = (p: { nom: string; lat?: number | null; lon?: number | nu
  * Fiche d'un topo dans l'appli : infos, départ (Google Maps), présentation, itinéraire… ; les 50 derniers ouverts sont
  * gardés sur le téléphone. Le bouton retour d'Android fait comme « ← ».
  */
-export function TopoView({ topo, password, backLabel, onBack, onClose }: {
+export function TopoView({ topo, password, backLabel, onBack, onClose, onMap }: {
   topo: { id: number; nom: string; url: string }; password: string; backLabel: string; onBack: () => void; onClose: () => void;
+  /** « 🗺 Sur la carte » : carte des topos centrée sur celui-ci (départ, sommets, itinéraire). */
+  onMap?: (t: TopoSheet) => void;
 }) {
   const [t, setT] = useState<TopoSheet | null>(() => savedTopo(topo.id));
   const [msg, setMsg] = useState('');
@@ -51,7 +53,8 @@ export function TopoView({ topo, password, backLabel, onBack, onClose }: {
       <dl className="ski-info">{info.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k} :</dt><dd>{v}</dd></div>)}</dl>
       {sections.filter(([, v]) => v).map(([k, v]) => <div key={k}><h3>{k}</h3><p className="ski-text">{v}</p></div>)}
       <div className="row">
-        <button className="primary" onClick={() => go(topo.url)}>Voir sur skitour.fr</button>
+        {onMap && t && topoRowOf(t) && <button className="primary" onClick={() => onMap(t)}>🗺 Sur la carte</button>}
+        <button className={onMap && t && topoRowOf(t) ? '' : 'primary'} onClick={() => go(topo.url)}>Voir sur skitour.fr</button>
         {t?.gpx && <button className="ski-gpx-btn" onClick={() => go(t.gpx)}>GPX</button>}
       </div>
       <p className="hint">Topo de {t?.auteur || 'skitour.fr'} sur skitour.fr, non modifié.</p>

@@ -778,10 +778,54 @@ def topos_du_massif(m: int) -> list:
     return _liste_topos(f"cache-skitour-topos-m{m}.json", {"m": m})
 
 
+def _massifs_proches(lat: float, lon: float, maxi: int = 2) -> list:
+    """Massifs (id) des sorties dont un sommet est à moins de ~15 km du point, les plus fréquents d'abord.
+    Lu dans les listes de sorties gardées sur le disque (sinon celle du mois, 3 demandes au plus)."""
+    import math
+    noms = sorted((n for n in os.listdir(DOSSIER) if re.fullmatch(r"cache-skitour-sorties-\d+-tous\.json", n)) if os.path.isdir(DOSSIER) else [],
+                  key=lambda n: -int(n.split("-")[3]))
+    data = None
+    for n in noms:
+        with verrou:
+            data = _lire(n, {}).get("data")
+        if data:
+            break
+    if not data:
+        data = _sorties_brutes(30)
+    compte: dict = {}
+    k = math.cos(math.radians(lat))
+    for x in data:
+        m = _entier(_d(x.get("massif")).get("id"))
+        if not m:
+            continue
+        for sm in _sommets(x):
+            dy, dx = (float(sm["lat"]) - lat) * 111, (float(sm["lng"]) - lon) * 111 * k
+            if dx * dx + dy * dy < 15 * 15:
+                compte[m] = compte.get(m, 0) + 1
+                break
+    return [m for m, _ in sorted(compte.items(), key=lambda v: -v[1])[:maxi]]
+
+
 def topos_autour(lat: float, lon: float) -> list:
-    """Topos proches d'un point (carte des topos), par cases de 0,1° pour partager le cache entre écrans voisins."""
+    """Topos proches d'un point (carte des topos), par cases de 0,1° pour partager le cache entre écrans voisins.
+    Le filtre « ll » de l'API peut répondre en erreur (comme pour les sorties) : on prend alors les topos des massifs
+    du coin (repérés par les sorties), gardés 7 jours."""
     la, lo = round(lat, 1), round(lon, 1)
-    return _liste_topos(f"cache-skitour-topos-ll{la}_{lo}.json", {"ll": f"{la},{lo}"}, pages=3)
+    fichier = f"cache-skitour-topos-ll{la}_{lo}.json"
+    try:
+        out = _liste_topos(fichier, {"ll": f"{la},{lo}"}, pages=3)
+        if any(t.get("depart") and t["depart"].get("lat") is not None for t in out):
+            return out
+    except (RuntimeError, OSError, ValueError) as ex:
+        print(f"topos autour de {la},{lo} : {ex}", file=sys.stderr, flush=True)
+    out, vus = [], set()
+    for m in _massifs_proches(la, lo):
+        for t in topos_du_massif(m):
+            if t["id"] not in vus:
+                vus.add(t["id"]); out.append(t)
+    with verrou:
+        _ecrire(fichier, {"t": time.time(), "topos": out})
+    return out
 
 
 _TOPOS_SOMMET: dict = {}  # id du sommet -> (heure, topos bruts de l'API)

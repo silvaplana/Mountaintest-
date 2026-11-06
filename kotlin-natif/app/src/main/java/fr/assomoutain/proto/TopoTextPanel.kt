@@ -24,7 +24,8 @@ import java.text.Normalizer
 
 /** Un topo de la liste (départ placé sur la carte). Même chose que TopoRow de skitour.ts. */
 data class TopoRow(val id: Long, val nom: String, val url: String, val massif: String, val orientation: String, val denivele: Int?,
-                   val difSki: String, val difficulte: String, val gpx: Boolean, val depart: TopoPoint?) {
+                   val difSki: String, val difficulte: String, val gpx: Boolean, val depart: TopoPoint?,
+                   /** Itinéraire GPX (seulement pour un topo montré depuis sa fiche). */ val trace: List<Pair<Double, Double>> = emptyList()) {
     /** « ski 2.3 · D+ 780 m · E · R » */
     fun line() = listOf(difSki.takeIf { it.isNotEmpty() }?.let { "ski $it" }, denivele?.takeIf { it > 0 }?.let { "D+ $it m" },
         orientation.ifEmpty { null }, difficulte.ifEmpty { null }).filterNotNull().joinToString(" · ")
@@ -67,9 +68,11 @@ object Topos {
         runCatching { f.writeText(out.toString()) }
     }
     /** Tous les topos des cases gardées (on garde les points déjà vus en bougeant la carte). */
-    fun allSaved(f: java.io.File): List<TopoRow> {
+    fun allSaved(f: java.io.File, listFile: java.io.File? = null): List<TopoRow> {
         val c = cells(f); val seen = HashSet<Long>()
-        return c.keys().asSequence().flatMap { rows(c.optJSONObject(it)?.optJSONArray("topos")).asSequence() }.filter { seen.add(it.id) }.toList()
+        // Cases de la carte, puis la dernière liste des massifs (onglet Topos) : déjà sur le téléphone, sans demande.
+        val fromList = listFile?.let { runCatching { rows(JSONObject(it.readText()).optJSONArray("topos")) }.getOrNull() } ?: emptyList()
+        return (c.keys().asSequence().flatMap { rows(c.optJSONObject(it)?.optJSONArray("topos")).asSequence() } + fromList.asSequence()).filter { seen.add(it.id) }.toList()
     }
 
     private fun norm(t: String) = Normalizer.normalize(t, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
@@ -93,6 +96,8 @@ class TopoTextPanel(
     /** Topo à ouvrir tout de suite (touché sur la carte des topos) : « ← Carte » revient à la carte. */
     private val start: TopoRow? = null,
     private val onBackToMap: (() -> Unit)? = null,
+    /** « 🗺 Sur la carte » d'un topo. */
+    private val onShowOnMap: ((TopoSheet) -> Unit)? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -190,7 +195,7 @@ class TopoTextPanel(
     private fun openTopo(t: TopoRow, fromMap: Boolean) {
         job?.cancel()
         TopoPage(a, password, col, view).show(t.id, t.nom, t.url, if (fromMap) "Carte" else "Topos",
-            onBack = { if (fromMap) (onBackToMap ?: onClose)() else showList() }, onClose = onClose)
+            onBack = { if (fromMap) (onBackToMap ?: onClose)() else showList() }, onClose = onClose, onMap = onShowOnMap)
     }
 
     /** Choix des massifs, groupés comme sur skitour.fr (mêmes massifs que la liste des sorties). */

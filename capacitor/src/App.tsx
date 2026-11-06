@@ -19,7 +19,7 @@ import { Expenses } from './Expenses';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
-import { rowOf, type Outing, type OutingRow, type TopoRow } from './ski/skitour';
+import { rowOf, topoBounds, topoRowOf, type Outing, type OutingRow, type TopoRow, type TopoSheet } from './ski/skitour';
 import type { SkiMode } from './SkiTabs';
 import { TopoTextPanel } from './TopoTextPanel';
 import { TopoMapPanel } from './TopoMapPanel';
@@ -107,11 +107,25 @@ export function App() {
   const [topos, setTopos] = useState<TopoRow[]>([]);
   const [topoSel, setTopoSel] = useState<number | null>(null);
   const [topoSheet, setTopoSheet] = useState<TopoRow | null>(null);
+  const [topoPin, setTopoPin] = useState<TopoRow | null>(null);
+  /** « 🗺 Sur la carte » d'un topo : carte des topos, ce topo choisi (avec son itinéraire) et cadré. */
+  const showTopoOnMap = (t: TopoSheet) => {
+    const row = topoRowOf(t);
+    if (!row) return;
+    skiMode('carteTopos');
+    setTopoPin(row); setTopos([row]); setTopoSel(0);
+    const b = topoBounds(t);
+    if (b && map) {
+      const pad = Math.round(map.getContainer().clientHeight * 0.3);
+      if (b[0] === b[2] && b[1] === b[3]) map.easeTo({ center: [b[0], b[1]], zoom: Math.max(map.getZoom(), 13), duration: 700 });
+      else map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: { top: 60, left: 40, right: 200, bottom: pad }, maxZoom: 15, duration: 700 });
+    }
+  };
   /** Onglets du ski : ferme les autres écrans ski (et panneaux) puis ouvre celui choisi. */
   const skiMode = (m: SkiMode) => {
     setTravel(false); setLodging(false); setOpen(false); setSearching(false);
     setSkiText(false); setSkiOn(false); setSkiOutings([]); setSkiSel(null); setSkiSheet(null);
-    setTopoText(false); setTopoMapOn(false); setTopos([]); setTopoSel(null); setTopoSheet(null);
+    setTopoText(false); setTopoMapOn(false); setTopos([]); setTopoSel(null); setTopoSheet(null); setTopoPin(null);
     if (m === 'sorties') setSkiText(true);
     else if (m === 'carte') setSkiOn(true);
     else if (m === 'topos') setTopoText(true);
@@ -676,12 +690,12 @@ export function App() {
         onShowOnMap={(_o, at) => { setSkiSheet(null); flyTo(at); }} onClose={() => setSkiSheet(null)} />}
       {skiText && <SkiTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         onShowOnMap={(o, at) => { setSkiText(false); setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiOutings([o]); setSkiSel(0); setSkiOn(true); flyTo(at); }} onClose={() => setSkiText(false)}
-        onMode={skiMode} />}
-      {topoText && <TopoTextPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onMode={skiMode} onClose={() => setTopoText(false)} />}
+        onMode={skiMode} onTopoOnMap={showTopoOnMap} />}
+      {topoText && <TopoTextPanel onShowOnMap={showTopoOnMap} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onMode={skiMode} onClose={() => setTopoText(false)} />}
       {topoMapOn && map && !framing && <TopoMapPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         topos={topos} selected={topoSel} onTopos={setTopos} onSelect={setTopoSel} hidden={!!topoSheet}
-        onOpen={setTopoSheet} onMode={skiMode} onClose={() => { setTopoMapOn(false); setTopos([]); setTopoSel(null); }} />}
-      {topoSheet && <TopoTextPanel key={topoSheet.id} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={topoSheet}
+        onOpen={setTopoSheet} onMode={skiMode} pinned={topoPin} onClose={() => { setTopoMapOn(false); setTopos([]); setTopoSel(null); }} />}
+      {topoSheet && <TopoTextPanel key={topoSheet.id} onShowOnMap={(t) => { setTopoSheet(null); showTopoOnMap(t); }} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={topoSheet}
         onMode={(m) => { if (m === 'carteTopos') setTopoSheet(null); else skiMode(m); }} onClose={() => setTopoSheet(null)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}

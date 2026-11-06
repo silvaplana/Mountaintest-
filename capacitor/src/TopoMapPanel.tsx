@@ -10,7 +10,9 @@ export const TOPO_MIN_ZOOM = 9;
  * 🗺 Carte topos : un point orange par topo (à son départ) autour de l'écran affiché. Les topos sont demandés au relais
  * par cases de 0,1° (gardées 7 jours sur le téléphone et le serveur, pour ménager le quota skitour).
  */
-export function TopoMapPanel({ map, password, topos, selected, onTopos, onSelect, onOpen, onMode, onClose, hidden }: {
+export function TopoMapPanel({ map, password, topos, selected, onTopos, onSelect, onOpen, onMode, onClose, hidden, pinned }: {
+  /** Topo venu de sa fiche (🗺 Sur la carte) : choisi et toujours montré, avec son itinéraire. */
+  pinned?: TopoRow | null;
   map: MlMap; password: string; topos: TopoRow[]; selected: number | null; hidden?: boolean;
   onTopos: (t: TopoRow[]) => void; onSelect: (i: number | null) => void; onOpen: (t: TopoRow) => void;
   onMode: (m: SkiMode) => void; onClose: () => void;
@@ -29,7 +31,8 @@ export function TopoMapPanel({ map, password, topos, selected, onTopos, onSelect
       const b = map.getBounds();
       const vis = far ? [] : allSavedTopos().filter((t) => t.depart?.lat != null && t.depart.lon != null
         && t.depart.lon >= b.getWest() && t.depart.lon <= b.getEast() && t.depart.lat >= b.getSouth() && t.depart.lat <= b.getNorth()).slice(0, 300);
-      onTopos(vis);
+      const p = pinned;
+      if (p) { const k = vis.findIndex((t) => t.id === p.id); if (k >= 0) vis.splice(k, 1); vis.unshift(p); }      onTopos(vis);
       const k = vis.findIndex((t) => t.id === selId.current);
       onSelect(k >= 0 ? k : null);
     };

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchMassifs, fetchTopoList, filterTopos, groupMassifs, readMassifs, readTopoList, topoLine, type Massif, type TopoRow } from './ski/skitour';
+import { fetchMassifs, fetchTopoList, filterTopos, groupMassifs, readMassifs, readTopoList, topoLine, type Massif, type TopoRow, type TopoSheet } from './ski/skitour';
 import { MASSIF_GROUPS } from './ski/massifs';
 import { SkiTabs, type SkiMode } from './SkiTabs';
 import { TopoView } from './TopoView';
@@ -8,7 +8,9 @@ import { TopoView } from './TopoView';
  * 📖 Topos : liste des topos skitour.fr des massifs choisis (mêmes massifs que la liste des sorties), avec recherche ;
  * un topo s'ouvre dans l'appli. Liste gardée 7 jours sur le serveur, la dernière aussi sur le téléphone.
  */
-export function TopoTextPanel({ password, start, onMode, onClose }: {
+export function TopoTextPanel({ password, start, onMode, onClose, onShowOnMap }: {
+  /** « 🗺 Sur la carte » d'un topo. */
+  onShowOnMap?: (t: TopoSheet) => void;
   password: string;
   /** Topo à ouvrir tout de suite (touché sur la carte des topos) : « ← » revient alors à la carte. */
   start?: TopoRow;
@@ -49,7 +51,7 @@ export function TopoTextPanel({ password, start, onMode, onClose }: {
   const rows = useMemo(() => filterTopos(topos, q), [topos, q]);
 
   if (open) return <TopoView topo={open} password={password} backLabel={start && open.id === start.id ? 'Carte' : 'Topos'}
-    onBack={() => { if (start && open.id === start.id) onMode('carteTopos'); else setOpen(null); }} onClose={onClose} />;
+    onBack={() => { if (start && open.id === start.id) onMode('carteTopos'); else setOpen(null); }} onClose={onClose} onMap={onShowOnMap} />;
   return (
     <div className="ski-page">
       <SkiTabs mode="topos" onMode={onMode} onClose={onClose} />

@@ -250,6 +250,8 @@ export interface TopoSheet {
   difficulte: string; expo: string; depart: TopoPoint | null; sommets: TopoPoint[];
   presentation: string; itineraire: string; variantes: string; remarques: string; materiel: string; biblio?: string;
   auteur: string; gpx: string;
+  /** Itinéraire GPX simplifié [[lon, lat], …] (vide sans GPX). */
+  trace?: [number, number][];
 }
 const TOPOS_KEY = 'skitourTopos';
 /** Numéro d'un topo d'après son lien skitour.fr (…/topos/123). */
@@ -261,8 +263,7 @@ export const savedTopo = (id: number) => readTopos().find((t) => t.id === id) ??
 /** Topo lu par le relais ; les 50 derniers ouverts sont gardés (le plus ancien est effacé). */
 export async function fetchTopo(id: number, password: string): Promise<TopoSheet> {
   const t = await relayPost<TopoSheet>('skitour-topo', { id }, password);
-  const { trace: _t, ...keep } = t as TopoSheet & { trace?: unknown };
-  const kept = [keep, ...readTopos().filter((x) => x.id !== id)].slice(0, 50);
+  const kept = [t, ...readTopos().filter((x) => x.id !== id)].slice(0, 50);
   try { localStorage.setItem(TOPOS_KEY, JSON.stringify(kept)); } catch { /* stockage plein */ }
   return t;
 }
@@ -301,6 +302,22 @@ export function groupMassifs(ms: Massif[]): [string, string[]][] {
 export interface TopoRow {
   id: number; nom: string; url: string; massif: string; orientation: string; denivele: number | null; dif_ski: string;
   difficulte: string; expo: string; gpx: boolean; depart: { nom: string; altitude: number | null; lat: number | null; lon: number | null } | null;
+  /** Itinéraire GPX (seulement pour un topo montré depuis sa fiche). */
+  trace?: [number, number][];
+}
+/** Topo ouvert (fiche) vu comme un point de la carte des topos : à son départ, sinon à son premier sommet placé. */
+export function topoRowOf(t: TopoSheet): TopoRow | null {
+  const p = [t.depart, ...t.sommets].find((x) => x?.lat != null && x.lon != null);
+  if (!p && !(t.trace && t.trace.length)) return null;
+  const at = p ?? { nom: t.depart?.nom ?? t.nom, altitude: null, lat: t.trace![0][1], lon: t.trace![0][0] };
+  return { id: t.id, nom: t.nom, url: t.url, massif: t.massif, orientation: t.orientation, denivele: t.denivele ?? null, dif_ski: t.dif_ski,
+    difficulte: t.difficulte, expo: t.expo, gpx: !!t.gpx, depart: { nom: at.nom, altitude: at.altitude ?? null, lat: at.lat ?? null, lon: at.lon ?? null }, trace: t.trace };
+}
+/** Cadre [ouest, sud, est, nord] d'un topo : départ, sommets et itinéraire. */
+export function topoBounds(t: TopoSheet): [number, number, number, number] | null {
+  const pts: [number, number][] = [...[t.depart, ...t.sommets].flatMap((x) => (x?.lat != null && x.lon != null ? [[x.lon, x.lat] as [number, number]] : [])), ...(t.trace ?? [])];
+  if (!pts.length) return null;
+  return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
 }
 const TOPO_LIST_KEY = 'skitourToposListe';
 const TOPO_MAP_KEY = 'skitourToposCarte';
@@ -337,7 +354,9 @@ export async function fetchToposNear(lat: number, lon: number, password: string)
 /** Toutes les cases gardées, pour garder les points déjà vus quand on bouge la carte. */
 export function allSavedTopos(): TopoRow[] {
   const seen = new Set<number>(), out: TopoRow[] = [];
-  for (const c of Object.values(readTopoCells())) for (const t of c.topos) if (!seen.has(t.id)) { seen.add(t.id); out.push(t); }
+  // Cases de la carte, puis la dernière liste des massifs (onglet Topos) : déjà sur le téléphone, sans demande.
+  for (const l of [...Object.values(readTopoCells()).map((c) => c.topos), readTopoList()?.topos ?? []])
+    for (const t of l) if (!seen.has(t.id)) { seen.add(t.id); out.push(t); }
   return out;
 }
 /** Filtre de la liste des topos : chaque mot (sans accents) dans le nom, le massif ou le départ. */

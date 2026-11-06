@@ -121,7 +121,7 @@ export function MapView(props: MapViewProps) {
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
-          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY },
+          webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
@@ -154,6 +154,8 @@ export function MapView(props: MapViewProps) {
             paint: { 'line-color': ['case', ['get', 'sel'], '#7b3fe4', '#1d6fe0'], 'line-width': ['case', ['get', 'sel'], 3, 2], 'line-dasharray': [2, 1.5], 'line-opacity': 0.85 } },
           { id: 'ski-park', type: 'circle', source: 'skiPark', filter: ['==', ['geometry-type'], 'Point'],
             paint: { 'circle-radius': ['case', ['get', 'sel'], 8, 6], 'circle-color': '#3a4a44', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
+          { id: 'topo-line', type: 'line', source: 'topoLine', layout: { 'line-join': 'round' },
+            paint: { 'line-color': '#2e9d4f', 'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [2, 1] } },
           { id: 'topos', type: 'circle', source: 'topos', paint: { 'circle-radius': 8, 'circle-color': '#e07b00', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'ski', type: 'circle', source: 'ski', paint: { 'circle-radius': 8, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
@@ -403,6 +405,9 @@ export function MapView(props: MapViewProps) {
     m.setPaintProperty('topos', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
     topoMarker.current?.remove(); topoMarker.current = null;
     const t = props.topos?.[sel];
+    // Itinéraire GPX du topo choisi (vert pointillé, comme les itinéraires des sorties).
+    (m.getSource('topoLine') as GeoJSONSource).setData({ type: 'FeatureCollection', features: t?.trace && t.trace.length > 1
+      ? [{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: t.trace } }] : [] });
     if (t?.depart?.lat != null && t.depart.lon != null) {
       const el = document.createElement('div');
       el.className = 'ski-tag sel topo-tag';
