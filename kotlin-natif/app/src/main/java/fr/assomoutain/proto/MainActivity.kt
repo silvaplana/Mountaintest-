@@ -1370,20 +1370,16 @@ class MainActivity : AppCompatActivity() {
         skiOutings = o; skiSel = sel; skiOffsets = emptyMap()
         setSkiSources()
         layoutSkiTags()
-        // Sortie choisie : on montre le sommet et son parking ensemble, une seule fois par choix (la liste de l'écran est
-        // recalculée à chaque arrêt de la carte : recadrer à chaque fois ferait boucler).
+        // Sortie choisie : la carte ne bouge pas (demandé par Seb : le parking s'affiche, même s'il sort de l'écran) ;
+        // seulement si le sommet n'est pas à l'écran (choisi ailleurs), on centre dessus, une fois par choix.
         val chosen = o.getOrNull(sel ?: -1)
-        val key = chosen?.let { "${it.id}:${if (it.parking != null) "p" else ""}" }
+        val key = chosen?.id?.toString()
         if (key == skiFocused) return
         skiFocused = key
         chosen?.let {
-            val p = it.parking
-            if (p != null) {
-                val d = resources.displayMetrics
-                val b = org.maplibre.android.geometry.LatLngBounds.Builder().include(LatLng(it.lat, it.lon)).include(LatLng(p.lat, p.lon)).build()
-                map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b, (40 * d.density).toInt(), (60 * d.density).toInt(),
-                    (200 * d.density).toInt(), (d.heightPixels * 0.55).toInt()), 600)
-            } else map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(it.lat, it.lon)), 600)
+            val m = map ?: return
+            if (!m.projection.visibleRegion.latLngBounds.contains(LatLng(it.lat, it.lon)))
+                m.animateCamera(CameraUpdateFactory.newLatLng(LatLng(it.lat, it.lon)), 600)
         }
     }
 
