@@ -4,7 +4,20 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { TRACE_FILE_ACCEPT } from './traceFile';
 
-const TraceFile = registerPlugin<{ pick(): Promise<{ cancelled?: boolean; name?: string; text?: string }> }>('TraceFile');
+import type { PluginListenerHandle } from '@capacitor/core';
+
+type Opened = { name?: string; text?: string; error?: string };
+const TraceFile = registerPlugin<{
+  pick(): Promise<{ cancelled?: boolean; name?: string; text?: string }>;
+  addListener(e: 'opened', cb: (r: Opened) => void): Promise<PluginListenerHandle>;
+}>('TraceFile');
+
+/** Fichier de trace ouvert depuis une autre appli (« Ouvrir avec » ou « Partager » depuis Gmail, Fichiers…). */
+export function onTraceFileOpened(cb: (r: Opened) => void): () => void {
+  if (Capacitor.getPlatform() !== 'android') return () => {};
+  const h = TraceFile.addListener('opened', cb);
+  return () => { void h.then((x) => x.remove()); };
+}
 
 export async function pickTraceFile(): Promise<{ name: string; text: string } | null> {
   const platform = Capacitor.getPlatform();

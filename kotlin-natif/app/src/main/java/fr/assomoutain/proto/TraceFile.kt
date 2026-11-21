@@ -140,7 +140,7 @@ object TraceFile {
         }.getOrNull() ?: uri.lastPathSegment.orEmpty()
 
     /** Lit le fichier choisi (30 Mo au plus) et retient son dossier pour la prochaine fois. */
-    fun read(ctx: Context, uri: Uri): Pair<String, String> {
+    fun read(ctx: Context, uri: Uri, rememberFolder: Boolean = true): Pair<String, String> {
         val bytes = ctx.contentResolver.openInputStream(uri)?.use { input ->
             val out = java.io.ByteArrayOutputStream()
             val buf = ByteArray(64 * 1024)
@@ -151,8 +151,17 @@ object TraceFile {
             }
             out.toByteArray()
         } ?: throw IllegalArgumentException("fichier inaccessible")
-        remember(ctx, uri)
+        // Fichier venu de Gmail ou d'une autre appli : ce n'est pas un dossier où revenir.
+        if (rememberFolder) remember(ctx, uri)
         return displayName(ctx, uri) to String(bytes, Charsets.UTF_8)
+    }
+
+    /** Fichier reçu par « Ouvrir avec » (VIEW) ou « Partager » (SEND). */
+    @Suppress("DEPRECATION")
+    fun sharedUri(intent: Intent?): Uri? = when (intent?.action) {
+        Intent.ACTION_VIEW -> intent.data
+        Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
+        else -> null
     }
 
     /** Contrat du sélecteur : ACTION_OPEN_DOCUMENT ouvert dans le dossier initial. */

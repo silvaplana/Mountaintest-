@@ -31,6 +31,61 @@ public class TraceFilePlugin extends Plugin {
     private static final String LAST = "dernierDossier";
     private static final int MAX_BYTES = 30 * 1024 * 1024;
 
+    /** Appli lancée par « Ouvrir avec » ou « Partager » un fichier de trace (Gmail, Fichiers…). */
+    @Override
+    public void load() {
+        Intent i = getActivity().getIntent();
+        if (i != null) handleOnNewIntent(i);
+    }
+
+    /**
+     * Fichier ouvert depuis une autre appli : son texte part vers le JavaScript (évènement « opened »,
+     * gardé tant que la page n'écoute pas encore). Même chose côté Kotlin (MainActivity.handleTraceIntent).
+     */
+    @Override
+    protected void handleOnNewIntent(Intent intent) {
+        Uri uri = sharedUri(intent);
+        if (uri == null || intent.getBooleanExtra(DONE, false)) return;
+        intent.putExtra(DONE, true);
+        Context ctx = getContext();
+        new Thread(() -> {
+            JSObject r = new JSObject();
+            try {
+                r.put("name", displayName(ctx, uri));
+                r.put("text", readText(ctx, uri));
+            } catch (Exception e) {
+                r.put("error", String.valueOf(e.getMessage()));
+            }
+            notifyListeners("opened", r, true);
+        }).start();
+    }
+
+    private static final String DONE = "fr.assomoutain.traceTraitee";
+
+    @SuppressWarnings("deprecation")
+    static Uri sharedUri(Intent intent) {
+        if (Intent.ACTION_VIEW.equals(intent.getAction())) return intent.getData();
+        if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            Object o = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            return o instanceof Uri ? (Uri) o : null;
+        }
+        return null;
+    }
+
+    static String readText(Context ctx, Uri uri) throws Exception {
+        try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
+            if (in == null) throw new Exception("fichier inaccessible");
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+                if (out.size() > MAX_BYTES) throw new Exception("fichier trop gros");
+            }
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
     @PluginMethod
     public void pick(PluginCall call) {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -52,19 +107,12 @@ public class TraceFilePlugin extends Plugin {
             return;
         }
         Context ctx = getContext();
-        try (InputStream in = ctx.getContentResolver().openInputStream(uri)) {
-            if (in == null) throw new Exception("fichier inaccessible");
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[64 * 1024];
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                out.write(buf, 0, n);
-                if (out.size() > MAX_BYTES) throw new Exception("fichier trop gros");
-            }
+        try {
+            String text = readText(ctx, uri);
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(LAST, uri.toString()).apply();
             JSObject r = new JSObject();
             r.put("name", displayName(ctx, uri));
-            r.put("text", new String(out.toByteArray(), StandardCharsets.UTF_8));
+            r.put("text", text);
             call.resolve(r);
         } catch (Exception e) {
             call.reject("Lecture impossible : " + e.getMessage());
