@@ -454,10 +454,13 @@
                 android:textSize="14sp" android:textStyle="bold" android:visibility="gone" />
         </LinearLayout>
 
+        <Button android:id="@+id/btnNavPause" style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="52dp" android:layout_height="wrap_content" android:minWidth="0dp"
+            android:text="⏸" android:textSize="20sp" android:contentDescription="Mettre le suivi en pause" />
         <Button android:id="@+id/btnNavStop" style="@style/Widget.AppCompat.Button.Colored"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:backgroundTint="#C62828" android:textColor="#FFFFFF"
-            android:text="⏹ Arrêter" android:textAllCaps="false" />
+            android:layout_width="52dp" android:layout_height="wrap_content" android:minWidth="0dp"
+            android:backgroundTint="#C62828" android:textColor="#FFFFFF" android:textSize="20sp"
+            android:text="⏹" android:contentDescription="Arrêter le suivi" />
     </LinearLayout>
 
 

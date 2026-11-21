@@ -9,9 +9,23 @@ function hours(h: number) {
 }
 
 /** 👣 Bandeau de navigation sur une de mes traces : reste à faire, et alerte hors trace. Même bandeau côté Kotlin. */
-export function NavBar({ trail, state, waiting, onStop }: {
+export function NavBar({ trail, state, waiting, onStop, paused, onPause, onResume, onHelp }: {
   trail: Trail; state: NavState | null; waiting: boolean; onStop: () => void;
+  /** ⏸ Pause : GPS coupé pour la batterie, ▶ reprend. */
+  paused: boolean; onPause: () => void; onResume: () => void;
+  /** Appui long sur une icône : son explication. */
+  onHelp: (text: string) => void;
 }) {
+  const help = (text: string) => ({ onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); onHelp(text); } });
+  if (paused) {
+    return (
+      <section className="nav-bar paused" style={{ borderLeftColor: trail.color }}>
+        <div className="nav-text"><b>👣 {trail.name}</b><span>⏸ En pause : GPS coupé pour la batterie</span></div>
+        <button className="nav-icon" onClick={onResume} aria-label="Reprendre le suivi" title="Reprendre le suivi" {...help('▶ Reprendre le suivi : le GPS se rallume.')}>▶</button>
+        <button className="nav-icon nav-stop" onClick={onStop} aria-label="Arrêter le suivi" title="Arrêter le suivi" {...help('⏹ Arrêter le suivi de la trace.')}>⏹</button>
+      </section>
+    );
+  }
   const off = state != null && state.offM > OFF_TRACK_M;
   const arrived = state != null && !off && state.remainingM < 30;
   return (
@@ -27,7 +41,8 @@ export function NavBar({ trail, state, waiting, onStop }: {
             </span>}
         {state && !waiting && <span className="nav-status">{off ? `⚠ Hors trace : ${Math.round(state.offM)} m` : '✓ Sur la trace'}</span>}
       </div>
-      <button className="nav-stop" onClick={onStop}>⏹ Arrêter</button>
+      <button className="nav-icon" onClick={onPause} aria-label="Mettre le suivi en pause" title="Mettre en pause" {...help('⏸ Pause : coupe le GPS pour la batterie, ▶ pour reprendre.')}>⏸</button>
+      <button className="nav-icon nav-stop" onClick={onStop} aria-label="Arrêter le suivi" title="Arrêter le suivi" {...help('⏹ Arrêter le suivi de la trace.')}>⏹</button>
     </section>
   );
 }
