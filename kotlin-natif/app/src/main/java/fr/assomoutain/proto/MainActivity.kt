@@ -124,6 +124,8 @@ class MainActivity : AppCompatActivity() {
     private var navId: Long? = null
     private var navJob: kotlinx.coroutines.Job? = null
     private var navWasOff = false
+    /** ⏸ Suivi en pause : GPS coupé pour la batterie, plus d'alerte ; ▶ reprend sur la même trace. */
+    private var navPaused = false
     /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu (identifiant, texte). */
     private var traceOffline: Pair<Long, String>? = null
     private var traceDownloading = false
@@ -1182,6 +1184,12 @@ class MainActivity : AppCompatActivity() {
             if (navId == sel.id) stopNav() else startNav(sel)
         }
         findViewById<Button>(R.id.btnNavStop).setOnClickListener { stopNav() }
+        findViewById<Button>(R.id.btnNavPause).setOnClickListener { if (navPaused) resumeNav() else pauseNav() }
+        // Appui long sur une icône du bandeau : son explication.
+        findViewById<Button>(R.id.btnNavStop).setOnLongClickListener { toast("⏹ Arrêter le suivi de la trace."); true }
+        findViewById<Button>(R.id.btnNavPause).setOnLongClickListener {
+            toast(if (navPaused) "▶ Reprendre le suivi : le GPS se rallume." else "⏸ Pause : coupe le GPS pour la batterie, ▶ pour reprendre."); true
+        }
         // 🚗 Y aller : Google Maps en voiture jusqu'au départ de la trace.
         findViewById<Button>(R.id.btnTraceGo).setOnClickListener {
             selectedTrail?.segments?.firstOrNull()?.firstOrNull()?.let { openDirections(it.lat, it.lon) }
@@ -1924,7 +1932,7 @@ class MainActivity : AppCompatActivity() {
 
     /** GPS en suivi (bouton ◎) et bandeau « reste … / hors trace », mis à jour toutes les 2 s. */
     private fun startNav(t: Trail) {
-        navId = t.id; navWasOff = false
+        navId = t.id; navWasOff = false; navPaused = false
         traceMenuOpen = false; refreshTraceMenu()
         if (!locating) onLocateClicked()
         else map?.locationComponent?.takeIf { it.isLocationComponentActivated }?.cameraMode = CameraMode.TRACKING
@@ -1936,8 +1944,21 @@ class MainActivity : AppCompatActivity() {
         refreshNav()
     }
 
+    /** ⏸ Pause : on coupe le GPS du bouton ◎ et la mise à jour du bandeau. */
+    private fun pauseNav() {
+        navPaused = true; navJob?.cancel(); navJob = null
+        if (locating) stopLocate()
+        refreshNav()
+    }
+
+    /** ▶ Reprise : GPS rallumé en suivi, bandeau remis à jour toutes les 2 s. */
+    private fun resumeNav() {
+        val t = trails.firstOrNull { it.id == navId } ?: return stopNav()
+        startNav(t)
+    }
+
     private fun stopNav() {
-        navId = null; navJob?.cancel(); navJob = null
+        navId = null; navPaused = false; navJob?.cancel(); navJob = null
         findViewById<View>(R.id.navBar).visibility = View.GONE
         refreshTraceMenu()
     }
@@ -1949,6 +1970,16 @@ class MainActivity : AppCompatActivity() {
         bar.visibility = if (findViewById<View>(R.id.frameBanner).visibility == View.VISIBLE) View.GONE else View.VISIBLE
         findViewById<View>(R.id.navColor).setBackgroundColor(Color.parseColor(t.color))
         findViewById<TextView>(R.id.navName).text = "👣 ${t.name}"
+        findViewById<Button>(R.id.btnNavPause).apply {
+            text = if (navPaused) "▶" else "⏸"
+            contentDescription = if (navPaused) "Reprendre le suivi" else "Mettre le suivi en pause"
+        }
+        if (navPaused) {
+            findViewById<TextView>(R.id.navInfo).text = "⏸ En pause : GPS coupé pour la batterie"
+            findViewById<View>(R.id.navStatus).visibility = View.GONE
+            bar.setBackgroundColor(Color.parseColor("#F2F2F2"))
+            return
+        }
         val lc = map?.locationComponent
         val loc = (if (lc != null && lc.isLocationComponentActivated) lc.lastKnownLocation else null)
             ?: TrackRecorder.state.value.points.lastOrNull()?.takeIf { gpsRunning }?.let { p ->

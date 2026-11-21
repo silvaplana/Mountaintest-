@@ -189,7 +189,10 @@ export function App() {
   const [drawnSlopes, setDrawnSlopes] = useState(false);
   const [drawnProfile, setDrawnProfile] = useState(false);
   /** 🧭 Navigation sur une de mes traces (identifiant), et dernière position GPS connue. */
-  const [navId, setNavId] = useState<number | null>(null);
+  const [navId, setNavIdState] = useState<number | null>(null);
+  /** ⏸ Suivi en pause : GPS du bouton ◎ coupé, plus d'alerte ; ▶ reprend. */
+  const [navPaused, setNavPaused] = useState(false);
+  const setNavId = (id: number | null) => { setNavIdState(id); setNavPaused(false); };
   const [navPos, setNavPos] = useState<{ lon: number; lat: number; acc: number } | null>(null);
   /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu. */
   const [traceOffline, setTraceOffline] = useState<{ id: number; msg: string } | null>(null);
@@ -701,9 +704,18 @@ export function App() {
   function startNav() {
     if (!selected) return;
     setNavId(selected.id); setNavPos(null); setTraceMenu(false); setFollow(true);
-    const st = (geo as unknown as { _watchState?: string } | null)?._watchState ?? 'OFF';
-    if (geo && (st === 'OFF' || st === 'BACKGROUND')) void geo.trigger();
+    gpsOn();
   }
+
+  const geoState = () => (geo as unknown as { _watchState?: string } | null)?._watchState ?? 'OFF';
+  function gpsOn() { const st = geoState(); if (geo && (st === 'OFF' || st === 'BACKGROUND')) void geo.trigger(); }
+
+  /** ⏸ Pause du suivi : on coupe le GPS (batterie) ; ▶ le relance, le suivi reprend sur la même trace. */
+  function pauseNav() {
+    setNavPaused(true); setNavPos(null);
+    for (let i = 0; i < 2 && geo && geoState() !== 'OFF'; i++) void geo.trigger();
+  }
+  function resumeNav() { setNavPaused(false); setFollow(true); gpsOn(); }
 
   async function exportTrail() {
     if (!selected) return;
@@ -737,12 +749,12 @@ export function App() {
 
   // 🧭 Position suivie : bouton ◎ (GeolocateControl) ou enregistrement en cours.
   useEffect(() => {
-    if (!geo || navId == null) return;
+    if (!geo || navId == null || navPaused) return;
     const on = (e: { coords: GeolocationCoordinates }) => setNavPos({ lon: e.coords.longitude, lat: e.coords.latitude, acc: e.coords.accuracy });
     geo.on('geolocate', on);
     return () => { geo.off('geolocate', on); };
-  }, [geo, navId]);
-  useEffect(() => { if (navId != null && position) setNavPos({ lon: position.lon, lat: position.lat, acc: position.accuracy ?? 0 }); }, [position, navId]);
+  }, [geo, navId, navPaused]);
+  useEffect(() => { if (navId != null && !navPaused && position) setNavPos({ lon: position.lon, lat: position.lat, acc: position.accuracy ?? 0 }); }, [position, navId, navPaused]);
   const navTrail = navId == null ? null : trails.find((t) => t.id === navId) ?? null;
   useEffect(() => { if (navId != null && !trails.some((t) => t.id === navId)) setNavId(null); }, [trails, navId]);
   const nav = useMemo(() => (navTrail && navPos
@@ -786,7 +798,8 @@ export function App() {
       {map && <ScaleBar map={map} top={10} />}
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} onFile={() => void openTraceFile()} />}
-      {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} onStop={() => setNavId(null)} />}
+      {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} onStop={() => setNavId(null)}
+        paused={navPaused} onPause={pauseNav} onResume={resumeNav} onHelp={setToast} />}
       {traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}

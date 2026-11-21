@@ -474,6 +474,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .nav-bar.off { background: #fdecea; }
 .nav-bar.off .nav-status { color: #c62828; }
 .nav-bar button { min-height: 38px; padding: 6px 10px; }
+.nav-bar button.nav-icon { min-width: 46px; font-size: 20px; padding: 4px 8px; }
+.nav-bar.paused { background: #f2f2f2; }
 .nav-bar button.nav-stop { background: #c62828; border-color: #c62828; color: #fff; font-weight: 600; }
 .trace-menu .head .close { min-height: 36px; padding: 4px 10px; }
 .trace-menu .checks { display: flex; gap: 18px; flex-wrap: wrap; }
