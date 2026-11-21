@@ -33,6 +33,9 @@ data class Trail(
     val color: String,
     val segments: List<List<LonLat>>,
     val distanceM: Double,
+    /** Traces à moi seulement : recalée sur les chemins, et identifiant dans 📂 Mes traces si enregistrée. */
+    val onPaths: Boolean = false,
+    val savedId: Long? = null,
 )
 
 data class ElevatedTrail(val segments: List<List<Pair<LonLat, Double?>>>, val gainM: Double, val lossM: Double)
@@ -293,10 +296,26 @@ object Trails {
         return parseRoute(c.inputStream.bufferedReader().use { it.readText() })
     }
 
-    fun drawnTrail(line: List<LonLat>, onPaths: Boolean) = Trail(
-        DRAWN_ID, "Mon tracé",
+    fun drawnTrail(line: List<LonLat>, onPaths: Boolean, id: Long = DRAWN_ID, color: String = DRAWN_COLOR) = Trail(
+        id, "Mon tracé",
         if (onPaths) "Tracé au doigt, recalé sur les chemins (IGN)" else "Tracé au doigt, ligne libre",
-        0, DRAWN_COLOR, listOf(line), lineLengthM(line))
+        0, color, listOf(line), lineLengthM(line), onPaths)
+
+    /**
+     * Plusieurs traces à moi (dessinées, enregistrées ou chargées d'un fichier) peuvent être affichées ensemble :
+     * identifiants négatifs (-1, -2…) et une couleur chacune. Les randos OSM ont des identifiants positifs.
+     */
+    val TRACE_COLORS = listOf(DRAWN_COLOR, "#e6007e", "#008c9e", "#f07800", "#2b50d6", "#5b8c00", "#8a4b08")
+    fun isMine(id: Long?) = id != null && id < 0
+
+    /** Identifiant et couleur de la prochaine trace : première couleur libre, sinon on reprend la palette. */
+    fun nextMine(trails: List<Trail>): Pair<Long, String> {
+        val mine = trails.filter { isMine(it.id) }
+        val id = minOf(0L, mine.minOfOrNull { it.id } ?: 0L) - 1
+        val used = mine.map { it.color }.toSet()
+        val color = TRACE_COLORS.firstOrNull { it !in used } ?: TRACE_COLORS[mine.size % TRACE_COLORS.size]
+        return id to color
+    }
 
     /** Temps de marche estimé : 4 km/h à plat + 1 h par 300 m de montée + 1 h par 500 m de descente. */
     fun walkingHours(distM: Double, gainM: Double, lossM: Double) = distM / 4000 + gainM / 300 + lossM / 500

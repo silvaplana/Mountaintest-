@@ -412,6 +412,51 @@
             android:text="📂 Charger des traces"
             android:textAllCaps="false"
             android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btnOpenTraceFile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="6dp"
+            android:text="📥 Ouvrir un fichier"
+            android:textAllCaps="false"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 🧭 Navigation sur une de mes traces : reste à faire, alerte hors trace (même bandeau côté Capacitor) -->
+    <LinearLayout
+        android:id="@+id/navBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginEnd="68dp"
+        android:background="@drawable/card_bg"
+        android:elevation="11dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="0dp"
+        android:paddingEnd="4dp"
+        android:visibility="gone">
+
+        <View android:id="@+id/navColor" android:layout_width="6dp" android:layout_height="match_parent"
+            android:layout_marginEnd="10dp" android:background="#7B3FE4" />
+
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            android:orientation="vertical" android:paddingTop="6dp" android:paddingBottom="6dp">
+            <TextView android:id="@+id/navName" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:ellipsize="end" android:maxLines="1" android:textColor="#1D2421" android:textSize="14sp" android:textStyle="bold" />
+            <TextView android:id="@+id/navInfo" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textColor="#1D2421" android:textSize="14sp" />
+            <TextView android:id="@+id/navStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:textSize="14sp" android:textStyle="bold" android:visibility="gone" />
+        </LinearLayout>
+
+        <Button android:id="@+id/btnNavStop" style="@style/Widget.AppCompat.Button.Borderless"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Arrêter" android:textAllCaps="false" />
     </LinearLayout>
 
 
@@ -843,6 +888,7 @@
                     </LinearLayout>
                     <LinearLayout style="@style/Row">
                         <Button android:id="@+id/btnMyTraces" style="@style/Btn" android:text="📂 Mes traces" />
+                        <Button android:id="@+id/btnTrailsFile" style="@style/Btn" android:text="📥 Ouvrir un fichier" />
                     </LinearLayout>
 
                     <TextView android:id="@+id/trailsInfo" style="@style/Hint" android:visibility="gone" />
@@ -1063,7 +1109,7 @@
         android:clickable="true"
         android:visibility="gone">
 
-        <View android:layout_width="match_parent" android:layout_height="4dp" android:background="#7B3FE4" android:layout_marginBottom="6dp" />
+        <View android:id="@+id/traceColor" android:layout_width="match_parent" android:layout_height="4dp" android:background="#7B3FE4" android:layout_marginBottom="6dp" />
 
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
             android:gravity="center_vertical" android:orientation="horizontal">
@@ -1091,7 +1137,14 @@
             android:layout_marginTop="6dp" android:visibility="gone" />
 
         <LinearLayout style="@style/Row">
-            <Button android:id="@+id/btnTraceSave" style="@style/Btn.Primary" android:text="💾 Sauvegarder" />
+            <Button android:id="@+id/btnTraceNav" style="@style/Btn.Primary" android:text="🧭 Naviguer" />
+            <Button android:id="@+id/btnTraceOffline" style="@style/Btn" android:text="📶 Hors ligne" />
+        </LinearLayout>
+
+        <TextView android:id="@+id/traceOffline" style="@style/Hint" android:visibility="gone" />
+
+        <LinearLayout style="@style/Row">
+            <Button android:id="@+id/btnTraceSave" style="@style/Btn" android:text="💾 Sauvegarder" />
             <Button android:id="@+id/btnTraceDelete" style="@style/Btn" android:text="🗑 Supprimer" android:textColor="#C62828" />
         </LinearLayout>
     </LinearLayout>
@@ -1119,6 +1172,10 @@
             <Button android:id="@+id/btnTraceListClose" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✕"
                 android:contentDescription="Fermer la liste des traces" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Row">
+            <Button android:id="@+id/btnTraceListFile" style="@style/Btn" android:text="📥 Ouvrir un fichier (GPX, KML, GeoJSON)" />
         </LinearLayout>
 
         <TextView android:id="@+id/traceListEmpty" style="@style/Hint" android:visibility="gone"

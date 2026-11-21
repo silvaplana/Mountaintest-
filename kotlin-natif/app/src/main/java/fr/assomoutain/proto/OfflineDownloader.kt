@@ -4,11 +4,16 @@ import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.offline.OfflineGeometryRegionDefinition
 import org.maplibre.android.offline.OfflineManager
 import org.maplibre.android.offline.OfflineRegion
 import org.maplibre.android.offline.OfflineRegionError
 import org.maplibre.android.offline.OfflineRegionStatus
+import org.maplibre.android.offline.OfflineRegionDefinition
 import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
+import org.maplibre.geojson.MultiPolygon
+import org.maplibre.geojson.Point
+import org.maplibre.geojson.Polygon
 
 /**
  * Télécharge la bbox du scénario (z10 à z16) dans la base hors-ligne de MapLibre.
@@ -39,7 +44,70 @@ class OfflineDownloader(private val context: Context) {
         })
     }
 
+    /**
+     * 📶 Hors ligne d'une trace : un couloir d'environ 1 km de part et d'autre (carrés posés le long de la trace),
+     * au lieu d'un rectangle. Même couloir que tilesForCorridor côté Capacitor.
+     */
+    fun downloadTrace(mode: MapMode, apiKey: String, line: List<LonLat>, onProgress: (Progress) -> Unit) {
+        val meta = traceMeta(mode, line)
+        manager.listOfflineRegions(object : OfflineManager.ListOfflineRegionsCallback {
+            override fun onList(offlineRegions: Array<OfflineRegion>?) {
+                val existing = offlineRegions.orEmpty().firstOrNull { String(it.metadata) == meta }
+                if (existing != null) start(existing, mode, onProgress) else createTrace(mode, apiKey, line, meta, onProgress)
+            }
+            override fun onError(error: String) = createTrace(mode, apiKey, line, meta, onProgress)
+        })
+    }
+
+    /** Couloir de cette trace déjà téléchargé en entier pour ce fond ? (coche ✓ du menu de la trace) */
+    fun traceReady(mode: MapMode, line: List<LonLat>, onResult: (Boolean) -> Unit) {
+        val meta = traceMeta(mode, line)
+        manager.listOfflineRegions(object : OfflineManager.ListOfflineRegionsCallback {
+            override fun onList(offlineRegions: Array<OfflineRegion>?) {
+                val r = offlineRegions.orEmpty().firstOrNull { String(it.metadata) == meta } ?: return onResult(false)
+                r.getStatus(object : OfflineRegion.OfflineRegionStatusCallback {
+                    override fun onStatus(status: OfflineRegionStatus?) = onResult(status?.isComplete == true)
+                    override fun onError(error: String?) = onResult(false)
+                })
+            }
+            override fun onError(error: String) = onResult(false)
+        })
+    }
+
+    private fun traceMeta(mode: MapMode, line: List<LonLat>): String {
+        val h = line.fold(17L) { acc, p -> acc * 31 + Math.round(p.lon * 1e5) * 7 + Math.round(p.lat * 1e5) }
+        return "${mode.name}|trace|${java.lang.Long.toHexString(h)}"
+    }
+
+    private fun createTrace(mode: MapMode, apiKey: String, line: List<LonLat>, meta: String, onProgress: (Progress) -> Unit) {
+        val squares = Navigation.samples(line).map { p ->
+            val q = Navigation.square(p)
+            Polygon.fromLngLats(listOf(listOf(Point.fromLngLat(q.west, q.south), Point.fromLngLat(q.east, q.south),
+                Point.fromLngLat(q.east, q.north), Point.fromLngLat(q.west, q.north), Point.fromLngLat(q.west, q.south))))
+        }
+        val definition = OfflineGeometryRegionDefinition(
+            mode.styleUri(context, apiKey), MultiPolygon.fromPolygons(squares),
+            Scenario.OFFLINE_MIN_ZOOM, Scenario.OFFLINE_MAX_ZOOM, 1f)
+        createRegion(definition, meta, mode, onProgress)
+    }
+
+    private fun createRegion(definition: OfflineRegionDefinition, meta: String, mode: MapMode, onProgress: (Progress) -> Unit) {
+        manager.createOfflineRegion(
+            definition, meta.toByteArray(),
+            object : OfflineManager.CreateOfflineRegionCallback {
+                override fun onCreate(offlineRegion: OfflineRegion) = start(offlineRegion, mode, onProgress)
+                override fun onError(error: String) = onProgress(Progress(0, 0, 0, 0, false, error))
+            })
+    }
+
     companion object {
+        /** Nombre de tuiles du couloir d'une trace pour ce fond (mêmes zooms que tileCount). */
+        fun traceTileCount(mode: MapMode, line: List<LonLat>): Int {
+            val min = Scenario.OFFLINE_MIN_ZOOM.toInt(); val max = Scenario.OFFLINE_MAX_ZOOM.toInt()
+            val ranges = if (mode == MapMode.AUTO) listOf(min..Scenario.AUTO_SCAN_FROM, Scenario.AUTO_SCAN_FROM..max) else listOf(min..max)
+            return ranges.sumOf { Navigation.corridorTileCount(line, it) }
+        }
+
         /** Au-delà, le téléchargement serait long et lourd : on demande de zoomer (même limite côté Capacitor). */
         const val MAX_ZONE_TILES = 6000
 
@@ -84,7 +152,7 @@ class OfflineDownloader(private val context: Context) {
                         override fun onStatus(status: OfflineRegionStatus?) {
                             val meta = String(r.metadata).split("|")
                             val label = runCatching { MapMode.valueOf(meta[0]).label }.getOrDefault("?") +
-                                if (meta.size > 1) " (zone choisie)" else " (La Ciotat)"
+                                if (meta.getOrNull(1) == "trace") " (autour d'une trace)" else if (meta.size > 1) " (zone choisie)" else " (La Ciotat)"
                             parts += "$label : ${status?.completedTileCount ?: 0} tuiles, ${(status?.completedTileSize ?: 0) / 1_000_000} Mo"
                             if (parts.size == regions.size) onResult(parts.joinToString(" ; "))
                         }

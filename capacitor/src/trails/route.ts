@@ -52,11 +52,27 @@ export function parseRoute(json: { geometry?: { coordinates?: number[][] } }): L
   return c.map(([lon, lat]) => ({ lon, lat }));
 }
 
-export function drawnTrail(line: LonLat[], onPaths: boolean): Trail {
+export function drawnTrail(line: LonLat[], onPaths: boolean, id = DRAWN_ID, color = DRAWN_COLOR): Trail {
   return {
-    id: DRAWN_ID, name: 'Mon tracé', kind: onPaths ? 'Tracé au doigt, recalé sur les chemins (IGN)' : 'Tracé au doigt, ligne libre',
-    rank: 0, color: DRAWN_COLOR, segments: [line], distanceM: lineLengthM(line),
+    id, name: 'Mon tracé', kind: onPaths ? 'Tracé au doigt, recalé sur les chemins (IGN)' : 'Tracé au doigt, ligne libre',
+    rank: 0, color, segments: [line], distanceM: lineLengthM(line), onPaths, savedId: null,
   };
+}
+
+/**
+ * Plusieurs traces à moi (dessinées, enregistrées ou chargées d'un fichier) peuvent être affichées ensemble :
+ * identifiants négatifs (-1, -2…) et une couleur chacune. Les randos OSM ont des identifiants positifs.
+ */
+export const TRACE_COLORS = [DRAWN_COLOR, '#e6007e', '#008c9e', '#f07800', '#2b50d6', '#5b8c00', '#8a4b08'];
+export const isMine = (id: number) => id < 0;
+
+/** Identifiant et couleur de la prochaine trace : première couleur libre, sinon on reprend la palette. */
+export function nextMine(trails: Trail[]): { id: number; color: string } {
+  const mine = trails.filter((t) => isMine(t.id));
+  const id = Math.min(0, ...mine.map((t) => t.id)) - 1;
+  const used = new Set(mine.map((t) => t.color));
+  const color = TRACE_COLORS.find((c) => !used.has(c)) ?? TRACE_COLORS[mine.length % TRACE_COLORS.length];
+  return { id, color };
 }
 
 /** Temps de marche estimé : 4 km/h à plat + 1 h par 300 m de montée + 1 h par 500 m de descente. */

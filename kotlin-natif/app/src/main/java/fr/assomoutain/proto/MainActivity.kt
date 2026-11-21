@@ -120,8 +120,13 @@ class MainActivity : AppCompatActivity() {
     private var traceMenuOpen = false
     private var drawnSlopes = false
     private var drawnProfile = false
-    private var drawnSavedId: Long? = null
-    private var drawnOnPaths = false
+    /** 🧭 Navigation sur une de mes traces (identifiant) ; on vibre une fois en sortant de la trace. */
+    private var navId: Long? = null
+    private var navJob: kotlinx.coroutines.Job? = null
+    private var navWasOff = false
+    /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu (identifiant, texte). */
+    private var traceOffline: Pair<Long, String>? = null
+    private var traceDownloading = false
     private var apiKey = ""
 
     private val askTrackPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
@@ -167,6 +172,10 @@ class MainActivity : AppCompatActivity() {
     }
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { importFrom(it) }
+    }
+    /** 📥 Ouvrir un fichier de trace : dernier dossier utilisé, sinon Téléchargements. */
+    private val traceFileLauncher = registerForActivityResult(TraceFile.Pick()) { uri ->
+        uri?.let { openTraceFrom(it) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -249,8 +258,8 @@ class MainActivity : AppCompatActivity() {
                         // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
                         val prof = findViewById<ProfileView>(R.id.trailProfile)
                         val pd = prof.profile
-                        if (id == Trails.DRAWN_ID && selectedTrail?.id == id) {
-                            // Toucher la trace violette : son menu du bas (et la pente à cet endroit).
+                        if (Trails.isMine(id) && selectedTrail?.id == id) {
+                            // Toucher une de mes traces déjà choisie : son menu du bas (et la pente à cet endroit).
                             if (pd != null) { prof.cursor = pd.nearestD(p.longitude, p.latitude); findViewById<ProfileView>(R.id.traceProfile).cursor = prof.cursor }
                             showTraceList(null); traceMenuOpen = true; refreshTraceMenu(); showSlopeCursor()
                         } else if (selectedTrail?.id == id && pd != null) {
@@ -449,7 +458,7 @@ class MainActivity : AppCompatActivity() {
     /** Android 15 dessine sous les barres système : on décale le haut et le bas de l'interface. */
     private fun applyInsets() {
         val top = listOf(findViewById<View>(R.id.topBar), findViewById<View>(R.id.quickButtons), findViewById<View>(R.id.searchPanel),
-            findViewById<View>(R.id.frameBanner))
+            findViewById<View>(R.id.frameBanner), findViewById<View>(R.id.navBar))
         val target = findViewById<View>(R.id.targetBar)
         val targetTop = (10 * resources.displayMetrics.density).toInt()
         val sheet = findViewById<View>(R.id.sheet)
@@ -504,7 +513,7 @@ class MainActivity : AppCompatActivity() {
             style.addLayer(LineLayer(LAYER_TRAILS, SRC_TRAILS).withProperties(
                 lineColor(Expression.get("color")), lineWidth(3f), lineOpacity(0.75f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel-casing", SRC_TRAIL_SEL).withProperties(lineColor("#ffffff"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND)))
-            style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor("#7b3fe4"), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
+            style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor(Expression.get("color")), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
             // Étiquettes de pente le long des tracés.
             style.addSource(GeoJsonSource(SRC_SLOPE_TAGS))
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("slope-tags", SRC_SLOPE_TAGS).withProperties(
@@ -645,7 +654,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         // « Afficher la pente » du menu de la trace violette : étiquettes sur cette trace seule.
-        val own = slopes || (drawnSlopes && selectedTrail?.id == Trails.DRAWN_ID)
+        val own = slopes || (drawnSlopes && Trails.isMine(selectedTrail?.id))
         val ownLabels = if (!own) null else findViewById<ProfileView>(R.id.trailProfile).profile?.slopeLabels()
         val importLabels = if (!slopes) null else importProfile?.takeIf { imp.size >= 2 }?.let { (p, gps) -> p.slopeLabels(if (gps) 100.0 else 50.0) }
         val labels = (ownLabels ?: emptyList()) + (importLabels ?: emptyList())
@@ -1152,15 +1161,25 @@ class MainActivity : AppCompatActivity() {
             setOnCheckedChangeListener { _, c -> prefs.edit().putBoolean("recaler", c).apply() }
         }
         val startDrawing = View.OnClickListener {
-            traceMenuOpen = false; showTraceList(null)
-            // Nouveau tracé : l'ancien disparaît tout de suite.
-            trails = trails.filter { it.id != Trails.DRAWN_ID }
-            if (selectedTrail?.id == Trails.DRAWN_ID) selectTrail(null) else drawTrails(fit = false)
+            traceMenuOpen = false; showTraceList(null); refreshTraceMenu()
+            // Nouveau tracé : les traces déjà affichées restent sur la carte (chacune sa couleur).
             framingForOffline = false; framingForForests = false; setFraming(true, freehand = true)
         }
         findViewById<Button>(R.id.btnDrawPath).setOnClickListener(startDrawing)
         findViewById<Button>(R.id.btnLoadTraces).setOnClickListener { setFraming(false); openTraceList() }
         findViewById<Button>(R.id.btnMyTraces).setOnClickListener { openTraceList() }
+        val openFile = View.OnClickListener { setFraming(false); showTraceList(null); traceFileLauncher.launch(Unit) }
+        findViewById<Button>(R.id.btnOpenTraceFile).setOnClickListener(openFile)
+        findViewById<Button>(R.id.btnTrailsFile).setOnClickListener(openFile)
+        findViewById<Button>(R.id.btnTraceListFile).setOnClickListener(openFile)
+        findViewById<Button>(R.id.btnTraceNav).setOnClickListener {
+            val sel = selectedTrail?.takeIf { Trails.isMine(it.id) } ?: return@setOnClickListener
+            if (navId == sel.id) stopNav() else startNav(sel)
+        }
+        findViewById<Button>(R.id.btnNavStop).setOnClickListener { stopNav() }
+        findViewById<Button>(R.id.btnTraceOffline).setOnClickListener {
+            selectedTrail?.takeIf { Trails.isMine(it.id) }?.let { downloadTrace(it, ask = false) }
+        }
         findViewById<Button>(R.id.btnTraceListClose).setOnClickListener { showTraceList(null) }
         findViewById<Button>(R.id.btnTraceClose).setOnClickListener { traceMenuOpen = false; refreshTraceMenu() }
         findViewById<CheckBox>(R.id.chkTraceSlopes).setOnCheckedChangeListener { _, c -> drawnSlopes = c; refreshTraceMenu(); refreshSlopeTags() }
@@ -1171,8 +1190,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnTraceSave).setOnClickListener { saveDrawn() }
         findViewById<Button>(R.id.btnTraceDelete).setOnClickListener {
             // La trace quitte la carte ; une trace enregistrée reste dans 📂 Mes traces.
-            trails = trails.filter { it.id != Trails.DRAWN_ID }
-            drawnSavedId = null
+            val id = selectedTrail?.id
+            trails = trails.filter { it.id != id }
+            if (navId == id) stopNav()
             selectTrail(null)
         }
         findViewById<Button>(R.id.btnQuickDraw).setOnClickListener(startDrawing)
@@ -1507,6 +1527,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnLoadTraces).visibility = if (freehand) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnOpenTraceFile).visibility = if (freehand) View.VISIBLE else View.GONE
         // Tracé au doigt : bandeau tout en bas de l'écran (demande de Seb), le haut reste libre pour dessiner.
         val m = (10 * resources.displayMetrics.density).toInt()
         findViewById<View>(R.id.frameBanner).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
@@ -1534,8 +1555,8 @@ class MainActivity : AppCompatActivity() {
         }
         frame = z
         searchWebHikes(z)
-        trails = trails.filter { it.id == Trails.DRAWN_ID }
-        if (selectedTrail?.id != Trails.DRAWN_ID) { selectedTrail = null; elevated = null; elevJob?.cancel() }
+        trails = trails.filter { Trails.isMine(it.id) }
+        if (!Trails.isMine(selectedTrail?.id)) { selectedTrail = null; elevated = null; elevJob?.cancel() }
         trailsMessage = "Recherche des randos dans OpenStreetMap…"
         drawTrails(fit = false); refreshTrails()
         trailsJob?.cancel()
@@ -1544,7 +1565,7 @@ class MainActivity : AppCompatActivity() {
             val r = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(z) } }
             r.onSuccess { found ->
                 Log.i(Scenario.BENCH_TAG, "{\"event\":\"trails-search\",\"found\":${found.size},\"ms\":${SystemClock.elapsedRealtime() - t0}}")
-                trails = trails.filter { it.id == Trails.DRAWN_ID } + found
+                trails = trails.filter { Trails.isMine(it.id) } + found
                 val n = found.size; val s = if (n > 1) "s" else ""
                 trailsMessage = if (n > 0) "$n rando$s balisée$s trouvée$s. Touche-en une (liste ou carte)."
                     else "Aucune rando balisée dans OpenStreetMap sur cette zone."
@@ -1666,15 +1687,33 @@ class MainActivity : AppCompatActivity() {
                 runCatching { Trails.routeOnPaths(Trails.waypoints(line)) }.getOrNull()
             } ?: line.also { used = false }
             if (onPaths && !used) toast("Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle.")
-            showDrawn(Trails.drawnTrail(final, used), used, null)
+            showMine(final, used)
         }
     }
 
-    /** Affiche une trace violette (dessinée ou chargée) et ouvre son menu en bas. */
-    private fun showDrawn(t: Trail, used: Boolean, savedId: Long?) {
-        drawnOnPaths = used; drawnSavedId = savedId
-        trails = listOf(t) + trails.filter { it.id != Trails.DRAWN_ID }
+    /** Ajoute une de mes traces (dessinée, enregistrée ou chargée), avec sa propre couleur, et ouvre son menu en bas. */
+    private fun showMine(line: List<LonLat>, onPaths: Boolean, name: String? = null, savedId: Long? = null, kind: String? = null): Trail {
+        val (id, color) = Trails.nextMine(trails)
+        val base = Trails.drawnTrail(line, onPaths, id, color)
+        val t = base.copy(name = name ?: base.name, kind = kind ?: base.kind, savedId = savedId)
+        trails = listOf(t) + trails
         selectTrail(t)
+        return t
+    }
+
+    /** 📥 Fichier GPX, KML ou GeoJSON choisi : il s'ajoute aux traces affichées, puis on propose le hors ligne. */
+    private fun openTraceFrom(uri: Uri) {
+        lifecycleScope.launch {
+            val r = withContext(Dispatchers.IO) {
+                runCatching { val (name, text) = TraceFile.read(this@MainActivity, uri); name to TraceFile.parse(text, name) }
+            }
+            r.onSuccess { (file, p) ->
+                val t = showMine(p.line, false, p.name, null, "Fichier ${file.ifEmpty { "chargé" }}")
+                toast("📥 « ${p.name} » chargée : touche 🧭 Naviguer pour la suivre")
+                // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
+                downloadTrace(t, ask = true)
+            }.onFailure { toast("Fichier illisible : ${it.message}") }
+        }
     }
 
     private fun openTraceList() {
@@ -1701,7 +1740,9 @@ class MainActivity : AppCompatActivity() {
                     setPadding((4 * d).toInt(), (10 * d).toInt(), (4 * d).toInt(), (10 * d).toInt())
                     setBackgroundResource(android.R.drawable.list_selector_background)
                     isClickable = true
-                    addView(View(this@MainActivity).apply { setBackgroundColor(Color.parseColor(Trails.DRAWN_COLOR)) },
+                    addView(View(this@MainActivity).apply {
+                        setBackgroundColor(Color.parseColor(trails.firstOrNull { it.savedId == st.id }?.color ?: Trails.DRAWN_COLOR))
+                    },
                         android.widget.LinearLayout.LayoutParams((6 * d).toInt(), android.view.ViewGroup.LayoutParams.MATCH_PARENT)
                             .apply { marginEnd = (10 * d).toInt() })
                     addView(TextView(this@MainActivity).apply {
@@ -1716,7 +1757,9 @@ class MainActivity : AppCompatActivity() {
                     })
                     setOnClickListener {
                         showTraceList(null)
-                        showDrawn(Trails.drawnTrail(st.line, st.onPaths).copy(name = st.name), st.onPaths, st.id)
+                        // Déjà affichée : on la sélectionne simplement.
+                        val shown = trails.firstOrNull { Trails.isMine(it.id) && it.savedId == st.id }
+                        if (shown != null) selectTrail(shown) else showMine(st.line, st.onPaths, st.name, st.id)
                     }
                 }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 addView(Button(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
@@ -1726,7 +1769,9 @@ class MainActivity : AppCompatActivity() {
                             .setMessage("Effacer « ${st.name} » du téléphone ?")
                             .setPositiveButton("Effacer") { _, _ ->
                                 savedTraces.delete(st.id)
-                                if (drawnSavedId == st.id) { drawnSavedId = null; refreshTraceMenu() }
+                                trails = trails.map { if (it.savedId == st.id) it.copy(savedId = null) else it }
+                                selectedTrail = selectedTrail?.let { if (it.savedId == st.id) it.copy(savedId = null) else it }
+                                refreshTraceMenu()
                                 showTraceList(savedTraces.list())
                             }
                             .setNegativeButton("Annuler", null).show()
@@ -1745,18 +1790,17 @@ class MainActivity : AppCompatActivity() {
 
     /** 💾 Sauvegarder : on propose un nom, la trace est rangée dans 📂 Mes traces. */
     private fun saveDrawn() {
-        val sel = selectedTrail?.takeIf { it.id == Trails.DRAWN_ID } ?: return
+        val sel = selectedTrail?.takeIf { Trails.isMine(it.id) } ?: return
         val input = EditText(this).apply { setText(SavedTraces.defaultName()); selectAll() }
         android.app.AlertDialog.Builder(this)
             .setTitle("Nom de la trace")
             .setView(input)
             .setPositiveButton("Sauvegarder") { _, _ ->
                 val name = input.text.toString().trim().ifEmpty { SavedTraces.defaultName() }
-                val st = savedTraces.save(name, sel.segments.flatten(), drawnOnPaths)
-                val t = sel.copy(name = st.name)
+                val st = savedTraces.save(name, sel.segments.flatten(), sel.onPaths)
+                val t = sel.copy(name = st.name, savedId = st.id)
                 selectedTrail = t
-                trails = trails.map { if (it.id == Trails.DRAWN_ID) t else it }
-                drawnSavedId = st.id
+                trails = trails.map { if (it.id == t.id) t else it }
                 refreshTrails()
                 toast("💾 Trace « ${st.name} » enregistrée sur le téléphone")
             }
@@ -1765,12 +1809,18 @@ class MainActivity : AppCompatActivity() {
 
     /** Menu du bas de la trace violette : visible quand elle est choisie et que le menu est ouvert. */
     private fun refreshTraceMenu() {
-        val sel = selectedTrail?.takeIf { it.id == Trails.DRAWN_ID }
+        val sel = selectedTrail?.takeIf { Trails.isMine(it.id) }
         val menu = findViewById<View>(R.id.traceMenu)
         val show = sel != null && traceMenuOpen
         menu.visibility = if (show) View.VISIBLE else View.GONE
         if (!show || sel == null) return
         findViewById<TextView>(R.id.traceName).text = sel.name
+        findViewById<View>(R.id.traceColor).setBackgroundColor(Color.parseColor(sel.color))
+        findViewById<Button>(R.id.btnTraceNav).text = if (navId == sel.id) "Arrêter la navigation" else "🧭 Naviguer"
+        findViewById<TextView>(R.id.traceOffline).apply {
+            val msg = traceOffline?.takeIf { it.first == sel.id }?.second
+            text = msg.orEmpty(); visibility = if (msg != null) View.VISIBLE else View.GONE
+        }
         val e = elevated?.getOrNull()
         val wait = if (elevated == null) "…" else "—"
         val walk = e?.let {
@@ -1789,8 +1839,8 @@ class MainActivity : AppCompatActivity() {
             visibility = if (drawnProfile && e != null) View.VISIBLE else View.GONE
         }
         findViewById<Button>(R.id.btnTraceSave).apply {
-            isEnabled = drawnSavedId == null
-            text = if (drawnSavedId == null) "💾 Sauvegarder" else "✓ Enregistrée"
+            isEnabled = sel.savedId == null
+            text = if (sel.savedId == null) "💾 Sauvegarder" else "✓ Enregistrée"
         }
     }
 
@@ -1799,8 +1849,8 @@ class MainActivity : AppCompatActivity() {
         elevated = null
         elevJob?.cancel()
         // La trace violette a son propre menu en bas ; les randos s'ouvrent dans le panneau.
-        traceMenuOpen = t?.id == Trails.DRAWN_ID
-        if (t?.id == Trails.DRAWN_ID) { showTraceList(null); sheetOpen = false; refreshTabs() }
+        traceMenuOpen = Trails.isMine(t?.id)
+        if (t != null && Trails.isMine(t.id)) { showTraceList(null); sheetOpen = false; refreshTabs(); checkTraceOffline(t) }
         else if (t != null) { tab = Tab.RANDOS; sheetOpen = true; refreshTabs() }
         drawTrails(fit = t != null)
         refreshTrails()
@@ -1842,8 +1892,8 @@ class MainActivity : AppCompatActivity() {
             val sheet = findViewById<View>(R.id.sheet)
             sheet.post {
                 val h = mapView.height
-                // Trace violette : son menu du bas mesure environ 230 dp.
-                val below = if (sel.id == Trails.DRAWN_ID) maxOf(sheet.height, (230 * d).toInt()) else sheet.height
+                // Mes traces : leur menu du bas mesure environ 300 dp.
+                val below = if (Trails.isMine(sel.id)) maxOf(sheet.height, (300 * d).toInt()) else sheet.height
                 val bottom = (below + 20 * d).toInt().coerceAtMost(h - (200 * d).toInt()).coerceAtLeast((20 * d).toInt())
                 runCatching {
                     map?.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(),
@@ -1851,6 +1901,125 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    // ---------- 🧭 Naviguer sur une de mes traces ----------
+
+    /** GPS en suivi (bouton ◎) et bandeau « reste … / hors trace », mis à jour toutes les 2 s. */
+    private fun startNav(t: Trail) {
+        navId = t.id; navWasOff = false
+        traceMenuOpen = false; refreshTraceMenu()
+        if (!locating) onLocateClicked()
+        else map?.locationComponent?.takeIf { it.isLocationComponentActivated }?.cameraMode = CameraMode.TRACKING
+        refreshLocateButton()
+        navJob?.cancel()
+        navJob = lifecycleScope.launch {
+            while (navId != null) { refreshNav(); kotlinx.coroutines.delay(2_000) }
+        }
+        refreshNav()
+    }
+
+    private fun stopNav() {
+        navId = null; navJob?.cancel(); navJob = null
+        findViewById<View>(R.id.navBar).visibility = View.GONE
+        refreshTraceMenu()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun refreshNav() {
+        val t = trails.firstOrNull { it.id == navId } ?: return stopNav()
+        val bar = findViewById<View>(R.id.navBar)
+        bar.visibility = if (findViewById<View>(R.id.frameBanner).visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.navColor).setBackgroundColor(Color.parseColor(t.color))
+        findViewById<TextView>(R.id.navName).text = "🧭 ${t.name}"
+        val lc = map?.locationComponent
+        val loc = (if (lc != null && lc.isLocationComponentActivated) lc.lastKnownLocation else null)
+            ?: TrackRecorder.state.value.points.lastOrNull()?.takeIf { gpsRunning }?.let { p ->
+                android.location.Location("rec").apply { latitude = p.lat; longitude = p.lon; accuracy = p.accuracyM }
+            }
+        val info = findViewById<TextView>(R.id.navInfo)
+        val status = findViewById<TextView>(R.id.navStatus)
+        if (loc == null) { info.text = "En attente de la position GPS…"; status.visibility = View.GONE; return }
+        val prof = if (selectedTrail?.id == t.id) findViewById<ProfileView>(R.id.trailProfile).profile else null
+        val s = Navigation.state(t.segments.flatten(), LonLat(loc.longitude, loc.latitude), prof)
+        val off = s.offM > Navigation.OFF_TRACK_M
+        if (!off && s.remainingM < 30) info.text = "🏁 Arrivée !"
+        else {
+            val min = Math.round(Trails.walkingHours(s.remainingM, s.gainLeftM ?: 0.0, s.lossLeftM ?: 0.0) * 60).toInt()
+            info.text = String.format(Locale.FRANCE, "Reste %.2f km", s.remainingM / 1000) +
+                (if (s.gainLeftM != null) " · D+ ${s.gainLeftM.roundToInt()} m · D− ${(s.lossLeftM ?: 0.0).roundToInt()} m" else "") +
+                " · ≈ " + (if (min < 60) "$min min" else String.format(Locale.FRANCE, "%d h %02d", min / 60, min % 60))
+        }
+        status.visibility = View.VISIBLE
+        status.text = if (off) "⚠ Hors trace : ${s.offM.roundToInt()} m" else "✓ Sur la trace"
+        status.setTextColor(Color.parseColor(if (off) "#C62828" else "#2F6F4F"))
+        bar.setBackgroundColor(Color.parseColor(if (off) "#FDECEA" else "#FFFFFF"))
+        val reallyOff = s.offM > Navigation.OFF_TRACK_M + (if (loc.hasAccuracy()) loc.accuracy / 2 else 0f)
+        if (reallyOff && !navWasOff) runCatching {
+            getSystemService(android.os.Vibrator::class.java)?.vibrate(
+                android.os.VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 200), -1))
+        }
+        navWasOff = reallyOff
+    }
+
+    // ---------- 📶 Hors ligne autour d'une de mes traces ----------
+
+    /** Coche ✓ dans le menu si le couloir de la trace est déjà sur le téléphone (cartes et relief). */
+    private fun checkTraceOffline(t: Trail) {
+        if (traceDownloading) return
+        val line = t.segments.flatten()
+        offline.traceReady(mapMode, line) { ok -> runOnUiThread {
+            val relief = ok && reliefTiles(line).all { (z, x, y) -> Dem.has(this, z, x, y) }
+            if (relief) traceOffline = t.id to "✓ Cartes et relief disponibles hors ligne autour de cette trace."
+            else if (traceOffline?.first != t.id) traceOffline = null
+            refreshTraceMenu()
+        } }
+    }
+
+    private fun reliefTiles(line: List<LonLat>): List<Triple<Int, Int, Int>> {
+        val b = Navigation.bbox(line)
+        return Dem.tilesForZone(b.west, b.south, b.east, b.north)
+    }
+
+    private fun setTraceOffline(id: Long, msg: String) { traceOffline = id to msg; refreshTraceMenu() }
+
+    /** Cartes (couloir d'environ 1 km) puis relief pour les ombres ; ask : on demande d'abord (après un chargement). */
+    private fun downloadTrace(t: Trail, ask: Boolean) {
+        if (traceDownloading) { setTraceOffline(t.id, "Un téléchargement est déjà en cours, patiente un peu."); return }
+        val line = t.segments.flatten()
+        val n = OfflineDownloader.traceTileCount(mapMode, line)
+        if (n > OfflineDownloader.MAX_ZONE_TILES) {
+            setTraceOffline(t.id, "Trace trop longue pour le hors ligne d'un coup ($n tuiles, maximum ${OfflineDownloader.MAX_ZONE_TILES})."); return
+        }
+        val size = mo(n * TILE_BYTES_ESTIMATE)
+        val go = {
+            traceDownloading = true
+            setTraceOffline(t.id, "📶 Téléchargement des cartes autour de la trace (environ $size)…")
+            var reliefStarted = false
+            offline.downloadTrace(mapMode, apiKey, line) { p -> runOnUiThread {
+                if (p.error != null) { traceDownloading = false; setTraceOffline(t.id, "Téléchargement impossible : ${p.error}"); return@runOnUiThread }
+                if (!p.finished) { setTraceOffline(t.id, "📶 Cartes autour de la trace : ${p.done}/${p.total}"); return@runOnUiThread }
+                if (reliefStarted) return@runOnUiThread
+                reliefStarted = true
+                lifecycleScope.launch {
+                    val tiles = reliefTiles(line)
+                    var failed = 0
+                    tiles.forEachIndexed { i, (z, x, y) ->
+                        if (!withContext(Dispatchers.IO) { Dem.loadTile(this@MainActivity, z, x, y) != null }) failed++
+                        if (i % 5 == 0) setTraceOffline(t.id, "📶 Relief pour les ombres : ${i + 1}/${tiles.size}")
+                    }
+                    traceDownloading = false
+                    setTraceOffline(t.id, if (failed > 0) "Cartes prêtes, mais $failed tuiles de relief ont échoué (réseau ?) : relance 📶 Hors ligne."
+                        else "✓ Cartes et relief disponibles hors ligne autour de cette trace.")
+                    refreshOffline()
+                }
+            } }
+        }
+        if (!ask) { go(); return }
+        android.app.AlertDialog.Builder(this)
+            .setMessage("Télécharger les cartes à 1 km autour de « ${t.name} » pour le hors ligne (environ $size) ?")
+            .setPositiveButton("Télécharger") { _, _ -> go() }
+            .setNegativeButton("Plus tard", null).show()
     }
 
     /** Texte de pente et point sur la carte pour le curseur du profil. */

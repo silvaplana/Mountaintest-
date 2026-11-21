@@ -14,6 +14,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PhotoPlugin.class);
         registerPlugin(WeatherPlugin.class);
         registerPlugin(StorageUsagePlugin.class);
+        registerPlugin(TraceFilePlugin.class);
         super.onCreate(savedInstanceState);
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "capacitor");
