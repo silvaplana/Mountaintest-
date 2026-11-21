@@ -127,6 +127,8 @@ class MainActivity : AppCompatActivity() {
     /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu (identifiant, texte). */
     private var traceOffline: Pair<Long, String>? = null
     private var traceDownloading = false
+    /** Fichier reçu d'une autre appli avant que la carte soit prête. */
+    private var pendingTraceUri: Uri? = null
     private var apiKey = ""
 
     private val askTrackPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
@@ -181,6 +183,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        // 📥 Lancée par « Ouvrir avec » ou « Partager » un fichier de trace : chargé quand la carte est prête.
+        if (savedInstanceState == null) pendingTraceUri = TraceFile.sharedUri(intent)
         apiKey = prefs.getString("apiKey", null) ?: Scenario.DEFAULT_SCAN_KEY
         mapMode = runCatching { MapMode.valueOf(prefs.getString("mapMode", null) ?: "") }.getOrDefault(MapMode.AUTO)
         applyInsets()
@@ -610,6 +614,7 @@ class MainActivity : AppCompatActivity() {
             drawTarget()
             render()
             if (locating) startLocate()
+            pendingTraceUri?.let { pendingTraceUri = null; openTraceFrom(it, remember = false) }
             if (startupMs == null) {
                 mapView.addOnDidBecomeIdleListener(object : MapView.OnDidBecomeIdleListener {
                     override fun onDidBecomeIdle() {
@@ -1701,11 +1706,19 @@ class MainActivity : AppCompatActivity() {
         return t
     }
 
+    /** Fichier de trace ouvert depuis une autre appli pendant que l'appli tourne déjà. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val uri = TraceFile.sharedUri(intent) ?: return
+        setIntent(intent)
+        if (map?.style?.isFullyLoaded == true) openTraceFrom(uri, remember = false) else pendingTraceUri = uri
+    }
+
     /** 📥 Fichier GPX, KML ou GeoJSON choisi : il s'ajoute aux traces affichées, puis on propose le hors ligne. */
-    private fun openTraceFrom(uri: Uri) {
+    private fun openTraceFrom(uri: Uri, remember: Boolean = true) {
         lifecycleScope.launch {
             val r = withContext(Dispatchers.IO) {
-                runCatching { val (name, text) = TraceFile.read(this@MainActivity, uri); name to TraceFile.parse(text, name) }
+                runCatching { val (name, text) = TraceFile.read(this@MainActivity, uri, remember); name to TraceFile.parse(text, name) }
             }
             r.onSuccess { (file, p) ->
                 val t = showMine(p.line, false, p.name, null, "Fichier ${file.ifEmpty { "chargé" }}")

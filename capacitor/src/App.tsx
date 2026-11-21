@@ -42,7 +42,7 @@ import { Profile } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
 import { drawnTrail, isMine, nextMine, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import { parseTraceFile } from './trails/traceFile';
-import { pickTraceFile } from './trails/pickFile';
+import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
 import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
@@ -641,7 +641,16 @@ export function App() {
     setDrawing(false); setTraceList(null);
     try {
       const f = await pickTraceFile();
-      if (!f) return;
+      if (f) loadTraceText(f);
+    } catch (e) {
+      setToast(`Fichier illisible : ${(e as Error).message}`);
+    }
+  }
+
+  /** Texte d'un fichier de trace (choisi ici, ou ouvert depuis une autre appli) : il s'ajoute aux traces affichées. */
+  function loadTraceText(f: { name: string; text: string }) {
+    setDrawing(false); setTraceList(null);
+    try {
       const t = parseTraceFile(f.text, f.name);
       const shown = showMine(t.line, { onPaths: false, name: t.name, kind: `Fichier ${f.name || 'chargé'}` });
       setToast(`📥 « ${t.name} » chargée : touche 🧭 Naviguer pour la suivre`);
@@ -717,6 +726,14 @@ export function App() {
     return () => { live = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, baseLayer]);
+
+  // 📥 Fichier ouvert depuis une autre appli (Gmail, Fichiers…) : chargé comme « Ouvrir un fichier ».
+  const loadTraceRef = useRef(loadTraceText);
+  loadTraceRef.current = loadTraceText;
+  useEffect(() => onTraceFileOpened((r) => {
+    if (r.error || r.text == null) setToast(`Fichier illisible : ${r.error ?? 'vide'}`);
+    else loadTraceRef.current({ name: r.name ?? '', text: r.text });
+  }), []);
 
   // 🧭 Position suivie : bouton ◎ (GeolocateControl) ou enregistrement en cours.
   useEffect(() => {
