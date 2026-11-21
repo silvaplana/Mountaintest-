@@ -1182,6 +1182,10 @@ class MainActivity : AppCompatActivity() {
             if (navId == sel.id) stopNav() else startNav(sel)
         }
         findViewById<Button>(R.id.btnNavStop).setOnClickListener { stopNav() }
+        // 🚗 Y aller : Google Maps en voiture jusqu'au départ de la trace.
+        findViewById<Button>(R.id.btnTraceGo).setOnClickListener {
+            selectedTrail?.segments?.firstOrNull()?.firstOrNull()?.let { openDirections(it.lat, it.lon) }
+        }
         findViewById<Button>(R.id.btnTraceOffline).setOnClickListener {
             selectedTrail?.takeIf { Trails.isMine(it.id) }?.let { downloadTrace(it, ask = false) }
         }
@@ -1722,7 +1726,7 @@ class MainActivity : AppCompatActivity() {
             }
             r.onSuccess { (file, p) ->
                 val t = showMine(p.line, false, p.name, null, "Fichier ${file.ifEmpty { "chargé" }}")
-                toast("📥 « ${p.name} » chargée : touche 🧭 Naviguer pour la suivre")
+                toast("📥 « ${p.name} » chargée : 🚗 Y aller pour s'y rendre, ▶ Suivre la trace sur place")
                 // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
                 downloadTrace(t, ask = true)
             }.onFailure { toast("Fichier illisible : ${it.message}") }
@@ -1829,7 +1833,7 @@ class MainActivity : AppCompatActivity() {
         if (!show || sel == null) return
         findViewById<TextView>(R.id.traceName).text = sel.name
         findViewById<View>(R.id.traceColor).setBackgroundColor(Color.parseColor(sel.color))
-        findViewById<Button>(R.id.btnTraceNav).text = if (navId == sel.id) "Arrêter la navigation" else "🧭 Naviguer"
+        findViewById<Button>(R.id.btnTraceNav).text = if (navId == sel.id) "⏹ Arrêter le suivi" else "▶ Suivre la trace"
         findViewById<TextView>(R.id.traceOffline).apply {
             val msg = traceOffline?.takeIf { it.first == sel.id }?.second
             text = msg.orEmpty(); visibility = if (msg != null) View.VISIBLE else View.GONE
@@ -1944,7 +1948,7 @@ class MainActivity : AppCompatActivity() {
         val bar = findViewById<View>(R.id.navBar)
         bar.visibility = if (findViewById<View>(R.id.frameBanner).visibility == View.VISIBLE) View.GONE else View.VISIBLE
         findViewById<View>(R.id.navColor).setBackgroundColor(Color.parseColor(t.color))
-        findViewById<TextView>(R.id.navName).text = "🧭 ${t.name}"
+        findViewById<TextView>(R.id.navName).text = "👣 ${t.name}"
         val lc = map?.locationComponent
         val loc = (if (lc != null && lc.isLocationComponentActivated) lc.lastKnownLocation else null)
             ?: TrackRecorder.state.value.points.lastOrNull()?.takeIf { gpsRunning }?.let { p ->

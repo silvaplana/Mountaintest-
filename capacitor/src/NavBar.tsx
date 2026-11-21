@@ -8,7 +8,7 @@ function hours(h: number) {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
 }
 
-/** 🧭 Bandeau de navigation sur une de mes traces : reste à faire, et alerte hors trace. Même bandeau côté Kotlin. */
+/** 👣 Bandeau de navigation sur une de mes traces : reste à faire, et alerte hors trace. Même bandeau côté Kotlin. */
 export function NavBar({ trail, state, waiting, onStop }: {
   trail: Trail; state: NavState | null; waiting: boolean; onStop: () => void;
 }) {
@@ -17,7 +17,7 @@ export function NavBar({ trail, state, waiting, onStop }: {
   return (
     <section className={`nav-bar ${off ? 'off' : ''}`} style={{ borderLeftColor: trail.color }}>
       <div className="nav-text">
-        <b>🧭 {trail.name}</b>
+        <b>👣 {trail.name}</b>
         {waiting || !state ? <span>En attente de la position GPS…</span>
           : arrived ? <span>🏁 Arrivée !</span>
           : <span>
@@ -27,7 +27,7 @@ export function NavBar({ trail, state, waiting, onStop }: {
             </span>}
         {state && !waiting && <span className="nav-status">{off ? `⚠ Hors trace : ${Math.round(state.offM)} m` : '✓ Sur la trace'}</span>}
       </div>
-      <button onClick={onStop}>Arrêter</button>
+      <button className="nav-stop" onClick={onStop}>⏹ Arrêter</button>
     </section>
   );
 }

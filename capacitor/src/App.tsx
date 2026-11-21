@@ -653,7 +653,7 @@ export function App() {
     try {
       const t = parseTraceFile(f.text, f.name);
       const shown = showMine(t.line, { onPaths: false, name: t.name, kind: `Fichier ${f.name || 'chargé'}` });
-      setToast(`📥 « ${t.name} » chargée : touche 🧭 Naviguer pour la suivre`);
+      setToast(`📥 « ${t.name} » chargée : 🚗 Y aller pour s'y rendre, ▶ Suivre la trace sur place`);
       // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
       void downloadTrace(shown, true);
     } catch (e) {
@@ -793,7 +793,8 @@ export function App() {
           savedId={selected.savedId ?? null} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)}
           navigating={navId === selected.id} onNavigate={startNav} onStopNav={() => setNavId(null)}
           offline={traceOffline?.id === selected.id ? traceOffline.msg + (downloading && progress ? ` ${progress.done + progress.failed}/${progress.total}` : '') : null}
-          onOffline={() => void downloadTrace(selected)} />
+          onOffline={() => void downloadTrace(selected)}
+          onGo={() => { const p = selected.segments[0][0]; openDirections(p.lat, p.lon); }} />
       )}
       {traceList && !drawing && (
         <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}

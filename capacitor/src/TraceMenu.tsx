@@ -14,7 +14,7 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, offline, onOffline }: {
+export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, offline, onOffline, onGo }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
   slopes: boolean; onSlopes: (v: boolean) => void;
   showProfile: boolean; onShowProfile: (v: boolean) => void;
@@ -23,6 +23,8 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
   navigating: boolean; onNavigate: () => void; onStopNav: () => void;
   /** 📶 Cartes autour de la trace : état du téléchargement (null : pas fait). */
   offline: string | null; onOffline: () => void;
+  /** 🚗 Y aller : Google Maps en voiture jusqu'au départ de la trace. */
+  onGo: () => void;
 }) {
   const el = elevated && typeof elevated === 'object' ? elevated : null;
   const wait = elevated === 'loading' ? '…' : '—';
@@ -41,12 +43,13 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
       {(slopes || showProfile) && elevated === 'error' && <p className="hint">Altitudes indisponibles (pas de réseau ?) : pente et profil ne peuvent pas être calculés.</p>}
       {showProfile && el && <Profile segments={el.segments} cursor={cursor} onCursor={onCursor} />}
       <div className="row">
-        {navigating ? <button className="primary stop" onClick={onStopNav}>Arrêter la navigation</button>
-          : <button className="primary" onClick={onNavigate}>🧭 Naviguer</button>}
-        <button onClick={onOffline}>📶 Hors ligne</button>
+        <button className="primary" onClick={onGo}>🚗 Y aller</button>
+        {navigating ? <button className="stop" onClick={onStopNav}>⏹ Arrêter le suivi</button>
+          : <button onClick={onNavigate}>▶ Suivre la trace</button>}
       </div>
       {offline && <p className="hint">{offline}</p>}
       <div className="row">
+        <button onClick={onOffline}>📶 Hors ligne</button>
         <button onClick={onSave} disabled={savedId != null}>{savedId != null ? '✓ Enregistrée' : '💾 Sauvegarder'}</button>
         <button className="danger" onClick={onDelete}>🗑 Supprimer</button>
       </div>
