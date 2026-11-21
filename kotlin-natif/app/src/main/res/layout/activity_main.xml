@@ -454,9 +454,10 @@
                 android:textSize="14sp" android:textStyle="bold" android:visibility="gone" />
         </LinearLayout>
 
-        <Button android:id="@+id/btnNavStop" style="@style/Widget.AppCompat.Button.Borderless"
+        <Button android:id="@+id/btnNavStop" style="@style/Widget.AppCompat.Button.Colored"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Arrêter" android:textAllCaps="false" />
+            android:backgroundTint="#C62828" android:textColor="#FFFFFF"
+            android:text="⏹ Arrêter" android:textAllCaps="false" />
     </LinearLayout>
 
 
@@ -1137,13 +1138,14 @@
             android:layout_marginTop="6dp" android:visibility="gone" />
 
         <LinearLayout style="@style/Row">
-            <Button android:id="@+id/btnTraceNav" style="@style/Btn.Primary" android:text="🧭 Naviguer" />
-            <Button android:id="@+id/btnTraceOffline" style="@style/Btn" android:text="📶 Hors ligne" />
+            <Button android:id="@+id/btnTraceGo" style="@style/Btn.Primary" android:text="🚗 Y aller" />
+            <Button android:id="@+id/btnTraceNav" style="@style/Btn" android:text="▶ Suivre la trace" />
         </LinearLayout>
 
         <TextView android:id="@+id/traceOffline" style="@style/Hint" android:visibility="gone" />
 
         <LinearLayout style="@style/Row">
+            <Button android:id="@+id/btnTraceOffline" style="@style/Btn" android:text="📶 Hors ligne" />
             <Button android:id="@+id/btnTraceSave" style="@style/Btn" android:text="💾 Sauvegarder" />
             <Button android:id="@+id/btnTraceDelete" style="@style/Btn" android:text="🗑 Supprimer" android:textColor="#C62828" />
         </LinearLayout>
