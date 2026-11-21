@@ -30,7 +30,7 @@ import { bench, metrics } from './metrics';
 import { checkLayer } from './tiles/capabilities';
 import { downloadTiles, getTileStore, type DownloadProgress } from './tiles/offlineStore';
 import { registerIgnProtocol } from './tiles/protocol';
-import { tilesForBbox } from './tiles/tileMath';
+import { CORRIDOR_M, lineBbox, tilesForBbox, tilesForCorridor, type TileCoord } from './tiles/tileMath';
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
@@ -40,7 +40,11 @@ import { TraceList, TraceMenu } from './TraceMenu';
 import { defaultTraceName, deleteTrace, listTraces, saveTrace, traceLine, type SavedTrace } from './trails/savedTraces';
 import { Profile } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
-import { DRAWN_ID, drawnTrail, routeOnPaths, walkingHours, waypoints } from './trails/route';
+import { drawnTrail, isMine, nextMine, routeOnPaths, walkingHours, waypoints } from './trails/route';
+import { parseTraceFile } from './trails/traceFile';
+import { pickTraceFile } from './trails/pickFile';
+import { navState, OFF_TRACK_M } from './trails/navigation';
+import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { Usage } from './Usage';
@@ -184,9 +188,11 @@ export function App() {
   const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
   const [drawnSlopes, setDrawnSlopes] = useState(false);
   const [drawnProfile, setDrawnProfile] = useState(false);
-  /** Trace affichée déjà enregistrée (identifiant), et recalée ou non sur les chemins. */
-  const [drawnSavedId, setDrawnSavedId] = useState<number | null>(null);
-  const [drawnOnPaths, setDrawnOnPaths] = useState(false);
+  /** 🧭 Navigation sur une de mes traces (identifiant), et dernière position GPS connue. */
+  const [navId, setNavId] = useState<number | null>(null);
+  const [navPos, setNavPos] = useState<{ lon: number; lat: number; acc: number } | null>(null);
+  /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu. */
+  const [traceOffline, setTraceOffline] = useState<{ id: number; msg: string } | null>(null);
   // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
   /** Curseur de pente : distance le long de la rando affichée. */
   const [profCursor, setProfCursor] = useState<number | null>(null);
@@ -206,7 +212,7 @@ export function App() {
     return () => { live = false; };
   }, [imported, showSlopes]);
   // « Afficher la pente » du menu de la trace violette : étiquettes sur cette trace seule.
-  const drawnSel = selected?.id === DRAWN_ID;
+  const drawnSel = selected != null && isMine(selected.id);
   const slopeTags = useMemo(() => {
     const own = showSlopes || (drawnSel && drawnSlopes);
     if (!own) return [];
@@ -395,36 +401,84 @@ export function App() {
     setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes(), mnt: mnt.count(), mntBytes: mnt.bytes() });
   }
 
+  /**
+   * Étapes d'un téléchargement hors ligne : le fond affiché (zooms 10 à 16) sur les tuiles données,
+   * puis le relief pour les ombres (zooms 10 à 14) sur le rectangle donné, pour le film sans réseau.
+   */
+  function offlineSteps(tilesFor: (minZoom: number, maxZoom: number) => TileCoord[], reliefBbox: Bbox) {
+    return [
+      ...offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM).map((st) => {
+        const layer = LAYERS[st.layer];
+        return { layer, label: `${layer.label}, zooms ${st.minZoom} à ${st.maxZoom}`, tiles: tilesFor(st.minZoom, st.maxZoom),
+          url: (t: TileCoord) => wmtsTileUrl(layer, t.z, t.x, t.y, apiKey) };
+      }),
+      { layer: MNT_LAYER, label: `${MNT_LAYER.label}, pour les ombres`, tiles: mntTilesForZone(reliefBbox), url: mntTileUrl },
+    ];
+  }
+
+  async function runDownload(steps: ReturnType<typeof offlineSteps>) {
+    abort.current = new AbortController();
+    let failed = 0;
+    for (const step of steps) {
+      if (abort.current.signal.aborted) break;
+      const store = await getTileStore(step.layer);
+      setDownloading(step.label);
+      bench('download-start', { layer: step.layer.id, tiles: step.tiles.length });
+      const res = await downloadTiles(store, step.tiles, step.url, setProgress, abort.current.signal);
+      failed += res.failed;
+      bench('download-end', { layer: step.layer.id, ...res });
+    }
+    setDownloading('');
+    await refreshStored();
+    return { failed, aborted: abort.current.signal.aborted };
+  }
+
   /** Télécharge le rectangle choisi sur la carte, pour le fond affiché. */
   async function downloadZone(bbox: Bbox) {
-    const plan = offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM);
-    const total = plan.reduce((n, st) => n + tilesForBbox(bbox, st.minZoom, st.maxZoom).length, 0);
+    const steps = offlineSteps((a, b) => tilesForBbox(bbox, a, b), bbox);
+    const total = steps.slice(0, -1).reduce((n, st) => n + st.tiles.length, 0);
     if (total > MAX_ZONE_TILES) {
       setStatus(`Zone trop grande (${total} tuiles, maximum ${MAX_ZONE_TILES}) : trace un rectangle plus petit.`);
       return;
     }
     setStatus(`Rectangle : ${total} tuiles, environ ${formatMo(total * TILE_BYTES_ESTIMATE)}.`);
-    abort.current = new AbortController();
-    for (const step of plan) {
-      if (abort.current.signal.aborted) break;
-      const layer = LAYERS[step.layer];
-      const store = await getTileStore(layer);
-      const tiles = tilesForBbox(bbox, step.minZoom, step.maxZoom);
-      setDownloading(`${layer.label}, zooms ${step.minZoom} à ${step.maxZoom}`);
-      bench('download-start', { layer: layer.id, tiles: tiles.length });
-      const res = await downloadTiles(store, tiles, (t) => wmtsTileUrl(layer, t.z, t.x, t.y, apiKey), setProgress, abort.current.signal);
-      bench('download-end', { layer: layer.id, ...res });
+    await runDownload(steps);
+  }
+
+  /** 📶 Cartes et relief dans un couloir d'environ 1 km autour d'une de mes traces. */
+  function traceSteps(t: Trail) {
+    const line = t.segments.flat();
+    return offlineSteps((a, b) => tilesForCorridor(line, CORRIDOR_M, a, b), lineBbox(line, CORRIDOR_M));
+  }
+
+  /** Tuiles du couloir déjà sur le téléphone : la coche ✓ du menu de la trace. */
+  async function traceOfflineReady(t: Trail) {
+    for (const st of traceSteps(t)) {
+      const store = await getTileStore(st.layer);
+      if (st.tiles.some((x) => !store.has(x))) return false;
     }
-    // Relief pour les ombres (zooms 10 à 14), pour calculer le film sans réseau.
-    if (!abort.current.signal.aborted) {
-      const store = await getTileStore(MNT_LAYER);
-      const tiles = mntTilesForZone(bbox);
-      setDownloading(`${MNT_LAYER.label}, pour les ombres`);
-      const res = await downloadTiles(store, tiles, mntTileUrl, setProgress, abort.current.signal);
-      bench('download-end', { layer: MNT_LAYER.id, ...res });
+    return true;
+  }
+
+  async function downloadTrace(t: Trail, ask = false) {
+    if (downloading) { setTraceOffline({ id: t.id, msg: 'Un téléchargement est déjà en cours, patiente un peu.' }); return; }
+    const steps = traceSteps(t);
+    const missing: number[] = [];
+    for (const st of steps) { const store = await getTileStore(st.layer); missing.push(st.tiles.filter((x) => !store.has(x)).length); }
+    const total = missing.reduce((a, b) => a + b, 0);
+    if (!total) { setTraceOffline({ id: t.id, msg: '✓ Cartes et relief déjà disponibles hors ligne autour de cette trace.' }); return; }
+    const mapTiles = missing.slice(0, -1).reduce((a, b) => a + b, 0);
+    if (mapTiles > MAX_ZONE_TILES) {
+      setTraceOffline({ id: t.id, msg: `Trace trop longue pour le hors ligne d'un coup (${mapTiles} tuiles, maximum ${MAX_ZONE_TILES}).` });
+      return;
     }
-    setDownloading('');
-    await refreshStored();
+    const size = formatMo(mapTiles * TILE_BYTES_ESTIMATE);
+    if (ask && !window.confirm(`Télécharger les cartes à 1 km autour de « ${t.name} » pour le hors ligne (environ ${size}) ?`)) return;
+    setTraceOffline({ id: t.id, msg: `📶 Téléchargement des cartes autour de la trace (environ ${size})…` });
+    const r = await runDownload(steps);
+    setTraceOffline({ id: t.id, msg: r.aborted ? 'Téléchargement arrêté.'
+      : r.failed ? `Téléchargement terminé, mais ${r.failed} tuiles ont échoué (réseau ?) : relance 📶 Hors ligne.`
+      : '✓ Cartes et relief disponibles hors ligne autour de cette trace.' });
   }
 
   async function clearZone() {
@@ -443,8 +497,8 @@ export function App() {
     }
     setFrame(b);
     void searchWebHikes(b);
-    setTrails((prev) => prev.filter((x) => x.id === DRAWN_ID));
-    if (selected?.id !== DRAWN_ID) { setSelected(null); setElevated(null); }
+    setTrails((prev) => prev.filter((x) => isMine(x.id)));
+    if (!selected || !isMine(selected.id)) { setSelected(null); setElevated(null); }
     setTrailsMsg('Recherche des randos dans OpenStreetMap…');
     trailsAbort.current?.abort();
     const ctrl = new AbortController();
@@ -453,7 +507,7 @@ export function App() {
     try {
       const found = await fetchTrails(b, ctrl.signal);
       bench('trails-search', { found: found.length, ms: Math.round(performance.now() - t0) });
-      setTrails((prev) => [...prev.filter((x) => x.id === DRAWN_ID), ...found]);
+      setTrails((prev) => [...prev.filter((x) => isMine(x.id)), ...found]);
       setTrailsMsg(found.length ? `${found.length} rando${found.length > 1 ? 's' : ''} balisée${found.length > 1 ? 's' : ''} trouvée${found.length > 1 ? 's' : ''}. Touche-en une (liste ou carte).`
         : 'Aucune rando balisée dans OpenStreetMap sur cette zone.');
     } catch (e) {
@@ -542,9 +596,9 @@ export function App() {
     setElevated(t ? 'loading' : null);
     setFollow(false);
     // La trace violette a son propre menu en bas ; les randos s'ouvrent dans le panneau.
-    setTraceMenu(t?.id === DRAWN_ID);
+    setTraceMenu(t != null && isMine(t.id));
     if (!t) return;
-    if (t.id === DRAWN_ID) { setTraceList(null); setOpen(false); } else { setOpen(true); setTab('randos'); }
+    if (isMine(t.id)) { setTraceList(null); setOpen(false); } else { setOpen(true); setTab('randos'); }
     const first = t.segments[0][0];
     setTarget({ lon: first.lon, lat: first.lat, label: `Départ de « ${t.name} »` });
     try {
@@ -556,9 +610,7 @@ export function App() {
   }
 
   function startDrawing() {
-    // Nouveau tracé : l'ancien disparaît tout de suite.
-    setTrails((prev) => prev.filter((x) => x.id !== DRAWN_ID));
-    if (selected?.id === DRAWN_ID) void selectTrail(null);
+    // Nouveau tracé : les traces déjà affichées restent sur la carte (chacune sa couleur).
     setTraceMenu(false); setTraceList(null);
     setDrawing(true); setOpen(false); setSearching(false);
   }
@@ -571,14 +623,33 @@ export function App() {
       try { final = await routeOnPaths(waypoints(line)); setToast(''); }
       catch { used = false; setToast('Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle.'); }
     }
-    showDrawn(drawnTrail(final, used), used, null);
+    showMine(final, { onPaths: used });
   }
 
-  /** Affiche une trace violette (dessinée ou chargée) et ouvre son menu en bas. */
-  function showDrawn(t: Trail, used: boolean, savedId: number | null) {
-    setDrawnOnPaths(used); setDrawnSavedId(savedId);
-    setTrails((prev) => [t, ...prev.filter((x) => x.id !== DRAWN_ID)]);
+  /** Ajoute une de mes traces (dessinée, enregistrée ou chargée), avec sa propre couleur, et ouvre son menu en bas. */
+  function showMine(line: LonLat[], o: { onPaths: boolean; name?: string; savedId?: number | null; kind?: string }) {
+    const { id, color } = nextMine(trails);
+    const base = drawnTrail(line, o.onPaths, id, color);
+    const t: Trail = { ...base, name: o.name ?? base.name, kind: o.kind ?? base.kind, savedId: o.savedId ?? null };
+    setTrails((prev) => [t, ...prev]);
     void selectTrail(t);
+    return t;
+  }
+
+  /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone : il s'ajoute aux traces affichées. */
+  async function openTraceFile() {
+    setDrawing(false); setTraceList(null);
+    try {
+      const f = await pickTraceFile();
+      if (!f) return;
+      const t = parseTraceFile(f.text, f.name);
+      const shown = showMine(t.line, { onPaths: false, name: t.name, kind: `Fichier ${f.name || 'chargé'}` });
+      setToast(`📥 « ${t.name} » chargée : touche 🧭 Naviguer pour la suivre`);
+      // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
+      void downloadTrace(shown, true);
+    } catch (e) {
+      setToast(`Fichier illisible : ${(e as Error).message}`);
+    }
   }
 
   async function openTraceList() {
@@ -588,19 +659,21 @@ export function App() {
 
   function loadTrace(st: SavedTrace) {
     setTraceList(null);
-    showDrawn({ ...drawnTrail(traceLine(st), st.onPaths), name: st.name }, st.onPaths, st.id);
+    // Déjà affichée : on la sélectionne simplement.
+    const shown = trails.find((x) => isMine(x.id) && x.savedId === st.id);
+    if (shown) { void selectTrail(shown); return; }
+    showMine(traceLine(st), { onPaths: st.onPaths, name: st.name, savedId: st.id });
   }
 
   async function saveDrawn() {
-    if (!selected || selected.id !== DRAWN_ID) return;
+    if (!selected || !isMine(selected.id)) return;
     const name = window.prompt('Nom de la trace', defaultTraceName())?.trim();
     if (name == null) return;
     try {
-      const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), drawnOnPaths);
-      const t = { ...selected, name: st.name };
+      const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), selected.onPaths ?? false);
+      const t = { ...selected, name: st.name, savedId: st.id };
       setSelected(t);
-      setTrails((prev) => prev.map((x) => (x.id === DRAWN_ID ? t : x)));
-      setDrawnSavedId(st.id);
+      setTrails((prev) => prev.map((x) => (x.id === t.id ? t : x)));
       setToast(`💾 Trace « ${st.name} » enregistrée sur le téléphone`);
     } catch (e) {
       setToast(`Enregistrement impossible : ${(e as Error).message}`);
@@ -609,9 +682,18 @@ export function App() {
 
   /** 🗑 Supprimer : la trace quitte la carte (une trace enregistrée reste dans 📂 Mes traces). */
   function deleteDrawn() {
-    setTrails((prev) => prev.filter((x) => x.id !== DRAWN_ID));
+    const id = selected?.id;
+    setTrails((prev) => prev.filter((x) => x.id !== id));
+    if (navId === id) setNavId(null);
     void selectTrail(null);
-    setDrawnSavedId(null);
+  }
+
+  /** 🧭 Naviguer : GPS en suivi (bouton ◎), et bandeau « reste … / hors trace ». */
+  function startNav() {
+    if (!selected) return;
+    setNavId(selected.id); setNavPos(null); setTraceMenu(false); setFollow(true);
+    const st = (geo as unknown as { _watchState?: string } | null)?._watchState ?? 'OFF';
+    if (geo && (st === 'OFF' || st === 'BACKGROUND')) void geo.trigger();
   }
 
   async function exportTrail() {
@@ -624,6 +706,38 @@ export function App() {
     }
   }
 
+  // Menu d'une de mes traces : coche ✓ si ses cartes sont déjà sur le téléphone.
+  useEffect(() => {
+    if (!selected || !isMine(selected.id) || downloading) return;
+    let live = true;
+    const t = selected;
+    void traceOfflineReady(t).then((ok) => {
+      if (live) setTraceOffline((cur) => (cur?.id === t.id && !ok ? cur : ok ? { id: t.id, msg: '✓ Cartes et relief disponibles hors ligne autour de cette trace.' } : null));
+    });
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, baseLayer]);
+
+  // 🧭 Position suivie : bouton ◎ (GeolocateControl) ou enregistrement en cours.
+  useEffect(() => {
+    if (!geo || navId == null) return;
+    const on = (e: { coords: GeolocationCoordinates }) => setNavPos({ lon: e.coords.longitude, lat: e.coords.latitude, acc: e.coords.accuracy });
+    geo.on('geolocate', on);
+    return () => { geo.off('geolocate', on); };
+  }, [geo, navId]);
+  useEffect(() => { if (navId != null && position) setNavPos({ lon: position.lon, lat: position.lat, acc: position.accuracy ?? 0 }); }, [position, navId]);
+  const navTrail = navId == null ? null : trails.find((t) => t.id === navId) ?? null;
+  useEffect(() => { if (navId != null && !trails.some((t) => t.id === navId)) setNavId(null); }, [trails, navId]);
+  const nav = useMemo(() => (navTrail && navPos
+    ? navState(navTrail.segments.flat(), navPos, selected?.id === navTrail.id ? profile : null) : null), [navTrail, navPos, selected, profile]);
+  // Une vibration quand on sort de la trace (pas à chaque position).
+  const wasOff = useRef(false);
+  useEffect(() => {
+    const off = nav != null && nav.offM > OFF_TRACK_M + (navPos?.acc ?? 0) / 2;
+    if (off && !wasOff.current) try { navigator.vibrate?.([200, 100, 200]); } catch { /* ignoré */ }
+    wasOff.current = off;
+  }, [nav, navPos]);
+
   const stats = computeStats(recorded);
   const avgTile = metrics.tilesFromDisk + metrics.tilesFromNetwork ? metrics.tileLoadTotalMs / (metrics.tilesFromDisk + metrics.tilesFromNetwork) : 0;
 
@@ -635,7 +749,7 @@ export function App() {
         onMapReady={setMap} onGeolocate={setGeo} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
           // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
-          if (id === DRAWN_ID && selected?.id === id) { if (profile) setProfCursor(nearestD(profile, at.lon, at.lat)); setTraceList(null); setTraceMenu(true); return; }
+          if (isMine(id) && selected?.id === id) { if (profile) setProfCursor(nearestD(profile, at.lon, at.lat)); setTraceList(null); setTraceMenu(true); return; }
           if (selected?.id === id && profile) { setProfCursor(nearestD(profile, at.lon, at.lat)); setOpen(true); return; }
           void selectTrail(trails.find((t) => t.id === id) ?? null);
         }}
@@ -654,18 +768,23 @@ export function App() {
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} top={10} />}
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
-        onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} />}
-      {traceMenu && selected?.id === DRAWN_ID && !drawing && (
+        onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} onFile={() => void openTraceFile()} />}
+      {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} onStop={() => setNavId(null)} />}
+      {traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
-          savedId={drawnSavedId} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)} />
+          savedId={selected.savedId ?? null} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)}
+          navigating={navId === selected.id} onNavigate={startNav} onStopNav={() => setNavId(null)}
+          offline={traceOffline?.id === selected.id ? traceOffline.msg + (downloading && progress ? ` ${progress.done + progress.failed}/${progress.total}` : '') : null}
+          onOffline={() => void downloadTrace(selected)} />
       )}
       {traceList && !drawing && (
-        <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)}
+        <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}
           onDelete={(t) => {
             if (!window.confirm(`Effacer « ${t.name} » du téléphone ?`)) return;
             void deleteTrace(t.id).then(listTraces).then(setTraceList);
-            if (drawnSavedId === t.id) setDrawnSavedId(null);
+            setTrails((prev) => prev.map((x) => (x.savedId === t.id ? { ...x, savedId: null } : x)));
+            setSelected((cur) => (cur?.savedId === t.id ? { ...cur, savedId: null } : cur));
           }} />
       )}
       {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
@@ -790,6 +909,7 @@ export function App() {
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
               <button disabled={!map} onClick={startDrawing}>✏ Tracer au doigt</button>
               <button onClick={() => void openTraceList()}>📂 Mes traces</button>
+              <button onClick={() => void openTraceFile()}>📥 Ouvrir un fichier</button>
               <button disabled={!map} onClick={() => {
                 const b = map!.getBounds();
                 void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);

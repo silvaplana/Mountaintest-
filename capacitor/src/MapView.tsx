@@ -137,7 +137,7 @@ export function MapView(props: MapViewProps) {
           // Couche invisible plus large : le doigt n'a pas besoin de tomber pile sur le trait.
           { id: 'trails-hit', type: 'line', source: 'trails', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
           { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8 } },
-          { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#7b3fe4', 'line-width': 5 } },
+          { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
           { id: 'imported', type: 'line', source: 'imported', paint: { 'line-color': '#7b3fe4', 'line-width': 4, 'line-opacity': 0.8 } },
           { id: 'recorded', type: 'line', source: 'recorded', paint: { 'line-color': '#e4572e', 'line-width': 4 } },
           { id: 'web-hikes', type: 'circle', source: 'webHikes', paint: { 'circle-radius': 8, 'circle-color': '#f28c28', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
@@ -293,8 +293,8 @@ export function MapView(props: MapViewProps) {
       // Haut : barres « fond de carte » et « Y aller » ; bas : le panneau ouvert.
       const sheet = document.querySelector('.sheet')?.getBoundingClientRect().height ?? 0;
       const h = m.getContainer().clientHeight;
-      // Trace violette (id -1) : son menu du bas mesure environ 230 px.
-      const bottom = Math.min(Math.max(sheet, t.id === -1 ? 230 : 0) + 20, h - 200);
+      // Mes traces (id négatif) : leur menu du bas mesure environ 300 px.
+      const bottom = Math.min(Math.max(sheet, t.id < 0 ? 300 : 0) + 20, h - 200);
       m.fitBounds(b, { padding: { top: 140, left: 30, right: 70, bottom: Math.max(20, bottom) }, duration: 800 });
     }
   }, [props.selectedTrail, ready]);

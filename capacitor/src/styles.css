@@ -459,7 +459,21 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
   border-top: 4px solid #7b3fe4;
 }
 .trace-menu .head { display: flex; align-items: center; gap: 8px; }
-.trace-menu .head b { flex: 1; }
+.trace-menu .head b { flex: 1; display: flex; align-items: center; gap: 8px; }
+.trace-menu .head .swatch { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 auto; }
+.trace-menu button.stop { background: #c62828; border-color: #c62828; }
+/* 🧭 Navigation sur une trace : bandeau en haut, alerte rouge hors trace. */
+.nav-bar {
+  position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 64px; z-index: 3;
+  display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 10px;
+  border-left: 6px solid #7b3fe4; padding: 6px 8px 6px 10px; box-shadow: 0 1px 6px #0003; font-size: 14px;
+}
+.nav-bar .nav-text { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nav-bar .nav-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-bar .nav-status { font-weight: 600; color: #2f6f4f; }
+.nav-bar.off { background: #fdecea; }
+.nav-bar.off .nav-status { color: #c62828; }
+.nav-bar button { min-height: 38px; padding: 6px 10px; }
 .trace-menu .head .close { min-height: 36px; padding: 4px 10px; }
 .trace-menu .checks { display: flex; gap: 18px; flex-wrap: wrap; }
 .trace-menu .checks label { display: flex; align-items: center; gap: 6px; font-size: 15px; }

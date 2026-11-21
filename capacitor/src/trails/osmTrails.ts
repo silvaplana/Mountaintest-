@@ -22,6 +22,9 @@ export interface Trail {
   color: string;
   segments: LonLat[][];
   distanceM: number;
+  /** Traces à moi seulement : recalée sur les chemins, et identifiant dans 📂 Mes traces si enregistrée. */
+  onPaths?: boolean;
+  savedId?: number | null;
 }
 
 export function zoneTooBig(b: Bbox) { return b[2] - b[0] > MAX_ZONE_DEG || b[3] - b[1] > MAX_ZONE_DEG; }

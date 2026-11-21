@@ -6,11 +6,13 @@ import type { LonLat } from './trails/osmTrails';
  * Tracé au doigt : un calque posé sur la carte capte le doigt et dessine la ligne ;
  * au lâcher, on la convertit en coordonnées (même principe côté Kotlin, DrawPathView).
  */
-export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad }: {
+export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad, onFile }: {
   map: MlMap; onPaths: boolean; setOnPaths: (v: boolean) => void;
   onDone: (line: LonLat[]) => void; onCancel: () => void;
   /** 📂 Charger une trace enregistrée sur le téléphone. */
   onLoad: () => void;
+  /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON. */
+  onFile: () => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const pts = useRef<[number, number][]>([]);
@@ -47,6 +49,7 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
         <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
         <div className="draw-actions">
           <button onClick={onLoad}>📂 Charger des traces</button>
+          <button onClick={onFile}>📥 Ouvrir un fichier</button>
           <button onClick={onCancel}>Annuler</button>
         </div>
       </div>

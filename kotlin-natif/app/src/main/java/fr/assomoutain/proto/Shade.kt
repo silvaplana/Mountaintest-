@@ -249,6 +249,9 @@ object Dem {
 
     private fun file(ctx: Context, z: Int, x: Int, y: Int) = File(ctx.filesDir, "tiles/mnt/$z/$x/$y.bil")
 
+    /** Tuile de relief déjà sur le téléphone ? (coche ✓ hors ligne d'une trace) */
+    fun has(ctx: Context, z: Int, x: Int, y: Int) = file(ctx, z, x, y).exists()
+
     private fun fetch(z: Int, x: Int, y: Int): ByteArray? = runCatching {
         val c = URL(tileUrl(z, x, y)).openConnection() as HttpURLConnection
         c.connectTimeout = 15_000; c.readTimeout = 30_000
