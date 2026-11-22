@@ -759,11 +759,33 @@ export function App() {
     recByTrace.current = true;
     await startRecording();
   }
-  // ⏹ Arrêter la trace : on arrête aussi l'enregistrement qu'elle avait lancé.
+  // ⏹ Arrêter la trace : on arrête aussi l'enregistrement qu'elle avait lancé, et on propose de garder le parcours réel.
+  const navName = useRef<string | null>(null);
+  useEffect(() => { if (navId != null) navName.current = trails.find((t) => t.id === navId)?.name ?? null; }, [navId, trails]);
   useEffect(() => {
-    if (navId == null && !freeRec && recByTrace.current && recording) { recByTrace.current = false; void stopRecording(); }
+    if (navId == null && !freeRec && recByTrace.current && recording) {
+      recByTrace.current = false;
+      const pts = recorder.current.points.map((p) => ({ lon: p.lon, lat: p.lat }));
+      const base = navName.current;
+      void stopRecording().then(() => offerSave(pts, base ? `${base} (${defaultTraceName().replace('Tracé du ', 'parcours du ')})` : defaultTraceName().replace('Tracé', 'Trace')));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navId]);
+
+  /** ⏹ Fin d'une trace commencée : « Sauvegarder la trace ? » avec un nom proposé, modifiable (Annuler : pas gardée). */
+  async function offerSave(line: LonLat[], name: string): Promise<SavedTrace | null> {
+    if (line.length < 2) { setToast('Trace trop courte : rien à garder.'); return null; }
+    const n = window.prompt('⏹ Trace terminée. La sauvegarder ? Nom :', name)?.trim();
+    if (n == null) { setToast('Trace non sauvegardée'); return null; }
+    try {
+      const st = await saveTrace(n || name, line, false);
+      setToast(`💾 Trace « ${st.name} » sauvegardée (📂 Mes traces)`);
+      return st;
+    } catch (e) {
+      setToast(`Sauvegarde impossible : ${(e as Error).message}`);
+      return null;
+    }
+  }
 
   /** ▶ Commencer (menu ✏) : nouvelle trace sans parcours prévu, dessinée au fur et à mesure. */
   const [freeRec, setFreeRec] = useState(false);
@@ -781,8 +803,10 @@ export function App() {
     const pts = [...recorder.current.points];
     await stopRecording();
     if (pts.length < 2) { setToast('Trace trop courte : rien à garder.'); return; }
-    showMine(pts.map((p) => ({ lon: p.lon, lat: p.lat })), { onPaths: false, name: defaultTraceName().replace('Tracé', 'Trace'), kind: 'Parcours enregistré au GPS' });
-    setToast('⏹ Trace terminée : 💾 Sauvegarder pour la garder sur le téléphone');
+    const line = pts.map((p) => ({ lon: p.lon, lat: p.lat }));
+    const name = defaultTraceName().replace('Tracé', 'Trace');
+    const st = await offerSave(line, name);
+    showMine(line, { onPaths: false, name: st?.name ?? name, savedId: st?.id ?? null, kind: 'Parcours enregistré au GPS' });
   }
 
   const geoState = () => (geo as unknown as { _watchState?: string } | null)?._watchState ?? 'OFF';

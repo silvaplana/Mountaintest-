@@ -585,6 +585,20 @@
                 android:gravity="end|center_vertical"
                 android:orientation="horizontal">
 
+                <!-- Double tap pour allumer l'écran (réglage du téléphone) : à gauche de la vibration, dans ⚙. -->
+                <ImageButton
+                    android:id="@+id/btnDoubleTap"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Double tap pour allumer l'écran (réglage du téléphone)"
+                    android:elevation="4dp"
+                    android:padding="4dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_double_tap"
+                    android:visibility="gone" />
+
                 <!-- Vibration hors trace pendant le suivi d'une trace : à gauche de ⑂. -->
                 <ImageButton
                     android:id="@+id/btnVibre"
@@ -611,6 +625,21 @@
                     android:padding="4dp"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_carrefour"
+                    android:visibility="gone" />
+
+                <!-- ⚙ Réglages du suivi, à gauche de 👖 : un appui déplie ⑂, la vibration hors trace et le double tap. -->
+                <Button
+                    android:id="@+id/btnReglages"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Réglages du suivi de trace"
+                    android:elevation="4dp"
+                    android:padding="0dp"
+                    android:text="⚙"
+                    android:textColor="#37474F"
+                    android:textSize="22sp"
                     android:visibility="gone" />
 
                 <Button

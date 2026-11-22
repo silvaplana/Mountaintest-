@@ -45,6 +45,16 @@ export interface QuickProps {
   traceState: 'none' | 'run' | 'pause';
 }
 
+/** Icône « double tap pour allumer l'écran » (maquette B) : un doigt qui tape, deux ondes, « ×2 » en rouge. Même dessin côté Kotlin : ic_double_tap.xml. */
+export const DoubleTapIcon = ({ size = 34 }: { size?: number }) => (
+  <svg viewBox="0 0 56 56" width={size} height={size} aria-hidden="true">
+    <circle cx="24" cy="15" r="5" fill="none" stroke="#1d6fe0" strokeWidth="2.4" />
+    <circle cx="24" cy="15" r="10" fill="none" stroke="#1d6fe0" strokeWidth="2" />
+    <path d="M20 52V26a4 4 0 0 1 8 0V37l9 2a4 4 0 0 1 3 5l-3 8" fill="#ffd2a8" stroke="#8a5a2b" strokeWidth="2" strokeLinejoin="round" />
+    <path d="M38 6l5 5M43 6l-5 5M46 7.5a2.6 2.6 0 0 1 5 1c0 1.5-1 2.5-5 6.5h5.5" stroke="#e53935" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+  </svg>
+);
+
 /** Icône ⑂ « écran aux carrefours » (maquette A choisie par Seb) : téléphone allumé avec une fourche, rayons. Même dessin côté Kotlin : ic_carrefour.xml. */
 export const JunctionWakeIcon = ({ size = 34 }: { size?: number }) => (
   <svg viewBox="0 0 56 56" width={size} height={size} aria-hidden="true">
@@ -103,6 +113,11 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   // Ensuite chaque icône bascule son mode ; toucher ailleurs replie. La colonne ne bouge pas (alignée à droite).
   const [pairOpen, setPairOpen] = useState<'avion' | 'relief' | null>(null);
   const pair = pairOpen === 'avion', relief = pairOpen === 'relief';
+  // ⚙ réglages du suivi (à gauche de 👖) : un appui déplie ⑂, la vibration hors trace et le double tap ; replié avec le duo.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(() => { if (!pair) setSettingsOpen(false); }, [pair]);
+  // Bulle du double tap : l'appli ne peut pas activer ce réglage, elle explique et ouvre les réglages du téléphone.
+  const [dtBubble, setDtBubble] = useState(false);
   const pairRef = useRef<HTMLDivElement>(null);
   const reliefRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -234,6 +249,16 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         </>}
       </div>
     </div>}
+    {dtBubble && <div className="tip-close" onPointerDown={(e) => { if (e.target === e.currentTarget) setDtBubble(false); }} onContextMenu={(e) => e.preventDefault()}>
+      <div className="icon-tip dt-bubble">
+        <b>Double tap pour allumer l'écran</b>
+        <p>Dans la page qui s'ouvre, active « Appuyer deux fois pour allumer l'écran ». Sur Samsung : Fonctions avancées › Mouvements et gestes. Ensuite deux petits coups sur l'écran éteint le rallument, pratique avec des gants ou sur le vélo.</p>
+        <button className="dt-open" onClick={() => {
+          setDtBubble(false);
+          if (native) void BatterySettings.open({ what: 'doubletap' }); else onToast('Réglages : seulement dans l’appli');
+        }}>Ouvrir les réglages</button>
+      </div>
+    </div>}
     {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
     <div className={help ? 'quick help' : 'quick'} onContextMenu={(e) => e.preventDefault()}>
       <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli" {...lp('close')}
@@ -270,20 +295,24 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>}
-      {(pair || help) && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
+      {(pair || help) && <button className={`ring ${settingsOpen || junctionWake || offVibrate ? 'on' : 'off'}`} aria-label="Réglages du suivi de trace" data-help="Réglages du suivi · appui : ⑂, vibration, double tap" {...lp('reglages')}
+        onClick={() => setSettingsOpen(!settingsOpen)}><span className="gear">⚙</span></button>}
+      {((pair && settingsOpen) || help) && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
         onClick={() => {
           const on = !junctionWake;
           onJunctionWake(on);
           onToast(on ? 'Écran aux carrefours activé : pendant ▶ Commencer la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace'
             : 'Écran aux carrefours désactivé');
         }}><JunctionWakeIcon /></button>}
-      {(pair || help) && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
+      {((pair && settingsOpen) || help) && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
         onClick={() => {
           const on = !offVibrate;
           onOffVibrate(on);
           onToast(on ? 'Vibration hors trace activée : pendant ▶ Commencer la trace, le téléphone vibre si tu t’éloignes de plus de 50 m'
             : 'Vibration hors trace désactivée');
         }}><OffTrackVibrateIcon /></button>}
+      {((pair && settingsOpen) || help) && <button aria-label="Double tap pour allumer l'écran (réglage du téléphone)" data-help="Double tap pour allumer l'écran" {...lp('doubletap')}
+        onClick={() => setDtBubble(true)}><DoubleTapIcon /></button>}
       </div>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>

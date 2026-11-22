@@ -148,6 +148,9 @@ progress { width: 100%; }
 /* Duos ✈ / 👖 et ⛰ / 🌗 : se déplient vers la gauche (✈ et ⛰ restent à leur place) ; en aide, l'un sous l'autre. */
 .quick button.ring.on { background: var(--bg); box-shadow: 0 0 0 3px var(--accent), 0 1px 6px #0004; }
 .quick button.ring.off svg { opacity: .45; filter: grayscale(1); }
+.quick button .gear { font-size: 26px; line-height: 1; color: #37474f; }
+.icon-tip.dt-bubble { position: fixed; top: 30%; left: 16px; right: 16px; max-width: 420px; margin: 0 auto; pointer-events: auto; }
+.dt-bubble .dt-open { display: block; margin: 10px 0 0 auto; padding: 8px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; font-size: 15px; }
 .quick .pair { display: flex; flex-direction: row-reverse; gap: 8px; align-items: center; }
 .quick.help .pair { flex-direction: column; align-items: flex-end; }
 .toast {
