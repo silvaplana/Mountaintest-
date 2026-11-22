@@ -386,14 +386,6 @@
             android:text="Trace un rectangle du doigt sur la zone"
             android:textSize="14sp" />
 
-        <CheckBox
-            android:id="@+id/chkOnPaths"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:checked="false"
-            android:text="recaler sur sentiers"
-            android:visibility="gone" />
-
         <Button
             android:id="@+id/btnFrameCancel"
             style="@style/Widget.AppCompat.Button.Borderless"
@@ -409,13 +401,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
+            android:gravity="center_vertical"
             android:orientation="horizontal"
             android:visibility="gone">
-            <Button android:id="@+id/btnRecStart" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            <!-- ▶ Commencer à droite de « recaler sur sentiers » (demande de Seb). -->
+            <CheckBox
+                android:id="@+id/chkOnPaths"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:checked="false"
+                android:text="recaler sur sentiers"
+                android:visibility="gone" />
+            <Button android:id="@+id/btnRecStart" android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="▶ Commencer" android:textAllCaps="false" />
-            <Button android:id="@+id/btnRecPause" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            <Button android:id="@+id/btnRecPause" android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="⏸ Pause" android:textAllCaps="false" android:visibility="gone" />
-            <Button android:id="@+id/btnRecStop" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+            <Button android:id="@+id/btnRecStop" android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:backgroundTint="#C62828" android:textColor="#FFFFFF"
                 android:text="⏹ Terminer" android:textAllCaps="false" android:visibility="gone" />
         </LinearLayout>
@@ -1242,7 +1244,7 @@
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
             android:gravity="center_vertical" android:orientation="horizontal">
             <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
-                android:text="📂 Mes traces" android:textColor="#1D2421" android:textSize="16sp" android:textStyle="bold" />
+                android:text="📂 Charger des traces" android:textColor="#1D2421" android:textSize="16sp" android:textStyle="bold" />
             <Button android:id="@+id/btnTraceListClose" style="@style/Widget.AppCompat.Button.Borderless"
                 android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="✕"
                 android:contentDescription="Fermer la liste des traces" />
@@ -1251,6 +1253,9 @@
         <LinearLayout style="@style/Row">
             <Button android:id="@+id/btnTraceListFile" style="@style/Btn" android:text="📥 Ouvrir un fichier (GPX, KML, GeoJSON)" />
         </LinearLayout>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:text="Mes traces" android:textColor="#1D2421" android:textSize="15sp" android:textStyle="bold" />
 
         <TextView android:id="@+id/traceListEmpty" style="@style/Hint" android:visibility="gone"
             android:text="Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder »." />

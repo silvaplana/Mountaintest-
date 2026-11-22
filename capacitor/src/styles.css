@@ -460,7 +460,11 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* ✏ Tracé au doigt : bandeau en bas, menu de la trace violette, liste des traces enregistrées. */
 .frame-banner.draw-banner { top: auto; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 10px); flex-wrap: wrap; padding: 8px 10px; }
 .draw-banner .draw-title { flex: 1 1 auto; font-weight: 600; }
+.draw-banner .draw-row { display: flex; gap: 8px; align-items: center; flex: 1 1 100%; }
+.draw-banner .draw-row label.paths { flex: 1 1 auto; }
+.draw-banner .draw-row button { flex: 0 0 auto; }
 .draw-banner .draw-actions { display: flex; gap: 8px; flex: 1 1 100%; }
+.trace-menu .list-title { margin-top: 6px; font-size: 15px; }
 .draw-banner .draw-actions button { flex: 1; }
 .trace-menu {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; max-height: 70%; overflow-y: auto;
