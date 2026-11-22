@@ -3,6 +3,7 @@ import type { ElevatedTrail } from './trails/elevation';
 import type { Trail } from './trails/osmTrails';
 import { walkingHours } from './trails/route';
 import { traceLengthM, type SavedTrace } from './trails/savedTraces';
+import { TRACE_FOLDER } from './trails/traceShare';
 import { formatKm } from './track/stats';
 
 function hours(h: number) {
@@ -62,8 +63,10 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
 }
 
 /** 📂 Charger des traces : 📥 un fichier du téléphone, ou une de Mes traces (toucher pour l'afficher, 🗑 pour l'effacer). */
-export function TraceList({ traces, onPick, onDelete, onClose, onFile }: {
+export function TraceList({ traces, onPick, onDelete, onShare, onClose, onFile }: {
   traces: SavedTrace[]; onPick: (t: SavedTrace) => void; onDelete: (t: SavedTrace) => void; onClose: () => void;
+  /** 📤 Partager le fichier GPX (mail, WhatsApp…). */
+  onShare: (t: SavedTrace) => void;
   /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone. */
   onFile: () => void;
 }) {
@@ -75,6 +78,7 @@ export function TraceList({ traces, onPick, onDelete, onClose, onFile }: {
       </div>
       <div className="row"><button onClick={onFile}>📥 Ouvrir un fichier (GPX, KML, GeoJSON)</button></div>
       <b className="list-title">Mes traces</b>
+      <p className="hint">📁 Fichiers GPX dans {TRACE_FOLDER} (appli Fichiers du téléphone)</p>
       {!traces.length && <p className="hint">Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder ».</p>}
       <ul className="trail-list">
         {traces.map((t) => (
@@ -83,6 +87,7 @@ export function TraceList({ traces, onPick, onDelete, onClose, onFile }: {
               <i style={{ background: '#7b3fe4' }} />
               <span><b>{t.name}</b><small>{formatKm(traceLengthM(t))}{t.onPaths ? ' · recalée sur les chemins' : ''}</small></span>
             </button>
+            <button className="del" onClick={() => onShare(t)} aria-label={`Partager ${t.name}`}>📤</button>
             <button className="del" onClick={() => onDelete(t)} aria-label={`Effacer ${t.name}`}>🗑</button>
           </li>
         ))}

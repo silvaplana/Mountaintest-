@@ -2,4 +2,5 @@
 <paths>
     <cache-path name="maj" path="maj/" />
     <cache-path name="photos" path="photos/" />
+    <cache-path name="partage" path="partage/" />
 </paths>

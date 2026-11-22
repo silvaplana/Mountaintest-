@@ -1836,8 +1836,17 @@ class MainActivity : AppCompatActivity() {
     private fun openTraceList() {
         traceMenuOpen = false; refreshTraceMenu()
         sheetOpen = false; refreshTabs()
-        showTraceList(savedTraces.list())
+        val list = savedTraces.list()
+        showTraceList(list)
+        // Traces sauvegardées avant les fichiers GPX : on les écrit dans Téléchargements/Mountain Buddies.
+        Thread { list.forEach { writeTraceFile(it, false) } }.start()
     }
+
+    private fun flat(line: List<LonLat>) = DoubleArray(line.size * 2) { i -> if (i % 2 == 0) line[i / 2].lon else line[i / 2].lat }
+
+    /** Fichier GPX de la trace dans Téléchargements/Mountain Buddies (null : impossible). */
+    private fun writeTraceFile(st: SavedTrace, replace: Boolean = true): String? =
+        runCatching { TraceShare.save(this, st.name, flat(st.line), replace) }.getOrNull()
 
     /** Liste 📂 des traces enregistrées (null : fermée). Toucher : l'afficher ; 🗑 : l'effacer du téléphone. */
     private fun showTraceList(list: List<SavedTrace>?) {
@@ -1880,12 +1889,21 @@ class MainActivity : AppCompatActivity() {
                     }
                 }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 addView(Button(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
+                    text = "📤"; contentDescription = "Partager ${st.name}"
+                    minWidth = 0; minimumWidth = 0
+                    setOnClickListener {
+                        runCatching { TraceShare.share(this@MainActivity, st.name, flat(st.line)) }
+                            .onFailure { toast("Partage impossible : ${it.message}") }
+                    }
+                })
+                addView(Button(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
                     text = "🗑"; contentDescription = "Effacer ${st.name}"
                     setOnClickListener {
                         android.app.AlertDialog.Builder(this@MainActivity)
                             .setMessage("Effacer « ${st.name} » du téléphone ?")
                             .setPositiveButton("Effacer") { _, _ ->
                                 savedTraces.delete(st.id)
+                                TraceShare.remove(this@MainActivity, st.name)
                                 trails = trails.map { if (it.savedId == st.id) it.copy(savedId = null) else it }
                                 selectedTrail = selectedTrail?.let { if (it.savedId == st.id) it.copy(savedId = null) else it }
                                 refreshTraceMenu()
@@ -1915,6 +1933,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Sauvegarder") { _, _ ->
                 val name = input.text.toString().trim().ifEmpty { SavedTraces.defaultName() }
                 val st = savedTraces.save(name, sel.segments.flatten(), sel.onPaths)
+                writeTraceFile(st)
                 val t = sel.copy(name = st.name, savedId = st.id)
                 selectedTrail = t
                 trails = trails.map { if (it.id == t.id) t else it }
@@ -2098,7 +2117,8 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("💾 Sauvegarder") { _, _ ->
                 answered = true
                 val st = savedTraces.save(input.text.toString().trim().ifEmpty { name }, line, false)
-                toast("💾 Trace « ${st.name} » sauvegardée (📂 Mes traces)")
+                val path = writeTraceFile(st)
+                toast("💾 Trace « ${st.name} » sauvegardée (📂 Mes traces" + (if (path != null) " et $path)" else ")"))
                 done(st)
             }
             .setNegativeButton("Ne pas garder") { _, _ -> answered = true; toast("Trace non sauvegardée"); done(null) }

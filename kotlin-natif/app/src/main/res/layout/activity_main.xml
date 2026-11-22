@@ -1256,6 +1256,7 @@
 
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp"
             android:text="Mes traces" android:textColor="#1D2421" android:textSize="15sp" android:textStyle="bold" />
+        <TextView style="@style/Hint" android:text="📁 Fichiers GPX dans Téléchargements/Mountain Buddies (appli Fichiers du téléphone)" />
 
         <TextView android:id="@+id/traceListEmpty" style="@style/Hint" android:visibility="gone"
             android:text="Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder »." />
