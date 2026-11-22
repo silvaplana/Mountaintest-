@@ -624,6 +624,13 @@ export function App() {
   }
 
   function startDrawing() {
+    // ✏ pendant le suivi d'une trace : on ouvre le menu de la trace suivie, pas un nouveau tracé (demande de Seb).
+    const followed = navId != null ? trails.find((t) => t.id === navId) : null;
+    if (followed) {
+      setTraceList(null); setOpen(false); setSearching(false);
+      if (selected?.id === followed.id) setTraceMenu(true); else void selectTrail(followed);
+      return;
+    }
     // Nouveau tracé : les traces déjà affichées restent sur la carte (chacune sa couleur).
     setTraceMenu(false); setTraceList(null);
     setDrawing(true); setOpen(false); setSearching(false);

@@ -1258,7 +1258,13 @@ class MainActivity : AppCompatActivity() {
             if (navId == id) stopNav()
             selectTrail(null)
         }
-        findViewById<Button>(R.id.btnQuickDraw).setOnClickListener(startDrawing)
+        // ✏ pendant le suivi d'une trace : on ouvre le menu de la trace suivie, pas un nouveau tracé (demande de Seb).
+        findViewById<Button>(R.id.btnQuickDraw).setOnClickListener { v ->
+            val followed = trails.firstOrNull { it.id == navId }
+            if (followed == null) { startDrawing.onClick(v); return@setOnClickListener }
+            showTraceList(null)
+            if (selectedTrail?.id == followed.id) { traceMenuOpen = true; refreshTraceMenu() } else selectTrail(followed)
+        }
         draw.onLine = { pts ->
             val proj = map?.projection
             setFraming(false)
