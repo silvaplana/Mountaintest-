@@ -47,7 +47,7 @@ import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, nextJunctionM } from './trails/junctions';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
-import { NavBar } from './NavBar';
+import { NavBar, RecBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { Usage } from './Usage';
@@ -373,6 +373,20 @@ export function App() {
     }
   }
 
+  /** ⏸ : GPS de l'enregistrement coupé, le parcours déjà fait est gardé ; ▶ reprend à la suite. */
+  async function pauseRecording() {
+    await source.current?.stop();
+    source.current = null; applied.current = null;
+    await recorder.current.save();
+  }
+  async function resumeRecording() {
+    if (source.current || !recording) return;
+    const src = defaultSource();
+    const d = decideSettings({ mode, lastKept: null, latest: null, appVisible: true, battery: battery.current, now: Date.now(), stopPoint: null });
+    try { await src.start(d.settings, onFixes); source.current = src; applied.current = d.settings; }
+    catch (e) { setToast(String((e as Error).message ?? e)); }
+  }
+
   async function stopRecording() {
     await source.current?.stop();
     source.current = null;
@@ -685,7 +699,7 @@ export function App() {
     try {
       const t = parseTraceFile(f.text, f.name);
       const shown = showMine(t.line, { onPaths: false, name: t.name, kind: `Fichier ${f.name || 'chargé'}` });
-      setToast(`📥 « ${t.name} » chargée : 🚗 Y aller pour s'y rendre, ▶ Suivre la trace sur place`);
+      setToast(`📥 « ${t.name} » chargée : 🚗 Y aller pour s'y rendre, ▶ Commencer la trace sur place`);
       // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
       void downloadTrace(shown, true);
     } catch (e) {
@@ -729,11 +743,46 @@ export function App() {
     void selectTrail(null);
   }
 
-  /** 🧭 Naviguer : GPS en suivi (bouton ◎), et bandeau « reste … / hors trace ». */
+  /** ▶ Commencer la trace : GPS en suivi (bouton ◎), bandeau « reste … / hors trace », et le parcours réel
+   *  s'enregistre et se dessine en rouge au fur et à mesure. */
   function startNav() {
     if (!selected) return;
     setNavId(selected.id); setNavPos(null); setTraceMenu(false); setFollow(true);
     gpsOn();
+    void startTraceRecording();
+  }
+
+  /** Enregistrement du parcours réel lancé par ▶ Commencer (arrêté avec la trace). */
+  const recByTrace = useRef(false);
+  async function startTraceRecording() {
+    if (recording) return;
+    recByTrace.current = true;
+    await startRecording();
+  }
+  // ⏹ Arrêter la trace : on arrête aussi l'enregistrement qu'elle avait lancé.
+  useEffect(() => {
+    if (navId == null && !freeRec && recByTrace.current && recording) { recByTrace.current = false; void stopRecording(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navId]);
+
+  /** ▶ Commencer (menu ✏) : nouvelle trace sans parcours prévu, dessinée au fur et à mesure. */
+  const [freeRec, setFreeRec] = useState(false);
+  async function startFree() {
+    setDrawing(false); setTraceList(null); setTraceMenu(false); setFollow(true);
+    gpsOn();
+    if (recording) await stopRecording();
+    recByTrace.current = true;
+    setFreeRec(true);
+    await startRecording();
+  }
+  /** ⏹ : le parcours enregistré devient une de mes traces (💾 pour la garder). */
+  async function stopFree() {
+    setFreeRec(false); recByTrace.current = false;
+    const pts = [...recorder.current.points];
+    await stopRecording();
+    if (pts.length < 2) { setToast('Trace trop courte : rien à garder.'); return; }
+    showMine(pts.map((p) => ({ lon: p.lon, lat: p.lat })), { onPaths: false, name: defaultTraceName().replace('Tracé', 'Trace'), kind: 'Parcours enregistré au GPS' });
+    setToast('⏹ Trace terminée : 💾 Sauvegarder pour la garder sur le téléphone');
   }
 
   const geoState = () => (geo as unknown as { _watchState?: string } | null)?._watchState ?? 'OFF';
@@ -749,12 +798,13 @@ export function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingNav, geo, trails]);
 
-  /** ⏸ Pause du suivi : on coupe le GPS (batterie) ; ▶ le relance, le suivi reprend sur la même trace. */
+  /** ⏸ Pause du suivi : on coupe le GPS (batterie) et l'enregistrement ; ▶ les relance, sur la même trace. */
   function pauseNav() {
     setNavPaused(true); setNavPos(null);
     for (let i = 0; i < 2 && geo && geoState() !== 'OFF'; i++) void geo.trigger();
+    if (recByTrace.current) void pauseRecording();
   }
-  function resumeNav() { setNavPaused(false); setFollow(true); gpsOn(); }
+  function resumeNav() { setNavPaused(false); setFollow(true); gpsOn(); if (recByTrace.current) void resumeRecording(); }
 
   async function exportTrail() {
     if (!selected) return;
@@ -863,14 +913,19 @@ export function App() {
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} top={10} />}
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
-        onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} onFile={() => void openTraceFile()} />}
-      {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} onStop={() => setNavId(null)}
-        paused={navPaused} onPause={pauseNav} onResume={resumeNav} onHelp={setToast} nextJunctionM={nextJunction} />}
+        onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} onFile={() => void openTraceFile()} onStart={() => void startFree()}
+        rec={freeRec ? { paused: navPaused,
+          onPause: () => { setNavPaused(true); void pauseRecording(); setDrawing(false); },
+          onResume: () => { setNavPaused(false); setFollow(true); gpsOn(); void resumeRecording(); setDrawing(false); },
+          onStop: () => { setNavPaused(false); setDrawing(false); void stopFree(); } } : null} />}
+      {freeRec && !drawing && <RecBar points={recorded} paused={navPaused} onOpen={startDrawing} />}
+      {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} paused={navPaused} nextJunctionM={nextJunction} onOpen={startDrawing} />}
       {traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
           savedId={selected.savedId ?? null} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)}
-          navigating={navId === selected.id} onNavigate={startNav} onStopNav={() => setNavId(null)}
+          navigating={navId === selected.id} onNavigate={startNav} onStopNav={() => { setNavId(null); setTraceMenu(false); }}
+          paused={navPaused} onPause={pauseNav} onResume={resumeNav}
           offline={traceOffline?.id === selected.id ? traceOffline.msg + (downloading && progress ? ` ${progress.done + progress.failed}/${progress.total}` : '') : null}
           onOffline={() => void downloadTrace(selected)}
           onGo={() => { const p = selected.segments[0][0]; openDirections(p.lat, p.lon); }} />
@@ -895,6 +950,7 @@ export function App() {
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
         weather={showWeather} onWeather={setShowWeather}
         junctionWake={junctionWake} onJunctionWake={(on) => { setJunctionWake(on); void setTraceWakeEnabled(on); }}
+        traceState={navId != null || freeRec ? (navPaused ? 'pause' : 'run') : 'none'}
         offVibrate={offVibrate} onOffVibrate={(on) => { setOffVibrate(on); void setOffTrackVibrateEnabled(on); }}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}

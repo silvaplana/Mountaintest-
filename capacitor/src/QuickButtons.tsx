@@ -41,6 +41,8 @@ export interface QuickProps {
   junctionWake: boolean; onJunctionWake: (on: boolean) => void;
   /** Vibration quand on quitte la trace suivie (à gauche de ⑂). */
   offVibrate: boolean; onOffVibrate: (on: boolean) => void;
+  /** Trace commencée : pastille sur ✏ (maquette B), verte ▶ en cours, orange ⏸ en pause. */
+  traceState: 'none' | 'run' | 'pause';
 }
 
 /** Icône ⑂ « écran aux carrefours » (maquette A choisie par Seb) : téléphone allumé avec une fourche, rayons. Même dessin côté Kotlin : ic_carrefour.xml. */
@@ -83,7 +85,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSkiText, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSkiText, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -272,18 +274,19 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         onClick={() => {
           const on = !junctionWake;
           onJunctionWake(on);
-          onToast(on ? 'Écran aux carrefours activé : pendant ▶ Suivre la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace'
+          onToast(on ? 'Écran aux carrefours activé : pendant ▶ Commencer la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace'
             : 'Écran aux carrefours désactivé');
         }}><JunctionWakeIcon /></button>}
       {(pair || help) && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
         onClick={() => {
           const on = !offVibrate;
           onOffVibrate(on);
-          onToast(on ? 'Vibration hors trace activée : pendant ▶ Suivre la trace, le téléphone vibre si tu t’éloignes de plus de 50 m'
+          onToast(on ? 'Vibration hors trace activée : pendant ▶ Commencer la trace, le téléphone vibre si tu t’éloignes de plus de 50 m'
             : 'Vibration hors trace désactivée');
         }}><OffTrackVibrateIcon /></button>}
       </div>
-      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏</button>
+      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏
+        {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
       <div className="pair" ref={reliefRef}>
       <button className={slopes ? 'on' : ''} aria-label={relief ? 'Pentes' : 'Pentes et ombres'} data-help="Pentes · appui : montre aussi les ombres" {...lp('slopes')}
         onClick={() => { if (!relief && !help) { setPairOpen('relief'); return; } onSlopes(!slopes); }}>⛰</button>

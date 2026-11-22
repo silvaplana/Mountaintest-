@@ -76,6 +76,8 @@ class TrackingService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+    /** ⏸ : service arrêté sans clore la trace (pas de fichier GPX), elle reprendra avec EXTRA_RESUME. */
+    private val pausing get() = pauseRequested.also { pauseRequested = false }
 
     override fun onCreate() {
         super.onCreate()
@@ -88,7 +90,9 @@ class TrackingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         mode = GpsMode.valueOf(intent?.getStringExtra(EXTRA_MODE) ?: GpsMode.RANDO.name)
         ServiceCompat.startForeground(this, 1, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-        TrackRecorder.start("gps-${mode.label}", mode)
+        // Reprise après ⏸ : on continue la même trace au lieu d'en commencer une nouvelle.
+        if (intent?.getBooleanExtra(EXTRA_RESUME, false) == true && TrackRecorder.state.value.points.isNotEmpty()) TrackRecorder.resume(mode)
+        else TrackRecorder.start("gps-${mode.label}", mode)
         requestUpdates()
         handler.postDelayed(stationaryTimeout, STATIONARY_AFTER_MS)
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -136,7 +140,7 @@ class TrackingService : Service() {
         fused.removeLocationUpdates(callback)
         unregisterReceiver(screenReceiver)
         runCatching { unregisterReceiver(batteryReceiver) }
-        TrackRecorder.stop(getExternalFilesDir("traces")!!)
+        if (pausing) TrackRecorder.finish() else TrackRecorder.stop(getExternalFilesDir("traces")!!)
         super.onDestroy()
     }
 
@@ -153,6 +157,8 @@ class TrackingService : Service() {
 
     companion object {
         const val EXTRA_MODE = "mode"
+        const val EXTRA_RESUME = "reprise"
+        @Volatile var pauseRequested = false
         private const val STATIONARY_AFTER_MS = 120_000L
         private const val LOW_BATTERY_PCT = 20
     }

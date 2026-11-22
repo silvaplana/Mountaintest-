@@ -130,14 +130,14 @@ class MainActivity : AppCompatActivity() {
     private var drawnProfile = false
     /** 🧭 Navigation sur une de mes traces (identifiant) ; on vibre une fois en sortant de la trace. */
     private var navId: Long? = null
-        set(v) { field = v; saveShown() }
+        set(v) { field = v; saveShown(); runCatching { refreshQuickButtons() } }
     private var navJob: kotlinx.coroutines.Job? = null
     private var navWasOff = false
     /** ⑂ Carrefours de la trace suivie (id de la trace, points, positions le long de la trace) ; null : en cours de recherche. */
     private var navJunctions: Triple<Long, List<LonLat>, List<Double>>? = null
     /** ⏸ Suivi en pause : GPS coupé pour la batterie, plus d'alerte ; ▶ reprend sur la même trace. */
     private var navPaused = false
-        set(v) { field = v; saveShown() }
+        set(v) { field = v; saveShown(); runCatching { refreshQuickButtons() } }
     /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu (identifiant, texte). */
     private var traceOffline: Pair<Long, String>? = null
     private var traceDownloading = false
@@ -410,11 +410,11 @@ class MainActivity : AppCompatActivity() {
             toast(if (on) "Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer" else "Mode poche désactivé")
             refreshQuickButtons()
         }
-        // ⑂ Écran rallumé avant les carrefours (et hors trace) pendant ▶ Suivre la trace : réglage gardé.
+        // ⑂ Écran rallumé avant les carrefours (et hors trace) pendant ▶ Commencer la trace : réglage gardé.
         findViewById<View>(R.id.btnCarrefour).setOnClickListener {
             val on = !Junctions.wakeEnabled(this)
             Junctions.setWakeEnabled(this, on)
-            toast(if (on) "Écran aux carrefours activé : pendant ▶ Suivre la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace"
+            toast(if (on) "Écran aux carrefours activé : pendant ▶ Commencer la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace"
                 else "Écran aux carrefours désactivé")
             syncTraceWake()
             refreshQuickButtons()
@@ -422,7 +422,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnVibre).setOnClickListener {
             val on = !Junctions.vibrateEnabled(this)
             Junctions.setVibrateEnabled(this, on)
-            toast(if (on) "Vibration hors trace activée : pendant ▶ Suivre la trace, le téléphone vibre si tu t’éloignes de plus de 50 m"
+            toast(if (on) "Vibration hors trace activée : pendant ▶ Commencer la trace, le téléphone vibre si tu t’éloignes de plus de 50 m"
                 else "Vibration hors trace désactivée")
             syncTraceWake()
             refreshQuickButtons()
@@ -487,7 +487,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                TrackRecorder.state.collect { render(); refreshStats() }
+                TrackRecorder.state.collect { render(); refreshStats(); refreshRecBar() }
             }
         }
     }
@@ -1235,6 +1235,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnLoadTraces).setOnClickListener { setFraming(false); openTraceList() }
         findViewById<Button>(R.id.btnMyTraces).setOnClickListener { openTraceList() }
         val openFile = View.OnClickListener { setFraming(false); showTraceList(null); traceFileLauncher.launch(Unit) }
+        // ✏ pendant une nouvelle trace (sans parcours prévu) : son menu = le bandeau ✏ avec ⏸ et ⏹.
         findViewById<Button>(R.id.btnOpenTraceFile).setOnClickListener(openFile)
         findViewById<Button>(R.id.btnTrailsFile).setOnClickListener(openFile)
         findViewById<Button>(R.id.btnTraceListFile).setOnClickListener(openFile)
@@ -1242,13 +1243,17 @@ class MainActivity : AppCompatActivity() {
             val sel = selectedTrail?.takeIf { Trails.isMine(it.id) } ?: return@setOnClickListener
             if (navId == sel.id) stopNav() else startNav(sel)
         }
-        findViewById<Button>(R.id.btnNavStop).setOnClickListener { stopNav() }
-        findViewById<Button>(R.id.btnNavPause).setOnClickListener { if (navPaused) resumeNav() else pauseNav() }
-        // Appui long sur une icône du bandeau : son explication.
-        findViewById<Button>(R.id.btnNavStop).setOnLongClickListener { toast("⏹ Arrêter le suivi de la trace."); true }
-        findViewById<Button>(R.id.btnNavPause).setOnLongClickListener {
-            toast(if (navPaused) "▶ Reprendre le suivi : le GPS se rallume." else "⏸ Pause : coupe le GPS pour la batterie, ▶ pour reprendre."); true
+        // ⏸ / ▶ de la trace commencée : dans son menu (pas sur la carte, demande de Seb).
+        findViewById<Button>(R.id.btnTracePause).setOnClickListener { if (navPaused) resumeNav() else pauseNav(); refreshTraceMenu() }
+        // Toucher le bandeau du haut : ouvre le menu de la trace en cours (comme ✏).
+        findViewById<View>(R.id.navBar).setOnClickListener { findViewById<View>(R.id.btnQuickDraw).performClick() }
+        // ▶ Commencer (menu ✏) : nouvelle trace sans parcours prévu ; ⏸ / ▶ et ⏹ Terminer quand elle est en cours.
+        findViewById<Button>(R.id.btnRecStart).setOnClickListener { startFree() }
+        findViewById<Button>(R.id.btnRecPause).setOnClickListener {
+            if (navPaused) { navPaused = false; resumeTraceRecording() } else { navPaused = true; pauseTraceRecording() }
+            setFraming(false); refreshRecBar()
         }
+        findViewById<Button>(R.id.btnRecStop).setOnClickListener { setFraming(false); stopFree() }
         // 🚗 Y aller : Google Maps en voiture jusqu'au départ de la trace.
         findViewById<Button>(R.id.btnTraceGo).setOnClickListener {
             selectedTrail?.segments?.firstOrNull()?.firstOrNull()?.let { openDirections(it.lat, it.lon) }
@@ -1610,6 +1615,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnLoadTraces).visibility = if (freehand) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnOpenTraceFile).visibility = if (freehand) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.recRow).visibility = if (freehand) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnRecStart).visibility = if (!freeRec) View.VISIBLE else View.GONE
+        findViewById<View>(R.id.btnRecStop).visibility = if (freeRec) View.VISIBLE else View.GONE
+        findViewById<Button>(R.id.btnRecPause).apply { visibility = if (freeRec) View.VISIBLE else View.GONE; text = if (navPaused) "▶ Reprendre" else "⏸ Pause" }
         // Tracé au doigt : bandeau tout en bas de l'écran (demande de Seb), le haut reste libre pour dessiner.
         val m = (10 * resources.displayMetrics.density).toInt()
         findViewById<View>(R.id.frameBanner).updateLayoutParams<android.widget.FrameLayout.LayoutParams> {
@@ -1799,7 +1808,7 @@ class MainActivity : AppCompatActivity() {
             }
             r.onSuccess { (file, p) ->
                 val t = showMine(p.line, false, p.name, null, "Fichier ${file.ifEmpty { "chargé" }}")
-                toast("📥 « ${p.name} » chargée : 🚗 Y aller pour s'y rendre, ▶ Suivre la trace sur place")
+                toast("📥 « ${p.name} » chargée : 🚗 Y aller pour s'y rendre, ▶ Commencer la trace sur place")
                 // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
                 downloadTrace(t, ask = true)
             }.onFailure { toast("Fichier illisible : ${it.message}") }
@@ -1906,7 +1915,11 @@ class MainActivity : AppCompatActivity() {
         if (!show || sel == null) return
         findViewById<TextView>(R.id.traceName).text = sel.name
         findViewById<View>(R.id.traceColor).setBackgroundColor(Color.parseColor(sel.color))
-        findViewById<Button>(R.id.btnTraceNav).text = if (navId == sel.id) "⏹ Arrêter le suivi" else "▶ Suivre la trace"
+        findViewById<Button>(R.id.btnTraceNav).text = if (navId == sel.id) "⏹ Arrêter" else "▶ Commencer la trace"
+        findViewById<Button>(R.id.btnTracePause).apply {
+            visibility = if (navId == sel.id) View.VISIBLE else View.GONE
+            text = if (navPaused) "▶ Reprendre" else "⏸ Pause"
+        }
         findViewById<TextView>(R.id.traceOffline).apply {
             val msg = traceOffline?.takeIf { it.first == sel.id }?.second
             text = msg.orEmpty(); visibility = if (msg != null) View.VISIBLE else View.GONE
@@ -2008,6 +2021,70 @@ class MainActivity : AppCompatActivity() {
         }
         refreshNav()
         loadJunctions(t)
+        // Le parcours réel s'enregistre et se dessine en rouge au fur et à mesure.
+        if (!recording()) { recByTrace = true; startRecording() }
+    }
+
+    /** Enregistrement lancé par ▶ Commencer (la trace ou une nouvelle trace) : arrêté avec elle. */
+    private var recByTrace = false
+    /** Nouvelle trace commencée depuis ✏, sans parcours prévu. */
+    private var freeRec = false
+        set(v) { field = v; runCatching { refreshQuickButtons() } }
+
+    private fun pauseTraceRecording() {
+        if (!recByTrace || !gpsRunning) return
+        TrackingService.pauseRequested = true
+        stopService(Intent(this, TrackingService::class.java))
+        gpsRunning = false
+        refreshSortie()
+    }
+
+    private fun resumeTraceRecording() {
+        if (!recByTrace || gpsRunning) return
+        ContextCompat.startForegroundService(this, Intent(this, TrackingService::class.java)
+            .putExtra(TrackingService.EXTRA_MODE, mode.name).putExtra(TrackingService.EXTRA_RESUME, true))
+        gpsRunning = true
+        refreshSortie()
+    }
+
+    /** ▶ Commencer (menu ✏) : nouvelle trace sans parcours prévu, dessinée au fur et à mesure. */
+    private fun startFree() {
+        setFraming(false)
+        if (recording()) stopRecording()
+        freeRec = true; recByTrace = true; navPaused = false
+        if (!locating) onLocateClicked()
+        startRecording()
+        refreshRecBar()
+    }
+
+    /** ⏹ Terminer : le parcours enregistré devient une de mes traces (💾 pour la garder). */
+    private fun stopFree() {
+        val pts = TrackRecorder.state.value.points.map { LonLat(it.lon, it.lat) }
+        freeRec = false; recByTrace = false; navPaused = false
+        stopRecording()
+        refreshRecBar()
+        if (pts.size < 2) { toast("Trace trop courte : rien à garder."); return }
+        showMine(pts, false, SavedTraces.defaultName().replace("Tracé", "Trace"), kind = "Parcours enregistré au GPS")
+        toast("⏹ Trace terminée : 💾 Sauvegarder pour la garder sur le téléphone")
+    }
+
+    /** Bandeau du haut pour une nouvelle trace : distance, D+ et durée (les boutons sont dans le menu ✏). */
+    private fun refreshRecBar() {
+        if (navId != null) return
+        val bar = findViewById<View>(R.id.navBar)
+        if (!freeRec) { bar.visibility = View.GONE; return }
+        bar.visibility = if (findViewById<View>(R.id.frameBanner).visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.navColor).setBackgroundColor(Color.parseColor("#E4572E"))
+        findViewById<TextView>(R.id.navName).text = "⏺ Nouvelle trace"
+        findViewById<View>(R.id.navStatus).visibility = View.GONE
+        val s = TrackRecorder.state.value
+        val min = ((System.currentTimeMillis() - s.startedMs) / 60_000).toInt()
+        findViewById<TextView>(R.id.navInfo).text = when {
+            navPaused -> "⏸ En pause : GPS coupé pour la batterie"
+            s.points.size < 2 -> "En attente de la position GPS…"
+            else -> String.format(Locale.FRANCE, "%.2f km · D+ %d m · %d h %02d", s.distanceM / 1000, s.gainM.roundToInt(), min / 60, min % 60)
+        }
+        bar.setBackgroundColor(Color.parseColor(if (navPaused) "#F2F2F2" else "#FFFFFF"))
     }
 
     /** ⑂ Carrefours de la trace : gardés sur le téléphone (📶 Hors ligne), sinon cherchés dans OpenStreetMap. */
@@ -2046,18 +2123,21 @@ class MainActivity : AppCompatActivity() {
         navPaused = true; navJob?.cancel(); navJob = null
         if (locating) stopLocate()
         syncTraceWake()
+        pauseTraceRecording()
         refreshNav()
     }
 
     /** ▶ Reprise : GPS rallumé en suivi, bandeau remis à jour toutes les 2 s. */
     private fun resumeNav() {
         val t = trails.firstOrNull { it.id == navId } ?: return stopNav()
+        resumeTraceRecording()
         startNav(t)
     }
 
     private fun stopNav() {
         navId = null; navPaused = false; navJob?.cancel(); navJob = null
         syncTraceWake()
+        if (recByTrace && !freeRec) { recByTrace = false; stopRecording() }
         findViewById<View>(R.id.navBar).visibility = View.GONE
         refreshTraceMenu()
     }
@@ -2785,6 +2865,9 @@ class MainActivity : AppCompatActivity() {
                 if (helpOverlay != null) android.widget.LinearLayout.VERTICAL else android.widget.LinearLayout.HORIZONTAL
         }
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
+        // ✏ pendant une trace commencée (maquette B) : pastille verte ▶ en cours, orange ⏸ en pause.
+        findViewById<View>(R.id.btnQuickDraw).foreground =
+            if (navId != null || freeRec) PencilBadge(navPaused, resources.displayMetrics.density) else null
         // ⑂ : visible avec 👖 ; activé = anneau bleu, désactivé = grisé (maquette A).
         for ((id, on) in listOf(R.id.btnCarrefour to Junctions.wakeEnabled(this), R.id.btnVibre to Junctions.vibrateEnabled(this)))
             findViewById<ImageButton>(id).apply {
@@ -2831,4 +2914,23 @@ class MainActivity : AppCompatActivity() {
         private const val LAYER_WEB_HIKES = "web-hikes"
         private const val LAYER_SLOPES = "slopes"
     }
+}
+
+/** Pastille en haut à droite du bouton ✏ : verte ▶ (trace en cours) ou orange ⏸ (en pause). Même dessin côté Capacitor. */
+private class PencilBadge(private val paused: Boolean, private val d: Float) : android.graphics.drawable.Drawable() {
+    private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private val text = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE; textAlign = android.graphics.Paint.Align.CENTER; textSize = 10 * d
+    }
+    override fun draw(c: android.graphics.Canvas) {
+        val r = 10 * d
+        val cx = bounds.right - r + 3 * d; val cy = bounds.top + r - 3 * d
+        fill.color = Color.WHITE; c.drawCircle(cx, cy, r + 2 * d, fill)
+        fill.color = Color.parseColor(if (paused) "#F0A000" else "#2F6F4F"); c.drawCircle(cx, cy, r, fill)
+        c.drawText(if (paused) "⏸" else "▶", cx, cy - (text.descent() + text.ascent()) / 2, text)
+    }
+    override fun setAlpha(alpha: Int) {}
+    override fun setColorFilter(cf: android.graphics.ColorFilter?) {}
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
 }

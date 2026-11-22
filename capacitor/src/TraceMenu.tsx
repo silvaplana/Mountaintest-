@@ -14,13 +14,15 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, offline, onOffline, onGo }: {
+export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
   slopes: boolean; onSlopes: (v: boolean) => void;
   showProfile: boolean; onShowProfile: (v: boolean) => void;
   cursor: number | null; onCursor: (d: number | null) => void;
   savedId: number | null; onSave: () => void; onDelete: () => void; onClose: () => void;
   navigating: boolean; onNavigate: () => void; onStopNav: () => void;
+  /** ⏸ Pause de la trace commencée (GPS coupé), ▶ reprise : seulement ici, pas sur la carte (demande de Seb). */
+  paused: boolean; onPause: () => void; onResume: () => void;
   /** 📶 Cartes autour de la trace : état du téléchargement (null : pas fait). */
   offline: string | null; onOffline: () => void;
   /** 🚗 Y aller : Google Maps en voiture jusqu'au départ de la trace. */
@@ -44,8 +46,10 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
       {showProfile && el && <Profile segments={el.segments} cursor={cursor} onCursor={onCursor} />}
       <div className="row">
         <button className="primary" onClick={onGo}>🚗 Y aller</button>
-        {navigating ? <button className="stop" onClick={onStopNav}>⏹ Arrêter le suivi</button>
-          : <button onClick={onNavigate}>▶ Suivre la trace</button>}
+        {navigating ? <>
+            {paused ? <button onClick={onResume}>▶ Reprendre</button> : <button onClick={onPause}>⏸ Pause</button>}
+            <button className="stop" onClick={onStopNav}>⏹ Arrêter</button>
+          </> : <button onClick={onNavigate}>▶ Commencer la trace</button>}
       </div>
       {offline && <p className="hint">{offline}</p>}
       <div className="row">
