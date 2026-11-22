@@ -92,10 +92,12 @@ public class TraceWake extends Service {
 
     @SuppressWarnings("deprecation")
     private static void showOverLock(Activity a, boolean on) {
-        if (Build.VERSION.SDK_INT >= 27) { a.setShowWhenLocked(on); a.setTurnScreenOn(on); }
+        // Toujours devant le verrouillage (voir PocketMode.sync) ; rallumer l'écran seulement pendant la trace ou en mode poche.
+        if (Build.VERSION.SDK_INT >= 27) { a.setShowWhenLocked(true); a.setTurnScreenOn(on); }
         else {
-            int f = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON;
-            if (on) a.getWindow().addFlags(f); else a.getWindow().clearFlags(f);
+            a.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+            if (on) a.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+            else a.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         }
     }
 
