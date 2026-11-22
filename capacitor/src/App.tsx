@@ -872,6 +872,12 @@ export function App() {
     return () => { void stopTraceWake().catch(() => {}); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wakeOn, navTrail?.id, junctions, junctionWake, offVibrate]);
+  // Nouvelle trace (✏ ▶ Commencer) : même service, sans trace prévue, pour passer devant l'écran de verrouillage.
+  useEffect(() => {
+    if (!freeRec || navPaused) return;
+    void startTraceWake([], [], false, false).catch(() => {});
+    return () => { void stopTraceWake().catch(() => {}); };
+  }, [freeRec, navPaused]);
   const alongs = useMemo(() => (navTrail && junctions.id === navTrail.id && junctions.pts?.length
     ? junctionAlongs(navTrail.segments.flat(), junctions.pts) : []), [navTrail, junctions]);
   const nextJunction = nav ? nextJunctionM(alongs, nav.alongM) : null;

@@ -66,8 +66,8 @@ public class TraceWake extends Service {
     private static volatile boolean vibrateOff = true;
     private static WeakReference<Activity> activityRef = new WeakReference<>(null);
 
-    /** Service en marche et écran à rallumer : l'appli doit pouvoir passer devant l'écran de verrouillage. */
-    public static boolean isActive() { return active && wakeScreen; }
+    /** Trace en cours : l'appli passe devant l'écran de verrouillage au rallumage (par défaut, demande de Seb). */
+    public static boolean isActive() { return active; }
     public static boolean isRunning() { return active; }
 
     /** Démarre le suivi (depuis l'activité visible) avec la trace et ses carrefours. */
@@ -78,7 +78,7 @@ public class TraceWake extends Service {
         junctions = junctionsLonLat != null ? junctionsLonLat : new double[0];
         active = true;
         activityRef = new WeakReference<>(a);
-        showOverLock(a, wake || PocketMode.isEnabled(a));
+        showOverLock(a, true);
         Intent i = new Intent(a, TraceWake.class);
         if (Build.VERSION.SDK_INT >= 26) a.startForegroundService(i); else a.startService(i);
         if (instance != null) instance.reset();
