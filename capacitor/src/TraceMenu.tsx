@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { Profile } from './Profile';
 import type { ElevatedTrail } from './trails/elevation';
 import type { Trail } from './trails/osmTrails';
@@ -70,6 +71,8 @@ export function TraceList({ traces, onPick, onDelete, onShare, onClose, onFile }
   /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone. */
   onFile: () => void;
 }) {
+  const [showFolder, setShowFolder] = useState(false);
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   return (
     <section className="trace-menu">
       <div className="head">
@@ -77,8 +80,12 @@ export function TraceList({ traces, onPick, onDelete, onShare, onClose, onFile }
         <button className="close" onClick={onClose} aria-label="Fermer la liste des traces">✕</button>
       </div>
       <div className="row"><button onClick={onFile}>📥 Ouvrir un fichier (GPX, KML, GeoJSON)</button></div>
-      <b className="list-title">Mes traces</b>
-      <p className="hint">📁 Fichiers GPX dans {TRACE_FOLDER} (appli Fichiers du téléphone)</p>
+      {/* Appui long sur « Mes traces » : le dossier des fichiers GPX (demande de Seb : pas affiché en permanence). */}
+      <b className="list-title" onContextMenu={(e) => e.preventDefault()}
+        onPointerDown={() => { if (press.current) clearTimeout(press.current); press.current = setTimeout(() => setShowFolder((v) => !v), 550); }}
+        onPointerUp={() => { if (press.current) clearTimeout(press.current); }}
+        onPointerLeave={() => { if (press.current) clearTimeout(press.current); }}>Mes traces</b>
+      {showFolder && <p className="hint">📁 Fichiers GPX dans {TRACE_FOLDER} (appli Fichiers du téléphone)</p>}
       {!traces.length && <p className="hint">Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder ».</p>}
       <ul className="trail-list">
         {traces.map((t) => (

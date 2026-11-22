@@ -465,7 +465,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .draw-banner .draw-row label.paths { flex: 1 1 auto; }
 .draw-banner .draw-row button { flex: 0 0 auto; }
 .draw-banner .draw-actions { display: flex; gap: 8px; flex: 1 1 100%; }
-.trace-menu .list-title { margin-top: 6px; font-size: 15px; }
+.trace-menu .list-title { margin-top: 6px; font-size: 15px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .draw-banner .draw-actions button { flex: 1; }
 .trace-menu {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; max-height: 70%; overflow-y: auto;

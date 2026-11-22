@@ -1250,6 +1250,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnOpenTraceFile).setOnClickListener(openFile)
         findViewById<Button>(R.id.btnTrailsFile).setOnClickListener(openFile)
         findViewById<Button>(R.id.btnTraceListFile).setOnClickListener(openFile)
+        // Appui long sur « Mes traces » : montre ou cache le dossier des fichiers GPX.
+        findViewById<TextView>(R.id.traceListTitle).setOnLongClickListener {
+            findViewById<View>(R.id.traceListFolder).apply { visibility = if (visibility == View.VISIBLE) View.GONE else View.VISIBLE }
+            true
+        }
         findViewById<Button>(R.id.btnTraceNav).setOnClickListener {
             val sel = selectedTrail?.takeIf { Trails.isMine(it.id) } ?: return@setOnClickListener
             if (navId == sel.id) stopNav() else startNav(sel)

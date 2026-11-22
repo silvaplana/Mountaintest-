@@ -1254,9 +1254,11 @@
             <Button android:id="@+id/btnTraceListFile" style="@style/Btn" android:text="📥 Ouvrir un fichier (GPX, KML, GeoJSON)" />
         </LinearLayout>
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+        <!-- Appui long sur « Mes traces » : le dossier des fichiers GPX (pas affiché en permanence, demande de Seb). -->
+        <TextView android:id="@+id/traceListTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp"
             android:text="Mes traces" android:textColor="#1D2421" android:textSize="15sp" android:textStyle="bold" />
-        <TextView style="@style/Hint" android:text="📁 Fichiers GPX dans Téléchargements/Mountain Buddies (appli Fichiers du téléphone)" />
+        <TextView android:id="@+id/traceListFolder" style="@style/Hint" android:visibility="gone"
+            android:text="📁 Fichiers GPX dans Téléchargements/Mountain Buddies (appli Fichiers du téléphone)" />
 
         <TextView android:id="@+id/traceListEmpty" style="@style/Hint" android:visibility="gone"
             android:text="Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder »." />
