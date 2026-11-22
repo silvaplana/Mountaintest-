@@ -1625,6 +1625,11 @@ class MainActivity : AppCompatActivity() {
             else -> "Trace un rectangle du doigt sur la zone"
         }
         findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
+        // Menu ✏ : une croix en haut à droite pour le fermer, pas de bouton « Annuler » (demande de Seb).
+        findViewById<Button>(R.id.btnFrameCancel).apply {
+            text = if (freehand) "✕" else "Annuler"
+            contentDescription = if (freehand) "Fermer le menu" else "Annuler"
+        }
         findViewById<View>(R.id.btnLoadTraces).visibility = if (freehand) View.VISIBLE else View.GONE
         // 📥 Ouvrir un fichier : dans l'écran 📂 Charger des traces seulement (demande de Seb).
         findViewById<View>(R.id.btnOpenTraceFile).visibility = View.GONE
