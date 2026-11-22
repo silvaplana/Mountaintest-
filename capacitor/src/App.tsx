@@ -38,6 +38,7 @@ import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { TraceList, TraceMenu } from './TraceMenu';
 import { defaultTraceName, deleteTrace, listTraces, saveTrace, traceLine, type SavedTrace } from './trails/savedTraces';
+import { removeTraceFile, shareTrace, writeTraceFile } from './trails/traceShare';
 import { Profile } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
 import { drawnTrail, isMine, nextMine, routeOnPaths, walkingHours, waypoints } from './trails/route';
@@ -709,7 +710,10 @@ export function App() {
 
   async function openTraceList() {
     setDrawing(false); setTraceMenu(false); setOpen(false);
-    setTraceList(await listTraces());
+    const list = await listTraces();
+    setTraceList(list);
+    // Traces sauvegardées avant les fichiers GPX : on les écrit dans Téléchargements/Mountain Buddies.
+    for (const st of list) void writeTraceFile(st, false);
   }
 
   function loadTrace(st: SavedTrace) {
@@ -726,6 +730,7 @@ export function App() {
     if (name == null) return;
     try {
       const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), selected.onPaths ?? false);
+      void writeTraceFile(st);
       const t = { ...selected, name: st.name, savedId: st.id };
       setSelected(t);
       setTrails((prev) => prev.map((x) => (x.id === t.id ? t : x)));
@@ -779,7 +784,8 @@ export function App() {
     if (n == null) { setToast('Trace non sauvegardée'); return null; }
     try {
       const st = await saveTrace(n || name, line, false);
-      setToast(`💾 Trace « ${st.name} » sauvegardée (📂 Mes traces)`);
+      const path = await writeTraceFile(st);
+      setToast(`💾 Trace « ${st.name} » sauvegardée (📂 Mes traces${path ? ` et ${path}` : ''})`);
       return st;
     } catch (e) {
       setToast(`Sauvegarde impossible : ${(e as Error).message}`);
@@ -962,8 +968,10 @@ export function App() {
       )}
       {traceList && !drawing && (
         <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}
+          onShare={(t) => void shareTrace(t).catch((e) => setToast(`Partage impossible : ${(e as Error).message}`))}
           onDelete={(t) => {
             if (!window.confirm(`Effacer « ${t.name} » du téléphone ?`)) return;
+            void removeTraceFile(t);
             void deleteTrace(t.id).then(listTraces).then(setTraceList);
             setTrails((prev) => prev.map((x) => (x.savedId === t.id ? { ...x, savedId: null } : x)));
             setSelected((cur) => (cur?.savedId === t.id ? { ...cur, savedId: null } : cur));
