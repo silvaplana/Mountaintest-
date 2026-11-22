@@ -357,7 +357,7 @@ class MainActivity : AppCompatActivity() {
         // Appui long sur une icône : sa bulle d'aide (pour ⛰, la légende des couleurs en degrés). 🌦 garde son appui long (Météo-France).
         mapOf(
             R.id.btnQuickClose to "close", R.id.btnLocate to "locate", R.id.btnQuickSearch to "search", R.id.btnQuickPhoto to "photo",
-            R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnCarrefour to "carrefours", R.id.btnVibre to "vibre", R.id.btnQuickDraw to "draw",
+            R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnReglages to "reglages", R.id.btnCarrefour to "carrefours", R.id.btnVibre to "vibre", R.id.btnDoubleTap to "doubletap", R.id.btnQuickDraw to "draw",
             R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnSkiText to "skiText",
             R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses",
         ).forEach { (id, key) -> findViewById<View>(id).setOnLongClickListener { v -> showIconTip(v, key); true } }
@@ -426,6 +426,17 @@ class MainActivity : AppCompatActivity() {
                 else "Vibration hors trace désactivée")
             syncTraceWake()
             refreshQuickButtons()
+        }
+        // ⚙ Réglages du suivi : déplie ou replie ⑂, la vibration hors trace et le double tap.
+        findViewById<Button>(R.id.btnReglages).setOnClickListener { reglagesOpen = !reglagesOpen; refreshQuickButtons() }
+        // Double tap : l'appli ne peut pas activer ce réglage ; elle explique et ouvre les réglages du téléphone.
+        findViewById<View>(R.id.btnDoubleTap).setOnClickListener {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Double tap pour allumer l'écran")
+                .setMessage("Dans la page qui s'ouvre, active « Appuyer deux fois pour allumer l'écran ». Sur Samsung : Fonctions avancées › Mouvements et gestes. Ensuite deux petits coups sur l'écran éteint le rallument, pratique avec des gants ou sur le vélo.")
+                .setPositiveButton("Ouvrir les réglages") { _, _ -> BatterySettings.open(this, "doubletap") }
+                .setNegativeButton("Fermer", null)
+                .show()
         }
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
 
@@ -2065,8 +2076,28 @@ class MainActivity : AppCompatActivity() {
         stopRecording()
         refreshRecBar()
         if (pts.size < 2) { toast("Trace trop courte : rien à garder."); return }
-        showMine(pts, false, SavedTraces.defaultName().replace("Tracé", "Trace"), kind = "Parcours enregistré au GPS")
-        toast("⏹ Trace terminée : 💾 Sauvegarder pour la garder sur le téléphone")
+        val name = SavedTraces.defaultName().replace("Tracé", "Trace")
+        offerSave(pts, name) { st -> showMine(pts, false, st?.name ?: name, st?.id, kind = "Parcours enregistré au GPS") }
+    }
+
+    /** ⏹ Fin d'une trace commencée : « Sauvegarder la trace ? » avec un nom proposé, modifiable (Annuler : pas gardée). */
+    private fun offerSave(line: List<LonLat>, name: String, done: (SavedTrace?) -> Unit = {}) {
+        if (line.size < 2) { toast("Trace trop courte : rien à garder."); done(null); return }
+        val input = EditText(this).apply { setText(name); selectAll() }
+        var answered = false
+        android.app.AlertDialog.Builder(this)
+            .setTitle("⏹ Trace terminée : la sauvegarder ?")
+            .setMessage("Nom de la trace :")
+            .setView(input)
+            .setPositiveButton("💾 Sauvegarder") { _, _ ->
+                answered = true
+                val st = savedTraces.save(input.text.toString().trim().ifEmpty { name }, line, false)
+                toast("💾 Trace « ${st.name} » sauvegardée (📂 Mes traces)")
+                done(st)
+            }
+            .setNegativeButton("Ne pas garder") { _, _ -> answered = true; toast("Trace non sauvegardée"); done(null) }
+            .setOnDismissListener { if (!answered) done(null) }
+            .show()
     }
 
     /** Bandeau du haut pour une nouvelle trace : distance, D+ et durée (les boutons sont dans le menu ✏). */
@@ -2139,9 +2170,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopNav() {
+        val stoppedId = navId
         navId = null; navPaused = false; navJob?.cancel(); navJob = null
         syncTraceWake()
-        if (recByTrace && !freeRec) { recByTrace = false; stopRecording() }
+        if (recByTrace && !freeRec) {
+            // Le parcours réel de la trace suivie : on propose de le garder.
+            val pts = TrackRecorder.state.value.points.map { LonLat(it.lon, it.lat) }
+            val base = trails.firstOrNull { it.id == stoppedId }?.name
+            recByTrace = false; stopRecording()
+            val date = SavedTraces.defaultName().replace("Tracé du ", "parcours du ")
+            offerSave(pts, if (base != null) "$base ($date)" else SavedTraces.defaultName().replace("Tracé", "Trace"))
+        }
         findViewById<View>(R.id.navBar).visibility = View.GONE
         refreshTraceMenu()
     }
@@ -2596,6 +2635,8 @@ class MainActivity : AppCompatActivity() {
     private var helpOverlay: View? = null
     /** Duo déplié (R.id.pairAvion : 👖 à côté de ✈, R.id.pairRelief : 🌗 à côté de ⛰), 0 si aucun ; toucher ailleurs le replie. */
     private var pairOpen = 0
+    /** ⚙ déplié (⑂, vibration, double tap visibles) ; se replie avec le duo ✈. */
+    private var reglagesOpen = false
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
         if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) lastTouch = android.os.SystemClock.uptimeMillis()
@@ -2782,7 +2823,7 @@ class MainActivity : AppCompatActivity() {
         icons.visibility = View.VISIBLE
         for (i in 0 until icons.childCount) icons.getChildAt(i).visibility = View.VISIBLE
         // Les duos ✈ / 👖 et ⛰ / 🌗 : tous visibles, l'un sous l'autre, pour que chaque étiquette ait sa place.
-        for (id in listOf(R.id.btnPoche, R.id.btnCarrefour, R.id.btnVibre, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
+        for (id in listOf(R.id.btnPoche, R.id.btnReglages, R.id.btnCarrefour, R.id.btnVibre, R.id.btnDoubleTap, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
         findViewById<View>(R.id.btnSki).visibility = View.GONE
         for (id in listOf(R.id.pairAvion, R.id.pairRelief)) findViewById<android.widget.LinearLayout>(id).orientation = android.widget.LinearLayout.VERTICAL
         val labels = linkedMapOf(
@@ -2790,7 +2831,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickToggle to "Appui : icônes suivantes · appui long : aide",
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
-            R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace",
+            R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to "Sorties ski (🗺 : sur la carte)",
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
@@ -2868,10 +2909,19 @@ class MainActivity : AppCompatActivity() {
         // ✏ pendant une trace commencée (maquette B) : pastille verte ▶ en cours, orange ⏸ en pause.
         findViewById<View>(R.id.btnQuickDraw).foreground =
             if (navId != null || freeRec) PencilBadge(navPaused, resources.displayMetrics.density) else null
-        // ⑂ : visible avec 👖 ; activé = anneau bleu, désactivé = grisé (maquette A).
+        // ⚙ visible avec 👖, anneau bleu s'il est déplié ou qu'un réglage est allumé ; ⑂, vibration et double tap quand ⚙ est déplié.
+        if (pairOpen != R.id.pairAvion) reglagesOpen = false
+        val pocheVis = findViewById<View>(R.id.btnPoche).visibility
+        val subVis = if (helpOverlay != null || (pocheVis == View.VISIBLE && reglagesOpen)) View.VISIBLE else View.GONE
+        findViewById<Button>(R.id.btnReglages).apply {
+            visibility = pocheVis
+            setBackgroundResource(if (reglagesOpen || Junctions.wakeEnabled(this@MainActivity) || Junctions.vibrateEnabled(this@MainActivity)) R.drawable.round_btn_ring else R.drawable.round_btn)
+        }
+        findViewById<View>(R.id.btnDoubleTap).visibility = subVis
+        // ⑂ et vibration : activé = anneau bleu, désactivé = grisé (maquette A).
         for ((id, on) in listOf(R.id.btnCarrefour to Junctions.wakeEnabled(this), R.id.btnVibre to Junctions.vibrateEnabled(this)))
             findViewById<ImageButton>(id).apply {
-                visibility = findViewById<View>(R.id.btnPoche).visibility
+                visibility = subVis
                 setBackgroundResource(if (on) R.drawable.round_btn_ring else R.drawable.round_btn)
                 imageAlpha = if (on) 255 else 115
                 colorFilter = if (on) null else android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(0f) })

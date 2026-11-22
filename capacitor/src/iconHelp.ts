@@ -3,7 +3,7 @@
  * Mêmes textes côté Kotlin (kotlin-natif/.../IconHelp.kt) : les garder identiques.
  */
 export type IconKey =
-  | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'carrefours' | 'vibre' | 'draw'
+  | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'
   | 'slopes' | 'shade' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
@@ -14,8 +14,10 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   layer: { title: '🗺 Fond de carte', text: 'SCAN 25, Plan IGN ou auto.' },
   avion: { title: '✈ Mode avion', text: 'Ouvre le réglage. Le GPS marche toujours.' },
   poche: { title: '👖 Mode poche', text: 'Vertical 3 s = écran noir.' },
+  reglages: { title: '⚙ Réglages du suivi', text: 'Montre ⑂, la vibration hors trace et le double tap.' },
   carrefours: { title: '⑂ Écran aux carrefours', text: 'Écran rallumé avant les carrefours et hors trace, pendant le suivi.' },
   vibre: { title: 'Vibration hors trace', text: 'Vibre si tu t’éloignes de 50 m de la trace suivie.' },
+  doubletap: { title: 'Double tap', text: 'Ouvre le réglage du téléphone : deux coups sur l’écran éteint le rallument.' },
   draw: { title: '✏ Tracer au doigt', text: 'Dessine un parcours : km et dénivelé.' },
   slopes: { title: '⛰ Pentes', text: 'Carte IGN des pentes :' },
   shade: { title: '🌗 Ombres', text: 'Ombres du soleil heure par heure.' },

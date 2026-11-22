@@ -14,8 +14,9 @@ import android.provider.Settings;
 public final class BatterySettings {
     private BatterySettings() {}
 
-    /** what : "avion", "wifi", "donnees" ou "bluetooth". */
+    /** what : "avion", "wifi", "donnees", "bluetooth" ou "doubletap". */
     public static void open(Activity activity, String what) {
+        if ("doubletap".equals(what)) { openDoubleTap(activity); return; }
         Intent i;
         switch (what) {
             case "wifi":
@@ -34,6 +35,28 @@ public final class BatterySettings {
             activity.startActivity(i);
         } catch (Exception e) {
             activity.startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));
+        }
+    }
+
+    /**
+     * « Appuyer deux fois pour allumer l'écran » : aucune appli ne peut l'activer, et Android n'a pas de lien
+     * officiel vers ce réglage. On essaie la page Mouvements et gestes de Samsung, puis Gestes (Pixel et autres),
+     * sinon la page Affichage.
+     */
+    private static void openDoubleTap(Activity activity) {
+        Intent[] tries = {
+            new Intent().setClassName("com.android.settings", "com.android.settings.Settings$MotionAndGestureSettingsActivity"),
+            new Intent().setClassName("com.android.settings", "com.android.settings.Settings$GestureSettingsActivity"),
+            new Intent(Settings.ACTION_DISPLAY_SETTINGS),
+            new Intent(Settings.ACTION_SETTINGS),
+        };
+        for (Intent i : tries) {
+            try {
+                activity.startActivity(i);
+                return;
+            } catch (Exception ignored) {
+                // page absente sur ce téléphone : on essaie la suivante
+            }
         }
     }
 }
