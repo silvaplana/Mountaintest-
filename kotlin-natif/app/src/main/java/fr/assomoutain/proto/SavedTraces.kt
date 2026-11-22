@@ -52,3 +52,43 @@ class SavedTraces(ctx: Context) {
             c.get(Calendar.DAY_OF_MONTH), c.get(Calendar.MONTH) + 1, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE))
     }
 }
+
+/**
+ * Mes traces affichées sur la carte et le suivi en cours, gardés quand l'appli se ferme (demande de Seb) :
+ * à la réouverture, les traces sont toujours là et le suivi reprend. Même format que shownTraces.ts côté Capacitor.
+ */
+object ShownTraces {
+    data class State(val trails: List<Trail>, val navId: Long?, val navPaused: Boolean)
+    private const val KEY = "tracesAffichees"
+
+    fun save(ctx: Context, trails: List<Trail>, navId: Long?, navPaused: Boolean) {
+        val arr = JSONArray()
+        trails.filter { Trails.isMine(it.id) }.forEach { t ->
+            arr.put(JSONObject().put("id", t.id).put("name", t.name).put("kind", t.kind).put("color", t.color)
+                .put("onPaths", t.onPaths).put("savedId", t.savedId ?: JSONObject.NULL)
+                .put("segments", JSONArray().apply {
+                    t.segments.forEach { s -> put(JSONArray().apply { s.forEach { p -> put(JSONArray().put(p.lon).put(p.lat)) } }) }
+                }))
+        }
+        val o = JSONObject().put("trails", arr).put("navId", navId ?: JSONObject.NULL).put("navPaused", navPaused)
+        ctx.getSharedPreferences("traces", Context.MODE_PRIVATE).edit().putString(KEY, o.toString()).apply()
+    }
+
+    fun load(ctx: Context): State = runCatching {
+        val o = JSONObject(ctx.getSharedPreferences("traces", Context.MODE_PRIVATE).getString(KEY, null) ?: return State(emptyList(), null, false))
+        val arr = o.optJSONArray("trails") ?: JSONArray()
+        val trails = (0 until arr.length()).mapNotNull { i ->
+            val t = arr.getJSONObject(i)
+            val segsJ = t.getJSONArray("segments")
+            val segs = (0 until segsJ.length()).map { k ->
+                val s = segsJ.getJSONArray(k)
+                (0 until s.length()).map { j -> s.getJSONArray(j).let { LonLat(it.getDouble(0), it.getDouble(1)) } }
+            }.filter { it.size >= 2 }
+            if (segs.isEmpty()) null
+            else Trail(t.getLong("id"), t.optString("name", "Tracé"), t.optString("kind", ""), 0, t.optString("color", "#7b3fe4"),
+                segs, Trails.lengthM(segs), t.optBoolean("onPaths"), if (t.isNull("savedId")) null else t.getLong("savedId"))
+        }
+        val nav = if (o.isNull("navId")) null else o.getLong("navId")
+        State(trails, nav?.takeIf { id -> trails.any { it.id == id } }, o.optBoolean("navPaused"))
+    }.getOrDefault(State(emptyList(), null, false))
+}
