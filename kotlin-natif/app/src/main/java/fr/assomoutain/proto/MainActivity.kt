@@ -2149,10 +2149,6 @@ class MainActivity : AppCompatActivity() {
         bar.visibility = if (findViewById<View>(R.id.frameBanner).visibility == View.VISIBLE) View.GONE else View.VISIBLE
         findViewById<View>(R.id.navColor).setBackgroundColor(Color.parseColor(t.color))
         findViewById<TextView>(R.id.navName).text = "👣 ${t.name}"
-        findViewById<Button>(R.id.btnNavPause).apply {
-            text = if (navPaused) "▶" else "⏸"
-            contentDescription = if (navPaused) "Reprendre le suivi" else "Mettre le suivi en pause"
-        }
         if (navPaused) {
             findViewById<TextView>(R.id.navInfo).text = "⏸ En pause : GPS coupé pour la batterie"
             findViewById<View>(R.id.navStatus).visibility = View.GONE
