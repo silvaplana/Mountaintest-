@@ -56,7 +56,7 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
           {rec ? <>
             {rec.paused ? <button className="primary" onClick={rec.onResume}>▶ Reprendre</button> : <button onClick={rec.onPause}>⏸ Pause</button>}
             <button className="stop" onClick={rec.onStop}>⏹ Terminer</button>
-          </> : <button className="primary" onClick={onStart}>▶ Commencer</button>}
+          </> : <button className="primary" onClick={onStart}>▶ Commencer une trace</button>}
         </div>
         <div className="draw-actions">
           <button onClick={onLoad}>📂 Charger des traces</button>
