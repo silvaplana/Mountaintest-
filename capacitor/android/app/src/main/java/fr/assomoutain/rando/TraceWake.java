@@ -237,16 +237,20 @@ public class TraceWake extends Service {
         if (screenLock != null && screenLock.isHeld()) screenLock.release();
     }
 
+    @SuppressWarnings("deprecation")
     private void vibrate(long[] pattern) {
         try {
             Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-            if (v != null) v.vibrate(VibrationEffect.createWaveform(pattern, -1));
+            if (v == null) return;
+            if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createWaveform(pattern, -1));
+            else v.vibrate(pattern, -1);
         } catch (Exception ignored) { }
     }
 
     private Notification notification() {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Suivi de la trace", NotificationManager.IMPORTANCE_LOW));
+        if (Build.VERSION.SDK_INT >= 26)
+            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Suivi de la trace", NotificationManager.IMPORTANCE_LOW));
         Intent open = getPackageManager().getLaunchIntentForPackage(getPackageName());
         PendingIntent pi = open == null ? null : PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new NotificationCompat.Builder(this, CHANNEL)
