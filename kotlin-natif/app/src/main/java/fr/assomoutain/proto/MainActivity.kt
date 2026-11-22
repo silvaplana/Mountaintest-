@@ -2132,22 +2132,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Bandeau du haut pour une nouvelle trace : distance, D+ et durée (les boutons sont dans le menu ✏). */
+    /** Nouvelle trace : pas de bandeau en haut (demande de Seb), la pastille verte ▶ sur ✏ suffit. */
     private fun refreshRecBar() {
         if (navId != null) return
-        val bar = findViewById<View>(R.id.navBar)
-        if (!freeRec) { bar.visibility = View.GONE; return }
-        bar.visibility = if (findViewById<View>(R.id.frameBanner).visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        findViewById<View>(R.id.navColor).setBackgroundColor(Color.parseColor("#E4572E"))
-        findViewById<TextView>(R.id.navName).text = "⏺ Nouvelle trace"
-        findViewById<View>(R.id.navStatus).visibility = View.GONE
-        val s = TrackRecorder.state.value
-        val min = ((System.currentTimeMillis() - s.startedMs) / 60_000).toInt()
-        findViewById<TextView>(R.id.navInfo).text = when {
-            navPaused -> "⏸ En pause : GPS coupé pour la batterie"
-            s.points.size < 2 -> "En attente de la position GPS…"
-            else -> String.format(Locale.FRANCE, "%.2f km · D+ %d m · %d h %02d", s.distanceM / 1000, s.gainM.roundToInt(), min / 60, min % 60)
-        }
-        bar.setBackgroundColor(Color.parseColor(if (navPaused) "#F2F2F2" else "#FFFFFF"))
+        findViewById<View>(R.id.navBar).visibility = View.GONE
     }
 
     /** ⑂ Carrefours de la trace : gardés sur le téléphone (📶 Hors ligne), sinon cherchés dans OpenStreetMap. */

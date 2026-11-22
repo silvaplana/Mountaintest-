@@ -48,7 +48,7 @@ import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, nextJunctionM } from './trails/junctions';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
-import { NavBar, RecBar } from './NavBar';
+import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { Usage } from './Usage';
@@ -954,7 +954,6 @@ export function App() {
           onPause: () => { setNavPaused(true); void pauseRecording(); setDrawing(false); },
           onResume: () => { setNavPaused(false); setFollow(true); gpsOn(); void resumeRecording(); setDrawing(false); },
           onStop: () => { setNavPaused(false); setDrawing(false); void stopFree(); } } : null} />}
-      {freeRec && !drawing && <RecBar points={recorded} paused={navPaused} onOpen={startDrawing} />}
       {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} paused={navPaused} nextJunctionM={nextJunction} onOpen={startDrawing} />}
       {traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
