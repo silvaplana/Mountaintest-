@@ -101,16 +101,17 @@ public final class PocketMode implements SensorEventListener {
     }
 
     private void sync() {
-        // Mode actif : l'activité peut rallumer l'écran et s'afficher par-dessus le verrouillage
-        // (comme une appli de navigation) ; les autres applis restent verrouillées.
-        // Le suivi de trace avec écran rallumé avant les carrefours (TraceWake) en a besoin aussi.
-        boolean show = enabled || TraceWake.isActive();
+        // L'appli passe toujours devant l'écran de verrouillage quand l'écran se rallume (bouton ou double tap)
+        // alors qu'elle était au premier plan, comme une appli de navigation (demande de Seb) ; les autres applis
+        // restent verrouillées. Rallumer l'écran elle-même : seulement en mode poche ou pendant une trace (TraceWake).
+        boolean turnOn = enabled || TraceWake.isActive();
         if (Build.VERSION.SDK_INT >= 27) {
-            activity.setShowWhenLocked(show);
-            activity.setTurnScreenOn(show);
+            activity.setShowWhenLocked(true);
+            activity.setTurnScreenOn(turnOn);
         } else {
-            int f = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON;
-            if (show) activity.getWindow().addFlags(f); else activity.getWindow().clearFlags(f);
+            activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+            if (turnOn) activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+            else activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         }
         if (enabled) startListening(); else stopListening();
     }
