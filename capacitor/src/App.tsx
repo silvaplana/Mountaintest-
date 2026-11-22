@@ -44,6 +44,8 @@ import { drawnTrail, isMine, nextMine, routeOnPaths, walkingHours, waypoints } f
 import { parseTraceFile } from './trails/traceFile';
 import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
+import { junctionAlongs, junctionsFor, nextJunctionM } from './trails/junctions';
+import { setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
@@ -192,6 +194,10 @@ export function App() {
   const [navId, setNavIdState] = useState<number | null>(null);
   /** ⏸ Suivi en pause : GPS du bouton ◎ coupé, plus d'alerte ; ▶ reprend. */
   const [navPaused, setNavPaused] = useState(false);
+  /** ⑂ Écran rallumé avant les carrefours pendant le suivi (bouton à gauche de 👖), et carrefours de la trace suivie. */
+  const [junctionWake, setJunctionWake] = useState(true);
+  useEffect(() => { void traceWakeEnabled().then(setJunctionWake); }, []);
+  const [junctions, setJunctions] = useState<{ id: number; pts: LonLat[] | null }>({ id: 0, pts: null });
   const setNavId = (id: number | null) => { setNavIdState(id); setNavPaused(false); };
   const [navPos, setNavPos] = useState<{ lon: number; lat: number; acc: number } | null>(null);
   /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu. */
@@ -469,7 +475,7 @@ export function App() {
     const missing: number[] = [];
     for (const st of steps) { const store = await getTileStore(st.layer); missing.push(st.tiles.filter((x) => !store.has(x)).length); }
     const total = missing.reduce((a, b) => a + b, 0);
-    if (!total) { setTraceOffline({ id: t.id, msg: '✓ Cartes et relief déjà disponibles hors ligne autour de cette trace.' }); return; }
+    if (!total) { void junctionsFor(t.segments.flat()).catch(() => null); setTraceOffline({ id: t.id, msg: '✓ Cartes et relief déjà disponibles hors ligne autour de cette trace.' }); return; }
     const mapTiles = missing.slice(0, -1).reduce((a, b) => a + b, 0);
     if (mapTiles > MAX_ZONE_TILES) {
       setTraceOffline({ id: t.id, msg: `Trace trop longue pour le hors ligne d'un coup (${mapTiles} tuiles, maximum ${MAX_ZONE_TILES}).` });
@@ -479,6 +485,8 @@ export function App() {
     if (ask && !window.confirm(`Télécharger les cartes à 1 km autour de « ${t.name} » pour le hors ligne (environ ${size}) ?`)) return;
     setTraceOffline({ id: t.id, msg: `📶 Téléchargement des cartes autour de la trace (environ ${size})…` });
     const r = await runDownload(steps);
+    // ⑂ Carrefours de la trace, gardés pour l'écran rallumé avant les carrefours hors ligne.
+    if (!r.aborted) await junctionsFor(t.segments.flat()).catch(() => null);
     setTraceOffline({ id: t.id, msg: r.aborted ? 'Téléchargement arrêté.'
       : r.failed ? `Téléchargement terminé, mais ${r.failed} tuiles ont échoué (réseau ?) : relance 📶 Hors ligne.`
       : '✓ Cartes et relief disponibles hors ligne autour de cette trace.' });
@@ -761,6 +769,31 @@ export function App() {
     ? navState(navTrail.segments.flat(), navPos, selected?.id === navTrail.id ? profile : null) : null), [navTrail, navPos, selected, profile]);
   // Une vibration quand on sort de la trace (pas à chaque position).
   const wasOff = useRef(false);
+
+  // ⑂ Carrefours de la trace suivie : gardés sur le téléphone (📶 Hors ligne), sinon cherchés dans OpenStreetMap.
+  useEffect(() => {
+    if (!navTrail || junctions.id === navTrail.id) return;
+    const t = navTrail;
+    setJunctions({ id: t.id, pts: null });
+    void junctionsFor(t.segments.flat()).then((pts) => setJunctions((cur) => (cur.id === t.id ? { id: t.id, pts } : cur)))
+      .catch(() => {
+        setJunctions((cur) => (cur.id === t.id ? { id: t.id, pts: [] } : cur));
+        if (junctionWake) setToast('Carrefours introuvables sans réseau : l’écran se rallumera seulement si tu quittes la trace. Fais 📶 Hors ligne avant de partir.');
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navTrail?.id]);
+  // Service natif pendant le suivi : GPS qui continue écran éteint, vibration hors trace ; avec ⑂, écran rallumé
+  // avant les carrefours et hors trace (Android).
+  const wakeOn = navTrail != null && !navPaused && junctions.id === navTrail.id && junctions.pts != null;
+  useEffect(() => {
+    if (!wakeOn || !navTrail) return;
+    void startTraceWake(navTrail.segments.flat(), junctions.pts ?? [], junctionWake).catch((e) => setToast(`Écran aux carrefours impossible : ${(e as Error).message}`));
+    return () => { void stopTraceWake().catch(() => {}); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wakeOn, navTrail?.id, junctions, junctionWake]);
+  const alongs = useMemo(() => (navTrail && junctions.id === navTrail.id && junctions.pts?.length
+    ? junctionAlongs(navTrail.segments.flat(), junctions.pts) : []), [navTrail, junctions]);
+  const nextJunction = nav ? nextJunctionM(alongs, nav.alongM) : null;
   useEffect(() => {
     const off = nav != null && nav.offM > OFF_TRACK_M + (navPos?.acc ?? 0) / 2;
     if (off && !wasOff.current) try { navigator.vibrate?.([200, 100, 200]); } catch { /* ignoré */ }
@@ -799,7 +832,7 @@ export function App() {
       {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
         onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} onFile={() => void openTraceFile()} />}
       {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} onStop={() => setNavId(null)}
-        paused={navPaused} onPause={pauseNav} onResume={resumeNav} onHelp={setToast} />}
+        paused={navPaused} onPause={pauseNav} onResume={resumeNav} onHelp={setToast} nextJunctionM={nextJunction} />}
       {traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
@@ -828,6 +861,7 @@ export function App() {
         }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
         weather={showWeather} onWeather={setShowWeather}
+        junctionWake={junctionWake} onJunctionWake={(on) => { setJunctionWake(on); void setTraceWakeEnabled(on); }}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
         onSkiText={() => skiMode('sorties')}

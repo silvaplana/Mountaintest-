@@ -37,7 +37,21 @@ export interface QuickProps {
   onSkiText: () => void;
   /** Météo posée sur la carte (icône 🌦) ; appui long : ouvre l'appli Météo-France. */
   weather: boolean; onWeather: (on: boolean) => void;
+  /** ⑂ Écran rallumé avant les carrefours pendant le suivi d'une trace (à gauche de 👖). */
+  junctionWake: boolean; onJunctionWake: (on: boolean) => void;
 }
+
+/** Icône ⑂ « écran aux carrefours » (maquette A choisie par Seb) : téléphone allumé avec une fourche, rayons. Même dessin côté Kotlin : ic_carrefour.xml. */
+export const JunctionWakeIcon = ({ size = 34 }: { size?: number }) => (
+  <svg viewBox="0 0 56 56" width={size} height={size} aria-hidden="true">
+    <rect x="14" y="4" width="28" height="48" rx="5" fill="#263238" />
+    <rect x="17" y="9" width="22" height="37" rx="2" fill="#ffe27a" />
+    <path d="M28 43V30M28 30L21 17M28 30L35 17" stroke="#7b3fe4" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+    <g stroke="#f5a400" strokeWidth="2.6" strokeLinecap="round">
+      <path d="M6 14l4 3M4 28h5M6 42l4-3M50 14l-4 3M52 28h-5M50 42l-4-3" />
+    </g>
+  </svg>
+);
 
 /** Icône « me localiser » : cercle traversé d'une croix horizontale et verticale, point au centre (même dessin côté Kotlin : ic_locate.xml). */
 const LocateIcon = () => (
@@ -52,7 +66,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSkiText, weather, onWeather }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSkiText, weather, onWeather, junctionWake, onJunctionWake }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -89,18 +103,56 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
     return () => evts.forEach((e) => geo.off(e, read));
   }, [geo]);
 
+  // Centrage gardé (demande de Seb) : après ◎, la carte reste centrée sur moi tant que je ne touche à rien,
+  // même après extinction et rallumage de l'écran. Un toucher (carte ou bouton) dans la seconde et demie qui
+  // précède la perte du centrage = choix de l'utilisateur ; sinon (écran éteint, GPS perdu, appli en arrière-plan)
+  // on recentre tout seul.
+  const pocketPaused = useRef(false);
+  const wantCenter = useRef(false);
+  const lastTouch = useRef(0);
+  /** Recentrages automatiques ratés d'affilée (GPS refusé…) : on abandonne à 3 au lieu de boucler. */
+  const retries = useRef(0);
+  useEffect(() => {
+    if (!geo) return;
+    const state = () => (geo as unknown as { _watchState?: WatchState })._watchState ?? 'OFF';
+    const touch = () => { lastTouch.current = Date.now(); };
+    document.addEventListener('pointerdown', touch, true);
+    const recenter = () => {
+      if (!wantCenter.current || pocketPaused.current || document.hidden || retries.current >= 3) return;
+      const st = state();
+      if (st === 'OFF' || st === 'BACKGROUND' || st === 'BACKGROUND_ERROR') { retries.current++; void geo.trigger(); }
+    };
+    const onState = () => {
+      const st = state();
+      if (st === 'ACTIVE_LOCK' || st === 'WAITING_ACTIVE') { wantCenter.current = true; if (st === 'ACTIVE_LOCK') retries.current = 0; return; }
+      if (st === 'ACTIVE_ERROR') return; // GPS perdu un moment : MapLibre recentre seul au retour
+      if (Date.now() - lastTouch.current < 1500) wantCenter.current = false;
+      else setTimeout(recenter, 300);
+    };
+    const evts = ['geolocate', 'error', 'trackuserlocationstart', 'trackuserlocationend'] as const;
+    evts.forEach((e) => geo.on(e, onState));
+    const visible = () => { if (!document.hidden) setTimeout(recenter, 500); };
+    document.addEventListener('visibilitychange', visible);
+    const sub = CapApp.addListener('resume', () => setTimeout(recenter, 500));
+    return () => {
+      document.removeEventListener('pointerdown', touch, true);
+      document.removeEventListener('visibilitychange', visible);
+      evts.forEach((e) => geo.off(e, onState));
+      void sub.then((x) => x.remove());
+    };
+  }, [geo]);
+
   // Écran noir dans la poche : on coupe le GPS du bouton ◎ (gros consommateur) et on le relance au réveil.
   // L'enregistrement d'une sortie, lui, continue (sinon la trace aurait des trous).
   useEffect(() => {
     if (!native || !geo) return;
     const state = () => (geo as unknown as { _watchState?: WatchState })._watchState ?? 'OFF';
-    let paused = false;
     const sub = PocketMode.addListener('pocket', ({ black }) => {
       if (black && state() !== 'OFF') {
-        paused = true;
+        pocketPaused.current = true;
         for (let i = 0; i < 2 && state() !== 'OFF'; i++) void geo.trigger();
-      } else if (!black && paused) {
-        paused = false;
+      } else if (!black && pocketPaused.current) {
+        pocketPaused.current = false;
         if (state() === 'OFF') void geo.trigger();
       }
     });
@@ -199,6 +251,13 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>}
+      {(pair || help) && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
+        onClick={() => {
+          const on = !junctionWake;
+          onJunctionWake(on);
+          onToast(on ? 'Écran aux carrefours activé : pendant ▶ Suivre la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace'
+            : 'Écran aux carrefours désactivé');
+        }}><JunctionWakeIcon /></button>}
       </div>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏</button>
       <div className="pair" ref={reliefRef}>

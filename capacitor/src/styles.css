@@ -146,6 +146,8 @@ progress { width: 100%; }
 .quick button.toggle.arrow { width: 56px; height: 56px; border-radius: 50%; font-size: 30px; }
 .quick button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 /* Duos ✈ / 👖 et ⛰ / 🌗 : se déplient vers la gauche (✈ et ⛰ restent à leur place) ; en aide, l'un sous l'autre. */
+.quick button.ring.on { background: var(--bg); box-shadow: 0 0 0 3px var(--accent), 0 1px 6px #0004; }
+.quick button.ring.off svg { opacity: .45; filter: grayscale(1); }
 .quick .pair { display: flex; flex-direction: row-reverse; gap: 8px; align-items: center; }
 .quick.help .pair { flex-direction: column; align-items: flex-end; }
 .toast {
