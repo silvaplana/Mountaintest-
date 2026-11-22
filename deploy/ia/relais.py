@@ -540,32 +540,68 @@ def _pages(jours: int) -> int:
 
 
 def _garde(jours: int) -> int:
-    """Durée pendant laquelle une liste reste fraîche : 1 h, 6 h au-delà d'un mois, 1 jour au-delà d'un an."""
-    return 3600 if jours <= 30 else 6 * 3600 if jours <= 365 else 86400
+    """Durée pendant laquelle une liste reste fraîche : 1 h jusqu'à un mois, 3 h au-delà. Au-delà de ce délai seules les
+    sorties récentes sont redemandées (voir _sorties_brutes) : rafraîchir coûte une demande par massif, pas 25 pages."""
+    return 3600 if jours <= 30 else 3 * 3600
+
+
+_RECENT = 30          # jours redemandés à chaque rafraîchissement (sorties publiées en retard comprises)
+_REFAIRE = 7 * 86400  # liste entière redemandée au plus une fois par semaine (sorties modifiées ou effacées)
 
 
 def _sorties_brutes(jours: int, massif: int | None = None, pages: int = 3) -> list:
     """Sorties publiées ces derniers jours (format brut de l'API), toutes ou d'un massif.
-    Gardées sur le disque (1 h, 6 h au-delà d'un mois) : une liste plus longue encore fraîche sert aussi aux périodes
-    plus courtes, et un redémarrage du relais ne coûte plus rien au quota de l'API."""
+    Gardées sur le disque : une liste plus longue encore fraîche sert aussi aux périodes plus courtes, et un redémarrage
+    du relais ne coûte rien au quota de l'API. Une liste longue périmée n'est pas redemandée en entier : seules les
+    sorties des 30 derniers jours le sont, puis ajoutées (avant, « 4 ans » restait figé tant que les 25 pages
+    n'arrivaient pas à être relues d'un coup)."""
     garde = _garde(jours)
     m = massif or "tous"
+    depuis = time.time() - jours * 86400
+    dans = lambda data: [x for x in data if isinstance(x, dict) and (_entier(x.get("date")) or 0) >= depuis]
     try:
         noms = os.listdir(DOSSIER)
     except OSError:
         noms = []
-    for nom in noms:
+    vieux = None    # (nom, contenu) d'une liste périmée qui couvre la période : base du rafraîchissement
+    secours = None  # la plus récente des listes gardées, si l'API ne répond pas
+    for nom in sorted(noms):
         g = re.fullmatch(r"cache-skitour-sorties-(\d+)-(\w+)\.json", nom)
         if not g or g.group(2) != str(m) or int(g.group(1)) < jours:
             continue
         with verrou:
             c = _lire(nom, {})
         if time.time() - c.get("t", 0) < garde:
-            depuis = time.time() - jours * 86400
-            return [x for x in c.get("data", []) if isinstance(x, dict) and (_entier(x.get("date")) or 0) >= depuis]
-    data = _sorties_api(jours, massif, pages)
+            return dans(c.get("data", []))
+        if secours is None or c.get("t", 0) > secours.get("t", 0):
+            secours = c
+        if time.time() - c.get("base", c.get("t", 0)) < _REFAIRE and (vieux is None or c.get("t", 0) > vieux[1].get("t", 0)):
+            vieux = (nom, c)
+    if vieux and jours > _RECENT:
+        nom, c = vieux
+        try:
+            neuf = _sorties_api(_RECENT, massif, 3)
+        except (RuntimeError, OSError) as ex:
+            # API indisponible (quota, réseau) : la liste gardée vaut mieux qu'une erreur.
+            print(f"skitour : rafraîchissement {nom} impossible ({ex}), liste gardée", file=sys.stderr, flush=True)
+            return dans(c.get("data", []))
+        ids = {str(x.get("id")) for x in neuf if isinstance(x, dict)}
+        recent = time.time() - _RECENT * 86400
+        # Les sorties récentes remplacent celles gardées (corrigées ou effacées entre-temps) ; les plus anciennes restent.
+        data = neuf + [x for x in c.get("data", []) if isinstance(x, dict) and str(x.get("id")) not in ids
+                       and (_entier(x.get("date")) or 0) < recent]
+        data.sort(key=lambda x: _entier(x.get("date")) or 0, reverse=True)
+        with verrou:
+            _ecrire(nom, {"t": time.time(), "base": c.get("base", c.get("t", 0)), "data": data})
+        return dans(data)
+    try:
+        data = _sorties_api(jours, massif, pages)
+    except (RuntimeError, OSError):
+        if secours:  # liste entière impossible à relire : on garde l'ancienne
+            return dans(secours.get("data", []))
+        raise
     with verrou:
-        _ecrire(f"cache-skitour-sorties-{jours}-{m}.json", {"t": time.time(), "data": data})
+        _ecrire(f"cache-skitour-sorties-{jours}-{m}.json", {"t": time.time(), "base": time.time(), "data": data})
     return data
 
 
@@ -1032,16 +1068,24 @@ def _ligne(x) -> dict:
 
 def liste_sorties(jours: int, massifs: list | None = None) -> list:
     """Sorties des derniers jours, de tous les massifs ou de ceux choisis (un appel par massif, gardé 1 h)."""
-    out, vus = [], set()
+    out, vus, erreur = [], set(), None
     for m in (massifs or [None]):
         c = _liste_memo.get((jours, m))
-        if not (c and time.time() - c[0] < _garde(jours)):
+        if not (c and time.time() - c[0] < min(_garde(jours), 3600)):
             # Longues périodes : plus de pages (1000 sorties chacune) ; gardées sur le disque, voir _sorties_brutes.
-            c = (time.time(), [_ligne(x) for x in _sorties_brutes(jours, m, pages=_pages(jours))])
+            try:
+                c = (time.time(), [_ligne(x) for x in _sorties_brutes(jours, m, pages=_pages(jours))])
+            except (RuntimeError, OSError) as ex:
+                # Un massif illisible (quota, réseau) ne prive plus des autres ; erreur seulement si aucun ne répond.
+                print(f"skitour : massif {m} illisible ({ex})", file=sys.stderr, flush=True)
+                erreur = ex
+                continue
             _liste_memo[(jours, m)] = c
         for o in c[1]:
             if o["id"] not in vus:
                 vus.add(o["id"]); out.append(o)
+    if erreur and not out:
+        raise erreur
     out.sort(key=lambda o: o["date"] or 0, reverse=True)
     return _completer(out)
 

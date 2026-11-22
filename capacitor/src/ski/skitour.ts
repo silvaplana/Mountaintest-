@@ -223,7 +223,15 @@ export function readList(): SavedList | null {
   try { const v = JSON.parse(localStorage.getItem(LIST_KEY) ?? 'null'); return v && Array.isArray(v.sorties) ? v : null; } catch { return null; }
 }
 export async function fetchList(jours: number, massifs: number[], password: string): Promise<SavedList> {
-  const r = await relayPost<{ sorties?: OutingRow[] }>('skitour-liste', { jours, massifs }, password);
+  // Pas d'attente sans fin : au bout de 2 min, la liste gardée s'affiche avec sa date (« Chargement… » restait affiché).
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), 120_000);
+  let r: { sorties?: OutingRow[] };
+  try {
+    r = await relayPost<{ sorties?: OutingRow[] }>('skitour-liste', { jours, massifs }, password, stop.signal);
+  } catch (e) {
+    throw stop.signal.aborted ? new Error('skitour.fr ne répond pas, réessaie plus tard') : e;
+  } finally { clearTimeout(timer); }
   const l = { jours, t: Date.now(), sorties: r.sorties ?? [] };
   try { localStorage.setItem(LIST_KEY, JSON.stringify(l)); } catch { /* stockage plein */ }
   return l;
