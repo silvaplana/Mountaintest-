@@ -6,13 +6,11 @@ import type { LonLat } from './trails/osmTrails';
  * Tracé au doigt : un calque posé sur la carte capte le doigt et dessine la ligne ;
  * au lâcher, on la convertit en coordonnées (même principe côté Kotlin, DrawPathView).
  */
-export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad, onFile, onStart, rec }: {
+export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad, onStart, rec }: {
   map: MlMap; onPaths: boolean; setOnPaths: (v: boolean) => void;
   onDone: (line: LonLat[]) => void; onCancel: () => void;
-  /** 📂 Charger une trace enregistrée sur le téléphone. */
+  /** 📂 Charger des traces : écran avec 📥 Ouvrir un fichier puis Mes traces. */
   onLoad: () => void;
-  /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON. */
-  onFile: () => void;
   /** ▶ Commencer une nouvelle trace sans parcours prévu : le chemin parcouru se dessine au fur et à mesure. */
   onStart: () => void;
   /** Nouvelle trace en cours (commencée ici) : ⏸ / ▶ et ⏹ Terminer à la place de ▶ Commencer. */
@@ -50,14 +48,16 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
       {/* Bandeau tout en bas de l'écran (demande de Seb) : le haut de la carte reste libre pour dessiner. */}
       <div className="frame-banner draw-banner" onPointerDown={(e) => e.stopPropagation()}>
         <span className="draw-title">✏ Trace ton parcours du doigt</span>
-        <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
-        <div className="draw-actions">
+        {/* ▶ Commencer à droite de « recaler sur sentiers » (demande de Seb). */}
+        <div className="draw-row">
+          <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
           {rec ? <>
             {rec.paused ? <button className="primary" onClick={rec.onResume}>▶ Reprendre</button> : <button onClick={rec.onPause}>⏸ Pause</button>}
             <button className="stop" onClick={rec.onStop}>⏹ Terminer</button>
           </> : <button className="primary" onClick={onStart}>▶ Commencer</button>}
+        </div>
+        <div className="draw-actions">
           <button onClick={onLoad}>📂 Charger des traces</button>
-          <button onClick={onFile}>📥 Ouvrir un fichier</button>
           <button onClick={onCancel}>Annuler</button>
         </div>
       </div>

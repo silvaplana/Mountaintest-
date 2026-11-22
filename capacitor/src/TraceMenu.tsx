@@ -61,7 +61,7 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
   );
 }
 
-/** Liste des traces enregistrées sur le téléphone : toucher pour l'afficher, 🗑 pour l'effacer. */
+/** 📂 Charger des traces : 📥 un fichier du téléphone, ou une de Mes traces (toucher pour l'afficher, 🗑 pour l'effacer). */
 export function TraceList({ traces, onPick, onDelete, onClose, onFile }: {
   traces: SavedTrace[]; onPick: (t: SavedTrace) => void; onDelete: (t: SavedTrace) => void; onClose: () => void;
   /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone. */
@@ -70,10 +70,11 @@ export function TraceList({ traces, onPick, onDelete, onClose, onFile }: {
   return (
     <section className="trace-menu">
       <div className="head">
-        <b>📂 Mes traces</b>
+        <b>📂 Charger des traces</b>
         <button className="close" onClick={onClose} aria-label="Fermer la liste des traces">✕</button>
       </div>
       <div className="row"><button onClick={onFile}>📥 Ouvrir un fichier (GPX, KML, GeoJSON)</button></div>
+      <b className="list-title">Mes traces</b>
       {!traces.length && <p className="hint">Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder ».</p>}
       <ul className="trail-list">
         {traces.map((t) => (

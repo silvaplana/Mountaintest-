@@ -1626,7 +1626,8 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.chkOnPaths).visibility = if (freehand) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnLoadTraces).visibility = if (freehand) View.VISIBLE else View.GONE
-        findViewById<View>(R.id.btnOpenTraceFile).visibility = if (freehand) View.VISIBLE else View.GONE
+        // 📥 Ouvrir un fichier : dans l'écran 📂 Charger des traces seulement (demande de Seb).
+        findViewById<View>(R.id.btnOpenTraceFile).visibility = View.GONE
         findViewById<View>(R.id.recRow).visibility = if (freehand) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnRecStart).visibility = if (!freeRec) View.VISIBLE else View.GONE
         findViewById<View>(R.id.btnRecStop).visibility = if (freeRec) View.VISIBLE else View.GONE
