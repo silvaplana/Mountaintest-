@@ -395,7 +395,15 @@
             android:textAllCaps="false" />
     </LinearLayout>
 
-        <!-- ▶ Commencer une nouvelle trace sans parcours prévu (dessinée au fur et à mesure) ; en cours : ⏸ / ▶ et ⏹ Terminer. -->
+        <CheckBox
+            android:id="@+id/chkOnPaths"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:text="recaler sur sentiers"
+            android:visibility="gone" />
+
+        <!-- Ligne à eux sous « recaler sur sentiers » (demande de Seb). ▶ Commencer une nouvelle trace sans parcours prévu (dessinée au fur et à mesure) ; en cours : ⏸ / ▶ et ⏹ Terminer. -->
         <LinearLayout
             android:id="@+id/recRow"
             android:layout_width="match_parent"
@@ -404,20 +412,11 @@
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:visibility="gone">
-            <!-- ▶ Commencer à droite de « recaler sur sentiers » (demande de Seb). -->
-            <CheckBox
-                android:id="@+id/chkOnPaths"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:checked="false"
-                android:text="recaler sur sentiers"
-                android:visibility="gone" />
-            <Button android:id="@+id/btnRecStart" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            <Button android:id="@+id/btnRecStart" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:text="▶ Commencer" android:textAllCaps="false" />
-            <Button android:id="@+id/btnRecPause" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            <Button android:id="@+id/btnRecPause" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:text="⏸ Pause" android:textAllCaps="false" android:visibility="gone" />
-            <Button android:id="@+id/btnRecStop" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            <Button android:id="@+id/btnRecStop" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
                 android:backgroundTint="#C62828" android:textColor="#FFFFFF"
                 android:text="⏹ Terminer" android:textAllCaps="false" android:visibility="gone" />
         </LinearLayout>

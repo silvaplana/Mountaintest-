@@ -50,9 +50,9 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
         <span className="draw-title">✏ Trace ton parcours du doigt</span>
         {/* Une croix en haut à droite pour fermer, pas de bouton « Annuler » (demande de Seb). */}
         <button className="draw-close" onClick={onCancel} aria-label="Fermer le menu">✕</button>
-        {/* ▶ Commencer à droite de « recaler sur sentiers » (demande de Seb). */}
-        <div className="draw-row">
-          <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
+        <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
+        {/* ▶ Commencer, ou ⏸ Pause / ▶ Reprendre et ⏹ Terminer : une ligne à eux sous « recaler sur sentiers » (demande de Seb). */}
+        <div className="draw-actions">
           {rec ? <>
             {rec.paused ? <button className="primary" onClick={rec.onResume}>▶ Reprendre</button> : <button onClick={rec.onPause}>⏸ Pause</button>}
             <button className="stop" onClick={rec.onStop}>⏹ Terminer</button>
