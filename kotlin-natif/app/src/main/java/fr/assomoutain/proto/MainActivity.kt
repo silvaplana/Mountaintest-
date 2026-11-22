@@ -130,12 +130,14 @@ class MainActivity : AppCompatActivity() {
     private var drawnProfile = false
     /** 🧭 Navigation sur une de mes traces (identifiant) ; on vibre une fois en sortant de la trace. */
     private var navId: Long? = null
+        set(v) { field = v; saveShown() }
     private var navJob: kotlinx.coroutines.Job? = null
     private var navWasOff = false
     /** ⑂ Carrefours de la trace suivie (id de la trace, points, positions le long de la trace) ; null : en cours de recherche. */
     private var navJunctions: Triple<Long, List<LonLat>, List<Double>>? = null
     /** ⏸ Suivi en pause : GPS coupé pour la batterie, plus d'alerte ; ▶ reprend sur la même trace. */
     private var navPaused = false
+        set(v) { field = v; saveShown() }
     /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu (identifiant, texte). */
     private var traceOffline: Pair<Long, String>? = null
     private var traceDownloading = false
@@ -428,6 +430,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
 
         setupTrails()
+        // Traces affichées et suivi en cours avant la fermeture de l'appli : on les remet.
+        ShownTraces.load(this).takeIf { it.trails.isNotEmpty() }?.let { st -> trails = st.trails; if (st.navId != null) resumeNavOnStart = st }
         setupForests()
 
         // Onglet Hors ligne
@@ -638,6 +642,10 @@ class MainActivity : AppCompatActivity() {
             weather.onStyleLoaded()
             drawImported(fit = false)
             drawTrails(fit = false)
+            resumeNavOnStart?.let { st ->
+                resumeNavOnStart = null
+                trails.firstOrNull { it.id == st.navId }?.let { t -> startNav(t); if (st.navPaused) pauseNav() }
+            }
             drawWebHikes()
             drawForests()
             drawTarget()
@@ -1154,7 +1162,12 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- Randos libres (OpenStreetMap) d'une zone encadrée ----------
 
+    /** Mes traces affichées : gardées à chaque changement (ShownTraces), pour les retrouver à la réouverture. */
     private var trails: List<Trail> = emptyList()
+        set(v) { field = v; saveShown() }
+    /** Suivi à reprendre une fois la carte prête (appli rouverte pendant un suivi). */
+    private var resumeNavOnStart: ShownTraces.State? = null
+    private fun saveShown() = ShownTraces.save(this, trails, navId, navPaused)
     private var frame: Zone? = null
     private var selectedTrail: Trail? = null
     /** null : pas encore calculé ; échec : service d'altitude injoignable. */

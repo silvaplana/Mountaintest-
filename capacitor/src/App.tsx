@@ -44,6 +44,7 @@ import { drawnTrail, isMine, nextMine, routeOnPaths, walkingHours, waypoints } f
 import { parseTraceFile } from './trails/traceFile';
 import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
+import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, nextJunctionM } from './trails/junctions';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
@@ -202,6 +203,16 @@ export function App() {
   useEffect(() => { void offTrackVibrateEnabled().then(setOffVibrate); }, []);
   const [junctions, setJunctions] = useState<{ id: number; pts: LonLat[] | null }>({ id: 0, pts: null });
   const setNavId = (id: number | null) => { setNavIdState(id); setNavPaused(false); };
+  // Traces affichées et suivi en cours gardés quand l'appli se ferme ; remis à la réouverture (le suivi reprend).
+  const shownLoaded = useRef(false);
+  const [pendingNav, setPendingNav] = useState<{ id: number; paused: boolean } | null>(null);
+  useEffect(() => {
+    void loadShown().then((st) => {
+      shownLoaded.current = true;
+      if (st.trails.length) setTrails((prev) => [...st.trails, ...prev.filter((x) => !st.trails.some((y) => y.id === x.id))]);
+      if (st.navId != null) setPendingNav({ id: st.navId, paused: st.navPaused });
+    });
+  }, []);
   const [navPos, setNavPos] = useState<{ lon: number; lat: number; acc: number } | null>(null);
   /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu. */
   const [traceOffline, setTraceOffline] = useState<{ id: number; msg: string } | null>(null);
@@ -727,6 +738,16 @@ export function App() {
 
   const geoState = () => (geo as unknown as { _watchState?: string } | null)?._watchState ?? 'OFF';
   function gpsOn() { const st = geoState(); if (geo && (st === 'OFF' || st === 'BACKGROUND')) void geo.trigger(); }
+
+  useEffect(() => { if (shownLoaded.current) void saveShown(trails, navId, navPaused); }, [trails, navId, navPaused]);
+  // Appli rouverte pendant un suivi : il reprend dès que le GPS de la carte est prêt.
+  useEffect(() => {
+    if (!pendingNav || !geo || !trails.some((t) => t.id === pendingNav.id)) return;
+    setNavIdState(pendingNav.id); setNavPaused(pendingNav.paused); setNavPos(null);
+    if (!pendingNav.paused) { setFollow(true); gpsOn(); }
+    setPendingNav(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingNav, geo, trails]);
 
   /** ⏸ Pause du suivi : on coupe le GPS (batterie) ; ▶ le relance, le suivi reprend sur la même trace. */
   function pauseNav() {
