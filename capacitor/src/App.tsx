@@ -45,7 +45,7 @@ import { parseTraceFile } from './trails/traceFile';
 import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
 import { junctionAlongs, junctionsFor, nextJunctionM } from './trails/junctions';
-import { setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeEnabled } from './trails/traceWake';
+import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
@@ -197,6 +197,9 @@ export function App() {
   /** ⑂ Écran rallumé avant les carrefours pendant le suivi (bouton à gauche de 👖), et carrefours de la trace suivie. */
   const [junctionWake, setJunctionWake] = useState(true);
   useEffect(() => { void traceWakeEnabled().then(setJunctionWake); }, []);
+  /** Vibration quand on quitte la trace suivie (bouton à gauche de ⑂). */
+  const [offVibrate, setOffVibrate] = useState(true);
+  useEffect(() => { void offTrackVibrateEnabled().then(setOffVibrate); }, []);
   const [junctions, setJunctions] = useState<{ id: number; pts: LonLat[] | null }>({ id: 0, pts: null });
   const setNavId = (id: number | null) => { setNavIdState(id); setNavPaused(false); };
   const [navPos, setNavPos] = useState<{ lon: number; lat: number; acc: number } | null>(null);
@@ -787,17 +790,19 @@ export function App() {
   const wakeOn = navTrail != null && !navPaused && junctions.id === navTrail.id && junctions.pts != null;
   useEffect(() => {
     if (!wakeOn || !navTrail) return;
-    void startTraceWake(navTrail.segments.flat(), junctions.pts ?? [], junctionWake).catch((e) => setToast(`Écran aux carrefours impossible : ${(e as Error).message}`));
+    void startTraceWake(navTrail.segments.flat(), junctions.pts ?? [], junctionWake, offVibrate).catch((e) => setToast(`Écran aux carrefours impossible : ${(e as Error).message}`));
     return () => { void stopTraceWake().catch(() => {}); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wakeOn, navTrail?.id, junctions, junctionWake]);
+  }, [wakeOn, navTrail?.id, junctions, junctionWake, offVibrate]);
   const alongs = useMemo(() => (navTrail && junctions.id === navTrail.id && junctions.pts?.length
     ? junctionAlongs(navTrail.segments.flat(), junctions.pts) : []), [navTrail, junctions]);
   const nextJunction = nav ? nextJunctionM(alongs, nav.alongM) : null;
   useEffect(() => {
     const off = nav != null && nav.offM > OFF_TRACK_M + (navPos?.acc ?? 0) / 2;
-    if (off && !wasOff.current) try { navigator.vibrate?.([200, 100, 200]); } catch { /* ignoré */ }
+    // Avec le service natif (Android), c'est lui qui vibre, même écran éteint.
+    if (off && !wasOff.current && offVibrate && !(wakeOn && traceWakeAvailable())) try { navigator.vibrate?.([200, 100, 200]); } catch { /* ignoré */ }
     wasOff.current = off;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav, navPos]);
 
   const stats = computeStats(recorded);
@@ -862,6 +867,7 @@ export function App() {
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
         weather={showWeather} onWeather={setShowWeather}
         junctionWake={junctionWake} onJunctionWake={(on) => { setJunctionWake(on); void setTraceWakeEnabled(on); }}
+        offVibrate={offVibrate} onOffVibrate={(on) => { setOffVibrate(on); void setOffTrackVibrateEnabled(on); }}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
         onSkiText={() => skiMode('sorties')}

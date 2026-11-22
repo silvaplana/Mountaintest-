@@ -7,7 +7,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONException;
 
-/** Expose TraceWake au JavaScript : TraceWake.start({ line, junctions, wake }) (lon, lat, lon, lat…), TraceWake.stop(). */
+/** Expose TraceWake au JavaScript : TraceWake.start({ line, junctions, wake, vibrate }) (lon, lat, lon, lat…), TraceWake.stop(). */
 @CapacitorPlugin(name = "TraceWake")
 public class TraceWakePlugin extends Plugin {
     private static double[] numbers(JSArray a) throws JSONException {
@@ -23,8 +23,9 @@ public class TraceWakePlugin extends Plugin {
             double[] line = numbers(call.getArray("line"));
             double[] junctions = numbers(call.getArray("junctions"));
             boolean wake = Boolean.TRUE.equals(call.getBoolean("wake", true));
+            boolean vibrate = Boolean.TRUE.equals(call.getBoolean("vibrate", true));
             getActivity().runOnUiThread(() -> {
-                TraceWake.start(getActivity(), line, junctions, wake);
+                TraceWake.start(getActivity(), line, junctions, wake, vibrate);
                 call.resolve();
             });
         } catch (Exception e) {

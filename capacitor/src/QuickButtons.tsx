@@ -39,6 +39,8 @@ export interface QuickProps {
   weather: boolean; onWeather: (on: boolean) => void;
   /** ⑂ Écran rallumé avant les carrefours pendant le suivi d'une trace (à gauche de 👖). */
   junctionWake: boolean; onJunctionWake: (on: boolean) => void;
+  /** Vibration quand on quitte la trace suivie (à gauche de ⑂). */
+  offVibrate: boolean; onOffVibrate: (on: boolean) => void;
 }
 
 /** Icône ⑂ « écran aux carrefours » (maquette A choisie par Seb) : téléphone allumé avec une fourche, rayons. Même dessin côté Kotlin : ic_carrefour.xml. */
@@ -49,6 +51,21 @@ export const JunctionWakeIcon = ({ size = 34 }: { size?: number }) => (
     <path d="M28 43V30M28 30L21 17M28 30L35 17" stroke="#7b3fe4" strokeWidth="3.2" strokeLinecap="round" fill="none" />
     <g stroke="#f5a400" strokeWidth="2.6" strokeLinecap="round">
       <path d="M6 14l4 3M4 28h5M6 42l4-3M50 14l-4 3M52 28h-5M50 42l-4-3" />
+    </g>
+  </svg>
+);
+
+/** Icône « vibration hors trace » (maquette C) : téléphone penché qui vibre, la trace et moi (point rouge) en dehors. Même dessin côté Kotlin : ic_vibre_hors_trace.xml. */
+export const OffTrackVibrateIcon = ({ size = 34 }: { size?: number }) => (
+  <svg viewBox="0 0 56 56" width={size} height={size} aria-hidden="true">
+    <g transform="rotate(-12 28 28)">
+      <rect x="16" y="8" width="24" height="40" rx="5" fill="#263238" />
+      <rect x="19" y="13" width="18" height="29" rx="2" fill="#e3f2fd" />
+      <path d="M24 34V26M24 26L20 19" stroke="#7b3fe4" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+      <circle cx="34" cy="22" r="3.2" fill="#e53935" />
+    </g>
+    <g stroke="#e53935" strokeWidth="2.6" strokeLinecap="round" fill="none">
+      <path d="M8 20a14 14 0 0 0 0 16M4 16a20 20 0 0 0 0 24M48 20a14 14 0 0 1 0 16M52 16a20 20 0 0 1 0 24" />
     </g>
   </svg>
 );
@@ -66,7 +83,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSkiText, weather, onWeather, junctionWake, onJunctionWake }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSkiText, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -258,6 +275,13 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
           onToast(on ? 'Écran aux carrefours activé : pendant ▶ Suivre la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace'
             : 'Écran aux carrefours désactivé');
         }}><JunctionWakeIcon /></button>}
+      {(pair || help) && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
+        onClick={() => {
+          const on = !offVibrate;
+          onOffVibrate(on);
+          onToast(on ? 'Vibration hors trace activée : pendant ▶ Suivre la trace, le téléphone vibre si tu t’éloignes de plus de 50 m'
+            : 'Vibration hors trace désactivée');
+        }}><OffTrackVibrateIcon /></button>}
       </div>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏</button>
       <div className="pair" ref={reliefRef}>

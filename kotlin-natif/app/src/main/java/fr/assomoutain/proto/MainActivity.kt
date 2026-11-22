@@ -355,7 +355,7 @@ class MainActivity : AppCompatActivity() {
         // Appui long sur une icône : sa bulle d'aide (pour ⛰, la légende des couleurs en degrés). 🌦 garde son appui long (Météo-France).
         mapOf(
             R.id.btnQuickClose to "close", R.id.btnLocate to "locate", R.id.btnQuickSearch to "search", R.id.btnQuickPhoto to "photo",
-            R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnCarrefour to "carrefours", R.id.btnQuickDraw to "draw",
+            R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnCarrefour to "carrefours", R.id.btnVibre to "vibre", R.id.btnQuickDraw to "draw",
             R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnSkiText to "skiText",
             R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses",
         ).forEach { (id, key) -> findViewById<View>(id).setOnLongClickListener { v -> showIconTip(v, key); true } }
@@ -414,6 +414,14 @@ class MainActivity : AppCompatActivity() {
             Junctions.setWakeEnabled(this, on)
             toast(if (on) "Écran aux carrefours activé : pendant ▶ Suivre la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace"
                 else "Écran aux carrefours désactivé")
+            syncTraceWake()
+            refreshQuickButtons()
+        }
+        findViewById<View>(R.id.btnVibre).setOnClickListener {
+            val on = !Junctions.vibrateEnabled(this)
+            Junctions.setVibrateEnabled(this, on)
+            toast(if (on) "Vibration hors trace activée : pendant ▶ Suivre la trace, le téléphone vibre si tu t’éloignes de plus de 50 m"
+                else "Vibration hors trace désactivée")
             syncTraceWake()
             refreshQuickButtons()
         }
@@ -2010,7 +2018,7 @@ class MainActivity : AppCompatActivity() {
             val line = t.segments.flatten()
             TraceWake.start(this, DoubleArray(line.size * 2) { i -> if (i % 2 == 0) line[i / 2].lon else line[i / 2].lat },
                 DoubleArray(j.second.size * 2) { i -> if (i % 2 == 0) j.second[i / 2].lon else j.second[i / 2].lat },
-                Junctions.wakeEnabled(this))
+                Junctions.wakeEnabled(this), Junctions.vibrateEnabled(this))
         } else if (TraceWake.isRunning()) TraceWake.stop(this)
     }
 
@@ -2077,7 +2085,8 @@ class MainActivity : AppCompatActivity() {
         status.setTextColor(Color.parseColor(if (off) "#C62828" else "#2F6F4F"))
         bar.setBackgroundColor(Color.parseColor(if (off) "#FDECEA" else "#FFFFFF"))
         val reallyOff = s.offM > Navigation.OFF_TRACK_M + (if (loc.hasAccuracy()) loc.accuracy / 2 else 0f)
-        if (reallyOff && !navWasOff) runCatching {
+        // Le service TraceWake vibre lui-même (même écran éteint) ; sinon, on vibre ici.
+        if (reallyOff && !navWasOff && Junctions.vibrateEnabled(this) && !TraceWake.isRunning()) runCatching {
             getSystemService(android.os.Vibrator::class.java)?.vibrate(
                 android.os.VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 200), -1))
         }
@@ -2674,7 +2683,7 @@ class MainActivity : AppCompatActivity() {
         icons.visibility = View.VISIBLE
         for (i in 0 until icons.childCount) icons.getChildAt(i).visibility = View.VISIBLE
         // Les duos ✈ / 👖 et ⛰ / 🌗 : tous visibles, l'un sous l'autre, pour que chaque étiquette ait sa place.
-        for (id in listOf(R.id.btnPoche, R.id.btnCarrefour, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
+        for (id in listOf(R.id.btnPoche, R.id.btnCarrefour, R.id.btnVibre, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
         findViewById<View>(R.id.btnSki).visibility = View.GONE
         for (id in listOf(R.id.pairAvion, R.id.pairRelief)) findViewById<android.widget.LinearLayout>(id).orientation = android.widget.LinearLayout.VERTICAL
         val labels = linkedMapOf(
@@ -2682,7 +2691,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickToggle to "Appui : icônes suivantes · appui long : aide",
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
-            R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnCarrefour to "Écran aux carrefours",
+            R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to "Sorties ski (🗺 : sur la carte)",
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
@@ -2758,13 +2767,13 @@ class MainActivity : AppCompatActivity() {
         }
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
         // ⑂ : visible avec 👖 ; activé = anneau bleu, désactivé = grisé (maquette A).
-        findViewById<ImageButton>(R.id.btnCarrefour).apply {
-            visibility = findViewById<View>(R.id.btnPoche).visibility
-            val on = Junctions.wakeEnabled(this@MainActivity)
-            setBackgroundResource(if (on) R.drawable.round_btn_ring else R.drawable.round_btn)
-            imageAlpha = if (on) 255 else 115
-            colorFilter = if (on) null else android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(0f) })
-        }
+        for ((id, on) in listOf(R.id.btnCarrefour to Junctions.wakeEnabled(this), R.id.btnVibre to Junctions.vibrateEnabled(this)))
+            findViewById<ImageButton>(id).apply {
+                visibility = findViewById<View>(R.id.btnPoche).visibility
+                setBackgroundResource(if (on) R.drawable.round_btn_ring else R.drawable.round_btn)
+                imageAlpha = if (on) 255 else 115
+                colorFilter = if (on) null else android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(0f) })
+            }
     }
     override fun onPause() { mapView.onPause(); super.onPause() }
     override fun onStop() { mapView.onStop(); super.onStop() }

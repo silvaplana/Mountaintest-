@@ -62,6 +62,8 @@ public class TraceWake extends Service {
     private static volatile boolean active;
     /** Bouton ⑂ : rallumer l'écran (sinon le service garde seulement le GPS et la vibration hors trace). */
     private static volatile boolean wakeScreen = true;
+    /** Bouton vibration hors trace. */
+    private static volatile boolean vibrateOff = true;
     private static WeakReference<Activity> activityRef = new WeakReference<>(null);
 
     /** Service en marche et écran à rallumer : l'appli doit pouvoir passer devant l'écran de verrouillage. */
@@ -69,8 +71,9 @@ public class TraceWake extends Service {
     public static boolean isRunning() { return active; }
 
     /** Démarre le suivi (depuis l'activité visible) avec la trace et ses carrefours. */
-    public static void start(Activity a, double[] lineLonLat, double[] junctionsLonLat, boolean wake) {
+    public static void start(Activity a, double[] lineLonLat, double[] junctionsLonLat, boolean wake, boolean vibrate) {
         wakeScreen = wake;
+        vibrateOff = vibrate;
         line = lineLonLat != null ? lineLonLat : new double[0];
         junctions = junctionsLonLat != null ? junctionsLonLat : new double[0];
         active = true;
@@ -186,7 +189,7 @@ public class TraceWake extends Service {
 
         // Hors trace : écran rallumé 20 s et double vibration, une fois par sortie.
         boolean off = offTrack(line, lon, lat) > OFF_TRACK_M + (loc.hasAccuracy() ? loc.getAccuracy() / 2 : 0);
-        if (off && !wasOff) { if (wakeScreen) wake(20_000); vibrate(new long[]{0, 200, 100, 200}); }
+        if (off && !wasOff) { if (wakeScreen) wake(20_000); if (vibrateOff) vibrate(new long[]{0, 200, 100, 200}); }
         wasOff = off;
 
         double[] j = junctions;

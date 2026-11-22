@@ -158,5 +158,9 @@ object Junctions {
 
     private const val WAKE_PREF = "ecranCarrefours"
     fun wakeEnabled(ctx: Context) = ctx.getSharedPreferences("reglages", Context.MODE_PRIVATE).getBoolean(WAKE_PREF, true)
+    private const val VIB_PREF = "vibreHorsTrace"
+    /** Bouton vibration hors trace (activé par défaut). */
+    fun vibrateEnabled(ctx: Context) = ctx.getSharedPreferences("reglages", Context.MODE_PRIVATE).getBoolean(VIB_PREF, true)
+    fun setVibrateEnabled(ctx: Context, on: Boolean) = ctx.getSharedPreferences("reglages", Context.MODE_PRIVATE).edit().putBoolean(VIB_PREF, on).apply()
     fun setWakeEnabled(ctx: Context, on: Boolean) = ctx.getSharedPreferences("reglages", Context.MODE_PRIVATE).edit().putBoolean(WAKE_PREF, on).apply()
 }
