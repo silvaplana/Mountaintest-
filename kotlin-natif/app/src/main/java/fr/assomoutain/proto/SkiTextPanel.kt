@@ -387,10 +387,10 @@ class SkiTextPanel(
         loading = true; note = ""; fill()
         job = a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) { SkiText.fetchList(listFile, jours, ids, password) } }
-                .onSuccess { rows = it.third; loading = false; fill() }
+                .onSuccess { rows = it.third; listAt = it.second; loading = false; fill() }
                 .onFailure { e ->
                     if (e is kotlinx.coroutines.CancellationException) return@onFailure
-                    loading = false
+                    loading = false; listAt = null
                     val saved = SkiText.readList(listFile)
                     if (saved != null) {
                         rows = saved.third
@@ -402,10 +402,18 @@ class SkiTextPanel(
         }
     }
 
+    /** Heure de la liste reçue (avec la date si ce n'est pas aujourd'hui) : on voit tout de suite si elle est à jour. */
+    private var listAt: Long? = null
+    private fun listTime(t: Long): String {
+        val d = Instant.ofEpochMilli(t).atZone(ZoneId.systemDefault())
+        val p = if (d.toLocalDate() == java.time.LocalDate.now()) "HH:mm" else "d MMM 'à' HH:mm"
+        return d.format(DateTimeFormatter.ofPattern(p, Locale.FRANCE))
+    }
+
     private fun fill() {
         val shown = SkiText.filter(rows.filter { chosen.isEmpty() || it.massif in chosen }, search.text.toString())
         status.text = listOf(note, if (loading) "Chargement des sorties skitour.fr…" else if (rows.isEmpty() && note.isNotEmpty()) ""
-            else "${shown.size} sortie${if (shown.size > 1) "s" else ""}").filter { it.isNotEmpty() }.joinToString("\n")
+            else "${shown.size} sortie${if (shown.size > 1) "s" else ""}" + (listAt?.let { " · à jour : " + listTime(it) } ?: "")).filter { it.isNotEmpty() }.joinToString("\n")
         table.removeAllViews()
         table.addView(LinearLayout(a).apply {
             addView(text("Date", 13f, muted, true), LinearLayout.LayoutParams(dp(52), -2))

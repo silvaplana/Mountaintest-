@@ -92,6 +92,10 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onMode, 
   }, [jours, password, idsKey]);
 
   useEffect(() => { if (start) open(start); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Heure de la liste reçue (date si ce n'est pas aujourd'hui) : on voit tout de suite si elle est à jour.
+  const listTime = (t: number) => new Date(t).toDateString() === new Date().toDateString()
+    ? new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : new Date(t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const rows = useMemo(() => filterRows((list?.sorties ?? []).filter((o) => !massifs.length || massifs.includes(o.massif)), q), [list, q, massifs]);
 
   const open = (o: OutingRow) => {
@@ -213,7 +217,7 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onMode, 
       {busy && <p className="hint">Chargement des sorties skitour.fr…</p>}
       {error && <p className="error">{error}</p>}
       {offline && list && <p className="hint">📴 Hors ligne : liste du {new Date(list.t).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} ({list.jours} jours).</p>}
-      {list && !busy && <p className="hint">{rows.length} sortie{rows.length > 1 ? 's' : ''}</p>}
+      {list && !busy && <p className="hint">{rows.length} sortie{rows.length > 1 ? 's' : ''}{!offline && ` · à jour : ${listTime(list.t)}`}</p>}
       <table className="ski-table">
         <thead><tr><th>Date</th><th>Titre</th><th>Auteurs</th></tr></thead>
         <tbody>
