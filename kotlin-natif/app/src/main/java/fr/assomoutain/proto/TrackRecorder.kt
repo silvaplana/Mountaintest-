@@ -41,6 +41,12 @@ object TrackRecorder {
 
     fun setMode(mode: GpsMode) { this.mode = mode }
 
+    /** ▶ Reprise après ⏸ : la trace continue (mêmes points, même départ). */
+    fun resume(mode: GpsMode) {
+        this.mode = mode
+        _state.value = _state.value.copy(recording = true)
+    }
+
     fun setStationary(stationary: Boolean) {
         _state.value = _state.value.copy(stationary = stationary)
     }

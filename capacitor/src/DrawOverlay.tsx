@@ -6,13 +6,17 @@ import type { LonLat } from './trails/osmTrails';
  * Tracé au doigt : un calque posé sur la carte capte le doigt et dessine la ligne ;
  * au lâcher, on la convertit en coordonnées (même principe côté Kotlin, DrawPathView).
  */
-export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad, onFile }: {
+export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad, onFile, onStart, rec }: {
   map: MlMap; onPaths: boolean; setOnPaths: (v: boolean) => void;
   onDone: (line: LonLat[]) => void; onCancel: () => void;
   /** 📂 Charger une trace enregistrée sur le téléphone. */
   onLoad: () => void;
   /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON. */
   onFile: () => void;
+  /** ▶ Commencer une nouvelle trace sans parcours prévu : le chemin parcouru se dessine au fur et à mesure. */
+  onStart: () => void;
+  /** Nouvelle trace en cours (commencée ici) : ⏸ / ▶ et ⏹ Terminer à la place de ▶ Commencer. */
+  rec: { paused: boolean; onPause: () => void; onResume: () => void; onStop: () => void } | null;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const pts = useRef<[number, number][]>([]);
@@ -48,6 +52,10 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
         <span className="draw-title">✏ Trace ton parcours du doigt</span>
         <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
         <div className="draw-actions">
+          {rec ? <>
+            {rec.paused ? <button className="primary" onClick={rec.onResume}>▶ Reprendre</button> : <button onClick={rec.onPause}>⏸ Pause</button>}
+            <button className="stop" onClick={rec.onStop}>⏹ Terminer</button>
+          </> : <button className="primary" onClick={onStart}>▶ Commencer</button>}
           <button onClick={onLoad}>📂 Charger des traces</button>
           <button onClick={onFile}>📥 Ouvrir un fichier</button>
           <button onClick={onCancel}>Annuler</button>

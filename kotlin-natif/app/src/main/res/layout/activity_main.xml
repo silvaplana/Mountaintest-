@@ -403,6 +403,23 @@
             android:textAllCaps="false" />
     </LinearLayout>
 
+        <!-- ▶ Commencer une nouvelle trace sans parcours prévu (dessinée au fur et à mesure) ; en cours : ⏸ / ▶ et ⏹ Terminer. -->
+        <LinearLayout
+            android:id="@+id/recRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <Button android:id="@+id/btnRecStart" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="▶ Commencer" android:textAllCaps="false" />
+            <Button android:id="@+id/btnRecPause" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="⏸ Pause" android:textAllCaps="false" android:visibility="gone" />
+            <Button android:id="@+id/btnRecStop" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:backgroundTint="#C62828" android:textColor="#FFFFFF"
+                android:text="⏹ Terminer" android:textAllCaps="false" android:visibility="gone" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btnLoadTraces"
             android:layout_width="match_parent"
@@ -454,13 +471,7 @@
                 android:textSize="14sp" android:textStyle="bold" android:visibility="gone" />
         </LinearLayout>
 
-        <Button android:id="@+id/btnNavPause" style="@style/Widget.AppCompat.Button.Borderless"
-            android:layout_width="52dp" android:layout_height="wrap_content" android:minWidth="0dp"
-            android:text="⏸" android:textSize="20sp" android:contentDescription="Mettre le suivi en pause" />
-        <Button android:id="@+id/btnNavStop" style="@style/Widget.AppCompat.Button.Colored"
-            android:layout_width="52dp" android:layout_height="wrap_content" android:minWidth="0dp"
-            android:backgroundTint="#C62828" android:textColor="#FFFFFF" android:textSize="20sp"
-            android:text="⏹" android:contentDescription="Arrêter le suivi" />
+        <!-- ⏸ ▶ ⏹ : dans le menu de la trace (✏), pas sur la carte (demande de Seb) ; toucher le bandeau ouvre ce menu. -->
     </LinearLayout>
 
 
@@ -1170,7 +1181,8 @@
 
         <LinearLayout style="@style/Row">
             <Button android:id="@+id/btnTraceGo" style="@style/Btn.Primary" android:text="🚗 Y aller" />
-            <Button android:id="@+id/btnTraceNav" style="@style/Btn" android:text="▶ Suivre la trace" />
+            <Button android:id="@+id/btnTracePause" style="@style/Btn" android:text="⏸ Pause" android:visibility="gone" />
+            <Button android:id="@+id/btnTraceNav" style="@style/Btn" android:text="▶ Commencer la trace" />
         </LinearLayout>
 
         <TextView android:id="@+id/traceOffline" style="@style/Hint" android:visibility="gone" />
