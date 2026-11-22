@@ -102,6 +102,14 @@ class MainActivity : AppCompatActivity() {
     private var follow = true
     private var locating = false
     private var pocketPausedLocate = false
+    /**
+     * Centrage gardé (demande de Seb) : après ◎, la carte reste centrée sur moi tant que je ne touche à rien, même
+     * après extinction et rallumage de l'écran. Un toucher dans la seconde et demie qui précède la perte du centrage
+     * = choix de l'utilisateur ; sinon on recentre tout seul.
+     */
+    private var wantCenter = false
+    private var lastTouch = 0L
+    private var trackingListener = false
     private var sheetOpen = false // l'appli démarre menu fermé
     private var tab = Tab.SORTIE
     private var startupMs: Long? = null
@@ -124,6 +132,8 @@ class MainActivity : AppCompatActivity() {
     private var navId: Long? = null
     private var navJob: kotlinx.coroutines.Job? = null
     private var navWasOff = false
+    /** ⑂ Carrefours de la trace suivie (id de la trace, points, positions le long de la trace) ; null : en cours de recherche. */
+    private var navJunctions: Triple<Long, List<LonLat>, List<Double>>? = null
     /** ⏸ Suivi en pause : GPS coupé pour la batterie, plus d'alerte ; ▶ reprend sur la même trace. */
     private var navPaused = false
     /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu (identifiant, texte). */
@@ -345,7 +355,7 @@ class MainActivity : AppCompatActivity() {
         // Appui long sur une icône : sa bulle d'aide (pour ⛰, la légende des couleurs en degrés). 🌦 garde son appui long (Météo-France).
         mapOf(
             R.id.btnQuickClose to "close", R.id.btnLocate to "locate", R.id.btnQuickSearch to "search", R.id.btnQuickPhoto to "photo",
-            R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnQuickDraw to "draw",
+            R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnCarrefour to "carrefours", R.id.btnVibre to "vibre", R.id.btnQuickDraw to "draw",
             R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnSkiText to "skiText",
             R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses",
         ).forEach { (id, key) -> findViewById<View>(id).setOnLongClickListener { v -> showIconTip(v, key); true } }
@@ -396,6 +406,23 @@ class MainActivity : AppCompatActivity() {
             val on = !PocketMode.isEnabled(this)
             PocketMode.setEnabled(this, on)
             toast(if (on) "Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer" else "Mode poche désactivé")
+            refreshQuickButtons()
+        }
+        // ⑂ Écran rallumé avant les carrefours (et hors trace) pendant ▶ Suivre la trace : réglage gardé.
+        findViewById<View>(R.id.btnCarrefour).setOnClickListener {
+            val on = !Junctions.wakeEnabled(this)
+            Junctions.setWakeEnabled(this, on)
+            toast(if (on) "Écran aux carrefours activé : pendant ▶ Suivre la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace"
+                else "Écran aux carrefours désactivé")
+            syncTraceWake()
+            refreshQuickButtons()
+        }
+        findViewById<View>(R.id.btnVibre).setOnClickListener {
+            val on = !Junctions.vibrateEnabled(this)
+            Junctions.setVibrateEnabled(this, on)
+            toast(if (on) "Vibration hors trace activée : pendant ▶ Suivre la trace, le téléphone vibre si tu t’éloignes de plus de 50 m"
+                else "Vibration hors trace désactivée")
+            syncTraceWake()
             refreshQuickButtons()
         }
         findViewById<Button>(R.id.btnClearImport).setOnClickListener { imported = emptyList(); drawImported(); refreshSortie() }
@@ -854,11 +881,30 @@ class MainActivity : AppCompatActivity() {
         }
         lc.isLocationComponentEnabled = true
         lc.renderMode = RenderMode.COMPASS
+        if (!trackingListener) {
+            trackingListener = true
+            lc.addOnCameraTrackingChangedListener(object : org.maplibre.android.location.OnCameraTrackingChangedListener {
+                override fun onCameraTrackingDismissed() {}
+                override fun onCameraTrackingChanged(currentMode: Int) {
+                    if (currentMode != CameraMode.NONE) { wantCenter = true; return }
+                    if (android.os.SystemClock.uptimeMillis() - lastTouch < 1_500) wantCenter = false
+                    else mapView.postDelayed({ recenter() }, 300)
+                }
+            })
+        }
         if (!locating) {
             lc.cameraMode = CameraMode.TRACKING
             lc.zoomWhileTracking(maxOf(15.0, m.cameraPosition.zoom))
         }
         locating = true
+        refreshLocateButton()
+    }
+
+    /** Remet le suivi de position si le centrage a été perdu sans que j'y touche (écran éteint, appli en arrière-plan). */
+    private fun recenter() {
+        val lc = map?.locationComponent ?: return
+        if (!wantCenter || !locating || !lc.isLocationComponentActivated || lc.cameraMode != CameraMode.NONE) return
+        lc.cameraMode = CameraMode.TRACKING
         refreshLocateButton()
     }
 
@@ -1942,12 +1988,45 @@ class MainActivity : AppCompatActivity() {
             while (navId != null) { refreshNav(); kotlinx.coroutines.delay(2_000) }
         }
         refreshNav()
+        loadJunctions(t)
+    }
+
+    /** ⑂ Carrefours de la trace : gardés sur le téléphone (📶 Hors ligne), sinon cherchés dans OpenStreetMap. */
+    private fun loadJunctions(t: Trail) {
+        if (navJunctions?.first == t.id) { syncTraceWake(); return }
+        navJunctions = null
+        val line = t.segments.flatten()
+        lifecycleScope.launch {
+            val j = withContext(Dispatchers.IO) { runCatching { Junctions.forLine(this@MainActivity, line) }.getOrNull() }
+            if (navId != t.id) return@launch
+            if (j == null && Junctions.wakeEnabled(this@MainActivity))
+                toast("Carrefours introuvables sans réseau : l’écran se rallumera seulement si tu quittes la trace. Fais 📶 Hors ligne avant de partir.")
+            val pts = j ?: emptyList()
+            navJunctions = Triple(t.id, pts, withContext(Dispatchers.Default) { Junctions.alongs(line, pts) })
+            syncTraceWake()
+        }
+    }
+
+    /**
+     * Service TraceWake pendant le suivi (hors pause) : GPS qui continue écran éteint (2 s, ou 5 s écran éteint loin
+     * des carrefours) et vibration hors trace ; avec ⑂ activé, écran rallumé avant les carrefours et hors trace.
+     */
+    private fun syncTraceWake() {
+        val t = trails.firstOrNull { it.id == navId }
+        val j = navJunctions
+        if (t != null && !navPaused && j != null && j.first == t.id) {
+            val line = t.segments.flatten()
+            TraceWake.start(this, DoubleArray(line.size * 2) { i -> if (i % 2 == 0) line[i / 2].lon else line[i / 2].lat },
+                DoubleArray(j.second.size * 2) { i -> if (i % 2 == 0) j.second[i / 2].lon else j.second[i / 2].lat },
+                Junctions.wakeEnabled(this), Junctions.vibrateEnabled(this))
+        } else if (TraceWake.isRunning()) TraceWake.stop(this)
     }
 
     /** ⏸ Pause : on coupe le GPS du bouton ◎ et la mise à jour du bandeau. */
     private fun pauseNav() {
         navPaused = true; navJob?.cancel(); navJob = null
         if (locating) stopLocate()
+        syncTraceWake()
         refreshNav()
     }
 
@@ -1959,6 +2038,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun stopNav() {
         navId = null; navPaused = false; navJob?.cancel(); navJob = null
+        syncTraceWake()
         findViewById<View>(R.id.navBar).visibility = View.GONE
         refreshTraceMenu()
     }
@@ -1999,11 +2079,14 @@ class MainActivity : AppCompatActivity() {
                 " · ≈ " + (if (min < 60) "$min min" else String.format(Locale.FRANCE, "%d h %02d", min / 60, min % 60))
         }
         status.visibility = View.VISIBLE
-        status.text = if (off) "⚠ Hors trace : ${s.offM.roundToInt()} m" else "✓ Sur la trace"
+        val nextJ = navJunctions?.takeIf { it.first == t.id }?.let { Junctions.nextM(it.third, s.alongM) }
+        status.text = if (off) "⚠ Hors trace : ${s.offM.roundToInt()} m" else "✓ Sur la trace" +
+            (if (nextJ != null && nextJ <= Junctions.SHOW_M) " · ⑂ carrefour dans ${(nextJ / 10).roundToInt() * 10} m" else "")
         status.setTextColor(Color.parseColor(if (off) "#C62828" else "#2F6F4F"))
         bar.setBackgroundColor(Color.parseColor(if (off) "#FDECEA" else "#FFFFFF"))
         val reallyOff = s.offM > Navigation.OFF_TRACK_M + (if (loc.hasAccuracy()) loc.accuracy / 2 else 0f)
-        if (reallyOff && !navWasOff) runCatching {
+        // Le service TraceWake vibre lui-même (même écran éteint) ; sinon, on vibre ici.
+        if (reallyOff && !navWasOff && Junctions.vibrateEnabled(this) && !TraceWake.isRunning()) runCatching {
             getSystemService(android.os.Vibrator::class.java)?.vibrate(
                 android.os.VibrationEffect.createWaveform(longArrayOf(0, 200, 100, 200), -1))
         }
@@ -2056,6 +2139,8 @@ class MainActivity : AppCompatActivity() {
                         if (!withContext(Dispatchers.IO) { Dem.loadTile(this@MainActivity, z, x, y) != null }) failed++
                         if (i % 5 == 0) setTraceOffline(t.id, "📶 Relief pour les ombres : ${i + 1}/${tiles.size}")
                     }
+                    // ⑂ Carrefours de la trace, gardés pour l'écran rallumé avant les carrefours hors ligne.
+                    withContext(Dispatchers.IO) { runCatching { Junctions.forLine(this@MainActivity, line) } }
                     traceDownloading = false
                     setTraceOffline(t.id, if (failed > 0) "Cartes prêtes, mais $failed tuiles de relief ont échoué (réseau ?) : relance 📶 Hors ligne."
                         else "✓ Cartes et relief disponibles hors ligne autour de cette trace.")
@@ -2403,7 +2488,7 @@ class MainActivity : AppCompatActivity() {
 
     // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
     override fun onStart() { super.onStart(); mapView.onStart(); if (sheetOpen) { sheetOpen = false; refreshTabs() } }
-    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons() }
+    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons(); mapView.postDelayed({ recenter() }, 500) }
 
     /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
     private fun airplaneOn() =
@@ -2414,6 +2499,7 @@ class MainActivity : AppCompatActivity() {
     private var pairOpen = 0
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) lastTouch = android.os.SystemClock.uptimeMillis()
         if (pairOpen != 0 && ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
             val r = android.graphics.Rect()
             val dedans = findViewById<View>(pairOpen).getGlobalVisibleRect(r) && r.contains(ev.rawX.toInt(), ev.rawY.toInt())
@@ -2597,7 +2683,7 @@ class MainActivity : AppCompatActivity() {
         icons.visibility = View.VISIBLE
         for (i in 0 until icons.childCount) icons.getChildAt(i).visibility = View.VISIBLE
         // Les duos ✈ / 👖 et ⛰ / 🌗 : tous visibles, l'un sous l'autre, pour que chaque étiquette ait sa place.
-        for (id in listOf(R.id.btnPoche, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
+        for (id in listOf(R.id.btnPoche, R.id.btnCarrefour, R.id.btnVibre, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
         findViewById<View>(R.id.btnSki).visibility = View.GONE
         for (id in listOf(R.id.pairAvion, R.id.pairRelief)) findViewById<android.widget.LinearLayout>(id).orientation = android.widget.LinearLayout.VERTICAL
         val labels = linkedMapOf(
@@ -2605,7 +2691,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickToggle to "Appui : icônes suivantes · appui long : aide",
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
-            R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)",
+            R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to "Sorties ski (🗺 : sur la carte)",
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
@@ -2680,6 +2766,14 @@ class MainActivity : AppCompatActivity() {
                 if (helpOverlay != null) android.widget.LinearLayout.VERTICAL else android.widget.LinearLayout.HORIZONTAL
         }
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
+        // ⑂ : visible avec 👖 ; activé = anneau bleu, désactivé = grisé (maquette A).
+        for ((id, on) in listOf(R.id.btnCarrefour to Junctions.wakeEnabled(this), R.id.btnVibre to Junctions.vibrateEnabled(this)))
+            findViewById<ImageButton>(id).apply {
+                visibility = findViewById<View>(R.id.btnPoche).visibility
+                setBackgroundResource(if (on) R.drawable.round_btn_ring else R.drawable.round_btn)
+                imageAlpha = if (on) 255 else 115
+                colorFilter = if (on) null else android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(0f) })
+            }
     }
     override fun onPause() { mapView.onPause(); super.onPause() }
     override fun onStop() { mapView.onStop(); super.onStop() }

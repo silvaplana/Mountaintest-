@@ -15,6 +15,8 @@ object IconHelp {
         "layer" to IconHelp.Entry("🗺 Fond de carte", "SCAN 25, Plan IGN ou auto."),
         "avion" to IconHelp.Entry("✈ Mode avion", "Ouvre le réglage. Le GPS marche toujours."),
         "poche" to IconHelp.Entry("👖 Mode poche", "Vertical 3 s = écran noir."),
+        "carrefours" to IconHelp.Entry("⑂ Écran aux carrefours", "Écran rallumé avant les carrefours et hors trace, pendant le suivi."),
+        "vibre" to IconHelp.Entry("Vibration hors trace", "Vibre si tu t’éloignes de 50 m de la trace suivie."),
         "draw" to IconHelp.Entry("✏ Tracer au doigt", "Dessine un parcours : km et dénivelé."),
         "slopes" to IconHelp.Entry("⛰ Pentes", "Carte IGN des pentes :"),
         "shade" to IconHelp.Entry("🌗 Ombres", "Ombres du soleil heure par heure."),

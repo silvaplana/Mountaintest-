@@ -574,6 +574,34 @@
                 android:gravity="end|center_vertical"
                 android:orientation="horizontal">
 
+                <!-- Vibration hors trace pendant le suivi d'une trace : à gauche de ⑂. -->
+                <ImageButton
+                    android:id="@+id/btnVibre"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Vibration quand je quitte la trace suivie"
+                    android:elevation="4dp"
+                    android:padding="4dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_vibre_hors_trace"
+                    android:visibility="gone" />
+
+                <!-- ⑂ Écran rallumé avant les carrefours pendant le suivi d'une trace : à gauche de 👖. -->
+                <ImageButton
+                    android:id="@+id/btnCarrefour"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/round_btn"
+                    android:contentDescription="Écran rallumé avant les carrefours pendant le suivi de trace"
+                    android:elevation="4dp"
+                    android:padding="4dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_carrefour"
+                    android:visibility="gone" />
+
                 <Button
                     android:id="@+id/btnPoche"
                     android:layout_width="44dp"

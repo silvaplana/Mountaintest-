@@ -103,12 +103,14 @@ public final class PocketMode implements SensorEventListener {
     private void sync() {
         // Mode actif : l'activité peut rallumer l'écran et s'afficher par-dessus le verrouillage
         // (comme une appli de navigation) ; les autres applis restent verrouillées.
+        // Le suivi de trace avec écran rallumé avant les carrefours (TraceWake) en a besoin aussi.
+        boolean show = enabled || TraceWake.isActive();
         if (Build.VERSION.SDK_INT >= 27) {
-            activity.setShowWhenLocked(enabled);
-            activity.setTurnScreenOn(enabled);
+            activity.setShowWhenLocked(show);
+            activity.setTurnScreenOn(show);
         } else {
             int f = WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON;
-            if (enabled) activity.getWindow().addFlags(f); else activity.getWindow().clearFlags(f);
+            if (show) activity.getWindow().addFlags(f); else activity.getWindow().clearFlags(f);
         }
         if (enabled) startListening(); else stopListening();
     }
