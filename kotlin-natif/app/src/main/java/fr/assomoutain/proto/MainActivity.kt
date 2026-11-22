@@ -1251,6 +1251,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnRecStart).setOnClickListener { startFree() }
         findViewById<Button>(R.id.btnRecPause).setOnClickListener {
             if (navPaused) { navPaused = false; resumeTraceRecording() } else { navPaused = true; pauseTraceRecording() }
+            syncTraceWake()
             setFraming(false); refreshRecBar()
         }
         findViewById<Button>(R.id.btnRecStop).setOnClickListener { setFraming(false); stopFree() }
@@ -2029,7 +2030,7 @@ class MainActivity : AppCompatActivity() {
     private var recByTrace = false
     /** Nouvelle trace commencée depuis ✏, sans parcours prévu. */
     private var freeRec = false
-        set(v) { field = v; runCatching { refreshQuickButtons() } }
+        set(v) { field = v; runCatching { refreshQuickButtons() }; syncTraceWake() }
 
     private fun pauseTraceRecording() {
         if (!recByTrace || !gpsRunning) return
@@ -2115,6 +2116,9 @@ class MainActivity : AppCompatActivity() {
             TraceWake.start(this, DoubleArray(line.size * 2) { i -> if (i % 2 == 0) line[i / 2].lon else line[i / 2].lat },
                 DoubleArray(j.second.size * 2) { i -> if (i % 2 == 0) j.second[i / 2].lon else j.second[i / 2].lat },
                 Junctions.wakeEnabled(this), Junctions.vibrateEnabled(this))
+        } else if (t == null && freeRec && !navPaused) {
+            // Nouvelle trace (✏ ▶ Commencer) : même service, sans trace prévue, pour passer devant l'écran de verrouillage.
+            TraceWake.start(this, DoubleArray(0), DoubleArray(0), false, false)
         } else if (TraceWake.isRunning()) TraceWake.stop(this)
     }
 
