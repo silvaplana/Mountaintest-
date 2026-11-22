@@ -798,11 +798,7 @@ export function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingNav, geo, trails]);
 
-<<<<<<< HEAD
   /** ⏸ Pause du suivi : on coupe le GPS (batterie) et l'enregistrement ; ▶ les relance, sur la même trace. */
-=======
-  /** ⏸ Pause du suivi : on coupe le GPS (batterie) ; ▶ le relance, le suivi reprend sur la même trace. */
->>>>>>> af83eb6181f9fe7eb284cfd6a27d178aa4e22a14
   function pauseNav() {
     setNavPaused(true); setNavPos(null);
     for (let i = 0; i < 2 && geo && geoState() !== 'OFF'; i++) void geo.trigger();
