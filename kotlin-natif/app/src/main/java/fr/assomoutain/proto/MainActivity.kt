@@ -142,7 +142,8 @@ class MainActivity : AppCompatActivity() {
     private val c2cLines = java.util.concurrent.ConcurrentHashMap<Long, List<LonLat>>()
     private var c2cJob: kotlinx.coroutines.Job? = null
     /** 🚵 Case « Type de chemin » du menu de la trace, et types de chemin de la trace choisie (null : recherche en cours). */
-    private var wayTypesOn = true
+    /** Coche « Type de chemin » du menu de la trace, dans tous les modes (Seb) : cochée d'office en 🚵, décochée sinon. */
+    private var wayTypesOn = false
     private var wayRuns: Pair<Long, Result<List<WayTypes.Run>>?>? = null
     private var wayJob: kotlinx.coroutines.Job? = null
     /** 🧭 Navigation sur une de mes traces (identifiant) ; on vibre une fois en sortant de la trace. */
@@ -214,6 +215,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        wayTypesOn = vtt
         // 👥 Relancée par le retour de la page de connexion Logto : finie une fois l'écran prêt.
         val retourConnexion = intent?.data?.takeIf { savedInstanceState == null && it.scheme == Compte.SCHEMA }
         retourConnexion?.let { u -> window.decorView.post { finConnexion(u) } }
@@ -1362,6 +1364,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSkiText).setOnLongClickListener { b ->
             val now = nextActivity(activity)
             prefs.edit().putString("activite", now).apply()
+            wayTypesOn = now == "vtt"; refreshTraceMenu()
             (b as Button).text = activityIcon(now)
             closeC2c()
             toast(when (now) {
@@ -2107,7 +2110,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshWayTypes() {
-        val sel = selectedTrail?.takeIf { Trails.isMine(it.id) && vtt && wayTypesOn }
+        val sel = selectedTrail?.takeIf { Trails.isMine(it.id) && wayTypesOn }
         if (sel != null && (wayRuns?.first != sel.id || wayRuns?.second?.isFailure == true) && wayJob?.isActive != true) {
             wayRuns = sel.id to null
             val line = sel.segments.flatten()
@@ -2197,7 +2200,7 @@ class MainActivity : AppCompatActivity() {
             cursor = this@MainActivity.findViewById<ProfileView>(R.id.trailProfile).cursor
             visibility = if (drawnProfile && e != null) View.VISIBLE else View.GONE
         }
-        findViewById<CheckBox>(R.id.chkTraceWays).apply { visibility = if (vtt) View.VISIBLE else View.GONE; isChecked = wayTypesOn }
+        findViewById<CheckBox>(R.id.chkTraceWays).apply { isChecked = wayTypesOn }
         findViewById<Button>(R.id.btnTraceSave).apply {
             isEnabled = sel.savedId == null
             text = if (sel.savedId == null) "💾 Sauvegarder" else "✓ Enregistrée"

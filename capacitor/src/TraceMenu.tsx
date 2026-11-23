@@ -47,12 +47,12 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
       <div className="checks">
         <label><input type="checkbox" checked={slopes} onChange={(e) => onSlopes(e.target.checked)} /> Afficher la pente</label>
         <label><input type="checkbox" checked={showProfile} onChange={(e) => onShowProfile(e.target.checked)} /> Afficher le profil</label>
-        {vtt && <label><input type="checkbox" checked={wayTypes} onChange={(e) => onWayTypes(e.target.checked)} /> Type de chemin</label>}
+        {<label><input type="checkbox" checked={wayTypes} onChange={(e) => onWayTypes(e.target.checked)} /> Type de chemin</label>}
       </div>
       {(slopes || showProfile) && elevated === 'error' && <p className="hint">Altitudes indisponibles (pas de réseau ?) : pente et profil ne peuvent pas être calculés.</p>}
       {showProfile && el && <Profile segments={el.segments} cursor={cursor} onCursor={onCursor} pctFirst={vtt}
-        runs={vtt && wayTypes && Array.isArray(runs) ? runs : null} />}
-      {vtt && wayTypes && (runs === 'loading' ? <p className="hint">Recherche des types de chemin…</p>
+        runs={wayTypes && Array.isArray(runs) ? runs : null} />}
+      {wayTypes && (runs === 'loading' ? <p className="hint">Recherche des types de chemin…</p>
         : runs === 'error' ? <p className="hint">Types de chemin introuvables sans réseau. Fais 📶 Hors ligne avant de partir.</p>
         : runs && <WayLegend runs={runs} />)}
       <div className="row">

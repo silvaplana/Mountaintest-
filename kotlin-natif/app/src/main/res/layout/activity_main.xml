@@ -1215,7 +1215,7 @@
                 android:text="Afficher le profil" android:textSize="15sp" />
         </LinearLayout>
         <CheckBox android:id="@+id/chkTraceWays" android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Type de chemin" android:textSize="15sp" android:checked="true" android:visibility="gone" />
+            android:text="Type de chemin" android:textSize="15sp" />
 
         <TextView android:id="@+id/traceAltError" style="@style/Hint" android:visibility="gone"
             android:text="Altitudes indisponibles (pas de réseau ?) : pente et profil ne peuvent pas être calculés." />
