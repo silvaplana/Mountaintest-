@@ -341,7 +341,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   Buddy Group (« 🔔 Saison ski : 3 week-ends à remplir · Remplir › ») et compte dans la pastille de 👥.
 - **Écran 18** : nom, bande (pas de planning dans Me Time), période de mois à mois, « Week-ends »
   (samedi-dimanche), « Tous les jours » (tout coché) ou « À la carte » (tous les jours, rien de coché),
-  dates en pastilles à décocher, date limite (dans 7 jours par défaut), « Publier le planning ».
+  dates en pastilles à décocher, date limite (dans 7 jours par défaut), « Publier le planning ». Sans nom tapé, le
+  nom grisé proposé (« Saison ski 2026-27 ») est pris ; s'il manque une bande ou une date, l'écran le dit au-dessus
+  du bouton (corrigé le 23 novembre : le bouton restait grisé sans raison quand on gardait le nom proposé).
 - **Écran 16** : une ligne par date, regroupées par mois ; une colonne par buddy, moi en premier et
   encadré ; ✓ ? ✗ ou · (pas répondu), 💬 quand il y a un petit mot ; le nombre de ✓ au bout. Toucher
   ma case fait tourner ✓ → ? → ✗ → rien ; toucher la case d'un autre montre son petit mot.

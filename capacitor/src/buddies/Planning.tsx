@@ -225,10 +225,15 @@ export function NouveauPlanning({ groupes, groupe, onFini, onRetour, onClose, on
     if (mode === 'carte') setOui(f); else setNon(f);
   };
   const g = bandes.find((x) => x.id === pour);
+  // Le nom grisé proposé sert de nom si on n'en tape pas (il ressemblait à un nom déjà rempli).
+  const exemple = `Saison ski ${ici.getFullYear()}-${String(ici.getFullYear() + 1).slice(2)}`;
+  const nomFinal = nom.trim() || exemple;
+  // Ce qui manque pour publier, dit à l'écran plutôt qu'un bouton grisé sans raison.
+  const manque = !g ? "Crée d'abord un Buddy Group pour publier un planning." : !choisies.length ? 'Coche au moins une date.' : '';
   const publier = () => {
     try {
-      const id = creerPlanning({ groupe: pour, nom, dates: choisies, limite });
-      onToast(`« ${nom.trim()} » est publié : ${g?.nom ?? 'la bande'} est prévenue`);
+      const id = creerPlanning({ groupe: pour, nom: nomFinal, dates: choisies, limite });
+      onToast(`« ${nomFinal} » est publié : ${g?.nom ?? 'la bande'} est prévenue`);
       onFini(id);
     } catch (err) { onToast(String((err as Error).message)); }
   };
@@ -237,7 +242,7 @@ export function NouveauPlanning({ groupes, groupe, onFini, onRetour, onClose, on
       <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau planning</h2>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    <input className="bd-nom" value={nom} maxLength={80} placeholder={`Saison ski ${ici.getFullYear()}-${String(ici.getFullYear() + 1).slice(2)}`} onChange={(ev) => setNom(ev.target.value)} />
+    <input className="bd-nom" value={nom} maxLength={80} placeholder={exemple} onChange={(ev) => setNom(ev.target.value)} />
     <h3 className="bd-section">Pour qui</h3>
     {bandes.length ? <label className="bd-pour">
       {g && <span className="bd-pile">{g.membres.slice(0, 4).map((b) => <Visage key={b.id} b={b} taille={30} />)}</span>}
@@ -256,6 +261,7 @@ export function NouveauPlanning({ groupes, groupe, onFini, onRetour, onClose, on
     <div className="bd-puces">{toutes.map((dt) => <button key={dt[0]} className={coche(dt[0]) ? 'oui' : 'barre'} onClick={() => basculer(dt[0])}>{ligneCourte(dt)}</button>)}</div>
     <label className="bd-limite">Répondre avant le<input type="date" value={limite} onChange={(ev) => setLimite(ev.target.value)} /></label>
     <span style={{ flex: 1 }} />
-    <button className="primary bd-grand" disabled={!nom.trim() || !g || !choisies.length} onClick={publier}>Publier le planning</button>
+    {manque && <p className="hint">{manque}</p>}
+    <button className="primary bd-grand" disabled={!!manque} onClick={publier}>Publier le planning</button>
   </div>;
 }
