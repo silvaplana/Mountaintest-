@@ -131,23 +131,22 @@ export function Profile({ segments, cursor, onCursor, pctFirst = false, runs }: 
   );
 }
 
-/**
- * 🚵 Bilan des types de chemin, sous le profil : tous les types possibles (ceux absents de la trace en grisé),
- * avec la part de chacun en % et en km, puis la part sur GR.
- */
+/** 🚵 Bilan des types de chemin, sous le profil : part de chacun en % et en km, puis la part sur GR. */
 export function WayLegend({ runs }: { runs: WayRun[] }) {
   const t = wayTotals(runs);
+  // Du plus présent au moins présent, sans les types absents de la trace (demande de Seb) ; GR à la fin s'il y en a.
+  const rows = WAY_TYPES.filter((w) => t.byType[w.key] > 0).sort((a, b) => t.byType[b.key] - t.byType[a.key]);
   return (
     <ul className="way-legend">
-      {WAY_TYPES.map((w) => { const m = t.byType[w.key]; return (
-        <li key={w.key} className={m > 0 ? '' : 'absent'}>
-          <i style={{ background: w.color }} />{w.label}
-          <small>{m > 0 ? <><b>{sharePct(m, t.total)}</b> · {km(m)}</> : '—'}</small>
+      {rows.map((w) => { const m = t.byType[w.key]; return (
+        <li key={w.key}>
+          <i style={{ background: w.color }} /><span>{w.label}</span>
+          <small><b>{sharePct(m, t.total)}</b> · {km(m)}</small>
         </li>); })}
-      <li className={t.gr > 0 ? '' : 'absent'}>
-        <i className="gr" />Sur GR (balisage rouge et blanc)
-        <small>{t.gr > 0 ? <><b>{sharePct(t.gr, t.total)}</b> · {km(t.gr)}</> : '—'}</small>
-      </li>
+      {t.gr > 0 && <li>
+        <i className="gr" /><span>Sur GR (balisage rouge et blanc)</span>
+        <small><b>{sharePct(t.gr, t.total)}</b> · {km(t.gr)}</small>
+      </li>}
     </ul>
   );
 }

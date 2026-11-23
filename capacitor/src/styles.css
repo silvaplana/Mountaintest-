@@ -167,11 +167,11 @@ progress { width: 100%; }
 .profile text { font-size: 11px; fill: var(--muted); }
 .profile-gauge line { stroke: #e4572e; stroke-width: 1.8; }
 .profile-gauge text { font-size: 10px; }
-.way-legend { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 2px; font-size: 13px; }
-.way-legend li { display: flex; align-items: center; gap: 6px; }
-.way-legend li.absent { opacity: .45; }
+.way-legend { list-style: none; margin: 4px 0 0; padding: 0 2px 0 0; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.way-legend li { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.way-legend li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .way-legend i { width: 14px; height: 6px; border-radius: 2px; flex: none; }
-.way-legend small { margin-left: auto; color: var(--muted); white-space: nowrap; }
+.way-legend small { flex: none; color: var(--muted); white-space: nowrap; }
 .way-legend small b { color: var(--fg); }
 .way-legend i.gr { background: repeating-linear-gradient(90deg, #e53935 0 5px, transparent 5px 8px); height: 3px; }
 .profile-line { fill: none; stroke: #e4572e; stroke-width: 1.8; }
