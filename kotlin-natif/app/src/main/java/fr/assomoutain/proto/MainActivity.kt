@@ -466,7 +466,7 @@ class MainActivity : AppCompatActivity() {
 
         setupTrails()
         // Traces affichées et suivi en cours avant la fermeture de l'appli : on les remet.
-        ShownTraces.load(this).takeIf { it.trails.isNotEmpty() }?.let { st -> trails = st.trails; if (st.navId != null) resumeNavOnStart = st }
+        ShownTraces.load(this).takeIf { it.trails.isNotEmpty() }?.let { st -> trails = st.trails; prefetchWays(st.trails); if (st.navId != null) resumeNavOnStart = st }
         setupForests()
 
         // Onglet Hors ligne
@@ -1955,6 +1955,7 @@ class MainActivity : AppCompatActivity() {
         val t = base.copy(name = name ?: base.name, kind = kind ?: base.kind, savedId = savedId)
         trails = listOf(t) + trails
         selectTrail(t)
+        prefetchWays(listOf(t))
         return t
     }
 
@@ -2096,6 +2097,13 @@ class MainActivity : AppCompatActivity() {
      * 🚵 Type de chemin de la trace choisie (mode VTT, case cochée) : gardé sur le téléphone, sinon cherché sur
      * le réseau (même requête que les carrefours ⑂). Colore la trace sur la carte, la bande sous le profil et le bilan.
      */
+    /** Dès qu'une de mes traces s'affiche, ses types de chemin (et carrefours) sont calculés en avance et gardés. */
+    private fun prefetchWays(ts: List<Trail>) {
+        val lines = ts.filter { Trails.isMine(it.id) }.map { it.segments.flatten() }
+        if (lines.isEmpty()) return
+        lifecycleScope.launch(Dispatchers.IO) { for (l in lines) Junctions.prefetch(this@MainActivity, l) }
+    }
+
     private fun refreshWayTypes() {
         val sel = selectedTrail?.takeIf { Trails.isMine(it.id) && vtt && wayTypesOn }
         if (sel != null && (wayRuns?.first != sel.id || wayRuns?.second?.isFailure == true) && wayJob?.isActive != true) {
