@@ -6,6 +6,7 @@ import { Preferences } from '@capacitor/preferences';
 import { distanceM } from '../gps/adaptive';
 import { locateOnLine } from './navigation';
 import { OVERPASS_URLS, type LonLat } from './osmTrails';
+import { wayRuns, type WayRun, type WayType } from './wayTypes';
 
 /** Un nœud OSM plus loin que ça de la trace n'est pas un carrefour de la trace. */
 export const JUNCTION_NEAR_M = 20;
@@ -57,13 +58,15 @@ export function junctionQueries(line: LonLat[]): string[] {
   for (let i = 0; pts.length; i += CHUNK - 1) {
     const part = pts.slice(i, i + CHUNK);
     const coords = part.map((p) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`).join(',');
-    out.push(`[out:json][timeout:90];way["highway"](around:${AROUND_M},${coords});out body geom qt;`);
+    // + les relations GR / GR de Pays de ces chemins (🚵 type de chemin : portions sur GR).
+    out.push(`[out:json][timeout:90];way["highway"](around:${AROUND_M},${coords})->.w;.w out body geom qt;`
+      + 'rel(bw.w)["route"~"^(hiking|foot)$"]["network"~"^(iwn|nwn|rwn)$"];out body qt;');
     if (i + CHUNK >= pts.length) break;
   }
   return out;
 }
 
-interface OsmWay { type: string; id: number; nodes?: number[]; geometry?: (LonLat | null)[]; tags?: Record<string, string | undefined> }
+interface OsmWay { type: string; id: number; nodes?: number[]; geometry?: (LonLat | null)[]; tags?: Record<string, string | undefined>; members?: { type: string; ref: number }[] }
 
 /**
  * Carrefours de la trace : nœuds partagés par au moins 3 bouts de chemin (un nœud au milieu d'un chemin
@@ -97,8 +100,8 @@ export function parseJunctions(json: { elements?: OsmWay[] }, line: LonLat[]): L
   return kept;
 }
 
-/** Appel réseau : chemins autour de la trace (plusieurs requêtes si elle est longue), puis carrefours. */
-export async function fetchJunctions(line: LonLat[], signal?: AbortSignal): Promise<LonLat[]> {
+/** Appel réseau : chemins autour de la trace (plusieurs requêtes si elle est longue). */
+async function fetchWays(line: LonLat[], signal?: AbortSignal): Promise<OsmWay[]> {
   const elements: OsmWay[] = [];
   for (const q of junctionQueries(line)) {
     const body = new URLSearchParams({ data: q });
@@ -117,7 +120,12 @@ export async function fetchJunctions(line: LonLat[], signal?: AbortSignal): Prom
     }
     if (!ok) throw last instanceof Error ? last : new Error(String(last));
   }
-  return parseJunctions({ elements }, line);
+  return elements;
+}
+
+/** Appel réseau : chemins autour de la trace, puis carrefours. */
+export async function fetchJunctions(line: LonLat[], signal?: AbortSignal): Promise<LonLat[]> {
+  return parseJunctions({ elements: await fetchWays(line, signal) }, line);
 }
 
 /** Empreinte de la trace (même calcul que le méta du hors ligne côté Kotlin). */
@@ -138,13 +146,43 @@ export async function cachedJunctions(line: LonLat[]): Promise<LonLat[] | null> 
   } catch { return null; }
 }
 
+/**
+ * Une seule requête Overpass pour les deux : carrefours ⑂ et 🚵 types de chemin de la trace,
+ * gardés sur le téléphone (hors ligne).
+ */
+async function fetchAndKeep(line: LonLat[], signal?: AbortSignal) {
+  const elements = await fetchWays(line, signal);
+  const j = parseJunctions({ elements }, line);
+  const runs = wayRuns({ elements }, line);
+  await Preferences.set({ key: lineKey(line), value: JSON.stringify(j.map((p) => [+p.lon.toFixed(6), +p.lat.toFixed(6)])) });
+  await Preferences.set({ key: wayKey(line), value: JSON.stringify(runs.map((r) => [Math.round(r.from), Math.round(r.to), r.type, r.gr ? 1 : 0])) });
+  return { junctions: j, runs };
+}
+
 /** Carrefours de la trace : ceux du téléphone, sinon cherchés sur le réseau puis gardés. */
 export async function junctionsFor(line: LonLat[], signal?: AbortSignal): Promise<LonLat[]> {
   const c = await cachedJunctions(line);
   if (c) return c;
-  const j = await fetchJunctions(line, signal);
-  await Preferences.set({ key: lineKey(line), value: JSON.stringify(j.map((p) => [+p.lon.toFixed(6), +p.lat.toFixed(6)])) });
-  return j;
+  return (await fetchAndKeep(line, signal)).junctions;
+}
+
+const wayKey = (line: LonLat[]) => lineKey(line).replace('carrefours:', 'chemins:');
+
+/** 🚵 Types de chemin de la trace déjà gardés sur le téléphone (null : jamais cherchés). */
+export async function cachedWayRuns(line: LonLat[]): Promise<WayRun[] | null> {
+  try {
+    const v = (await Preferences.get({ key: wayKey(line) })).value;
+    if (!v) return null;
+    const arr = JSON.parse(v);
+    return Array.isArray(arr) ? arr.map(([from, to, type, gr]: [number, number, WayType, number?]) => ({ from, to, type, gr: gr === 1 })) : null;
+  } catch { return null; }
+}
+
+/** 🚵 Types de chemin de la trace : ceux du téléphone, sinon cherchés sur le réseau puis gardés. */
+export async function wayRunsFor(line: LonLat[], signal?: AbortSignal): Promise<WayRun[]> {
+  const c = await cachedWayRuns(line);
+  if (c) return c;
+  return (await fetchAndKeep(line, signal)).runs;
 }
 
 /** Position de chaque carrefour le long de la trace (m depuis le départ), calculée une fois par trace. */

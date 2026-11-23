@@ -65,7 +65,9 @@ object Junctions {
         while (pts.isNotEmpty()) {
             val part = pts.subList(i, minOf(pts.size, i + CHUNK))
             val coords = part.joinToString(",") { String.format(java.util.Locale.US, "%.5f,%.5f", it.lat, it.lon) }
-            out += "[out:json][timeout:90];way[\"highway\"](around:$AROUND_M,$coords);out body geom qt;"
+            // + les relations GR / GR de Pays de ces chemins (🚵 type de chemin : portions sur GR).
+            out += "[out:json][timeout:90];way[\"highway\"](around:$AROUND_M,$coords)->.w;.w out body geom qt;" +
+                "rel(bw.w)[\"route\"~\"^(hiking|foot)$\"][\"network\"~\"^(iwn|nwn|rwn)$\"];out body qt;"
             if (i + CHUNK >= pts.size) break
             i += CHUNK - 1
         }
@@ -100,8 +102,8 @@ object Junctions {
         return kept
     }
 
-    /** Appel réseau (hors du fil principal). */
-    fun fetch(line: List<LonLat>): List<LonLat> {
+    /** Appel réseau (hors du fil principal) : chemins autour de la trace. */
+    private fun fetchElements(line: List<LonLat>): List<JSONObject> {
         val elements = ArrayList<JSONObject>()
         for (q in queries(line)) {
             val body = "data=" + URLEncoder.encode(q, "UTF-8")
@@ -122,7 +124,7 @@ object Junctions {
             }
             if (!ok) throw last ?: IllegalStateException("aucun serveur")
         }
-        return parse(elements, line)
+        return elements
     }
 
     /** Empreinte de la trace (comme le méta du hors ligne). */
@@ -140,13 +142,34 @@ object Junctions {
         (0 until a.length()).map { i -> a.getJSONArray(i).let { LonLat(it.getDouble(0), it.getDouble(1)) } }
     }.getOrNull()
 
+    /** Une seule requête Overpass pour les deux : carrefours ⑂ et 🚵 types de chemin, gardés sur le téléphone. */
+    private fun fetchAndKeep(ctx: Context, line: List<LonLat>): Pair<List<LonLat>, List<WayTypes.Run>> {
+        val elements = fetchElements(line)
+        val j = parse(elements, line)
+        val runs = WayTypes.runs(elements, line)
+        val a = JSONArray(); j.forEach { a.put(JSONArray().put(it.lon).put(it.lat)) }
+        val r = JSONArray(); runs.forEach { r.put(JSONArray().put(Math.round(it.from)).put(Math.round(it.to)).put(it.type).put(if (it.gr) 1 else 0)) }
+        prefs(ctx).edit().putString(key(line), a.toString()).putString("chemins:" + key(line), r.toString()).apply()
+        return j to runs
+    }
+
     /** Ceux du téléphone, sinon cherchés sur le réseau puis gardés. Appel réseau possible : hors du fil principal. */
     fun forLine(ctx: Context, line: List<LonLat>): List<LonLat> {
         cached(ctx, line)?.let { return it }
-        val j = fetch(line)
-        val a = JSONArray(); j.forEach { a.put(JSONArray().put(it.lon).put(it.lat)) }
-        prefs(ctx).edit().putString(key(line), a.toString()).apply()
-        return j
+        return fetchAndKeep(ctx, line).first
+    }
+
+    /** 🚵 Types de chemin déjà gardés sur le téléphone (null : jamais cherchés). */
+    fun cachedWays(ctx: Context, line: List<LonLat>): List<WayTypes.Run>? = runCatching {
+        val s = prefs(ctx).getString("chemins:" + key(line), null) ?: return null
+        val a = JSONArray(s)
+        (0 until a.length()).map { i -> a.getJSONArray(i).let { WayTypes.Run(it.getDouble(0), it.getDouble(1), it.getString(2), it.optInt(3) == 1) } }
+    }.getOrNull()
+
+    /** 🚵 Types de chemin : ceux du téléphone, sinon cherchés sur le réseau puis gardés (hors du fil principal). */
+    fun waysForLine(ctx: Context, line: List<LonLat>): List<WayTypes.Run> {
+        cachedWays(ctx, line)?.let { return it }
+        return fetchAndKeep(ctx, line).second
     }
 
     /** Position de chaque carrefour le long de la trace. */

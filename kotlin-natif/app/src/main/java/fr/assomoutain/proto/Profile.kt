@@ -55,7 +55,7 @@ class ProfileData(val d: DoubleArray, val z: DoubleArray, val lon: DoubleArray, 
      * Étiquettes de pente régulières le long du parcours (au milieu de chaque tronçon), au plus ~maxLabels.
      * window : 50 m sur le relief IGN ; plus large (100 m) sur des altitudes GPS, plus bruitées.
      */
-    fun slopeLabels(window: Double = SLOPE_WINDOW_M, maxLabels: Int = 20): List<Label> {
+    fun slopeLabels(window: Double = SLOPE_WINDOW_M, maxLabels: Int = 20, pctFirst: Boolean = false): List<Label> {
         if (size < 2) return emptyList()
         val start = d.first(); val end = d.last()
         val step = labelStep(end - start, maxLabels)
@@ -63,7 +63,7 @@ class ProfileData(val d: DoubleArray, val z: DoubleArray, val lon: DoubleArray, 
         var x = start + step / 2
         while (x < end) {
             val at = pointAt(x); val s = slopeAt(x, window)
-            out += Label(at.lon, at.lat, s.deg, format(s).replace(" (", " · ").replace(")", ""))
+            out += Label(at.lon, at.lat, s.deg, format(s, pctFirst).replace(" (", " · ").replace(")", ""))
             x += step
         }
         return out
@@ -90,9 +90,35 @@ class ProfileData(val d: DoubleArray, val z: DoubleArray, val lon: DoubleArray, 
             return ProfileData(d.toDoubleArray(), z.toDoubleArray(), lo.toDoubleArray(), la.toDoubleArray(), acc)
         }
 
-        fun format(s: Slope): String {
+        /** Pente « ↗ 12° (21 %) » ; en 🚵 VTT, le % d'abord : « ↗ 21 % (12°) ». */
+        fun format(s: Slope, pctFirst: Boolean = false): String {
             val sign = if (s.deg > 0.5) "↗ " else if (s.deg < -0.5) "↘ " else ""
-            return String.format(Locale.FRANCE, "%s%d° (%d %%)", sign, abs(s.deg).roundToInt(), abs(s.pct).roundToInt())
+            val deg = abs(s.deg).roundToInt(); val pct = abs(s.pct).roundToInt()
+            return if (pctFirst) String.format(Locale.FRANCE, "%s%d %% (%d°)", sign, pct, deg)
+            else String.format(Locale.FRANCE, "%s%d° (%d %%)", sign, deg, pct)
         }
+
+        // Échelle du profil : la même pente a toujours le même angle à l'écran, quelle que soit la longueur
+        // de la trace (même règle que profileScale côté Capacitor). Hauteurs exagérées EXAG fois ; une trace
+        // longue et plate défile de côté. Valeurs en dp.
+        const val EXAG = 5.0
+        const val H_MIN = 70.0
+        const val H_MAX = 190.0
+        /** Étirement maximal : 1 km = 300 dp. */
+        const val PX_PER_M_MAX = 0.3
+
+        fun scale(totalM: Double, dzM: Double, plotW: Double): ProfileScale {
+            val dz = maxOf(dzM, 1.0)
+            var s = plotW / totalM
+            if (dz * EXAG * s > H_MAX) s = H_MAX / (dz * EXAG)
+            else if (dz * EXAG * s < H_MIN) s = maxOf(s, minOf(H_MIN / (dz * EXAG), PX_PER_M_MAX))
+            return ProfileScale(s, (dz * EXAG * s).coerceIn(H_MIN, H_MAX), totalM * s)
+        }
+
+        /** Pas des graduations en km : au moins ~45 dp entre deux. */
+        fun kmTick(pxPerM: Double) = listOf(0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0).firstOrNull { it * 1000 * pxPerM >= 45 } ?: 100.0
     }
 }
+
+/** Échelle du profil (en dp) : s = dp par mètre en distance, hauteur du dessin, largeur totale (défile si plus large). */
+data class ProfileScale(val s: Double, val plotH: Double, val contentW: Double) { val vPxPerM get() = ProfileData.EXAG * s }

@@ -42,12 +42,14 @@ import { defaultTraceName, deleteTrace, listTraces, saveTrace, traceLine, type S
 import { removeTraceFile, shareTrace, writeTraceFile } from './trails/traceShare';
 import { Profile } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
-import { drawnTrail, isMine, nextMine, routeOnPaths, walkingHours, waypoints } from './trails/route';
+import { drawnTrail, isMine, nextMine, bikeHours, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import { parseTraceFile } from './trails/traceFile';
 import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
-import { junctionAlongs, junctionsFor, nextJunctionM } from './trails/junctions';
+import { junctionAlongs, junctionsFor, nextJunctionM, wayRunsFor } from './trails/junctions';
+import { wayRunLines, type WayRun } from './trails/wayTypes';
+import { loadActivity, saveActivity, type Activity } from './activity';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
@@ -196,6 +198,12 @@ export function App() {
   const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
   const [drawnSlopes, setDrawnSlopes] = useState(false);
   const [drawnProfile, setDrawnProfile] = useState(false);
+  /** ⛷ ski de rando / 🚵 VTT (appui long sur ⛷ pour basculer), et 🚵 type de chemin le long de la trace choisie. */
+  const [activity, setActivityState] = useState<Activity>(loadActivity);
+  const vtt = activity === 'vtt';
+  const setActivity = (a: Activity) => { setActivityState(a); saveActivity(a); };
+  const [wayTypesOn, setWayTypesOn] = useState(true);
+  const [wayRunsSel, setWayRunsSel] = useState<{ id: number; v: WayRun[] | 'loading' | 'error' } | null>(null);
   /** 🧭 Navigation sur une de mes traces (identifiant), et dernière position GPS connue. */
   const [navId, setNavIdState] = useState<number | null>(null);
   /** ⏸ Suivi en pause : GPS du bouton ◎ coupé, plus d'alerte ; ▶ reprend. */
@@ -247,10 +255,23 @@ export function App() {
     const own = showSlopes || (drawnSel && drawnSlopes);
     if (!own) return [];
     return [
-      ...(profile ? slopeLabels(profile) : []),
-      ...(showSlopes && importProfile ? slopeLabels(importProfile.prof, importProfile.gps ? 100 : 50) : []),
+      ...(profile ? slopeLabels(profile, undefined, undefined, vtt) : []),
+      ...(showSlopes && importProfile ? slopeLabels(importProfile.prof, importProfile.gps ? 100 : 50, undefined, vtt) : []),
     ];
-  }, [showSlopes, profile, importProfile, drawnSel, drawnSlopes]);
+  }, [showSlopes, profile, importProfile, drawnSel, drawnSlopes, vtt]);
+  // 🚵 Types de chemin de la trace choisie (mode VTT) : gardés sur le téléphone, sinon cherchés sur le réseau.
+  const wantWays = vtt && wayTypesOn && drawnSel;
+  useEffect(() => {
+    if (!wantWays || !selected) return;
+    const t = selected;
+    if (wayRunsSel?.id === t.id && wayRunsSel.v !== 'error') return;
+    setWayRunsSel({ id: t.id, v: 'loading' });
+    void wayRunsFor(t.segments.flat())
+      .then((v) => setWayRunsSel((cur) => (cur?.id === t.id ? { id: t.id, v } : cur)))
+      .catch(() => setWayRunsSel((cur) => (cur?.id === t.id ? { id: t.id, v: 'error' } : cur)));
+  }, [wantWays, selected]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selRuns = wantWays && selected && wayRunsSel?.id === selected.id ? wayRunsSel.v : null;
+  const wayLines = useMemo(() => (selected && Array.isArray(selRuns) ? wayRunLines(selected.segments.flat(), selRuns) : []), [selected, selRuns]);
   const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
   const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
   const trailsAbort = useRef<AbortController | null>(null);
@@ -533,7 +554,8 @@ export function App() {
     setProgress(null);
   }
 
-  async function searchTrails(b: Bbox) {
+  /** Randos balisées de la zone ; 🚵 mtb : circuits VTT (sans les randos trouvées sur le web). */
+  async function searchTrails(b: Bbox, mtb = false) {
     setFraming(false);
     setOpen(true);
     setTab('randos');
@@ -542,19 +564,21 @@ export function App() {
       return;
     }
     setFrame(b);
-    void searchWebHikes(b);
+    if (mtb) { webAbort.current?.abort(); setWebHikes([]); setHikeSel(null); setWebMsg(''); } else void searchWebHikes(b);
     setTrails((prev) => prev.filter((x) => isMine(x.id)));
     if (!selected || !isMine(selected.id)) { setSelected(null); setElevated(null); }
-    setTrailsMsg('Recherche des randos dans OpenStreetMap…');
+    setTrailsMsg(mtb ? 'Recherche des circuits VTT dans OpenStreetMap…' : 'Recherche des randos dans OpenStreetMap…');
     trailsAbort.current?.abort();
     const ctrl = new AbortController();
     trailsAbort.current = ctrl;
     const t0 = performance.now();
     try {
-      const found = await fetchTrails(b, ctrl.signal);
+      const found = await fetchTrails(b, ctrl.signal, mtb);
       bench('trails-search', { found: found.length, ms: Math.round(performance.now() - t0) });
       setTrails((prev) => [...prev.filter((x) => isMine(x.id)), ...found]);
-      setTrailsMsg(found.length ? `${found.length} rando${found.length > 1 ? 's' : ''} balisée${found.length > 1 ? 's' : ''} trouvée${found.length > 1 ? 's' : ''}. Touche-en une (liste ou carte).`
+      if (mtb) setTrailsMsg(found.length ? `🚵 ${found.length} circuit${found.length > 1 ? 's' : ''} VTT trouvé${found.length > 1 ? 's' : ''}. Touche-en un (liste ou carte).`
+        : '🚵 Aucun circuit VTT dans OpenStreetMap sur cette zone.');
+      else setTrailsMsg(found.length ? `${found.length} rando${found.length > 1 ? 's' : ''} balisée${found.length > 1 ? 's' : ''} trouvée${found.length > 1 ? 's' : ''}. Touche-en une (liste ou carte).`
         : 'Aucune rando balisée dans OpenStreetMap sur cette zone.');
     } catch (e) {
       if (!ctrl.signal.aborted) setTrailsMsg(`Recherche impossible (pas de réseau ? serveur saturé ?) : ${(e as Error).message}`);
@@ -940,7 +964,7 @@ export function App() {
           if (selected?.id === id && profile) { setProfCursor(nearestD(profile, at.lon, at.lat)); setOpen(true); return; }
           void selectTrail(trails.find((t) => t.id === id) ?? null);
         }}
-        slopeTags={slopeTags}
+        slopeTags={slopeTags} wayLines={wayLines}
         cursor={profile && profCursor != null ? pointAt(profile, profCursor) : null}
         webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike}
         forests={forests} forestFilter={forestFilter}
@@ -969,7 +993,8 @@ export function App() {
           paused={navPaused} onPause={pauseNav} onResume={resumeNav}
           offline={traceOffline?.id === selected.id ? traceOffline.msg + (downloading && progress ? ` ${progress.done + progress.failed}/${progress.total}` : '') : null}
           onOffline={() => void downloadTrace(selected)}
-          onGo={() => { const p = selected.segments[0][0]; openDirections(p.lat, p.lon); }} />
+          onGo={() => { const p = selected.segments[0][0]; openDirections(p.lat, p.lon); }}
+          vtt={vtt} wayTypes={wayTypesOn} onWayTypes={setWayTypesOn} runs={selRuns} />
       )}
       {traceList && !drawing && (
         <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}
@@ -1000,6 +1025,13 @@ export function App() {
         onAccount={() => { setAccount(true); setOpen(false); setSearching(false); }}
         compte={!compte.refresh ? 'aucun' : compte.aReconnecter ? 'reconnecter' : 'ok'}
         onSkiText={() => skiMode('sorties')}
+        activity={activity} onActivity={(a) => { setActivity(a); setToast(a === 'vtt' ? '🚵 Mode VTT : circuits VTT, durée à vélo, pente en %, type de chemin des traces' : '⛷ Mode ski de rando'); }}
+        onVtt={() => {
+          // 🚵 : circuits VTT de l'écran affiché (comme ⛷🗺 pour les sorties ski).
+          if (!map) return;
+          const b = map.getBounds();
+          void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], true);
+        }}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
       {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel} hidden={!!skiSheet}
@@ -1138,9 +1170,9 @@ export function App() {
                   <div><b>{formatKm(selected.distanceM)}</b><span>distance</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.gainM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D+</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.lossM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D−</span></div>
-                  <div><b>{typeof elevated === 'object' && elevated ? formatHours(walkingHours(selected.distanceM, elevated.gainM, elevated.lossM)) : elevated === 'loading' ? '…' : '—'}</b><span>marche</span></div>
+                  <div><b>{typeof elevated === 'object' && elevated ? formatHours(vtt ? bikeHours(selected.distanceM, elevated.gainM) : walkingHours(selected.distanceM, elevated.gainM, elevated.lossM)) : elevated === 'loading' ? '…' : '—'}</b><span>{vtt ? 'à VTT' : 'marche'}</span></div>
                 </div>
-                {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} cursor={profCursor} onCursor={setProfCursor} />}
+                {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} cursor={profCursor} onCursor={setProfCursor} pctFirst={vtt} />}
                 {elevated === 'error' && <p className="hint">Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude.</p>}
                 <div className="row">
                   <button className="primary" onClick={exportTrail} disabled={elevated === 'loading'}>Exporter GPX</button>

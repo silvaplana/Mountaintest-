@@ -58,9 +58,11 @@ export function nearestD(p: ProfileData, lon: number, lat: number) {
   return best;
 }
 
-export function formatSlope(s: { deg: number; pct: number }) {
+/** Pente « ↗ 12° (21 %) » ; en 🚵 VTT, le % d'abord : « ↗ 21 % (12°) ». */
+export function formatSlope(s: { deg: number; pct: number }, pctFirst = false) {
   const sign = s.deg > 0.5 ? '↗ ' : s.deg < -0.5 ? '↘ ' : '';
-  return `${sign}${Math.round(Math.abs(s.deg))}° (${Math.round(Math.abs(s.pct))} %)`;
+  const deg = `${Math.round(Math.abs(s.deg))}°`, pct = `${Math.round(Math.abs(s.pct))} %`;
+  return pctFirst ? `${sign}${pct} (${deg})` : `${sign}${deg} (${pct})`;
 }
 
 export interface SlopeLabel { lon: number; lat: number; deg: number; pct: number; text: string }
@@ -75,14 +77,39 @@ export function labelStep(total: number, maxLabels = 20) {
  * Étiquettes de pente régulières le long du parcours (au milieu de chaque tronçon).
  * window : 50 m sur le relief IGN ; plus large (100 m) sur des altitudes GPS, plus bruitées.
  */
-export function slopeLabels(p: ProfileData, window = SLOPE_WINDOW_M, maxLabels = 20): SlopeLabel[] {
+export function slopeLabels(p: ProfileData, window = SLOPE_WINDOW_M, maxLabels = 20, pctFirst = false): SlopeLabel[] {
   if (p.d.length < 2) return [];
   const start = p.d[0], end = p.d[p.d.length - 1];
   const step = labelStep(end - start, maxLabels);
   const out: SlopeLabel[] = [];
   for (let x = start + step / 2; x < end; x += step) {
     const at = pointAt(p, x), s = slopeAt(p, x, window);
-    out.push({ lon: at.lon, lat: at.lat, deg: s.deg, pct: s.pct, text: formatSlope(s).replace(' (', ' · ').replace(')', '') });
+    out.push({ lon: at.lon, lat: at.lat, deg: s.deg, pct: s.pct, text: formatSlope(s, pctFirst).replace(' (', ' · ').replace(')', '') });
   }
   return out;
+}
+
+// Échelle du profil : la même pente a toujours le même angle à l'écran, quelle que soit la longueur de la
+// trace (demande de Seb : 6 % ou 10 % doivent se reconnaître d'un coup d'œil). Les hauteurs sont
+// exagérées PROFILE_EXAG fois par rapport aux distances ; une trace longue et plate défile de côté.
+export const PROFILE_EXAG = 5;
+/** Hauteur du dessin (px) : au moins pour une trace plate, au plus pour une trace très raide. */
+export const PROFILE_H_MIN = 70;
+export const PROFILE_H_MAX = 190;
+/** Étirement maximal : 1 km = 300 px (au-delà, une trace plate resterait plate de toute façon). */
+export const PROFILE_PX_PER_M_MAX = 0.3;
+
+/** Échelle du dessin : px par mètre en distance (s), hauteur du dessin et largeur totale (défile si > plotW). */
+export function profileScale(totalM: number, dzM: number, plotW: number) {
+  const k = PROFILE_EXAG, dz = Math.max(dzM, 1);
+  let s = plotW / totalM;
+  if (dz * k * s > PROFILE_H_MAX) s = PROFILE_H_MAX / (dz * k); // très raide : plus étroit que l'écran
+  else if (dz * k * s < PROFILE_H_MIN) s = Math.max(s, Math.min(PROFILE_H_MIN / (dz * k), PROFILE_PX_PER_M_MAX));
+  const plotH = Math.min(PROFILE_H_MAX, Math.max(PROFILE_H_MIN, dz * k * s));
+  return { s, plotH, contentW: totalM * s, vPxPerM: k * s };
+}
+
+/** Pas des graduations en km : au moins ~45 px entre deux. */
+export function kmTick(pxPerM: number) {
+  return [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50].find((k) => k * 1000 * pxPerM >= 45) ?? 100;
 }

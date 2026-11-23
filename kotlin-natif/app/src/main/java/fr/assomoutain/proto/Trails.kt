@@ -60,14 +60,16 @@ object Trails {
         "lwn" to Kind("PR / local", 2, "#1d6fe0"),
     )
     private val OTHER = Kind("Sentier", 3, "#2f6f4f")
+    /** 🚵 Mode VTT : circuits VTT (relations route=mtb). */
+    private val MTB = Kind("Circuit VTT", 0, "#c2185b")
 
     fun zoneTooBig(z: Zone) = z.east - z.west > MAX_ZONE_DEG || z.north - z.south > MAX_ZONE_DEG
 
     /** Géométrie coupée à la zone agrandie d'une demi-zone de chaque côté : une boucle locale arrive entière, un GR de 500 km non. */
-    fun overpassQuery(z: Zone): String {
+    fun overpassQuery(z: Zone, vtt: Boolean = false): String {
         val dx = (z.east - z.west) / 2; val dy = (z.north - z.south) / 2
         fun f(v: Double) = String.format(Locale.US, "%.5f", v)
-        return "[out:json][timeout:60];relation[\"type\"=\"route\"][\"route\"~\"^(hiking|foot)$\"](${f(z.south)},${f(z.west)},${f(z.north)},${f(z.east)});" +
+        return "[out:json][timeout:60];relation[\"type\"=\"route\"][\"route\"~\"^(${if (vtt) "mtb" else "hiking|foot"})$\"](${f(z.south)},${f(z.west)},${f(z.north)},${f(z.east)});" +
             "out tags geom(${f(z.south - dy)},${f(z.west - dx)},${f(z.north + dy)},${f(z.east + dx)});"
     }
 
@@ -110,7 +112,7 @@ object Trails {
 
     fun lengthM(segments: List<List<LonLat>>) = segments.sumOf { s -> s.zipWithNext { a, b -> distanceM(a, b) }.sum() }
 
-    fun parseOverpass(json: String): List<Trail> {
+    fun parseOverpass(json: String, vtt: Boolean = false): List<Trail> {
         val elements = JSONObject(json).optJSONArray("elements") ?: return emptyList()
         val trails = ArrayList<Trail>()
         for (i in 0 until elements.length()) {
@@ -129,7 +131,7 @@ object Trails {
             }
             val segments = assemble(ways)
             if (segments.isEmpty()) continue
-            val k = KINDS[tags.optString("network")] ?: OTHER
+            val k = if (vtt) MTB else KINDS[tags.optString("network")] ?: OTHER
             val ref = tags.optString("ref").trim()
             val base = tags.optString("name").trim().ifEmpty { tags.optString("name:fr").trim() }
             val id = el.getLong("id")
@@ -145,8 +147,8 @@ object Trails {
     }
 
     /** Appel réseau : à lancer hors du fil principal. */
-    fun fetchTrails(z: Zone): List<Trail> {
-        val body = "data=" + URLEncoder.encode(overpassQuery(z), "UTF-8")
+    fun fetchTrails(z: Zone, vtt: Boolean = false): List<Trail> {
+        val body = "data=" + URLEncoder.encode(overpassQuery(z, vtt), "UTF-8")
         var last: Exception? = null
         for (url in OVERPASS_URLS) {
             try {
@@ -157,7 +159,7 @@ object Trails {
                 c.setRequestProperty("User-Agent", "Assomountain-proto (Android)")
                 c.outputStream.use { it.write(body.toByteArray()) }
                 if (c.responseCode != 200) error("HTTP ${c.responseCode}")
-                return parseOverpass(c.inputStream.bufferedReader().use { it.readText() })
+                return parseOverpass(c.inputStream.bufferedReader().use { it.readText() }, vtt)
             } catch (e: Exception) { last = e }
         }
         throw last ?: IllegalStateException("aucun serveur")
@@ -319,6 +321,8 @@ object Trails {
 
     /** Temps de marche estimé : 4 km/h à plat + 1 h par 300 m de montée + 1 h par 500 m de descente. */
     fun walkingHours(distM: Double, gainM: Double, lossM: Double) = distM / 4000 + gainM / 300 + lossM / 500
+    /** 🚵 Durée à VTT : 15 km/h sur le plat, plus 1 h par 600 m de montée (même calcul que bikeHours côté Capacitor). */
+    fun bikeHours(distM: Double, gainM: Double) = distM / 15000 + gainM / 600
 
     private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
 

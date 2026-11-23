@@ -33,11 +33,11 @@ export function zoneTooBig(b: Bbox) { return b[2] - b[0] > MAX_ZONE_DEG || b[3] 
  * Relations rando de la zone, avec la géométrie de leurs chemins. La géométrie est coupée à la zone
  * agrandie d'une demi-zone de chaque côté : une boucle locale arrive entière, un GR de 500 km non.
  */
-export function overpassQuery(b: Bbox): string {
+export function overpassQuery(b: Bbox, vtt = false): string {
   const [w, s, e, n] = b;
   const dx = (e - w) / 2, dy = (n - s) / 2;
   const f = (v: number) => v.toFixed(5);
-  return `[out:json][timeout:60];relation["type"="route"]["route"~"^(hiking|foot)$"](${f(s)},${f(w)},${f(n)},${f(e)});`
+  return `[out:json][timeout:60];relation["type"="route"]["route"~"^(${vtt ? 'mtb' : 'hiking|foot'})$"](${f(s)},${f(w)},${f(n)},${f(e)});`
     + `out tags geom(${f(s - dy)},${f(w - dx)},${f(n + dy)},${f(e + dx)});`;
 }
 
@@ -48,6 +48,8 @@ const KINDS: Record<string, { kind: string; rank: number; color: string }> = {
   lwn: { kind: 'PR / local', rank: 2, color: '#1d6fe0' },
 };
 const OTHER = { kind: 'Sentier', rank: 3, color: '#2f6f4f' };
+/** 🚵 Mode VTT : circuits VTT (relations route=mtb). */
+const MTB = { kind: 'Circuit VTT', rank: 0, color: '#c2185b' };
 
 interface OsmMember { type: string; role?: string; geometry?: (LonLat | null)[] }
 interface OsmElement { type: string; id: number; tags?: Record<string, string | undefined>; members?: OsmMember[] }
@@ -88,7 +90,7 @@ export function lengthM(segments: LonLat[][]): number {
   return d;
 }
 
-export function parseOverpass(json: { elements?: OsmElement[] }): Trail[] {
+export function parseOverpass(json: { elements?: OsmElement[] }, vtt = false): Trail[] {
   const trails: Trail[] = [];
   for (const el of json.elements ?? []) {
     if (el.type !== 'relation') continue;
@@ -96,7 +98,7 @@ export function parseOverpass(json: { elements?: OsmElement[] }): Trail[] {
     const ways = (el.members ?? []).filter((m) => m.type === 'way' && m.geometry).map((m) => m.geometry!);
     const segments = assemble(ways);
     if (!segments.length) continue;
-    const k = KINDS[tags.network ?? ''] ?? OTHER;
+    const k = vtt ? MTB : KINDS[tags.network ?? ''] ?? OTHER;
     const ref = tags.ref?.trim();
     const base = tags.name?.trim() || tags['name:fr']?.trim() || '';
     const name = base ? (ref && !base.includes(ref) ? `${ref} – ${base}` : base) : ref || `Itinéraire OSM ${el.id}`;
@@ -105,14 +107,14 @@ export function parseOverpass(json: { elements?: OsmElement[] }): Trail[] {
   return trails.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name, 'fr'));
 }
 
-export async function fetchTrails(b: Bbox, signal?: AbortSignal): Promise<Trail[]> {
-  const body = new URLSearchParams({ data: overpassQuery(b) });
+export async function fetchTrails(b: Bbox, signal?: AbortSignal, vtt = false): Promise<Trail[]> {
+  const body = new URLSearchParams({ data: overpassQuery(b, vtt) });
   let last: unknown = null;
   for (const url of OVERPASS_URLS) {
     try {
       const res = await fetch(url, { method: 'POST', body, signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return parseOverpass(await res.json());
+      return parseOverpass(await res.json(), vtt);
     } catch (e) {
       if (signal?.aborted) throw e;
       last = e;
