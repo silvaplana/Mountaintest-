@@ -47,7 +47,7 @@ import { parseTraceFile } from './trails/traceFile';
 import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
-import { junctionAlongs, junctionsFor, nextJunctionM, wayRunsFor } from './trails/junctions';
+import { junctionAlongs, junctionsFor, lineKey, nextJunctionM, prefetchWays, wayRunsFor } from './trails/junctions';
 import { wayRunLines, type WayRun } from './trails/wayTypes';
 import { ACTIVITY_ICON, loadActivity, saveActivity, type Activity } from './activity';
 import { C2cPanel } from './C2cPanel';
@@ -234,7 +234,8 @@ export function App() {
     setC2c({ act, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], center: { lon: c.lng, lat: c.lat } });
   };
   const closeC2c = () => { setC2c(null); setC2cRoutes([]); setC2cLines([]); setC2cMap(false); setC2cPick(null); };
-  const [wayRunsSel, setWayRunsSel] = useState<{ id: number; v: WayRun[] | 'loading' | 'error' } | null>(null);
+  /** Types de chemin de la trace choisie, repérée par son empreinte (les numéros des traces sont réutilisés). */
+  const [wayRunsSel, setWayRunsSel] = useState<{ key: string; v: WayRun[] | 'loading' | 'error' } | null>(null);
   /** 🧭 Navigation sur une de mes traces (identifiant), et dernière position GPS connue. */
   const [navId, setNavIdState] = useState<number | null>(null);
   /** ⏸ Suivi en pause : GPS du bouton ◎ coupé, plus d'alerte ; ▶ reprend. */
@@ -292,16 +293,19 @@ export function App() {
   }, [showSlopes, profile, importProfile, drawnSel, drawnSlopes, vtt]);
   // 🚵 Types de chemin de la trace choisie (mode VTT) : gardés sur le téléphone, sinon cherchés sur le réseau.
   const wantWays = vtt && wayTypesOn && drawnSel;
+  const selKey = useMemo(() => (selected && isMine(selected.id) ? lineKey(selected.segments.flat()) : ''), [selected]);
   useEffect(() => {
     if (!wantWays || !selected) return;
-    const t = selected;
-    if (wayRunsSel?.id === t.id && wayRunsSel.v !== 'error') return;
-    setWayRunsSel({ id: t.id, v: 'loading' });
-    void wayRunsFor(t.segments.flat())
-      .then((v) => setWayRunsSel((cur) => (cur?.id === t.id ? { id: t.id, v } : cur)))
-      .catch(() => setWayRunsSel((cur) => (cur?.id === t.id ? { id: t.id, v: 'error' } : cur)));
-  }, [wantWays, selected]); // eslint-disable-line react-hooks/exhaustive-deps
-  const selRuns = wantWays && selected && wayRunsSel?.id === selected.id ? wayRunsSel.v : null;
+    const line = selected.segments.flat(), key = selKey;
+    if (wayRunsSel?.key === key && wayRunsSel.v !== 'error') return;
+    setWayRunsSel({ key, v: 'loading' });
+    void wayRunsFor(line)
+      .then((v) => setWayRunsSel((cur) => (cur?.key === key ? { key, v } : cur)))
+      .catch(() => setWayRunsSel((cur) => (cur?.key === key ? { key, v: 'error' } : cur)));
+  }, [wantWays, selKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selRuns = wantWays && selected && wayRunsSel?.key === selKey ? wayRunsSel.v : null;
+  // Dès qu'une de mes traces s'affiche (dessinée, chargée, rouverte), ses types de chemin sont calculés en avance et gardés.
+  useEffect(() => { for (const t of trails) if (isMine(t.id)) prefetchWays(t.segments.flat()); }, [trails]);
   const wayLines = useMemo(() => (selected && Array.isArray(selRuns) ? wayRunLines(selected.segments.flat(), selRuns) : []), [selected, selRuns]);
   const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
   const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };

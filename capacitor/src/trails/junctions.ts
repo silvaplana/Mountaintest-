@@ -58,8 +58,11 @@ export function junctionQueries(line: LonLat[]): string[] {
   for (let i = 0; pts.length; i += CHUNK - 1) {
     const part = pts.slice(i, i + CHUNK);
     const coords = part.map((p) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`).join(',');
+    // Forme des chemins coupée au cadre du morceau (+ ~100 m) : une route qui croise la trace n'arrive plus en entier.
+    const lats = part.map((p) => p.lat), lons = part.map((p) => p.lon);
+    const box = [Math.min(...lats) - 0.001, Math.min(...lons) - 0.0013, Math.max(...lats) + 0.001, Math.max(...lons) + 0.0013].map((v) => v.toFixed(5)).join(',');
     // + les relations GR / GR de Pays de ces chemins (🚵 type de chemin : portions sur GR).
-    out.push(`[out:json][timeout:90];way["highway"](around:${AROUND_M},${coords})->.w;.w out body geom qt;`
+    out.push(`[out:json][timeout:90];way["highway"](around:${AROUND_M},${coords})->.w;.w out body geom(${box}) qt;`
       + 'rel(bw.w)["route"~"^(hiking|foot)$"]["network"~"^(iwn|nwn|rwn)$"];out body qt;');
     if (i + CHUNK >= pts.length) break;
   }
@@ -103,7 +106,11 @@ export function parseJunctions(json: { elements?: OsmWay[] }, line: LonLat[]): L
 /** Appel réseau : chemins autour de la trace (plusieurs requêtes si elle est longue). */
 async function fetchWays(line: LonLat[], signal?: AbortSignal): Promise<OsmWay[]> {
   const elements: OsmWay[] = [];
-  for (const q of junctionQueries(line)) {
+  // Deux morceaux à la fois (Overpass accepte deux requêtes simultanées par appareil).
+  const qs = junctionQueries(line);
+  let next = 0;
+  const worker = async () => { while (next < qs.length) await fetchOne(qs[next++]); };
+  const fetchOne = async (q: string) => {
     const body = new URLSearchParams({ data: q });
     let last: unknown = null, ok = false;
     for (const url of OVERPASS_URLS) {
@@ -119,7 +126,8 @@ async function fetchWays(line: LonLat[], signal?: AbortSignal): Promise<OsmWay[]
       }
     }
     if (!ok) throw last instanceof Error ? last : new Error(String(last));
-  }
+  };
+  await Promise.all([worker(), worker()]);
   return elements;
 }
 
@@ -151,11 +159,25 @@ export async function cachedJunctions(line: LonLat[]): Promise<LonLat[] | null> 
  * gardés sur le téléphone (hors ligne).
  */
 async function fetchAndKeep(line: LonLat[], signal?: AbortSignal) {
+  // Une seule recherche à la fois par trace : le menu, le suivi et le calcul au chargement la partagent.
+  const k = lineKey(line);
+  const cur = pending.get(k);
+  if (cur) return cur;
+  const p = fetchAndKeepOnce(line, signal).finally(() => pending.delete(k));
+  pending.set(k, p);
+  return p;
+}
+const pending = new Map<string, Promise<{ junctions: LonLat[]; runs: WayRun[] }>>();
+/** Types de chemin déjà lus ou calculés depuis l'ouverture de l'appli (clé : empreinte de la trace). */
+const waysMemo = new Map<string, WayRun[]>();
+
+async function fetchAndKeepOnce(line: LonLat[], signal?: AbortSignal) {
   const elements = await fetchWays(line, signal);
   const j = parseJunctions({ elements }, line);
   const runs = wayRuns({ elements }, line);
   await Preferences.set({ key: lineKey(line), value: JSON.stringify(j.map((p) => [+p.lon.toFixed(6), +p.lat.toFixed(6)])) });
   await Preferences.set({ key: wayKey(line), value: JSON.stringify(runs.map((r) => [Math.round(r.from), Math.round(r.to), r.type, r.gr ? 1 : 0])) });
+  waysMemo.set(lineKey(line), runs);
   return { junctions: j, runs };
 }
 
@@ -170,11 +192,16 @@ const wayKey = (line: LonLat[]) => lineKey(line).replace('carrefours:', 'chemins
 
 /** 🚵 Types de chemin de la trace déjà gardés sur le téléphone (null : jamais cherchés). */
 export async function cachedWayRuns(line: LonLat[]): Promise<WayRun[] | null> {
+  const m = waysMemo.get(lineKey(line));
+  if (m) return m;
   try {
     const v = (await Preferences.get({ key: wayKey(line) })).value;
     if (!v) return null;
     const arr = JSON.parse(v);
-    return Array.isArray(arr) ? arr.map(([from, to, type, gr]: [number, number, WayType, number?]) => ({ from, to, type, gr: gr === 1 })) : null;
+    if (!Array.isArray(arr)) return null;
+    const runs = arr.map(([from, to, type, gr]: [number, number, WayType, number?]) => ({ from, to, type, gr: gr === 1 }));
+    waysMemo.set(lineKey(line), runs);
+    return runs;
   } catch { return null; }
 }
 
@@ -183,6 +210,16 @@ export async function wayRunsFor(line: LonLat[], signal?: AbortSignal): Promise<
   const c = await cachedWayRuns(line);
   if (c) return c;
   return (await fetchAndKeep(line, signal)).runs;
+}
+
+/**
+ * Calcul en avance (demande de Seb : il est long) : dès qu'une trace s'affiche pour la première fois,
+ * types de chemin et carrefours sont cherchés en tâche de fond et gardés sur le téléphone.
+ * Sans réseau, on réessaiera au prochain affichage.
+ */
+export function prefetchWays(line: LonLat[]) {
+  if (line.length < 2) return;
+  void cachedWayRuns(line).then((c) => (c ? null : fetchAndKeep(line))).catch(() => null);
 }
 
 /** Position de chaque carrefour le long de la trace (m depuis le départ), calculée une fois par trace. */

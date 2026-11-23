@@ -65,8 +65,11 @@ object Junctions {
         while (pts.isNotEmpty()) {
             val part = pts.subList(i, minOf(pts.size, i + CHUNK))
             val coords = part.joinToString(",") { String.format(java.util.Locale.US, "%.5f,%.5f", it.lat, it.lon) }
+            // Forme des chemins coupée au cadre du morceau (+ ~100 m) : une route qui croise la trace n'arrive plus en entier.
+            val box = String.format(java.util.Locale.US, "%.5f,%.5f,%.5f,%.5f", part.minOf { it.lat } - 0.001, part.minOf { it.lon } - 0.0013,
+                part.maxOf { it.lat } + 0.001, part.maxOf { it.lon } + 0.0013)
             // + les relations GR / GR de Pays de ces chemins (🚵 type de chemin : portions sur GR).
-            out += "[out:json][timeout:90];way[\"highway\"](around:$AROUND_M,$coords)->.w;.w out body geom qt;" +
+            out += "[out:json][timeout:90];way[\"highway\"](around:$AROUND_M,$coords)->.w;.w out body geom($box) qt;" +
                 "rel(bw.w)[\"route\"~\"^(hiking|foot)$\"][\"network\"~\"^(iwn|nwn|rwn)$\"];out body qt;"
             if (i + CHUNK >= pts.size) break
             i += CHUNK - 1
@@ -104,8 +107,28 @@ object Junctions {
 
     /** Appel réseau (hors du fil principal) : chemins autour de la trace. */
     private fun fetchElements(line: List<LonLat>): List<JSONObject> {
+        // Deux morceaux à la fois (Overpass accepte deux requêtes simultanées par appareil).
+        val qs = queries(line)
+        val parts = arrayOfNulls<List<JSONObject>>(qs.size)
+        val next = java.util.concurrent.atomic.AtomicInteger(0)
+        var failure: Exception? = null
+        val threads = List(minOf(2, qs.size)) {
+            Thread {
+                while (true) {
+                    val i = next.getAndIncrement()
+                    if (i >= qs.size || failure != null) break
+                    try { parts[i] = fetchOne(qs[i]) } catch (e: Exception) { failure = e }
+                }
+            }.apply { start() }
+        }
+        threads.forEach { it.join() }
+        failure?.let { throw it }
+        return parts.flatMap { it.orEmpty() }
+    }
+
+    private fun fetchOne(q: String): List<JSONObject> {
         val elements = ArrayList<JSONObject>()
-        for (q in queries(line)) {
+        run {
             val body = "data=" + URLEncoder.encode(q, "UTF-8")
             var last: Exception? = null; var ok = false
             for (url in Trails.OVERPASS_URLS) {
@@ -143,13 +166,24 @@ object Junctions {
     }.getOrNull()
 
     /** Une seule requête Overpass pour les deux : carrefours ⑂ et 🚵 types de chemin, gardés sur le téléphone. */
-    private fun fetchAndKeep(ctx: Context, line: List<LonLat>): Pair<List<LonLat>, List<WayTypes.Run>> {
+    private fun fetchAndKeep(ctx: Context, line: List<LonLat>): Pair<List<LonLat>, List<WayTypes.Run>> =
+        // Une seule recherche à la fois par trace : le menu, le suivi et le calcul au chargement la partagent.
+        synchronized(locks.getOrPut(key(line)) { Any() }) {
+            val c = cached(ctx, line); val w = cachedWays(ctx, line)
+            if (c != null && w != null) c to w else fetchAndKeepOnce(ctx, line)
+        }
+    private val locks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+    /** Types de chemin déjà lus ou calculés depuis l'ouverture de l'appli. */
+    private val waysMemo = java.util.concurrent.ConcurrentHashMap<String, List<WayTypes.Run>>()
+
+    private fun fetchAndKeepOnce(ctx: Context, line: List<LonLat>): Pair<List<LonLat>, List<WayTypes.Run>> {
         val elements = fetchElements(line)
         val j = parse(elements, line)
         val runs = WayTypes.runs(elements, line)
         val a = JSONArray(); j.forEach { a.put(JSONArray().put(it.lon).put(it.lat)) }
         val r = JSONArray(); runs.forEach { r.put(JSONArray().put(Math.round(it.from)).put(Math.round(it.to)).put(it.type).put(if (it.gr) 1 else 0)) }
         prefs(ctx).edit().putString(key(line), a.toString()).putString("chemins:" + key(line), r.toString()).apply()
+        waysMemo[key(line)] = runs
         return j to runs
     }
 
@@ -160,16 +194,26 @@ object Junctions {
     }
 
     /** 🚵 Types de chemin déjà gardés sur le téléphone (null : jamais cherchés). */
-    fun cachedWays(ctx: Context, line: List<LonLat>): List<WayTypes.Run>? = runCatching {
+    fun cachedWays(ctx: Context, line: List<LonLat>): List<WayTypes.Run>? = waysMemo[key(line)] ?: runCatching {
         val s = prefs(ctx).getString("chemins:" + key(line), null) ?: return null
         val a = JSONArray(s)
         (0 until a.length()).map { i -> a.getJSONArray(i).let { WayTypes.Run(it.getDouble(0), it.getDouble(1), it.getString(2), it.optInt(3) == 1) } }
-    }.getOrNull()
+    }.getOrNull()?.also { waysMemo[key(line)] = it }
 
     /** 🚵 Types de chemin : ceux du téléphone, sinon cherchés sur le réseau puis gardés (hors du fil principal). */
     fun waysForLine(ctx: Context, line: List<LonLat>): List<WayTypes.Run> {
         cachedWays(ctx, line)?.let { return it }
         return fetchAndKeep(ctx, line).second
+    }
+
+    /**
+     * Calcul en avance (demande de Seb : il est long) : dès qu'une trace s'affiche pour la première fois,
+     * types de chemin et carrefours sont cherchés et gardés. Sans réseau, on réessaiera au prochain affichage.
+     * Appel réseau possible : hors du fil principal.
+     */
+    fun prefetch(ctx: Context, line: List<LonLat>) {
+        if (line.size < 2 || cachedWays(ctx, line) != null) return
+        runCatching { fetchAndKeep(ctx, line) }
     }
 
     /** Position de chaque carrefour le long de la trace. */
