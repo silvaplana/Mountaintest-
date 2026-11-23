@@ -334,6 +334,27 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   une trace par ceux qui voient son groupe ou son Buddy Time. Une trace : 2 à 20 000 points,
   arrondis à 5 décimales (environ 1 m).
 
+### 7.3 Bloc 3 : ce qui est construit (23 novembre 2026)
+
+- **Accès** : 📅 de la colonne ouvre les plannings du Buddy Group ouvert, sinon de toutes mes bandes,
+  avec « ＋ Planning » en bas. Un planning à remplir s'annonce en haut de la liste Buddies et du
+  Buddy Group (« 🔔 Saison ski : 3 week-ends à remplir · Remplir › ») et compte dans la pastille de 👥.
+- **Écran 18** : nom, bande (pas de planning dans Me Time), période de mois à mois, « Week-ends »
+  (samedi-dimanche), « Tous les jours » (tout coché) ou « À la carte » (tous les jours, rien de coché),
+  dates en pastilles à décocher, date limite (dans 7 jours par défaut), « Publier le planning ».
+- **Écran 16** : une ligne par date, regroupées par mois ; une colonne par buddy, moi en premier et
+  encadré ; ✓ ? ✗ ou · (pas répondu), 💬 quand il y a un petit mot ; le nombre de ✓ au bout. Toucher
+  ma case fait tourner ✓ → ? → ✗ → rien ; toucher la case d'un autre montre son petit mot.
+- **Écran 17** : mes dates pas encore passées, trois grosses touches ✓ ? ✗ (toucher à nouveau efface) ;
+  appui long : phrases toutes prêtes ou un petit mot (la dictée passe par le clavier du téléphone).
+- **Écran 19** : toucher une date montre qui est dispo, peut-être, pas dispo, pas encore répondu ;
+  « Où ? » facultatif ; « Créer le Buddy Time » (les ✓ partent, nom = le lieu, sinon le nom du
+  planning) ou « Pas encore ». Une ligne devient un lien vers le Buddy Time de la bande qui part ce
+  jour-là (même date de début), même s'il a été créé à la main. La météo prévue : plus tard.
+- **Serveur** : tables `plannings` (dates en JSON) et `dispos` (planning, buddy, date : oui, peut, non
+  et un mot) ; opérations `creer_planning` et `dispo` (rejouable : la dernière réponse compte, une
+  réponse vide efface). Seuls les membres de la bande voient et remplissent le planning. 200 dates au plus.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

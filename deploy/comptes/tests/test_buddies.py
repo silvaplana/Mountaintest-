@@ -244,3 +244,55 @@ def test_trace_refusee(client):
     sync(client, ops=[so])
     op = {**op, "ligne": [[1, 2], [3, 4]], "groupe": None, "sortie": so["sortie"]}
     assert sync(client, sub="luc", ops=[op])["refus"]
+
+
+# ------------------------------------------------------------------ bloc 3 : planning de saison
+
+def nouveau_planning(gid, dates=(("2026-12-05", "2026-12-06"), ("2026-12-12", "2026-12-13"))):
+    return {"id": str(uuid.uuid4()), "type": "creer_planning", "planning": str(uuid.uuid4()), "groupe": gid,
+            "nom": "Saison ski 2026-27", "dates": [list(d) for d in dates], "limite": "2026-11-30"}
+
+
+def dispo(pid, debut, etat, mot=""):
+    return {"id": str(uuid.uuid4()), "type": "dispo", "planning": pid, "debut": debut, "etat": etat, "mot": mot}
+
+
+def test_planning_de_saison(client):
+    gid, julie = bande_avec_julie(client)
+    op = nouveau_planning(gid)
+    pid = op["planning"]
+    r = sync(client, ops=[op, op, dispo(pid, "2026-12-05", "oui")])
+    assert r["refus"] == [] and r["ids_plannings"] == [pid]
+    p = r["plannings"][0]
+    assert p["dates"] == [["2026-12-05", "2026-12-06"], ["2026-12-12", "2026-12-13"]] and p["limite"] == "2026-11-30"
+    assert p["par"]["pseudo"] == "seb"
+    # Julie le reçoit et répond ; elle change d'avis, puis efface.
+    r = sync(client, sub="julie", ops=[dispo(pid, "2026-12-05", "peut", "Samedi seulement"), dispo(pid, "2026-12-12", "non"),
+                                       dispo(pid, "2026-12-12", "oui"), dispo(pid, "2026-12-12", "")])
+    assert r["refus"] == []
+    d = {(x["qui"], x["debut"]): (x["etat"], x["mot"]) for x in r["plannings"][0]["dispos"]}
+    assert d == {(r["moi"], "2026-12-05"): ("peut", "Samedi seulement"), (sync(client)["moi"], "2026-12-05"): ("oui", "")}
+    # Seb reçoit le planning changé ; Luc, hors de la bande, ne le voit pas et ne peut pas répondre.
+    assert sync(client, depuis=r["curseur"])["plannings"][0]["id"] == pid
+    assert sync(client, sub="luc", ops=[dispo(pid, "2026-12-05", "oui")])["ids_plannings"] == []
+    assert sync(client, sub="luc", ops=[dispo(pid, "2026-12-05", "oui")])["refus"]
+
+
+@pytest.mark.parametrize("mauvais", [
+    {"groupe": "me-time"},
+    {"dates": []},
+    {"dates": [["2026-12-06", "2026-12-05"]]},
+    {"limite": "30/11"},
+    {"nom": " "},
+])
+def test_planning_refuse(client, mauvais):
+    gid, _ = bande_avec_julie(client)
+    assert sync(client, ops=[{**nouveau_planning(gid), **mauvais}])["refus"]
+
+
+def test_dispo_refusee(client):
+    gid, _ = bande_avec_julie(client)
+    op = nouveau_planning(gid)
+    sync(client, ops=[op])
+    assert sync(client, ops=[dispo(op["planning"], "2026-12-19", "oui")])["refus"]  # date hors planning
+    assert sync(client, ops=[dispo(op["planning"], "2026-12-05", "bof")])["refus"]

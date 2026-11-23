@@ -2,8 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _reinitialiser as reinitCompte, ecrire as ecrireCompte, HorsLigne } from '../src/compte/auth';
 import {
-  _reinitialiser, appliquer, creerGroupe, creerSortie, inviter, joursAvant, lire, nouveauCode, nouveautes, partagerTrace, prochaine,
-  quitter, rejoindre, synchroniser, vue, type Groupe, type Sortie,
+  _reinitialiser, aRemplir, appliquer, creerGroupe, creerPlanning, creerSortie, datesPlanning, inviter, joursAvant, lire, nouveauCode,
+  nouveautes, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type Planning, type Sortie,
 } from '../src/buddies/store';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
@@ -167,5 +167,44 @@ describe('Buddy Times et traces partagées (bloc 2)', () => {
     expect(prochaine(l, '2026-11-23')!.id).toBe('bientôt');
     expect(prochaine(l, '2026-12-13')!.id).toBe('bientôt');
     expect(joursAvant(l[2], '2026-12-07')).toBe(5);
+  });
+});
+
+describe('Planning de saison (bloc 3)', () => {
+  it('week-ends de décembre à février, ou tous les jours', () => {
+    const w = datesPlanning('2026-12', '2027-02', 'weekends');
+    expect(w[0]).toEqual(['2026-12-05', '2026-12-06']);
+    expect(w.at(-1)).toEqual(['2027-02-27', '2027-02-28']);
+    expect(w).toHaveLength(13);
+    expect(w).toContainEqual(['2027-01-02', '2027-01-03']);
+    const j = datesPlanning('2027-02', '2027-02', 'jours');
+    expect(j).toHaveLength(28);
+    expect(j[0]).toEqual(['2027-02-01', '2027-02-01']);
+  });
+
+  it('publier puis répondre sans réseau : visible tout de suite, la dernière réponse compte', () => {
+    reseau(() => 'coupure');
+    const id = creerPlanning({ groupe: 'a', nom: ' Saison  ski ', dates: [['2026-12-12', '2026-12-13'], ['2026-12-05', '2026-12-06']], limite: '2026-11-30' });
+    repondre(id, '2026-12-05', 'non');
+    repondre(id, '2026-12-05', 'peut', 'Samedi seulement');
+    const p = vue(lire()).plannings[0];
+    expect(p).toMatchObject({ nom: 'Saison ski', attente: true });
+    expect(p.dates[0][0]).toBe('2026-12-05');
+    expect(p.dispos).toEqual([{ qui: 'moi', debut: '2026-12-05', etat: 'peut', mot: 'Samedi seulement' }]);
+    expect(aRemplir(p, 'moi', '2026-11-23')).toBe(1);
+    repondre(id, '2026-12-05', '');
+    expect(vue(lire()).plannings[0].dispos).toEqual([]);
+    expect(() => creerPlanning({ groupe: 'a', nom: 'x', dates: [], limite: '2026-11-30' })).toThrow();
+  });
+
+  it('la synchro garde les plannings reçus ; une ligne devient un lien vers le Buddy Time du même jour', async () => {
+    const p: Planning = { id: 'p1', groupe: 'a', nom: 'Saison', par: { id: 'u-seb', pseudo: 'Seb', photo: null }, dates: [['2026-12-12', '2026-12-13']],
+      limite: '2026-11-30', modifie_le: '2026-11-23T10:00:00+00:00', dispos: [{ qui: 'u-j', debut: '2026-12-12', etat: 'oui', mot: '' }] };
+    reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [], ids_plannings: ['p1'], plannings: [p] }));
+    await synchroniser();
+    expect(vue(lire()).plannings[0].dispos[0].qui).toBe('u-j');
+    const s: Sortie = { id: 's', groupe: 'a', nom: 'Queyras', photo: null, debut: '2026-12-12', fin: '2026-12-13', lieu: '', modifie_le: '', participants: [], invitations: [] };
+    expect(sortieDeLigne([s], p, '2026-12-12')?.id).toBe('s');
+    expect(sortieDeLigne([{ ...s, groupe: 'b' }], p, '2026-12-12')).toBeUndefined();
   });
 });

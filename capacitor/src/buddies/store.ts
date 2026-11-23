@@ -31,6 +31,13 @@ export type TraceBuddy = {
   id: string; sortie: string | null; groupe: string | null; nom: string; ligne: [number, number][]; mot: string;
   par: Buddy; cree_le: string; attente?: boolean;
 };
+/** Planning de saison (spec §5.5) : dates proposées à une bande ; `dates` = [[début, fin], …]. */
+export type Etat3 = 'oui' | 'peut' | 'non';
+export type Dispo = { qui: string; debut: string; etat: Etat3; mot: string };
+export type Planning = {
+  id: string; groupe: string; nom: string; par: Buddy; dates: [string, string][]; limite: string; modifie_le: string;
+  dispos: Dispo[]; attente?: boolean;
+};
 export type Op = { id: string; type: string; t: number; [k: string]: unknown };
 
 export type Etat = {
@@ -38,6 +45,7 @@ export type Etat = {
   serveur: Groupe[];
   sorties: Sortie[];
   traces: TraceBuddy[];
+  plannings: Planning[];
   curseur?: string;
   /** Mon identifiant côté serveur. */
   moi?: string;
@@ -52,7 +60,7 @@ export type Etat = {
 // ------------------------------------------------------------------ stockage
 
 let memoire: Etat | null = null;
-const vide = (): Etat => ({ serveur: [], sorties: [], traces: [], attente: [] });
+const vide = (): Etat => ({ serveur: [], sorties: [], traces: [], plannings: [], attente: [] });
 export function lire(): Etat {
   if (memoire) return memoire;
   try { memoire = { ...vide(), ...JSON.parse(localStorage.getItem(CLE) ?? '{}') as Etat }; } catch { memoire = vide(); }
@@ -91,11 +99,13 @@ function moiBuddy(e: Etat): Buddy {
 }
 
 /** Buddy Times et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
-export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[] } {
+export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[] } {
   const groupes = appliquer(e);
   const meTime = groupes.find((g) => g.nature === 'me_time')!;
   const sorties: Sortie[] = e.sorties.map((x) => ({ ...x, invitations: [...x.invitations] }));
   const traces: TraceBuddy[] = [...e.traces];
+  const plannings: Planning[] = (e.plannings ?? []).map((p) => ({ ...p, dispos: [...p.dispos] }));
+  const moi = e.moi ?? 'moi';
   const quand = (op: Op) => new Date(op.t).toISOString();
   for (const op of e.attente) {
     if (op.type === 'creer_sortie' && !sorties.some((x) => x.id === op.sortie)) {
@@ -113,10 +123,20 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[] } {
         ligne: op.ligne as [number, number][], mot: String(op.mot ?? ''), par: moiBuddy(e), cree_le: quand(op), attente: true });
       const x = sorties.find((y) => y.id === op.sortie);
       if (x) x.modifie_le = quand(op);
+    } else if (op.type === 'creer_planning' && !plannings.some((p) => p.id === op.planning)) {
+      plannings.push({ id: String(op.planning), groupe: String(op.groupe), nom: String(op.nom), par: moiBuddy(e),
+        dates: op.dates as [string, string][], limite: String(op.limite), modifie_le: quand(op), dispos: [], attente: true });
+    } else if (op.type === 'dispo') {
+      const p = plannings.find((x) => x.id === op.planning);
+      if (!p) continue;
+      p.dispos = p.dispos.filter((d) => !(d.qui === moi && d.debut === op.debut));
+      if (op.etat) p.dispos.push({ qui: moi, debut: String(op.debut), etat: op.etat as Etat3, mot: String(op.mot ?? '') });
+      p.attente = true;
     }
   }
   // Le plus récemment actif en haut.
-  return { sorties: sorties.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), traces };
+  return { sorties: sorties.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), traces,
+    plannings: plannings.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)) };
 }
 
 /** Aujourd'hui en AAAA-MM-JJ (heure du téléphone). */
@@ -131,6 +151,29 @@ export function prochaine(sorties: Sortie[], auj = aujourdhui()): Sortie | undef
 export function joursAvant(x: Sortie, auj = aujourdhui()) {
   return Math.round((Date.parse(x.debut) - Date.parse(auj)) / 86400e3);
 }
+
+// ------------------------------------------------------------------ planning de saison (§5.5)
+
+const iso = (d: Date) => aujourdhui(d);
+/**
+ * Dates proposées d'un mois à l'autre (« 2026-12 » à « 2027-03 ») : les week-ends (samedi-dimanche),
+ * ou tous les jours (« à la carte » part de tous les jours, aucun coché).
+ */
+export function datesPlanning(de: string, a: string, mode: 'weekends' | 'jours'): [string, string][] {
+  const [y0, m0] = de.split('-').map(Number); const [y1, m1] = a.split('-').map(Number);
+  const out: [string, string][] = [];
+  for (let d = new Date(y0, m0 - 1, 1); d < new Date(y1, m1, 1); d.setDate(d.getDate() + 1)) {
+    if (mode === 'jours') out.push([iso(d), iso(d)]);
+    else if (d.getDay() === 6) { const dim = new Date(d); dim.setDate(d.getDate() + 1); out.push([iso(d), iso(dim)]); }
+  }
+  return out;
+}
+/** Mes dates encore à remplir (pas passées). */
+export function aRemplir(p: Planning, moi: string, auj = aujourdhui()) {
+  return p.dates.filter(([d, f]) => f >= auj && !p.dispos.some((x) => x.qui === moi && x.debut === d)).length;
+}
+/** Une ligne du planning devenue Buddy Time : le Buddy Time du groupe qui part ce jour-là. */
+export const sortieDeLigne = (sorties: Sortie[], p: Planning, debut: string) => sorties.find((x) => x.groupe === p.groupe && x.debut === debut);
 
 /** Applique les opérations en attente à la version du serveur : ce que montre l'écran. */
 export function appliquer(e: Etat): Groupe[] {
@@ -180,7 +223,8 @@ export const rejointsEnAttente = (e: Etat = lire()) => e.attente.filter((o) => o
 export function nouveautes(e: Etat = lire()): number {
   const vu = e.vu ?? 0;
   return e.serveur.filter((g) => Date.parse(g.modifie_le) > vu && g.nature === 'bande').length
-    + e.sorties.filter((x) => Date.parse(x.modifie_le) > vu).length;
+    + e.sorties.filter((x) => Date.parse(x.modifie_le) > vu).length
+    + (e.plannings ?? []).filter((x) => Date.parse(x.modifie_le) > vu).length;
 }
 export function marquerVu() { ecrire({ ...lire(), vu: Date.now() }); }
 
@@ -225,6 +269,18 @@ export function partagerTrace(nom: string, ligne: [number, number][], mot: strin
   ajouter(...dest.sorties.map((sortie) => ({ type: 'partager_trace', trace: uuid(), sortie, nom, ligne: pts, mot })),
     ...dest.groupes.map((groupe) => ({ type: 'partager_trace', trace: uuid(), groupe, nom, ligne: pts, mot })));
 }
+/** Publier un planning de saison pour une bande. */
+export function creerPlanning(n: { groupe: string; nom: string; dates: [string, string][]; limite: string }): string {
+  const nom = n.nom.replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (!nom) throw new Error('Donne un nom au planning');
+  if (!n.dates.length) throw new Error('Coche au moins une date');
+  const planning = uuid();
+  ajouter({ type: 'creer_planning', planning, ...n, nom, dates: [...n.dates].sort((a, b) => a[0].localeCompare(b[0])) });
+  return planning;
+}
+/** Ma réponse pour une date (etat vide : j'efface). */
+export const repondre = (planning: string, debut: string, etat: Etat3 | '', mot = '') =>
+  ajouter({ type: 'dispo', planning, debut, etat, mot: mot.trim().slice(0, 200) });
 export const annulerInvitation = (invitation: string) => ajouter({ type: 'annuler_invitation', invitation });
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
 export const retirer = (groupe: string, buddy: string) => ajouter({ type: 'retirer', groupe, buddy });
@@ -240,6 +296,7 @@ export function rejoindre(code: string) {
 type Reponse = {
   curseur: string; moi: string; ids: string[]; groupes: Groupe[]; refus: { id: string; raison: string }[];
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
+  ids_plannings: string[]; plannings: Planning[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -264,12 +321,13 @@ export function synchroniser(): Promise<string[]> {
       const g = fusion(e.serveur, r.groupes, r.ids);
       const so = fusion(e.sorties ?? [], r.sorties ?? [], r.ids_sorties ?? []);
       const tr = fusion(e.traces ?? [], r.traces ?? [], r.ids_traces ?? []);
+      const pl = fusion(e.plannings ?? [], r.plannings ?? [], r.ids_plannings ?? []);
       const envoyees = new Set(ops.map((o) => o.id));
       // Un objet connu du serveur mais jamais reçu : on redemandera tout à la prochaine synchro.
-      const manque = g.manque || so.manque || tr.manque;
+      const manque = g.manque || so.manque || tr.manque || pl.manque;
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
-        serveur: g.liste, sorties: so.liste, traces: tr.liste,
+        serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       return r.refus.map((x) => x.raison);
