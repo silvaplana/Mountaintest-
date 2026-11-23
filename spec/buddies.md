@@ -115,6 +115,7 @@ On peut cocher plusieurs destinataires. Un seul bouton « Partager ».
 | 22 | `22-trace-partager.png` | Partager une trace. |
 | 23 | `23-hebergement-partager.png` | Partager un hébergement. |
 | 24 | `24-parler-ecrire-carte.png` | Parler ou écrire en regardant la carte. |
+| 25 | `25-bud.png` | Bud, le buddy qui connaît l'appli. |
 
 Il n'y a pas d'écran 5 : le vote de dates a été retiré (§5.4).
 
@@ -241,6 +242,23 @@ sont des épingles sur la carte, chacun met un ♥, on en retient une. Elle devi
 du Buddy Time et une ligne du Buddy count **(proposé)**. Un hébergement se partage avec le
 panneau du §3.4 **(Seb)**.
 
+### 5.12 Bud (écran 25) **(idée de Seb, 23 novembre)**
+
+- Dans une conversation, on peut parler à **Bud** : un buddy à part, qui est une IA (Claude)
+  et qui connaît toute l'appli (carte, traces, planning, comptes, hébergements).
+- Règles proposées pour rester dans le côté humain (§3.2) **(proposé)** :
+  - Bud ne parle que si on l'appelle (« Bud, … », écrit ou dicté). Il n'intervient jamais seul.
+  - Il est clairement Bud : son nom, son visage, une bulle à part. Il ne se fait jamais
+    passer pour un copain.
+  - Il propose et pose le résultat sur la carte ; ce sont les buddies qui décident.
+  - Dans un groupe, sa réponse est vue de tous, comme n'importe quel message.
+- Exemples : trouver un gîte près du départ, donner la pente maximale d'une trace et la
+  montrer, dire quel week-end réunit le plus de monde, résumer ce qui a été décidé, dire qui
+  doit quoi.
+- Besoin de réseau. Passe par le relais existant (`deploy/ia/`) ; son coût s'ajoute à
+  l'écran 📊 Usage.
+- Vient après la messagerie dans l'ordre de construction.
+
 ## 6. Données (première esquisse)
 
 Serveur Python (FastAPI, SQLAlchemy) à côté des comptes existants ; base locale sur le
@@ -267,6 +285,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 8. Hébergement partagé (9, 23).
 9. Messagerie, reprise d'AppBase (6, 24).
 10. Appels, puis montrer du doigt (10, 24).
+11. Bud (25).
 
 ## 8. Hors périmètre pour l'instant
 
@@ -282,3 +301,4 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 3. Les icônes 📍 et 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
    haut de la liste : à confirmer.
 4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
+5. Bud : les règles du §5.12, son visage, et ce qu'il a le droit de faire seul (rien, par défaut).
