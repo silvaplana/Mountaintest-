@@ -826,3 +826,22 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-chiffres .bd-chiffre-count b { font-size: 18px; white-space: nowrap; }
 .bd-chiffres .bd-chiffre-count small { color: var(--muted); font-size: 14px; }
 .bd-virement .bd-texte b { white-space: normal; font-weight: 500; }
+
+/* Position des buddies (écran 15, spec/buddies.md §5.9) */
+.bd-pos-carte { display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.bd-pos-carte .bd-visage { width: 44px; height: 44px; font-size: 20px; border: 3px solid #fff; box-shadow: 0 2px 6px #0005; }
+.bd-pos-carte b { margin-top: 3px; background: #1d2421; color: #fff; font-size: 14px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.bd-pos-carte b.moi { background: var(--accent); }
+.bd-pos-carte b.vieux { background: #7a817e; }
+.bd-pos-ligne { display: flex; align-items: center; gap: 12px; }
+.bd-pos-ligne > b { font-size: 17px; white-space: nowrap; }
+.bd-pos-ligne.vieux { opacity: 0.6; }
+.bd-pos-ligne .bd-texte small { white-space: normal; }
+.bd-epingle { display: flex; align-items: center; gap: 10px; border: 2px solid var(--accent); border-radius: 16px; padding: 12px; background: #e8f1ec; }
+.bd-epingle .bd-texte b { color: var(--accent); font-size: 18px; }
+.bd-epingle .bd-texte small { white-space: normal; }
+.bd-epingle button { min-height: 48px; border-radius: 12px; background: #fff; border: 1px solid #d9dfdc; font-weight: 700; font-size: 17px; padding: 0 14px; }
+.bd-epingle-icone { font-size: 30px; }
+.bd-pos-acces { width: 100%; }
+.bd-fleche { font-size: 26px; color: var(--muted); }
+.bd-epingle .bd-texte b, .bd-pos-acces .bd-texte small { white-space: normal; }

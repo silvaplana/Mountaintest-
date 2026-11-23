@@ -168,6 +168,13 @@ class MainActivity : AppCompatActivity() {
         else toast("Permission de localisation refusée")
         refreshSortie()
     }
+    /** 📍 Épingle : localisation (et notification du service) demandées, puis l'épingle s'enfonce. */
+    private var epingleApres: Buddies.Sortie? = null
+    private val askEpinglePermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        val x = epingleApres; epingleApres = null
+        if (x != null && granted[Manifest.permission.ACCESS_FINE_LOCATION] == true) enfoncerEpingle(x)
+        else if (x != null) toast("Autorise la localisation pour que tes buddies te voient")
+    }
     private val askLocatePermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.any { it }) startLocate() else toast("Permission de localisation refusée")
     }
@@ -2963,7 +2970,15 @@ class MainActivity : AppCompatActivity() {
 
     // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
     override fun onStart() { super.onStart(); mapView.onStart(); if (sheetOpen) { sheetOpen = false; refreshTabs() } }
-    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons(); syncCompte(); syncBuddies(); mapView.postDelayed({ recenter() }, 500) }
+    override fun onResume() {
+        super.onResume(); mapView.onResume(); refreshQuickButtons(); syncCompte()
+        // 📍 Position reçue appli fermée, puis le service suit l'épingle (relancé si l'appli a été tuée).
+        EpingleService.ecouteur = { o -> runOnUiThread { positionRecue(o) } }
+        EpingleService.derniere(this)?.let { runCatching { buddies.envoyerPosition(it.getDouble("lat"), it.getDouble("lon"),
+            if (it.has("alt")) it.getDouble("alt") else null, it.getLong("t")) } }
+        epingleJusqu = 0L; appliquerEpingle()
+        syncBuddies(); mapView.postDelayed({ recenter() }, 500)
+    }
 
     /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
     private fun airplaneOn() =
@@ -3039,7 +3054,7 @@ class MainActivity : AppCompatActivity() {
     private val buddies by lazy { Buddies(prefs, compte) }
     private var buddiesPanel: BuddiesPanel? = null
     private var buddiesBack: androidx.activity.OnBackPressedCallback? = null
-    private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons(); rafraichirCarteSortie() } }
+    private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons(); rafraichirCarteSortie(); appliquerEpingle() } }
     private fun openBuddies(depart: String? = null, departAlbum: String? = null, departCarnet: String? = null, departCount: String? = null) {
         if (buddiesPanel != null) return
         album // posé sur buddies avant la première synchro
@@ -3117,8 +3132,13 @@ class MainActivity : AppCompatActivity() {
         val photos = buddies.photos().filter { it.sortie == id }
         val racine = findViewById<android.widget.FrameLayout>(R.id.root)
         carteSortie?.let { racine.removeView(it) }
+        val reperes = Positions.reperes(sortie, buddies.positions(), buddies.moi)
         val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom, photos, album,
             depense = buddies.depenses().filter { it.sortie == id }.sumOf { it.montant },
+            reperes = reperes, epingle = buddies.monEpingle(),
+            onEnfoncer = { enfoncerEpingle(sortie) },
+            onRelever = { buddies.releverEpingle(sortie.id); toast("📍 Épingle relevée : tes buddies ne te voient plus"); syncBuddies() },
+            onRedessiner = { rafraichirCarteSortie() },
             onAlbum = { fermerCarteSortie(); openBuddies(sortie.groupe, departAlbum = sortie.id) },
             onCarnet = { fermerCarteSortie(); openBuddies(sortie.groupe, departCarnet = sortie.id) },
             onCount = { fermerCarteSortie(); openBuddies(sortie.groupe, departCount = sortie.id) },
@@ -3126,11 +3146,57 @@ class MainActivity : AppCompatActivity() {
         carteSortie = v
         racine.addView(v)
         dessinerPhotos(photos)
+        dessinerPositions(reperes)
     }
     private fun fermerCarteSortie() {
         carteSortie?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
         carteSortie = null; carteSortieId = null
         dessinerPhotos(emptyList())
+        dessinerPositions(emptyList())
+    }
+
+    // ---------- 📍 Position des buddies (écran 15, spec/buddies.md §5.9) ----------
+    private fun enfoncerEpingle(x: Buddies.Sortie) {
+        val manque = buildList {
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                add(Manifest.permission.ACCESS_FINE_LOCATION); add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+            if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (manque.any { it == Manifest.permission.ACCESS_FINE_LOCATION }) { epingleApres = x; askEpinglePermissions.launch(manque.toTypedArray()); return }
+        if (manque.isNotEmpty()) askEpinglePermissions.launch(manque.toTypedArray()) // notification : on n'attend pas
+        buddies.enfoncerEpingle(x.id)
+        toast("📍 Tes buddies te voient jusqu'à ce soir")
+        syncBuddies()
+    }
+    /** Le service de position suit mon épingle : démarré tant qu'elle est enfoncée, arrêté sinon. */
+    private var epingleJusqu = 0L
+    private fun appliquerEpingle() {
+        val p = buddies.monEpingle()
+        if (p != null && p.jusqu != epingleJusqu) { EpingleService.demarrer(this, p.jusqu); epingleJusqu = p.jusqu }
+        else if (p == null && epingleJusqu != 0L) { EpingleService.arreter(this); epingleJusqu = 0L }
+    }
+    private fun positionRecue(o: org.json.JSONObject) {
+        buddies.envoyerPosition(o.getDouble("lat"), o.getDouble("lon"), if (o.has("alt")) o.getDouble("alt") else null, o.getLong("t"))
+        syncBuddies()
+    }
+    private fun dessinerPositions(rs: List<Positions.Repere>) {
+        val style = map?.style ?: return
+        if (style.getSource(SRC_BD_POSITIONS) == null) {
+            style.addSource(GeoJsonSource(SRC_BD_POSITIONS))
+            style.addLayer(org.maplibre.android.style.layers.SymbolLayer(SRC_BD_POSITIONS, SRC_BD_POSITIONS).withProperties(
+                org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAnchor(org.maplibre.android.style.layers.Property.ICON_ANCHOR_BOTTOM),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)))
+        }
+        val d = resources.displayMetrics.density
+        val fs = rs.mapIndexed { i, r ->
+            style.addImage("bdpos-$i", Positions.marqueur(r, d))
+            Feature.fromGeometry(Point.fromLngLat(r.lon, r.lat)).apply { addStringProperty("img", "bdpos-$i") }
+        }
+        style.getSourceAs<GeoJsonSource>(SRC_BD_POSITIONS)?.setGeoJson(FeatureCollection.fromFeatures(fs))
     }
     /** 📸 Sur la carte (écran 7) : chaque photo là où elle a été prise ; un toucher l'ouvre en grand. */
     private var photosCarte: List<Buddies.PhotoBuddy> = emptyList()
@@ -3449,7 +3515,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() { mapView.onPause(); super.onPause() }
     override fun onStop() { mapView.onStop(); super.onStop() }
     override fun onLowMemory() { super.onLowMemory(); mapView.onLowMemory() }
-    override fun onDestroy() { desabonnerBuddies(); mapView.onDestroy(); super.onDestroy() }
+    override fun onDestroy() { desabonnerBuddies(); EpingleService.ecouteur = null; mapView.onDestroy(); super.onDestroy() }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); mapView.onSaveInstanceState(outState) }
 
     companion object {
@@ -3475,6 +3541,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRAVEL = "travel-src"
         private const val SRC_SKI = "ski-src"
         private const val SRC_BD_PHOTOS = "bd-photos"
+        private const val SRC_BD_POSITIONS = "bd-positions"
         private const val SRC_TOPOS = "topos-src"
         private const val SRC_TOPO_LINE = "topo-line-src"
         private const val LAYER_TOPOS = "topos"

@@ -19,8 +19,8 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import (Carnet, Depense, Dispo, FicheJour, Groupe, Invitation, Membre, Participant, Photo, Planning, Recit, Sortie, TracePartagee,
-                     Utilisateur, maintenant)
+from modeles import (Carnet, Depense, Dispo, FicheJour, Groupe, Invitation, Membre, Participant, Photo, Planning, Position, Recit, Sortie,
+                     TracePartagee, Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -464,6 +464,53 @@ DOSSIER_PHOTOS = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "photo
 TAILLES = {"petite": 300_000, "grande": 4_000_000}  # octets au plus
 
 
+JOUR_MS = 24 * 3600 * 1000
+MARGE_MS = 60_000
+GARDE_POSITIONS = timedelta(hours=48)
+
+
+def ms(v: Any) -> int:
+    n = int(v)
+    if not 1_500_000_000_000 <= n <= 4_000_000_000_000:
+        raise ValueError("heure")
+    return n
+
+
+def epingle(s: Session, u: Utilisateur, op: dict) -> None:
+    """Position des buddies (§5.9) : enfoncer l'épingle (« mes buddies me voient » jusqu'à ce soir) ou la relever."""
+    so = sortie_de(s, u, op["sortie"])
+    if u.id not in participants(s, so):
+        raise Refus("Seuls les buddies du Buddy Time partagent leur position")
+    t = ms(op["quand"])
+    p = s.get(Position, (so.id, u.id))
+    if op.get("enfoncee"):
+        jusqu = min(ms(op["jusqu"]), t + JOUR_MS)
+        if jusqu <= t:
+            raise Refus("Heure de fin avant le début")
+        if p is None:
+            s.add(Position(sortie_id=so.id, utilisateur_id=u.id, depuis=t, jusqu=jusqu))
+        else:
+            p.depuis, p.jusqu, p.modifie_le = t, jusqu, maintenant()
+    elif p is not None and p.jusqu > t:
+        p.jusqu, p.modifie_le = t, maintenant()
+
+
+def position(s: Session, u: Utilisateur, op: dict) -> None:
+    """Une position envoyée pendant que l'épingle est enfoncée ; hors de ce temps-là elle est ignorée sans bruit
+    (personne n'est localisé sans l'avoir voulu). Seule la plus récente est gardée."""
+    so = sortie_de(s, u, op["sortie"])
+    p = s.get(Position, (so.id, u.id))
+    t = ms(op["prise_le"])
+    if p is None or not p.depuis - MARGE_MS <= t <= p.jusqu + MARGE_MS or (p.prise_le or 0) >= t:
+        return
+    lat, lon = float(op["lat"]), float(op["lon"])
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError("position")
+    alt = op.get("alt")
+    p.lat, p.lon, p.alt = round(lat, 6), round(lon, 6), round(float(alt)) if alt is not None else None
+    p.prise_le, p.modifie_le = t, maintenant()
+
+
 def fichier_photo(pid: uuid.UUID, taille: str) -> str:
     return os.path.join(DOSSIER_PHOTOS, f"{pid}-{taille}.jpg")
 
@@ -474,6 +521,7 @@ OPERATIONS = {
     "creer_sortie": creer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
+    "epingle": epingle, "position": position,
 }
 
 
@@ -524,6 +572,10 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     plannings = s.scalars(select(Planning).where(Planning.groupe_id.in_(gids)).order_by(Planning.cree_le)).all()
     photos = s.scalars(select(Photo).where(Photo.sortie_id.in_(sids)).order_by(Photo.prise_le)).all()
     depenses = s.scalars(select(Depense).where(Depense.sortie_id.in_(sids)).order_by(Depense.jour, Depense.cree_le)).all()
+    # Positions : toujours toutes (peu nombreuses), seulement des participants, et oubliées après 48 h.
+    positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
+                                                & (Participant.utilisateur_id == Position.utilisateur_id))
+                          .where(Position.sortie_id.in_(sids), Position.modifie_le > debut - GARDE_POSITIONS)).all()
     return {"curseur": iso(debut), "moi": str(u.id), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
@@ -532,7 +584,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "plannings": [vue_planning(s, p) for p in plannings if neuf(p.modifie_le)],
             "ids_photos": [str(p.id) for p in photos], "photos": [vue_photo(s, p) for p in photos if neuf(p.modifie_le)],
             "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
-            "refus": refus}
+            "positions": [vue_position(x) for x in positions], "refus": refus}
 
 
 def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
@@ -584,6 +636,11 @@ def vue_photo(s: Session, p: Photo) -> dict[str, Any]:
 def vue_depense(x: Depense) -> dict[str, Any]:
     return {"id": str(x.id), "sortie": str(x.sortie_id), "titre": x.titre, "montant": x.montant, "paye_par": str(x.paye_par),
             "pour": json.loads(x.pour), "jour": x.jour, "par": str(x.par), "modifie_le": iso(x.modifie_le)}
+
+
+def vue_position(x: Position) -> dict[str, Any]:
+    return {"sortie": str(x.sortie_id), "qui": str(x.utilisateur_id), "depuis": x.depuis, "jusqu": x.jusqu,
+            "lon": x.lon, "lat": x.lat, "alt": x.alt, "prise_le": x.prise_le}
 
 
 def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:

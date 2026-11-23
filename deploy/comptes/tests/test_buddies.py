@@ -441,3 +441,40 @@ def test_depense_refusee(client):
                      nouvelle_depense(so["sortie"], seb, []), nouvelle_depense(so["sortie"], seb, [seb], montant=0),
                      nouvelle_depense(so["sortie"], seb, [seb], jour="demain")):
         assert sync(client, ops=[mauvaise])["refus"], mauvaise
+
+
+T0 = 1_797_000_000_000  # un matin pendant le Buddy Time (ms)
+
+
+def test_position_des_buddies_avec_l_epingle(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    seb = sync(client, ops=[so])["moi"]
+    sid = so["sortie"]
+    # Sans épingle : la position est ignorée, personne n'apparaît.
+    r = sync(client, ops=[op("position", sortie=sid, lat=44.6, lon=6.7, alt=2310.4, prise_le=T0)])
+    assert r["refus"] == [] and r["positions"] == []
+    # Seb enfonce l'épingle jusqu'à ce soir : sa position (gardée hors ligne, renvoyée deux fois) arrive chez Julie.
+    pos = op("position", sortie=sid, lat=44.61, lon=6.71, alt=2310.4, prise_le=T0 + 60_000)
+    r = sync(client, ops=[op("epingle", sortie=sid, enfoncee=True, quand=T0, jusqu=T0 + 10 * 3600_000), pos, pos,
+                          op("position", sortie=sid, lat=1, lon=1, prise_le=T0 + 30_000)])  # plus ancienne : ignorée
+    assert r["refus"] == []
+    p, = sync(client, sub="julie")["positions"]
+    assert (p["qui"], p["lat"], p["lon"], p["alt"], p["prise_le"]) == (seb, 44.61, 6.71, 2310, T0 + 60_000)
+    # Seb relève l'épingle : la dernière position reste (grisée chez les autres), les suivantes sont ignorées.
+    sync(client, ops=[op("epingle", sortie=sid, enfoncee=False, quand=T0 + 120_000),
+                      op("position", sortie=sid, lat=44.7, lon=6.8, prise_le=T0 + 3600_000)])
+    p, = sync(client, sub="julie")["positions"]
+    assert p["jusqu"] == T0 + 120_000 and p["lat"] == 44.61
+    # Luc, hors du Buddy Time, ne voit rien et ne peut pas s'épingler.
+    assert sync(client, sub="luc")["positions"] == []
+    assert sync(client, sub="luc", ops=[op("epingle", sortie=sid, enfoncee=True, quand=T0, jusqu=T0 + 1000)])["refus"]
+
+
+def test_epingle_limitee_a_un_jour(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    sync(client, ops=[so])
+    r = sync(client, ops=[op("epingle", sortie=so["sortie"], enfoncee=True, quand=T0, jusqu=T0 + 5 * 24 * 3600_000)])
+    assert r["positions"][0]["jusqu"] == T0 + 24 * 3600_000
+    assert sync(client, ops=[op("epingle", sortie=so["sortie"], enfoncee=True, quand=T0, jusqu=T0 - 1)])["refus"]

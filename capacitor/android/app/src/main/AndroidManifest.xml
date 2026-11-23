@@ -83,6 +83,12 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- 📍 Position des buddies : une position toutes les 5 minutes tant que l'épingle est enfoncée. -->
+        <service
+            android:name=".EpingleService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <service
             android:name=".LocationService"
             android:exported="false"

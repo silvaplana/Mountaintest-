@@ -19,6 +19,7 @@ import { Expenses } from './Expenses';
 import { Account, ecouterCompte, useCompte } from './Account';
 import { connecte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type DepartBuddies } from './buddies/Buddies';
+import { useEpingle } from './buddies/Positions';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
@@ -264,6 +265,8 @@ export function App() {
   useEffect(() => ecouterCompte(setToast, () => setAccount(true)), []);
   // 👥 Liens d'invitation (fr.assomoutain.rando://rejoindre?c=…) et synchro des Buddies.
   useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
+  // 📍 Épingle enfoncée dans un Buddy Time : la position part toutes les 5 minutes (spec/buddies.md §5.9).
+  useEpingle();
   const [junctions, setJunctions] = useState<{ id: number; pts: LonLat[] | null }>({ id: 0, pts: null });
   const setNavId = (id: number | null) => { setNavIdState(id); setNavPaused(false); };
   // Traces affichées et suivi en cours gardés quand l'appli se ferme ; remis à la réouverture (le suivi reprend).

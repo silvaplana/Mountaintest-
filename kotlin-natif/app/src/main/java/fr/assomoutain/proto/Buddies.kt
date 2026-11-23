@@ -107,6 +107,11 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         val id: String, val sortie: String, val titre: String, val montant: Int, val payePar: String, val pour: List<String>, val jour: String,
         val modifie: Long, val attente: Boolean,
     )
+    /** 📍 Position d'un buddy dans un Buddy Time (spec §5.9) : son épingle (ms) et sa dernière position. */
+    data class Position(
+        val sortie: String, val qui: String, val depuis: Long, val jusqu: Long, val lon: Double?, val lat: Double?, val alt: Int?,
+        val priseLe: Long?, val attente: Boolean = false,
+    )
     /** Fichiers des photos (posé par MainActivity) : envoyés après chaque synchro. */
     var album: Album? = null
 
@@ -297,6 +302,39 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         }
         return l.sortedWith(compareByDescending<Depense> { it.jour }.thenByDescending { it.modifie })
     }
+    private fun nombre(o: JSONObject, k: String) = if (o.isNull(k) || !o.has(k)) null else o.optDouble(k)
+    private fun lirePosition(o: JSONObject) = Position(o.optString("sortie"), o.optString("qui"), o.optLong("depuis"), o.optLong("jusqu"),
+        nombre(o, "lon"), nombre(o, "lat"), nombre(o, "alt")?.let { Math.round(it).toInt() }, if (o.isNull("prise_le")) null else o.optLong("prise_le"))
+
+    /** 📍 Positions telles qu'affichées : celles du serveur, avec mon épingle et ma dernière position en attente. */
+    fun positions(): List<Position> {
+        val me = moi ?: "moi"
+        val l = etat.optJSONArray("positions").objets().map { lirePosition(it) }.toMutableList()
+        for (op in attente().objets()) {
+            val type = op.optString("type")
+            if (type != "epingle" && type != "position") continue
+            val sortie = op.optString("sortie")
+            val i = l.indexOfFirst { it.sortie == sortie && it.qui == me }
+            val p = l.getOrNull(i)
+            if (type == "epingle" && op.optBoolean("enfoncee")) {
+                val n = Position(sortie, me, op.optLong("quand"), op.optLong("jusqu"), p?.lon, p?.lat, p?.alt, p?.priseLe, true)
+                if (i >= 0) l.removeAt(i)
+                l += n
+            } else if (type == "epingle" && p != null) {
+                l[i] = p.copy(jusqu = minOf(p.jusqu, op.optLong("quand")), attente = true)
+            } else if (type == "position" && p != null) {
+                val t = op.optLong("prise_le")
+                if (t > (p.priseLe ?: 0) && t >= p.depuis - 60_000 && t <= p.jusqu + 60_000)
+                    l[i] = p.copy(lon = op.optDouble("lon"), lat = op.optDouble("lat"), alt = nombre(op, "alt")?.toInt(), priseLe = t, attente = true)
+            }
+        }
+        return l
+    }
+    /** Le Buddy Time où mon épingle est enfoncée en ce moment (un seul à la fois). */
+    fun monEpingle(t: Long = System.currentTimeMillis()): Position? {
+        val me = moi ?: "moi"
+        return positions().filter { it.qui == me && it.depuis <= t + 60_000 && it.jusqu > t }.maxByOrNull { it.depuis }
+    }
     fun marquerVu() = modifier { put("vu", System.currentTimeMillis()) }
 
     fun estAdmin(g: Groupe) = g.membres.any { (it.id == moi || it.id == "moi") && it.role == "admin" }
@@ -399,6 +437,24 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             .put("paye_par", payePar).put("pour", JSONArray(pour)).put("jour", jour))
         return id
     }
+    /** 📍 Enfoncer l'épingle dans ce Buddy Time jusqu'à ce soir (et la relever ailleurs : une seule à la fois). */
+    fun enfoncerEpingle(sortie: String, t: Long = System.currentTimeMillis()) {
+        val autre = monEpingle(t)
+        val ops = mutableListOf<JSONObject>()
+        if (autre != null && autre.sortie != sortie) ops += JSONObject().put("type", "epingle").put("sortie", autre.sortie).put("enfoncee", false).put("quand", t)
+        ops += JSONObject().put("type", "epingle").put("sortie", sortie).put("enfoncee", true).put("quand", t).put("jusqu", Positions.finEpingle(t))
+        ajouter(*ops.toTypedArray())
+    }
+    fun releverEpingle(sortie: String, t: Long = System.currentTimeMillis()) =
+        ajouter(JSONObject().put("type", "epingle").put("sortie", sortie).put("enfoncee", false).put("quand", t))
+    /** Une position du GPS pendant que l'épingle est enfoncée : seule la dernière attend le réseau. */
+    fun envoyerPosition(lat: Double, lon: Double, alt: Double?, t: Long) {
+        val p = monEpingle(t) ?: return
+        val op = JSONObject().put("type", "position").put("sortie", p.sortie).put("lat", Math.round(lat * 1e6) / 1e6)
+            .put("lon", Math.round(lon * 1e6) / 1e6).put("alt", alt?.let { Math.round(it) } ?: JSONObject.NULL).put("prise_le", t)
+            .put("id", UUID.randomUUID().toString()).put("t", System.currentTimeMillis())
+        modifier { put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("type") != "position" } + op)) }
+    }
     fun retirerDepense(depense: String) = ajouter(JSONObject().put("type", "retirer_depense").put("depense", depense))
     fun annulerInvitation(invitation: String) = ajouter(JSONObject().put("type", "annuler_invitation").put("invitation", invitation))
     fun quitter(groupe: String) = ajouter(JSONObject().put("type", "quitter").put("groupe", groupe))
@@ -442,6 +498,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             fusion("plannings", "plannings", "ids_plannings")
             fusion("photos", "photos", "ids_photos")
             fusion("depenses", "depenses", "ids_depenses")
+            r.optJSONArray("positions")?.let { put("positions", it) }
             put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("id") !in envoyees }))
             put("moi", r.getString("moi")); put("synchro", System.currentTimeMillis())
             if (manque) remove("curseur") else put("curseur", r.getString("curseur"))

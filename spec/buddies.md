@@ -427,6 +427,31 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   opérations `depense` (ajoute ou corrige) et `retirer_depense` ; payeur et bénéficiaires doivent être des
   participants du Buddy Time.
 
+### 7.7 Bloc 7 : ce qui est construit (23 novembre 2026)
+
+- **Accès** : sur la carte d'un Buddy Time, pendant ses dates, une ligne « 📍 Position des buddies · 2 visibles ·
+  tu es visible » dans le bandeau ouvre l'écran 15 à la place du bandeau (« Retour » revient au bandeau). Les visages
+  des buddies visibles sont sur la carte dès qu'on l'ouvre. Pas encore de 📍 dans la colonne de Buddies (point ouvert 3).
+- **Écran 15** : en haut « 📍 2 buddies visibles » ; sur la carte, chaque visage avec « toi », « il y a 4 min » ou
+  l'heure (« 10 h 42 ») ; il grise en vieillissant (plus de 20 min, plus d'une heure) et pâlit quand l'épingle est
+  relevée. En bas, chaque buddy avec « à 1,2 km de toi · 2 310 m », « plus de réseau ? » (épingle enfoncée, rien
+  depuis 20 min) ou « a relevé l'épingle » ; puis l'épingle : « 📍 Mes buddies peuvent me voir » (bouton principal),
+  ou, enfoncée, « Mes buddies me voient · depuis 9 h 10 · s'arrête seul à 22 h » et « Arrêter ».
+- **L'épingle** : enfoncée, elle se relève seule ce soir à 22 h (à minuit si on l'enfonce après 21 h). Une seule à la
+  fois : l'enfoncer dans un Buddy Time la relève ailleurs. Relevée par soi ou le soir, la dernière position reste
+  visible, grisée, jusqu'à 48 h, puis le serveur l'oublie. Pas encore de lieu nommé (« au col ») : l'altitude à la place.
+- **Envoi** : Android, un service (notification « 📍 Mes buddies me voient ») prend une position toutes les 5 minutes,
+  écran éteint compris, en GPS précis le temps du point puis endormi ; il s'arrête seul à l'heure prévue. Sans réseau,
+  seule la dernière position attend (avec son heure) et part au retour ; appli tuée, le service la garde et l'appli
+  l'envoie à sa réouverture. Dans un navigateur : toutes les 5 minutes tant que la page est ouverte. iPhone : à faire.
+- **Réception** : à chaque synchro (toutes les minutes quand Buddies est ouvert, à chaque envoi de position, au retour
+  de l'appli au premier plan).
+- **Serveur** : table `positions` (Buddy Time, buddy, épingle `depuis`/`jusqu` en ms, dernière position et altitude,
+  heure de prise) ; opérations `epingle {sortie, enfoncee, quand, jusqu}` (un jour au plus) et `position {sortie,
+  lat, lon, alt, prise_le}` : une position hors du temps de l'épingle, ou plus ancienne que la dernière, est ignorée
+  sans bruit. Seuls les participants du Buddy Time s'épinglent et voient les positions ; elles reviennent entières à
+  chaque synchro.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

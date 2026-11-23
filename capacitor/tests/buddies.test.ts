@@ -7,6 +7,8 @@ import {
 } from '../src/buddies/store';
 import { exif } from '../src/buddies/album';
 import { compte, euros, icone, lireEuros } from '../src/buddies/count';
+import { detail, etiquette, opacite, reperes } from '../src/buddies/positions';
+import { enfoncerEpingle, envoyerPosition, finEpingle, monEpingle, positions, releverEpingle } from '../src/buddies/store';
 import { chiffres, choixPhotos, fiches, joursDe, lireDuree, lireKm, lireMetres, texteCarnet, tracesDuCarnet, type Relief } from '../src/buddies/carnet';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
@@ -339,6 +341,62 @@ describe('Buddy count (bloc 6)', () => {
     expect(['24,50', '24.5 €', '1 240', '0', 'douze'].map(lireEuros)).toEqual([2450, 2450, 124000, null, null]);
     expect([euros(2450), euros(-10600)]).toEqual(['24,50\u00a0€', '−106\u00a0€']);
     expect(['Gîte Les Baladins', 'Essence + péage', 'Courses', 'Location de skis', 'Bières'].map(icone)).toEqual(['🏨', '⛽', '🧀', '🎿', '🍽']);
+  });
+});
+
+describe('Position des buddies (bloc 7)', () => {
+  const seb = { id: 'u-seb', pseudo: 'Seb', photo: null };
+  const julie = { id: 'u-julie', pseudo: 'Julie', photo: null };
+  const luc = { id: 'u-luc', pseudo: 'Luc', photo: null };
+  const x: Sortie = { id: 's1', groupe: 'a', nom: 'Queyras', photo: null, debut: '2026-12-12', fin: '2026-12-13', lieu: '', modifie_le: '',
+    participants: [seb, julie, luc], invitations: [] };
+  const T = new Date(2026, 11, 12, 10, 0).getTime();
+
+  it('l’épingle se relève seule ce soir', () => {
+    expect(new Date(finEpingle(new Date(2026, 11, 12, 9, 10))).getHours()).toBe(22);
+    expect(new Date(finEpingle(new Date(2026, 11, 12, 21, 30))).toTimeString().slice(0, 5)).toBe('23:59');
+  });
+
+  it('sans réseau : épingle enfoncée, seule la dernière position attend, relevée elle ne part plus', () => {
+    localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [] }));
+    _reinitialiser();
+    reseau(() => 'coupure');
+    envoyerPosition({ lat: 44.6, lon: 6.7, t: T }); // sans épingle : rien
+    expect(lire().attente).toEqual([]);
+    enfoncerEpingle('s1', T);
+    expect(monEpingle(lire(), T + 1000)?.sortie).toBe('s1');
+    envoyerPosition({ lat: 44.6, lon: 6.7, alt: 2310.4, t: T + 60_000 });
+    envoyerPosition({ lat: 44.61, lon: 6.71, alt: 2320, t: T + 360_000 });
+    expect(lire().attente.map((o) => o.type)).toEqual(['epingle', 'position']);
+    const p = positions(lire())[0];
+    expect([p.lat, p.lon, p.alt, p.prise_le, p.attente]).toEqual([44.61, 6.71, 2320, T + 360_000, true]);
+    releverEpingle('s1', T + 400_000);
+    expect(monEpingle(lire(), T + 500_000)).toBeUndefined();
+    envoyerPosition({ lat: 45, lon: 7, t: T + 600_000 });
+    expect(positions(lire())[0].lat).toBe(44.61);
+  });
+
+  it('visages, heures et détails ; une seule épingle à la fois', () => {
+    const ps = [
+      { sortie: 's1', qui: 'u-seb', depuis: T - 3600e3, jusqu: T + 3600e3, lat: 44.6, lon: 6.7, alt: 2100, prise_le: T - 60_000 },
+      { sortie: 's1', qui: 'u-julie', depuis: T - 3600e3, jusqu: T + 3600e3, lat: 44.61, lon: 6.71, alt: 2310, prise_le: T - 4 * 60_000 },
+      { sortie: 's1', qui: 'u-luc', depuis: T - 7200e3, jusqu: T + 3600e3, lat: 44.62, lon: 6.72, alt: 2699, prise_le: T - 80 * 60_000 },
+    ];
+    const rs = reperes(x, ps, 'u-seb', T);
+    expect(rs.map((r) => [r.b.pseudo, etiquette(r), opacite(r)])).toEqual([['Seb', 'toi', 1], ['Julie', 'il y a 4 min', 1],
+      ['Luc', `${new Date(T - 80 * 60_000).getHours()} h 40`, 0.6]]);
+    expect(detail(rs[1], rs[0])).toBe('à 1,4 km de toi · 2 310 m');
+    expect(detail(rs[2], rs[0])).toContain('plus de réseau ?');
+    // Luc relève son épingle : il reste, grisé.
+    const r = reperes(x, [{ ...ps[2], jusqu: T - 60_000 }], 'u-seb', T)[0];
+    expect([r.actif, opacite(r), detail(r)]).toEqual([false, 0.5, "2 699 m · a relevé l'épingle"]);
+    // Enfoncer ailleurs relève la première.
+    localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [], positions: ps }));
+    _reinitialiser();
+    reseau(() => 'coupure');
+    enfoncerEpingle('s2', T);
+    expect(monEpingle(lire(), T + 1000)?.sortie).toBe('s2');
+    expect(positions(lire()).find((p) => p.qui === 'u-seb' && p.sortie === 's1')?.jusqu).toBe(T);
   });
 });
 
