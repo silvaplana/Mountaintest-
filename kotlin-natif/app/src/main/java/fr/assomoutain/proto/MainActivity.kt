@@ -2156,8 +2156,7 @@ class MainActivity : AppCompatActivity() {
             })
             legend.addView(r)
         }
-        // Du plus présent au moins présent, sans les types absents de la trace (demande de Seb) ; GR à la fin s'il y en a.
-        WayTypes.TYPES.filter { (t.byType[it.key] ?: 0.0) > 0 }.sortedByDescending { t.byType[it.key] ?: 0.0 }
+        WayTypes.TYPES.filter { (t.byType[it.key] ?: 0.0) > 0 } // toujours le même ordre, des plus grandes voies aux plus petites
             .forEach { row(it.color, it.label, t.byType[it.key] ?: 0.0, false) }
         if (t.gr > 0) row(WayTypes.GR_COLOR, "Sur GR (balisage rouge et blanc)", t.gr, true)
     }

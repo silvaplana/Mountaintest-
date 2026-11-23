@@ -134,8 +134,8 @@ export function Profile({ segments, cursor, onCursor, pctFirst = false, runs }: 
 /** 🚵 Bilan des types de chemin, sous le profil : part de chacun en % et en km, puis la part sur GR. */
 export function WayLegend({ runs }: { runs: WayRun[] }) {
   const t = wayTotals(runs);
-  // Du plus présent au moins présent, sans les types absents de la trace (demande de Seb) ; GR à la fin s'il y en a.
-  const rows = WAY_TYPES.filter((w) => t.byType[w.key] > 0).sort((a, b) => t.byType[b.key] - t.byType[a.key]);
+  // Toujours le même ordre, des plus grandes voies aux plus petites, sans les types absents (demande de Seb) ; GR à la fin s'il y en a.
+  const rows = WAY_TYPES.filter((w) => t.byType[w.key] > 0);
   return (
     <ul className="way-legend">
       {rows.map((w) => { const m = t.byType[w.key]; return (
