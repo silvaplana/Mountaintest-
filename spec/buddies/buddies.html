@@ -444,5 +444,20 @@ ${rail('chat',{extra:1})}
 <div class="m"><u style="color:${C.L}">Luc</u>La descente côté nord, ça passe ?</div>
 </div>
 <div class="compose"><b>📷</b><b>📍</b><div>Message</div><b>🎤</b></div></div>`);
+// 25
+const bud=`<span class="av" style="width:24px;height:24px;font-size:13px;background:#1d2421;vertical-align:middle">🐻</span>`;
+H+=scr(25,'💬 Bud, le buddy qui connaît l\'appli','Bud est un buddy à part : une IA, et ça se voit. Il ne parle que si on l\'appelle (« Bud, … », à l\'écrit ou à la voix). Il connaît la carte, les traces, le planning, les comptes, les hébergements. Il propose, pose le résultat sur la carte, et ce sont les copains qui décident.',
+`${map(1)}<div class="pin" style="left:250px;top:200px;background:#1d2421">🏨</div><div class="pin" style="left:120px;top:250px;background:#1d2421">🏨</div>
+${pill('Week-end Queyras','💬 4 buddies + Bud')}${rail('chat',{extra:1})}
+<div class="panel" style="height:560px"><div class="msgs">
+<div class="m"><u style="color:${C.J}">Julie</u>On dort où le samedi ?</div>
+<div class="m me"><b>Bud</b>, trouve-nous un gîte près du départ, pour 4, en demi-pension</div>
+<div class="m" style="background:#1d2421;color:#fff"><u style="color:#f3c64e">${bud} Bud</u>J'en vois deux près du parking de Ceillac. Je les ai posés sur la carte.</div>
+<div class="m obj"><span>🏨</span><div><b>Gîte Les Baladins</b><small>60 € / pers. · à 300 m du départ</small></div></div>
+<div class="m obj"><span>🏨</span><div><b>Refuge de la Cime</b><small>48 € / pers. · à 2 km du départ</small></div></div>
+<div class="m"><u style="color:${C.L}">Luc</u>Les Baladins 👍 Bud, la pente maxi de la trace de Julie ?</div>
+<div class="m" style="background:#1d2421;color:#fff"><u style="color:#f3c64e">${bud} Bud</u>34° sur 200 m sous le col, versant nord. Je te le montre en rouge.</div>
+</div><div style="flex:1"></div>
+<div class="compose"><b>📷</b><b>📍</b><div>Message, ou « Bud, … »</div><b>🎤</b></div></div>`);
 document.body.innerHTML=H;
 </script></body></html>
