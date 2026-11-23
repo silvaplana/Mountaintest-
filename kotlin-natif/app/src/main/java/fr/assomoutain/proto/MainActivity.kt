@@ -254,6 +254,8 @@ class MainActivity : AppCompatActivity() {
         retourConnexion?.let { u -> window.decorView.post { if (u.host == "rejoindre") invitationRecue(u) else finConnexion(u) } }
         // 📥 Lancée par « Ouvrir avec » ou « Partager » un fichier de trace : chargé quand la carte est prête.
         if (savedInstanceState == null && retourConnexion == null) pendingTraceUri = TraceFile.sharedUri(intent)
+        // 👥 Pas encore connecté : l'écran de connexion s'ouvre au lancement (« Plus tard » le ferme).
+        if (savedInstanceState == null && retourConnexion == null && pendingTraceUri == null && !compte.connecte) window.decorView.post { openAccount() }
         apiKey = prefs.getString("apiKey", null) ?: Scenario.DEFAULT_SCAN_KEY
         mapMode = runCatching { MapMode.valueOf(prefs.getString("mapMode", null) ?: "") }.getOrDefault(MapMode.AUTO)
         applyInsets()

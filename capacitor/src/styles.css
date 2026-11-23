@@ -601,3 +601,10 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-actions .danger { color: var(--danger); }
 .bd-corps .hint { font-size: 15px; }
 .bd-corps .xp-head h2 { font-size: 22px; }
+/* Connexion : Google, Apple, e-mail (dès l'ouverture tant qu'on n'est pas connecté) */
+.account .acc-social { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 600; flex: none; }
+.account .acc-social.apple { background: #000; border-color: #000; color: #fff; }
+.account .acc-social small { font-weight: 400; opacity: .75; }
+.acc-ou { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+.acc-ou::before, .acc-ou::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.account .acc-plus-tard { border: 0; background: none; color: var(--muted); flex: none; }

@@ -162,7 +162,7 @@ def config():
             apps = json.load(f)
     except OSError:
         apps = {}
-    return {"logto": LOGTO, "ressource": API, "applis": apps.get("applis", {})}
+    return {"logto": LOGTO, "ressource": API, "applis": apps.get("applis", {}), "fournisseurs": apps.get("fournisseurs", [])}
 
 
 def utilisateur(s: Session, j: dict[str, Any]) -> Utilisateur:
