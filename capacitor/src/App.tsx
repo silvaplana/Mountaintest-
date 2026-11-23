@@ -18,7 +18,8 @@ import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte, useCompte } from './Account';
 import { connecte } from './compte/auth';
-import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type DepartBuddies } from './buddies/Buddies';
+import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
+import { PointSurCarte } from './buddies/Messages';
 import { useEpingle } from './buddies/Positions';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
 import { LodgingPanel, type Lodging } from './Lodging';
@@ -118,7 +119,9 @@ export function App() {
   /** ‹ depuis la carte d'un Buddy Time : on revient sur son Buddy Group. */
   const [buddiesDepart, setBuddiesDepart] = useState<DepartBuddies | undefined>();
   /** Un Buddy Time ouvert sur la carte (écran 4). */
-  const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[] } | null>(null);
+  const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[]; parler?: boolean } | null>(null);
+  // 📍 Le point d'un message d'un Buddy Group (« Julie est ici »), montré sur la carte.
+  const [pointBuddy, setPointBuddy] = useState<CarteBuddies['point'] | null>(null);
   /** Panneau de partage d'une trace (écran 22). */
   const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void; hebergement?: Lodging } | null>(null);
   const buddiesEtat = useBuddies();
@@ -788,9 +791,10 @@ export function App() {
    * 👥 Un Buddy Time sur la carte (écran 4) ou une trace partagée dans un groupe : ses traces s'ajoutent à mes
    * traces affichées (profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne marchent comme pour les miennes).
    */
-  function montrerBuddies(x: { sortie?: Sortie; traces: TraceBuddy[] }) {
+  function montrerBuddies(x: CarteBuddies) {
     setBuddies(false); setBuddiesDepart(undefined); setTraceList(null);
-    setCarteSortie(x.sortie ? { sortie: x.sortie, traces: x.traces } : null);
+    setCarteSortie(x.sortie ? { sortie: x.sortie, traces: x.traces, parler: x.parler } : null);
+    setPointBuddy(x.point ?? null);
     const pts: LonLat[] = [];
     for (const t of x.traces) {
       const line = t.ligne.map(([lon, lat]) => ({ lon, lat }));
@@ -1172,7 +1176,8 @@ export function App() {
       {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onCarte={montrerBuddies} />}
-      {carteSortie && !buddies && !drawing && <BandeauSortie x={carteSortie.sortie} traces={carteSortie.traces}
+      {pointBuddy && !buddies && <PointSurCarte map={map} p={pointBuddy} />}
+      {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}
         onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }}
         onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}

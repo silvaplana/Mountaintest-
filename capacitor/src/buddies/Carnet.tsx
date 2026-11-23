@@ -164,7 +164,7 @@ const Reconnaissance = (window as unknown as { SpeechRecognition?: new () => SR;
   ?? (window as unknown as { webkitSpeechRecognition?: new () => SR }).webkitSpeechRecognition;
 
 /** Dictée : le texte est transcrit mot pour mot (téléphone : la dictée d'Android ; navigateur : celle du navigateur). */
-function useDictee(ajouter: (t: string) => void, onToast: (m: string) => void) {
+export function useDictee(ajouter: (t: string) => void, onToast: (m: string) => void) {
   const [ecoute, setEcoute] = useState(false);
   const sr = useRef<SR | null>(null);
   const basculer = async () => {

@@ -12,10 +12,12 @@ import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
 import { BandePositions, nombreVisibles, PositionsSurCarte, useReperes } from './Positions';
+import { Conversation, Conversations, PointSurCarte } from './Messages';
+import { apercu, fil } from './messages';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin,
+  annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
   nouveauCode, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -125,14 +127,14 @@ function reduire(f: File): Promise<string> {
 }
 
 /** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging, onPlanning, onAlbum }: {
-  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onPlanning?: () => void; onAlbum?: () => void;
+function Colonne({ onToast, onExpenses, onLodging, onPlanning, onAlbum, onMessages }: {
+  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
 }) {
   const bientot = (m: string) => () => onToast(`Bientôt : ${m}`);
   return <div className="bd-colonne">
     <button aria-label="Appel" onClick={bientot('appeler toute la bande')}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
-    <button aria-label="Messagerie" onClick={bientot('la messagerie de la bande')}>💬</button>
+    <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
     <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
     <button aria-label="Buddy count" onClick={onExpenses}>💶</button>
     <button aria-label="Hébergement" onClick={onLodging}>🏨</button>
@@ -257,14 +259,17 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
-  | { ecran: 'dodo'; id: string; groupe?: string };
+  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string };
+
+/** Ce qu'on montre sur la carte : un Buddy Time (sa conversation ouverte si `parler`), des traces, un point d'un message. */
+export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string } };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void;
   /** Ouvrir un Buddy Time sur la carte (écran 4), ou une trace partagée dans un groupe. */
-  onCarte: (x: { sortie?: Sortie; traces: TraceBuddy[] }) => void;
+  onCarte: (x: CarteBuddies) => void;
   depart?: DepartBuddies;
 }) {
   const e = useBuddies();
@@ -291,20 +296,27 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
 
   const groupes = appliquer(e);
   const { sorties, traces, plannings, photos, depenses, hebergements } = vueSorties(e);
-  const ouvrir = (x: Sortie) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id) });
+  const ouvrir = (x: Sortie, parler = false) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id), parler });
   // Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
   const meTime = groupes.find((x) => x.nature === 'me_time')!;
   // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
-  const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' ? vue.id : undefined;
+  const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' || vue.ecran === 'conv' ? vue.id : undefined;
   // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
   const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) ? vue.id : undefined;
   // 🏨 : « Où on dort ? » du Buddy Time ouvert, sinon la recherche d'hébergement.
   const colonne = <Colonne onToast={onToast} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
-    onAlbum={() => setVue({ ecran: 'albums', groupe: ici })} />;
+    onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
+    onMessages={() => {
+      // 💬 : la conversation du Buddy Time ouvert (sur sa carte), sinon celle du Buddy Group ouvert, sinon toutes.
+      const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
+      if (x) ouvrir(x, true);
+      else if (vue.ecran === 'groupe' && vue.id !== meTime.id) setVue({ ecran: 'conv', id: vue.id });
+      else setVue({ ecran: 'messages', groupe: ici });
+    }} />;
   const album = sortieIci ? sorties.find((x) => x.id === sortieIci) : undefined;
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
   const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
@@ -317,6 +329,19 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'comptes' ? <Comptes sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} depenses={depenses} onClose={onClose}
         onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })} onAnciens={onExpenses}
         onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
+        onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)}
+        onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'conv' && groupes.some((x) => x.id === vue.id) ? (() => {
+        const gc = groupes.find((x) => x.id === vue.id)!;
+        return <div className="bd-corps bd-corps-conv">
+          <div className="xp-head"><button onClick={() => setVue({ ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
+            <span className="bd-titre"><b>{gc.nom}</b><small>💬 {gc.membres.length} buddies</small></span>
+            <button onClick={onClose} aria-label="Fermer">✕</button></div>
+          <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
+            onPoint={(p) => onCarte({ traces: [], point: p })} onTrace={(t) => onCarte({ traces: [t] })} />
+        </div>;
+      })()
       : vue.ecran === 'dodo' && album ? <OuOnDort x={album} hebergements={hebergements} onToast={onToast} onClose={onClose} onChercher={onLodging}
         onRetour={() => (album.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: album.id, groupe: vue.groupe }) : ouvrir(album))} />
       : vue.ecran === 'count' && album ? <BuddyCount x={album} depenses={depenses} onClose={onClose}
@@ -570,17 +595,29 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
 /** Haut et bas de la carte d'un Buddy Time : ‹ nom et dates en haut, bandeau rabattable en bas. */
-export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount, onDodo, onToast, map }: {
-  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void; onDodo: () => void;
+export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, onCount, onDodo, onToast, map }: {
+  x: Sortie; traces: TraceBuddy[]; parler?: boolean; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void; onDodo: () => void;
   onToast: (m: string) => void; map: MlMap | null;
 }) {
   const [replie, setReplie] = useState(false);
+  // 💬 Écrans 6 et 24 : la conversation du Buddy Time, carte au-dessus ; repliée, seulement les derniers mots.
+  const [msg, setMsg] = useState(!!parler);
+  const [point, setPoint] = useState<{ lon: number; lat: number; nom: string } | null>(null);
   // 📍 Écran 15 : la position des buddies, à la place du bandeau (pendant le Buddy Time).
   const [pos, setPos] = useState(false);
   const rs = useReperes(x);
   const visibles = nombreVisibles(rs);
-  const v = vueSorties(useBuddies());
+  const eb = useBuddies();
+  const v = vueSorties(eb);
   const photos = v.photos.filter((p) => p.sortie === x.id);
+  const dernier = fil({ sortie: x.id }, v.messages, v.traces, v.hebergements).at(-1);
+  const nouveaux = nonLus(eb, x.id, v.messages);
+  const nomDe = (id: string) => x.participants.find((p) => p.id === id)?.pseudo ?? '?';
+  const voirTrace = (t: TraceBuddy) => {
+    setReplie(true);
+    const lons = t.ligne.map((p) => p[0]), lats = t.ligne.map((p) => p[1]);
+    map?.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 70, maxZoom: 15, duration: 600 });
+  };
   const depense = v.depenses.filter((d) => d.sortie === x.id).reduce((n, d) => n + d.montant, 0);
   const hebergements = v.hebergements.filter((h) => h.sortie === x.id);
   const retenu = hebergements.find((h) => h.retenu);
@@ -591,15 +628,21 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
     <div className="bd-carte-haut">
       <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
       <span className="bd-texte"><b>{x.nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
-        : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
+        : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'}` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
     </div>
-    <div className={`bd-carte-bas${replie ? ' replie' : ''}`}>
+    <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}`}>
       <button className="handle" aria-label={replie ? 'Déplier' : 'Replier'} onClick={() => setReplie(!replie)} />
-      {!replie && pos && <>
+      {msg && <>
+        {!replie && <div className="bd-entre"><b className="bd-gros">💬 Messagerie</b><button className="bd-lien" onClick={() => { setMsg(false); setPoint(null); }}>Retour</button></div>}
+        <Conversation dest={{ sortie: x.id }} membres={x.participants} sortie={x} court={replie} onToast={onToast}
+          onPoint={(p) => { setPoint(p); setReplie(true); }} onTrace={voirTrace} onPhoto={onAlbum}
+          onHebergement={(h) => (h.lon != null && h.lat != null ? (setPoint({ lon: h.lon, lat: h.lat, nom: h.nom }), setReplie(true)) : onDodo())} />
+      </>}
+      {!replie && pos && !msg && <>
         <div className="bd-entre"><b className="bd-gros">📍 Position des buddies</b><button className="bd-lien" onClick={() => setPos(false)}>Retour</button></div>
         <BandePositions x={x} onToast={onToast} />
       </>}
-      {!replie && !pos && <>
+      {!replie && !pos && !msg && <>
         <b className="bd-carte-quand">{quandSortie(x)}</b>
         <div className="bd-carte-qui">
           {x.participants.map((p) => <Visage key={p.id} b={p} taille={30} />)}
@@ -610,6 +653,12 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
           <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'souvenir'}</small></span>
           <button className="bd-chiffre-count" onClick={onCount}><b>💶 {depense ? euros(depense) : '＋'}</b><small>{depense ? `à ${x.participants.length}` : 'Buddy count'}</small></button>
         </div>
+        {x.participants.length > 1 && <button className="bd-ligne bd-pos-acces" onClick={() => setMsg(true)}>
+          <span className="bd-icone">💬</span>
+          <span className="bd-texte"><b>Messagerie{nouveaux ? ` · ${nouveaux} nouveau${nouveaux > 1 ? 'x' : ''}` : ''}</b>
+            <small>{dernier ? apercu(dernier, nomDe, eb.moi ?? 'moi') : 'écrire aux buddies'}</small></span>
+          <span className="bd-fleche">›</span>
+        </button>}
         {venir && <button className="bd-ligne bd-pos-acces" onClick={onDodo}>
           <span className="bd-icone">🏨</span>
           <span className="bd-texte"><b>{retenu ? `${retenu.nom} ✅` : 'Où on dort ?'}</b>
@@ -638,6 +687,7 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
     <PhotosSurCarte map={map} photos={photos} />
     <PositionsSurCarte map={map} x={x} />
     <HebergementsSurCarte map={map} hebergements={hebergements} />
+    <PointSurCarte map={map} p={point} />
   </>;
 }
 

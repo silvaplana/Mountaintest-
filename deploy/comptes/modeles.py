@@ -288,3 +288,23 @@ class Coeur(Base):
 
     hebergement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("hebergements.id", ondelete="CASCADE"), primary_key=True)
     utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+
+
+class MessageBuddy(Base):
+    """Messagerie (spec/buddies.md §5.6, écran 6) : un message dans la conversation d'un Buddy Group ou d'un Buddy
+    Time (l'un ou l'autre). Identifiant choisi par le téléphone (envoi hors ligne sans doublon, comme le client_id
+    d'AppBase). nature : texte, point (lon/lat), photo (une photo de l'album du Buddy Time)."""
+
+    __tablename__ = "messages_buddies"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), index=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), index=True)
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    nature: Mapped[str] = mapped_column(String(10), default="texte", nullable=False)
+    texte: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    lon: Mapped[float | None] = mapped_column(Float)
+    lat: Mapped[float | None] = mapped_column(Float)
+    photo_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)

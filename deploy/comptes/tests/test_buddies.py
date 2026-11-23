@@ -516,3 +516,45 @@ def test_hebergement_refuse(client):
     for mauvais in (nouvel_hebergement(so["sortie"], url="javascript:alert(1)"), nouvel_hebergement(so["sortie"], lat=None),
                     nouvel_hebergement(so["sortie"], prix_nuit=-5)):
         assert sync(client, ops=[mauvais])["refus"], mauvais
+
+
+# ------------------------------------------------------------------ bloc 9 : messagerie
+
+def nouveau_message(groupe=None, sortie=None, texte="On part à 7 h ?", **autres):
+    op = {"id": str(uuid.uuid4()), "type": "message", "message": str(uuid.uuid4()), "nature": "texte", "texte": texte}
+    op.update({"groupe": groupe} if groupe else {"sortie": sortie})
+    op.update(autres)
+    return op
+
+
+def test_messages_dans_un_groupe_et_un_buddy_time(client, photos):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    ph = nouvelle_photo(so["sortie"])
+    m1 = nouveau_message(groupe=gid)
+    m2 = nouveau_message(sortie=so["sortie"], nature="point", texte="", lon=6.71234567, lat=44.6)
+    m3 = nouveau_message(sortie=so["sortie"], nature="photo", texte="", photo=ph["photo"])
+    r = sync(client, ops=[so, ph, m1, m1, m2, m3])  # m1 renvoyé : un seul
+    assert r["refus"] == [] and r["ids_messages"] == [m1["message"], m2["message"], m3["message"]]
+    point = next(m for m in r["messages"] if m["nature"] == "point")
+    assert point["sortie"] == so["sortie"] and point["lon"] == 6.712346 and point["par"] == r["moi"]
+    # Julie les voit et répond ; Luc (hors du groupe) ne voit rien.
+    rj = sync(client, sub="julie", ops=[nouveau_message(groupe=gid, texte="Ok pour moi")])
+    assert len(rj["ids_messages"]) == 4 and rj["messages"][-1]["par"] == julie
+    assert sync(client, sub="luc")["ids_messages"] == []
+    # Seulement ses propres messages se retirent.
+    assert sync(client, sub="julie", ops=[{"id": "x", "type": "retirer_message", "message": m1["message"]}])["refus"]
+    r = sync(client, ops=[{"id": "y", "type": "retirer_message", "message": m1["message"]}])
+    assert m1["message"] not in r["ids_messages"]
+
+
+def test_message_refuse(client, photos):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    sync(client, ops=[so])
+    for mauvais in (nouveau_message(groupe=gid, texte="  "), nouveau_message(groupe=gid, nature="son"),
+                    nouveau_message(groupe=gid, nature="point", lat=95, lon=6),
+                    nouveau_message(groupe=gid, nature="photo", photo=str(uuid.uuid4())),
+                    nouveau_message(groupe=str(uuid.uuid4()))):
+        assert sync(client, ops=[mauvais])["refus"], mauvais
+    assert sync(client, sub="luc", ops=[nouveau_message(sortie=so["sortie"])])["refus"]

@@ -58,7 +58,12 @@ export type Depense = {
 /** 🏨 Hébergement proposé dans un Buddy Time (§5.11) : ♥ de chacun (identifiants), ✅ retenu. Prix par nuit, en euros. */
 export type Hebergement = {
   id: string; sortie: string; nom: string; nature: string; prix_nuit: number | null; adresse: string; url: string; resume: string;
-  lon: number | null; lat: number | null; retenu: boolean; par: string; coeurs: string[]; modifie_le: string; attente?: boolean;
+  lon: number | null; lat: number | null; retenu: boolean; par: string; coeurs: string[]; cree_le?: string; modifie_le: string; attente?: boolean;
+};
+/** 💬 Message d'un Buddy Group ou d'un Buddy Time (§5.6) : texte, « je suis ici » (point) ou photo de l'album. */
+export type MessageBuddy = {
+  id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo'; texte: string;
+  lon: number | null; lat: number | null; photo: string | null; cree_le: string; attente?: boolean;
 };
 /** 📍 Position d'un buddy dans un Buddy Time (§5.9) : son épingle (ms) et sa dernière position. */
 export type Position = {
@@ -77,6 +82,9 @@ export type Etat = {
   depenses?: Depense[];
   positions?: Position[];
   hebergements?: Hebergement[];
+  messages?: MessageBuddy[];
+  /** 💬 Dernière lecture de chaque conversation (ms), par identifiant de Buddy Group ou de Buddy Time. */
+  lus?: Record<string, number>;
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
   envois?: string[];
   curseur?: string;
@@ -134,6 +142,7 @@ function moiBuddy(e: Etat): Buddy {
 /** Buddy Times et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
 export function vue(e: Etat): {
   sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[]; photos: PhotoBuddy[]; depenses: Depense[]; hebergements: Hebergement[];
+  messages: MessageBuddy[];
 } {
   const groupes = appliquer(e);
   const meTime = groupes.find((g) => g.nature === 'me_time')!;
@@ -144,6 +153,7 @@ export function vue(e: Etat): {
   let photos: PhotoBuddy[] = (e.photos ?? []).map((x) => ({ ...x }));
   let depenses: Depense[] = [...(e.depenses ?? [])];
   let hebergements: Hebergement[] = (e.hebergements ?? []).map((h) => ({ ...h, coeurs: [...h.coeurs] }));
+  let messages: MessageBuddy[] = [...(e.messages ?? [])];
   const quand = (op: Op) => new Date(op.t).toISOString();
   for (const op of e.attente) {
     if (op.type === 'creer_sortie' && !sorties.some((x) => x.id === op.sortie)) {
@@ -200,6 +210,12 @@ export function vue(e: Etat): {
         : x.sortie === h.sortie && op.retenu ? { ...x, retenu: false } : x);
     } else if (op.type === 'retirer_hebergement') {
       hebergements = hebergements.filter((h) => h.id !== op.hebergement);
+    } else if (op.type === 'message' && !messages.some((m) => m.id === op.message)) {
+      messages.push({ id: String(op.message), groupe: (op.groupe as string) ?? null, sortie: (op.sortie as string) ?? null, par: moi,
+        nature: op.nature as MessageBuddy['nature'], texte: String(op.texte ?? ''), lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null,
+        photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true });
+    } else if (op.type === 'retirer_message') {
+      messages = messages.filter((m) => m.id !== op.message);
     } else if (op.type === 'recit' || op.type === 'fiche' || op.type === 'carnet') {
       const k = sorties.findIndex((y) => y.id === op.sortie);
       if (k < 0) continue;
@@ -226,7 +242,8 @@ export function vue(e: Etat): {
     depenses: depenses.sort((a, b) => b.jour.localeCompare(a.jour) || b.modifie_le.localeCompare(a.modifie_le)),
     // Le retenu en haut, puis les plus aimés, puis les moins chers.
     hebergements: hebergements.sort((a, b) => Number(b.retenu) - Number(a.retenu) || b.coeurs.length - a.coeurs.length
-      || (a.prix_nuit ?? Infinity) - (b.prix_nuit ?? Infinity)) };
+      || (a.prix_nuit ?? Infinity) - (b.prix_nuit ?? Infinity)),
+    messages: messages.sort((a, b) => a.cree_le.localeCompare(b.cree_le)) };
 }
 
 /** 📍 Positions telles qu'affichées : celles du serveur, avec mon épingle et ma dernière position en attente. */
@@ -472,6 +489,23 @@ export function proposerHebergement(sorties: string[], h: { nom: string; nature:
     nom: h.nom.trim().slice(0, 80), nature: h.nature.slice(0, 40), adresse: h.adresse.slice(0, 160), resume: h.resume.slice(0, 300),
     url: /^https?:\/\//.test(h.url) ? h.url.slice(0, 500) : '' })));
 }
+/** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
+export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string }) {
+  const texte = (m.texte ?? '').trim().slice(0, 2000);
+  const nature = m.nature ?? 'texte';
+  if (nature === 'texte' && !texte) return;
+  ajouter({ type: 'message', message: uuid(), ...(dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe }), nature, texte,
+    ...(m.lon != null && m.lat != null ? { lon: Math.round(m.lon * 1e6) / 1e6, lat: Math.round(m.lat * 1e6) / 1e6 } : {}),
+    ...(m.photo ? { photo: m.photo } : {}) });
+}
+export const retirerMessage = (message: string) => ajouter({ type: 'retirer_message', message });
+/** Conversation lue jusqu'à maintenant. */
+export function marquerLu(cle: string, t = Date.now()) { ecrire({ ...lire(), lus: { ...lire().lus, [cle]: t } }); }
+/** Messages des autres arrivés depuis ma dernière lecture de cette conversation. */
+export function nonLus(e: Etat, cle: string, messages: MessageBuddy[]): number {
+  const moi = e.moi ?? 'moi', lu = e.lus?.[cle] ?? 0;
+  return messages.filter((m) => (m.groupe === cle || m.sortie === cle) && m.par !== moi && new Date(m.cree_le).getTime() > lu).length;
+}
 export const mettreCoeur = (hebergement: string, coeur: boolean) => ajouter({ type: 'coeur', hebergement, coeur });
 export const retenirHebergement = (hebergement: string, retenu: boolean) => ajouter({ type: 'retenir_hebergement', hebergement, retenu });
 export const retirerHebergement = (hebergement: string) => ajouter({ type: 'retirer_hebergement', hebergement });
@@ -494,6 +528,7 @@ type Reponse = {
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
   positions?: Position[];
   ids_hebergements?: string[]; hebergements?: Hebergement[];
+  ids_messages?: string[]; messages?: MessageBuddy[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -522,13 +557,14 @@ export function synchroniser(): Promise<string[]> {
       const ph = fusion(e.photos ?? [], r.photos ?? [], r.ids_photos ?? []);
       const dp = fusion(e.depenses ?? [], r.depenses ?? [], r.ids_depenses ?? []);
       const hb = fusion(e.hebergements ?? [], r.hebergements ?? [], r.ids_hebergements ?? []);
+      const mg = fusion(e.messages ?? [], r.messages ?? [], r.ids_messages ?? []);
       const envoyees = new Set(ops.map((o) => o.id));
       // Un objet connu du serveur mais jamais reçu : on redemandera tout à la prochaine synchro.
-      const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque || dp.manque || hb.manque;
+      const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque || dp.manque || hb.manque || mg.manque;
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
-        positions: r.positions ?? e.positions, hebergements: hb.liste,
+        positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
