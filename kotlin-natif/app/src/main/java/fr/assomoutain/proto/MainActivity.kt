@@ -1338,10 +1338,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<ProfileView>(R.id.trailProfile).onCursor = { showSlopeCursor() }
         findViewById<TextView>(R.id.trailsAttribution).text =
             "Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés (${Trails.OSM_ATTRIBUTION}), " +
-            "et celles que Claude trouve sur le web en points orange, avec le lien de leur page."
+            "et celles trouvées sur le web en points orange, avec le lien de leur page."
         // Mot de passe intégré par la CI : le champ ne sert plus, on le cache.
         if (BuildConfig.IA_MOT_DE_PASSE.isNotEmpty())
-            findViewById<TextView>(R.id.hintIaPassword).text = "Mot de passe IA de secours (vide : celui intégré à l'appli)"
+            findViewById<TextView>(R.id.hintIaPassword).text = "Mot de passe de recherche de secours (vide : celui intégré à l'appli)"
         findViewById<EditText>(R.id.editIaPassword).apply {
             setText(prefs.getString("iaPassword", ""))
             addTextChangedListener(object : TextWatcher {
@@ -1966,10 +1966,10 @@ class MainActivity : AppCompatActivity() {
         webHikes = emptyList(); hikeSel = null; drawWebHikes()
         val password = BuildConfig.IA_MOT_DE_PASSE.ifEmpty { prefs.getString("iaPassword", "").orEmpty() }
         if (password.isEmpty()) {
-            webMessage = "Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous."
+            webMessage = "Pour ajouter les randos trouvées sur le web, saisis le mot de passe de recherche ci-dessous."
             refreshTrails(); return
         }
-        webMessage = "Claude cherche des randos sur le web (1 à 2 minutes)…"
+        webMessage = "Je cherche des randos sur le web (1 à 2 minutes)…"
         refreshTrails()
         webJob = lifecycleScope.launch {
             val t0 = SystemClock.elapsedRealtime()
@@ -1979,7 +1979,7 @@ class MainActivity : AppCompatActivity() {
                 webHikes = res.hikes
                 val n = res.hikes.size; val s = if (n > 1) "s" else ""
                 webMessage = (if (n > 0) "$n rando$s trouvée$s sur le web (points orange). Touche un point pour ouvrir sa page."
-                    else "Claude n'a trouvé aucune page de rando sur cette zone.") + " " + WebHikes.costLine(res.cost, res.cache)
+                    else "Aucune page de rando trouvée sur cette zone.") + " " + WebHikes.costLine(res.cost, res.cache)
             }.onFailure { e ->
                 if (e is kotlinx.coroutines.CancellationException) return@launch
                 webMessage = "Recherche web impossible : ${e.message}"
@@ -3532,7 +3532,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnQuickForests to "Forêts", R.id.btnSkiText to (when (activity) { "vtt" -> "Itinéraires VTT"; "rando" -> "Randos"; else -> "Sorties ski" } + " · appui long : " + activityIcon(nextActivity(activity))),
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
-            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Buddies", R.id.btnMoi to "Moi · mon compte",
+            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Buddies", R.id.btnMoi to "Moi · mon compte",
         )
         val d = resources.displayMetrics.density
         val overlay = android.widget.FrameLayout(this).apply {

@@ -108,9 +108,9 @@ object Travel {
     fun post(path: String, body: JSONObject, password: String): JSONObject {
         val tries = password.split('\n').filter { it.isNotEmpty() }
         for ((i, p) in tries.withIndex()) {
-            try { return post1(path, body, p) } catch (e: Refused) { if (i == tries.lastIndex) error("Mot de passe IA incorrect") }
+            try { return post1(path, body, p) } catch (e: Refused) { if (i == tries.lastIndex) error("Mot de passe de recherche incorrect") }
         }
-        error("Mot de passe IA manquant")
+        error("Mot de passe de recherche manquant")
     }
 
     private class Refused : Exception()

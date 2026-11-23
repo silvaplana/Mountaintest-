@@ -27,7 +27,7 @@ object IconHelp {
         "skiText" to IconHelp.Entry("⛷ Sorties ski", "Sorties skitour.fr ; 🗺 : sur la carte."),
         "weatherMountain" to IconHelp.Entry("🏔 Météo montagne", "Météo-France montagne."),
         "travel" to IconHelp.Entry("🚗 Voyage en voiture", "Km, coût, péages."),
-        "lodging" to IconHelp.Entry("🏨 Hébergement", "Meilleurs prix (IA)."),
+        "lodging" to IconHelp.Entry("🏨 Hébergement", "Les meilleurs prix."),
         "expenses" to IconHelp.Entry("Partage des frais", "Qui doit combien à qui."),
         "groups" to IconHelp.Entry("👥 Buddies", "Mes Buddy Groups et mes sorties entre copains."),
         "moi" to IconHelp.Entry("👤 Moi", "Mon compte, mon profil. Rond vert : connecté."),

@@ -26,7 +26,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   skiText: { title: '⛷ Sorties ski', text: 'Sorties skitour.fr ; 🗺 : sur la carte.' },
   weatherMountain: { title: '🏔 Météo montagne', text: 'Météo-France montagne.' },
   travel: { title: '🚗 Voyage en voiture', text: 'Km, coût, péages.' },
-  lodging: { title: '🏨 Hébergement', text: 'Meilleurs prix (IA).' },
+  lodging: { title: '🏨 Hébergement', text: 'Les meilleurs prix.' },
   expenses: { title: 'Partage des frais', text: 'Qui doit combien à qui.' },
   groups: { title: '👥 Buddies', text: 'Mes Buddy Groups et mes sorties entre copains.' },
   moi: { title: '👤 Moi', text: 'Mon compte, mon profil. Rond vert : connecté.' },
