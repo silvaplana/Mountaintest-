@@ -694,7 +694,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_hebergements": [str(h.id) for h in hebergements],
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
             "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m) for m in messages if neuf(m.modifie_le)],
-            "positions": [vue_position(x) for x in positions], "refus": refus}
+            "positions": [vue_position(x) for x in positions], "appels": appels_en_cours(s, gids, sids), "refus": refus}
 
 
 def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
@@ -776,6 +776,11 @@ def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:
         so = s.get(Sortie, inv.sortie_id)
         return {"groupe": so.nom, "sortie": True, "par": personne(par)["pseudo"], "photo": so.photo}
     return {"groupe": g.nom, "par": personne(par)["pseudo"], "photo": g.photo}
+
+
+def appels_en_cours(s: Session, gids: list, sids: list) -> list[dict[str, Any]]:
+    import appels  # appels.py s'appuie sur ce module
+    return appels.appels_en_cours(s, gids, sids)
 
 
 def profil_change(s: Session, u: Utilisateur) -> None:
