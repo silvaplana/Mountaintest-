@@ -588,6 +588,8 @@ class MainActivity : AppCompatActivity() {
             style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor(Expression.get("color")), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
             // 🚵 Type de chemin le long de la trace choisie (mode VTT), portions sur GR en tireté rouge comme sur le SCAN 25.
             style.addSource(GeoJsonSource(SRC_WAY_TYPES))
+            // Liseré sombre : le jaune (chemin) et le gris (hors chemin) restent lisibles sur le SCAN 25.
+            style.addLayer(LineLayer("way-types-casing", SRC_WAY_TYPES).withProperties(lineColor("#222222"), lineWidth(7f), lineJoin(Property.LINE_JOIN_ROUND)))
             style.addLayer(LineLayer("way-types", SRC_WAY_TYPES).withProperties(lineColor(Expression.get("color")), lineWidth(5f), lineJoin(Property.LINE_JOIN_ROUND)))
             style.addLayer(LineLayer("way-gr", SRC_WAY_TYPES).withProperties(lineColor(WayTypes.GR_COLOR), lineWidth(2f), lineDasharray(arrayOf(2f, 2f)))
                 .withFilter(Expression.eq(Expression.get("gr"), true)))

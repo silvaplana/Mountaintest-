@@ -20,15 +20,15 @@ object WayTypes {
 
     /** Les types possibles, dans l'ordre de la légende (du plus roulant au plus difficile). */
     val TYPES = listOf(
-        Type("route", "Route goudronnée", "#4a4f55"),
-        Type("velo", "Piste cyclable", "#1e88e5"),
-        Type("empierree", "Route empierrée", "#e0a800"),
-        Type("chemin", "Chemin", "#8d5a2b"),
-        Type("sentier", "Sentier", "#2e9d4a"),
-        Type("technique", "Sentier difficile", "#8e24aa"),
-        Type("inconnu", "Hors chemin connu", "#b8bcc0"),
+        Type("route", "Route goudronnée", "#111111"),
+        Type("velo", "Piste cyclable", "#0a6fd6"),
+        Type("empierree", "Route empierrée", "#ff8c00"),
+        Type("chemin", "Chemin", "#ffd000"),
+        Type("sentier", "Sentier", "#00a651"),
+        Type("technique", "Sentier difficile", "#d6007e"),
+        Type("inconnu", "Hors chemin connu", "#c4c4c4"),
     )
-    fun color(key: String) = TYPES.firstOrNull { it.key == key }?.color ?: "#b8bcc0"
+    fun color(key: String) = TYPES.firstOrNull { it.key == key }?.color ?: "#c4c4c4"
     /** Portions sur un GR ou un GR de Pays : tireté rouge, comme sur le SCAN 25. */
     const val GR_COLOR = "#e53935"
 

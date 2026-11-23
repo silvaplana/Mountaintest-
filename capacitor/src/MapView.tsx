@@ -151,6 +151,8 @@ export function MapView(props: MapViewProps) {
           { id: 'c2c', type: 'circle', source: 'c2c', paint: { 'circle-radius': 6, 'circle-color': '#00897b', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } },
           { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8 } },
           { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
+          // Liseré sombre : le jaune (chemin) et le gris (hors chemin) restent lisibles sur le SCAN 25.
+          { id: 'way-types-casing', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#222', 'line-width': 7 } },
           { id: 'way-types', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
           // Portions sur GR : tireté rouge au milieu du trait, comme sur le SCAN 25.
           { id: 'way-gr', type: 'line', source: 'wayTypes', filter: ['==', ['get', 'gr'], true], paint: { 'line-color': GR_COLOR, 'line-width': 2, 'line-dasharray': [2, 2] } },
