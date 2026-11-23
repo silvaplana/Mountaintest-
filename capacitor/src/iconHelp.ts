@@ -4,7 +4,7 @@
  */
 export type IconKey =
   | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'
-  | 'slopes' | 'shade' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups';
+  | 'slopes' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
@@ -21,6 +21,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   draw: { title: '✏ Tracer au doigt', text: 'Dessine un parcours : km et dénivelé.' },
   slopes: { title: '⛰ Pentes', text: 'Carte IGN des pentes :' },
   shade: { title: '🌗 Ombres', text: 'Ombres du soleil heure par heure.' },
+  forests: { title: '🌲 Forêts', text: 'Forêts par essence de la zone affichée (carte forestière IGN). Encore : les efface.' },
   ski: { title: '⛷🗺 Sorties ski', text: 'Sorties skitour.fr sur la carte.' },
   skiText: { title: '⛷ Sorties ski', text: 'Sorties skitour.fr ; 🗺 : sur la carte.' },
   weatherMountain: { title: '🏔 Météo montagne', text: 'Météo-France montagne.' },

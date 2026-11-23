@@ -324,6 +324,8 @@ export function App() {
   /** Essences choisies dans la liste ; vide : toutes les forêts sont dessinées. */
   const [forestFilter, setForestFilter] = useState<Set<string>>(new Set());
   const forestsAbort = useRef<AbortController | null>(null);
+  /** Recherche des forêts en cours (🌲 allumé, un appui l'annule). */
+  const [forestsLoading, setForestsLoading] = useState(false);
 
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
@@ -651,17 +653,28 @@ export function App() {
     await Preferences.set({ key: 'iaPassword', value: p });
   }
 
-  async function searchForests(b: Bbox) {
-    setFraming(false);
-    setOpen(true);
-    setTab('forets');
+  function clearForests() {
+    forestsAbort.current?.abort(); setForestsLoading(false);
+    setForests([]); setForestFilter(new Set()); if (!trails.length) setFrame(null); setForestsMsg('');
+  }
+
+  /** quiet : lancé par 🌲 sur la carte, le menu reste fermé et les messages passent en bandeau. */
+  async function searchForests(b: Bbox, quiet = false) {
+    if (!quiet) {
+      setFraming(false);
+      setOpen(true);
+      setTab('forets');
+    }
     if (forestZoneTooBig(b)) {
       setForestsMsg(`Zone trop grande : zoome ou encadre au plus ${Math.round(MAX_FOREST_DEG * 100)} km de côté environ.`);
+      if (quiet) setToast(`🌲 Zone trop grande : zoome pour voir les forêts (${Math.round(MAX_FOREST_DEG * 100)} km de côté au plus).`);
       return;
     }
-    setFrame(b);
+    if (!quiet) setFrame(b);
     setForests([]); setForestFilter(new Set());
     setForestsMsg('Recherche des forêts dans la carte forestière IGN…');
+    if (quiet) setToast('🌲 Recherche des forêts…');
+    setForestsLoading(true);
     forestsAbort.current?.abort();
     const ctrl = new AbortController();
     forestsAbort.current = ctrl;
@@ -674,8 +687,15 @@ export function App() {
       setForestsMsg(!found.length ? 'Aucune forêt dans la carte forestière IGN sur cette zone.'
         : `${found.length} massifs, ${n} essence${n > 1 ? 's' : ''}. Touche une essence pour ne voir qu'elle (plusieurs possibles).`
           + (found.length >= 5000 ? ' Zone très boisée : tout n\'a pas pu être chargé, zoome pour être complet.' : ''));
+      if (quiet) setToast(!found.length ? '🌲 Aucune forêt dans la carte forestière IGN sur cette zone.'
+        : `🌲 ${found.length} massifs, ${n} essences. Touche une forêt pour son essence.`);
     } catch (e) {
-      if (!ctrl.signal.aborted) setForestsMsg(`Recherche impossible (pas de réseau ?) : ${(e as Error).message}`);
+      if (!ctrl.signal.aborted) {
+        setForestsMsg(`Recherche impossible (pas de réseau ?) : ${(e as Error).message}`);
+        if (quiet) setToast(`🌲 Recherche impossible (pas de réseau ?) : ${(e as Error).message}`);
+      }
+    } finally {
+      if (forestsAbort.current === ctrl) setForestsLoading(false);
     }
   }
 
@@ -1053,6 +1073,13 @@ export function App() {
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
+        forests={forests.length > 0 || forestsLoading} onForests={() => {
+          // 🌲 : forêts de la zone affichée sans ouvrir le menu ; un 2e appui les efface.
+          if (forests.length > 0 || forestsLoading) { clearForests(); return; }
+          if (!map) return;
+          const b = map.getBounds();
+          void searchForests([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], true);
+        }}
         weather={showWeather} onWeather={setShowWeather}
         junctionWake={junctionWake} onJunctionWake={(on) => { setJunctionWake(on); void setTraceWakeEnabled(on); }}
         traceState={navId != null || freeRec ? (navPaused ? 'pause' : 'run') : 'none'}
@@ -1288,7 +1315,7 @@ export function App() {
             {forests.length > 0 && (
               <div className="row">
                 {forestFilter.size > 0 && <button onClick={() => setForestFilter(new Set())}>Toutes les essences</button>}
-                <button onClick={() => { forestsAbort.current?.abort(); setForests([]); setForestFilter(new Set()); if (!trails.length) setFrame(null); setForestsMsg(''); }}>Effacer les forêts</button>
+                <button onClick={clearForests}>Effacer les forêts</button>
               </div>
             )}
           </div>

@@ -22,6 +22,7 @@ object IconHelp {
         "draw" to IconHelp.Entry("✏ Tracer au doigt", "Dessine un parcours : km et dénivelé."),
         "slopes" to IconHelp.Entry("⛰ Pentes", "Carte IGN des pentes :"),
         "shade" to IconHelp.Entry("🌗 Ombres", "Ombres du soleil heure par heure."),
+        "forests" to IconHelp.Entry("🌲 Forêts", "Forêts par essence de la zone affichée (carte forestière IGN). Encore : les efface."),
         "ski" to IconHelp.Entry("⛷🗺 Sorties ski", "Sorties skitour.fr sur la carte."),
         "skiText" to IconHelp.Entry("⛷ Sorties ski", "Sorties skitour.fr ; 🗺 : sur la carte."),
         "weatherMountain" to IconHelp.Entry("🏔 Météo montagne", "Météo-France montagne."),
