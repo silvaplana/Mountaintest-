@@ -40,10 +40,30 @@ Les colonnes ajoutées aux tables déjà créées sur le VPS s'ajoutent seules a
 Dans PowerShell : `ssh -L 3002:localhost:3002 root@187.124.17.136`, puis ouvrir http://localhost:3002 dans le
 navigateur du PC. La première fois, Logto demande de créer le compte administrateur.
 
-## Plus tard : Google et Apple
+## « Continuer avec Google » (et Apple plus tard)
 
-- Google : créer un identifiant OAuth dans Google Cloud (gratuit), puis l'ajouter dans la console Logto (Connecteurs › Google).
-- Apple : nécessite le compte Apple Developer (99 $/an, le même que pour publier sur iPhone).
+Les applis affichent le bouton Google dès l'ouverture ; il marche quand Google est activé ici.
+
+1. https://console.cloud.google.com : créer un projet « Mountain Buddies », puis API et services ›
+   Écran de consentement OAuth (externe, nom « Mountain Buddies », ton e-mail), puis Identifiants ›
+   Créer des identifiants › ID client OAuth › Application Web.
+2. URI de redirection autorisé : `https://auth.silvaplana.cloud/callback/google` (identifiant fixe du
+   connecteur, posé par configurer-logto.py).
+3. Sur le VPS (les secrets restent dans comptes.env, jamais dans le dépôt) :
+   ```
+   echo 'GOOGLE_CLIENT_ID=…' >> ~/mountaintest/comptes.env
+   echo 'GOOGLE_CLIENT_SECRET=…' >> ~/mountaintest/comptes.env
+   bash ~/mountaintest/www/comptes/installer-comptes.sh
+   ```
+   L'installeur crée le connecteur Google, l'ajoute à la page de connexion et l'annonce aux applis
+   (`GET /config` → `"fournisseurs": ["google"]`). Le bouton envoie directement chez Google
+   (`direct_sign_in=social:google`).
+
+La version web (iPhone en PWA, https://silvaplana.cloud/mountaintest/) a sa propre appli Logto
+« Mountain Buddies Web » (page web, retour sur la page elle-même), créée par le même script.
+
+Apple : bouton affiché mais inactif. Il faut le compte Apple Developer (99 $/an) pour créer un Services ID ;
+ensuite `APPLE_SERVICES_ID=…` dans comptes.env et relancer l'installeur (le connecteur « apple » suivra).
 
 ## Tests
 

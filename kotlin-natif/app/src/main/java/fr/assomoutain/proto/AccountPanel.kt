@@ -99,12 +99,12 @@ class AccountPanel(private val a: AppCompatActivity, private val compte: Compte,
     private var occupe = false
     private var emailSaisi = ""
 
-    private fun seConnecter() {
+    private fun seConnecter(fournisseur: String? = null) {
         if (occupe) return
         occupe = true
         a.lifecycleScope.launch {
             try {
-                val url = withContext(Dispatchers.IO) { compte.debutConnexion(compte.chargerConfig(), emailSaisi) }
+                val url = withContext(Dispatchers.IO) { compte.debutConnexion(compte.chargerConfig(), emailSaisi, fournisseur) }
                 CustomTabsIntent.Builder()
                     .setDefaultColorSchemeParams(CustomTabColorSchemeParams.Builder().setToolbarColor(accent).build())
                     .build().launchUrl(a, Uri.parse(url))
@@ -121,8 +121,18 @@ class AccountPanel(private val a: AppCompatActivity, private val compte: Compte,
         if (!compte.connecte) {
             col.addView(ImageView(a).apply { setImageResource(R.mipmap.ic_launcher) }, LinearLayout.LayoutParams(dp(84), dp(84)).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(4) })
             col.addView(text("Mountain Buddies K", 17f, bold = true, centre = true), lp(6))
-            col.addView(text("Un compte pour créer des groupes d'amis, partager traces et sorties. Le reste de l'appli marche sans compte.", 13f, muted, centre = true))
-            col.addView(text("Adresse e-mail", 13f, muted), lp(10))
+            col.addView(text("Connecte-toi pour retrouver tes Buddies, partager traces et sorties. Le reste de l'appli marche sans compte.", 13f, muted, centre = true))
+            col.addView(bouton("Continuer avec Google") { seConnecter("google") }.apply {
+                setCompoundDrawablesRelativeWithIntrinsicBounds(LogoGoogle(d), null, null, null); compoundDrawablePadding = dp(10)
+                setTypeface(typeface, Typeface.BOLD)
+            }, lp(12))
+            // Apple : prêt côté serveur, actif quand le compte Apple Developer existera.
+            col.addView(Button(a).apply {
+                text = "  Continuer avec Apple (bientôt)"; isAllCaps = false; textSize = 15f; setTextColor(Color.WHITE); isEnabled = false; alpha = 0.55f
+                background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(Color.BLACK) }
+            }, lp(8))
+            col.addView(text("ou par e-mail", 13f, muted, centre = true), lp(10))
+            col.addView(text("Adresse e-mail", 13f, muted), lp(4))
             val mail = EditText(a).apply {
                 setText(emailSaisi.ifEmpty { compte.email }); hint = "toi@exemple.fr"; isSingleLine = true
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
@@ -131,8 +141,11 @@ class AccountPanel(private val a: AppCompatActivity, private val compte: Compte,
             }
             col.addView(mail)
             col.addView(bouton("Recevoir un code", primaire = true) { emailSaisi = mail.text.toString(); seConnecter() }, lp(10))
-            col.addView(text("La page de connexion s'ouvre : tape le code reçu par mail. Pas de mot de passe. Ensuite tu restes connecté, même des semaines sans réseau.", 13f, muted, centre = true), lp())
-            col.addView(text("Google et Apple arrivent bientôt.", 13f, muted, centre = true))
+            col.addView(text("Une seule fois : ensuite tu restes connecté, même des semaines sans réseau.", 13f, muted, centre = true), lp())
+            col.addView(Button(a).apply {
+                text = "Plus tard"; isAllCaps = false; textSize = 15f; setTextColor(muted); setBackgroundColor(Color.TRANSPARENT)
+                setOnClickListener { onClose() }
+            }, lp(4))
             return
         }
         // Avatar : initiale, pastille verte (connecté) ou orange (à reconnecter)
@@ -195,6 +208,29 @@ class AccountDot(private val orange: Boolean, private val d: Float) : android.gr
         val cx = bounds.right - r; val cy = bounds.bottom - r
         fill.color = Color.WHITE; c.drawCircle(cx, cy, r + 2 * d, fill)
         fill.color = Color.parseColor(if (orange) "#F0A000" else "#2F9E5F"); c.drawCircle(cx, cy, r, fill)
+    }
+    override fun setAlpha(alpha: Int) {}
+    override fun setColorFilter(cf: android.graphics.ColorFilter?) {}
+    @Deprecated("Deprecated in Java")
+    override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+}
+
+/** Logo « G » de Google (quatre couleurs officielles), pour le bouton « Continuer avec Google ». */
+class LogoGoogle(private val d: Float) : android.graphics.drawable.Drawable() {
+    private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { style = android.graphics.Paint.Style.STROKE }
+    override fun getIntrinsicWidth() = (20 * d).toInt()
+    override fun getIntrinsicHeight() = (20 * d).toInt()
+    override fun draw(c: android.graphics.Canvas) {
+        val w = bounds.width().toFloat(); val s = w * 0.2f
+        p.strokeWidth = s
+        val r = android.graphics.RectF(bounds.left + s / 2, bounds.top + s / 2, bounds.right - s / 2, bounds.bottom - s / 2)
+        // Arcs dans le sens horaire depuis la droite (0°) : bleu, vert, jaune, rouge, ouverture en haut à droite.
+        for ((debut, angle, couleur) in listOf(Triple(0f, 45f, "#4285F4"), Triple(45f, 90f, "#34A853"), Triple(135f, 90f, "#FBBC05"), Triple(225f, 90f, "#EA4335"))) {
+            p.color = Color.parseColor(couleur); c.drawArc(r, debut, angle, false, p)
+        }
+        p.color = Color.parseColor("#4285F4"); p.style = android.graphics.Paint.Style.FILL
+        c.drawRect(bounds.left + w / 2, bounds.top + w / 2 - s / 2, bounds.right - s * 0.1f, bounds.top + w / 2 + s / 2, p)
+        p.style = android.graphics.Paint.Style.STROKE
     }
     override fun setAlpha(alpha: Int) {}
     override fun setColorFilter(cf: android.graphics.ColorFilter?) {}

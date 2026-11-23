@@ -17,7 +17,15 @@ export const REDIRECT = `${SCHEMA}://callback`;
 const CLE = 'compte';
 
 export type Profil = { id: string; email: string | null; pseudo: string; photo: string | null };
-export type Config = { logto: string; ressource: string; appId: string };
+export type Config = { logto: string; ressource: string; appId: string; fournisseurs?: string[] };
+/** Google ou Apple : la page Logto renvoie directement vers eux (direct_sign_in). */
+export type Fournisseur = 'google' | 'apple';
+export type Appli = 'capacitor' | 'kotlin' | 'web';
+
+/** Version web (iPhone en PWA) : retour sur la page de l'appli elle-même, sans index.html. */
+export function retourWeb(loc: { origin: string; pathname: string } = location) {
+  return loc.origin + loc.pathname.replace(/index\.html$/, '');
+}
 
 export type Etat = {
   config?: Config;
@@ -36,7 +44,7 @@ export type Etat = {
   /** Logto a refusé le jeton : se reconnecter (quand il y aura du réseau). */
   aReconnecter?: boolean;
   /** Connexion en cours : vérificateur PKCE et état, gardés si l'appli est tuée pendant la page Logto. */
-  pkce?: { verifier: string; state: string };
+  pkce?: { verifier: string; state: string; redirect?: string };
 };
 
 export class HorsLigne extends Error { constructor() { super('Pas de réseau'); } }
@@ -85,24 +93,32 @@ async function requete(url: string, init?: RequestInit): Promise<Response> {
 }
 
 /** Adresse Logto et identifiant de l'appli, donnés par le serveur (gardés pour la suite). */
-export async function chargerConfig(appli: 'capacitor' | 'kotlin' = 'capacitor'): Promise<Config> {
+export async function chargerConfig(appli: Appli = 'capacitor'): Promise<Config> {
   const r = await requete(`${API_URL}/config`);
   if (!r.ok) throw new Error(`Serveur des comptes : erreur ${r.status}`);
-  const c = await r.json() as { logto: string; ressource: string; applis: Record<string, string> };
+  const c = await r.json() as { logto: string; ressource: string; applis: Record<string, string>; fournisseurs?: string[] };
   if (!c.applis?.[appli]) throw new Error('Serveur des comptes pas encore configuré');
-  return { logto: c.logto, ressource: c.ressource, appId: c.applis[appli] };
+  return { logto: c.logto, ressource: c.ressource, appId: c.applis[appli], fournisseurs: c.fournisseurs ?? [] };
 }
 
-/** 1re étape : adresse de la page de connexion Logto (à ouvrir dans le navigateur). */
-export async function debutConnexion(config: Config, email?: string): Promise<string> {
+/**
+ * 1re étape : adresse de la page de connexion Logto (à ouvrir dans le navigateur).
+ * Avec un fournisseur (Google, Apple), Logto envoie tout de suite vers sa page, sans passer par la sienne.
+ * `redirect` : adresse de retour, celle de l'appli (par défaut) ou de la page web (retourWeb()).
+ */
+export async function debutConnexion(config: Config, email?: string, fournisseur?: Fournisseur, redirect = REDIRECT): Promise<string> {
+  if (fournisseur && config.fournisseurs && !config.fournisseurs.includes(fournisseur)) {
+    throw new Error(`${fournisseur === 'google' ? 'Google' : 'Apple'} n'est pas encore activé : utilise ton e-mail`);
+  }
   const verifier = aleatoire(48), state = aleatoire(16);
-  ecrire({ ...lire(), config, pkce: { verifier, state } });
+  ecrire({ ...lire(), config, pkce: { verifier, state, redirect } });
   const q = new URLSearchParams({
-    client_id: config.appId, redirect_uri: REDIRECT, response_type: 'code', state,
+    client_id: config.appId, redirect_uri: redirect, response_type: 'code', state,
     scope: 'openid offline_access profile email', resource: config.ressource, prompt: 'consent',
     code_challenge: await defi(verifier), code_challenge_method: 'S256', ui_locales: 'fr',
   });
   if (email) q.set('login_hint', email);
+  if (fournisseur) q.set('direct_sign_in', `social:${fournisseur}`);
   return `${config.logto}/oidc/auth?${q}`;
 }
 
@@ -115,7 +131,13 @@ function garderJetons(e: Etat, j: Jetons): Etat {
   return n;
 }
 
-/** 2e étape : retour de la page Logto (fr.assomoutain.rando://callback?code=…&state=…). */
+/** Version web : la page revient de Logto avec ?code=…&state=… (à finir au chargement). */
+export function retourWebEnAttente(href: string = location.href): boolean {
+  const q = new URL(href).searchParams;
+  return !!lire().pkce && q.has('state') && (q.has('code') || q.has('error'));
+}
+
+/** 2e étape : retour de la page Logto (fr.assomoutain.rando://callback?code=…&state=…, ou la page web). */
 export async function finConnexion(url: string): Promise<Etat> {
   const e = lire();
   const q = new URL(url.replace(/^[a-z.]+:\/\//, 'https://x/')).searchParams;
@@ -124,7 +146,7 @@ export async function finConnexion(url: string): Promise<Etat> {
   const r = await requete(`${e.config.logto}/oidc/token`, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'authorization_code', code: q.get('code') ?? '', redirect_uri: REDIRECT,
+      grant_type: 'authorization_code', code: q.get('code') ?? '', redirect_uri: e.pkce.redirect ?? REDIRECT,
       client_id: e.config.appId, code_verifier: e.pkce.verifier, resource: e.config.ressource,
     }),
   });

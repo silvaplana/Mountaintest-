@@ -699,3 +699,10 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-puces button.barre { border-color: var(--line); background: none; color: #9aa5a0; text-decoration: line-through; font-weight: 400; }
 .bd-limite { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); }
 .bd-limite input { border: 0; background: var(--card); border-radius: 10px; padding: 8px; font-weight: 600; }
+/* Connexion : Google, Apple, e-mail (dès l'ouverture tant qu'on n'est pas connecté) */
+.account .acc-social { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 600; flex: none; }
+.account .acc-social.apple { background: #000; border-color: #000; color: #fff; }
+.account .acc-social small { font-weight: 400; opacity: .75; }
+.acc-ou { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+.acc-ou::before, .acc-ou::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.account .acc-plus-tard { border: 0; background: none; color: var(--muted); flex: none; }

@@ -8,7 +8,8 @@ Utilise l'application « machine » mb-installeur (droits sur l'API de gestion L
      c'est lui qui garde l'appli connectée. Pas de rotation : avec la rotation, une réponse perdue
      (réseau qui coupe en montagne) invalidait l'ancien jeton et déconnectait le téléphone (testé) ;
   3. la page de connexion : e-mail + code reçu par mail (pas de mot de passe), en français, aux couleurs de l'appli ;
-  4. l'envoi des codes par Brevo (SMTP_* de l'environnement), si fourni ;
+  4. l'envoi des codes par Brevo (SMTP_* de l'environnement), si fourni ; Google (GOOGLE_CLIENT_ID/SECRET)
+     et Apple (APPLE_SERVICES_ID) quand ils sont fournis ; la version web (iPhone en PWA) ;
   5. /data/logto.json : identifiants des applis, servis aux applis par GET /mountaintest-api/config.
 """
 import base64
@@ -90,6 +91,21 @@ for cle, (nom, schema) in APPLIS.items():
     ids[cle] = a["id"]
     print(f"Appli {nom} : {a['id']} (retour {schema}://callback)")
 
+# 2 bis. Version web (iPhone en PWA, https://silvaplana.cloud/mountaintest/) : appli « page web » (SPA),
+# retour sur la page elle-même. Même jeton de renouvellement de 180 jours, gardé par le navigateur.
+SITE = os.environ.get("SITE_URL", "https://silvaplana.cloud/mountaintest/")
+oidc = {"redirectUris": [SITE, SITE + "index.html"], "postLogoutRedirectUris": [SITE]}
+perso = {"alwaysIssueRefreshToken": True, "rotateRefreshToken": False, "refreshTokenTtlInDays": 180,
+         "corsAllowedOrigins": [SITE.split("/", 3)[0] + "//" + SITE.split("/", 3)[2]]}
+a = existantes.get("Mountain Buddies Web")
+if a is None:
+    a = appel("POST", "/applications", {"name": "Mountain Buddies Web", "type": "SPA", "oidcClientMetadata": oidc,
+                                        "customClientMetadata": perso})
+else:
+    appel("PATCH", f"/applications/{a['id']}", {"oidcClientMetadata": oidc, "customClientMetadata": perso})
+ids["web"] = a["id"]
+print(f"Appli web : {a['id']} (retour {SITE})")
+
 # 3. Envoi des codes par mail (Brevo), avant la page de connexion qui en a besoin
 smtp = {k: os.environ.get(k, "") for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM_EMAIL", "SMTP_REPLY_TO")}
 mail_ok = bool(smtp["SMTP_HOST"] and smtp["SMTP_USER"] and smtp["SMTP_PASSWORD"])
@@ -125,8 +141,34 @@ if mail_ok:
 else:
     print("ATTENTION : pas de SMTP_* : la connexion par code mail ne marchera pas tant que l'envoi n'est pas configuré.")
 
+# 3 bis. « Continuer avec Google / Apple » : connecteurs d'identifiant fixe, pour que l'adresse de retour à déclarer
+# chez Google soit connue d'avance : https://auth.silvaplana.cloud/callback/google (et /callback/apple).
+def connecteur(ident: str, usine: str, config: dict):
+    deja = next((c for c in appel("GET", "/connectors") if c["id"] == ident), None)
+    if deja:
+        appel("PATCH", f"/connectors/{ident}", {"config": config})
+    else:
+        appel("POST", "/connectors", {"connectorId": usine, "id": ident, "config": config})
+
+
+fournisseurs = []
+if os.environ.get("GOOGLE_CLIENT_ID") and os.environ.get("GOOGLE_CLIENT_SECRET"):
+    connecteur("google", "google-universal", {
+        "clientId": os.environ["GOOGLE_CLIENT_ID"], "clientSecret": os.environ["GOOGLE_CLIENT_SECRET"],
+        "scope": "openid profile email", "prompts": ["select_account"]})
+    fournisseurs.append("google")
+    print("Google : activé")
+else:
+    print("Google : pas encore (GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET dans comptes.env, voir README)")
+if os.environ.get("APPLE_SERVICES_ID"):
+    # Nécessite le compte Apple Developer (Services ID + domaine vérifié chez Apple).
+    connecteur("apple", "apple-universal", {"clientId": os.environ["APPLE_SERVICES_ID"], "scope": "email name"})
+    fournisseurs.append("apple")
+    print("Apple : activé")
+
 # 4. Page de connexion
 appel("PATCH", "/sign-in-exp", {
+    "socialSignInConnectorTargets": fournisseurs,
     "color": {"primaryColor": VERT, "isDarkModeEnabled": True, "darkPrimaryColor": "#6cc196"},
     "branding": {"logoUrl": LOGO, "darkLogoUrl": LOGO},
     "customCss": "[class*=signature] { display: none !important; }",
@@ -140,5 +182,5 @@ print("Page de connexion : e-mail + code, en français")
 # 5. Pour GET /config
 os.makedirs(DOSSIER, exist_ok=True)
 with open(os.path.join(DOSSIER, "logto.json"), "w", encoding="utf-8") as f:
-    json.dump({"applis": ids, "mail": mail_ok}, f, indent=2)
+    json.dump({"applis": ids, "mail": mail_ok, "fournisseurs": fournisseurs}, f, indent=2)
 print("OK")
