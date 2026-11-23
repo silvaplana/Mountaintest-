@@ -177,7 +177,6 @@ class AccountPanel(private val a: AppCompatActivity, private val compte: Compte,
                 toast(r.fold({ "Synchronisé" }, { if (it is Compte.HorsLigne) "Pas de réseau" else it.message ?: "Erreur" }))
             }
         }.apply { isEnabled = enLigne() }, lp(10))
-        col.addView(text("👥 Les groupes d'amis arrivent à l'étape suivante.", 13f, muted), lp(8))
         col.addView(bouton("Se déconnecter", couleur = Color.parseColor("#B3261E")) {
             AlertDialog.Builder(a).setMessage("Se déconnecter ? Tes traces restent sur le téléphone.")
                 .setPositiveButton("Se déconnecter") { _, _ ->

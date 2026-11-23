@@ -15,6 +15,8 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   GET  /config   adresse de Logto et identifiants des applis (lu au moment de se connecter)
   GET  /moi      mon profil (créé à la première visite, e-mail repris de Logto)
   PUT  /moi      changer mon pseudo / ma photo
+  POST /buddies/sync          Buddies : envoyer ce que le téléphone a fait, recevoir les nouveautés (buddies.py)
+  GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
 """
 from __future__ import annotations
 
@@ -34,9 +36,10 @@ import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+import buddies
 from modeles import Base, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
@@ -60,7 +63,26 @@ def db():
 @asynccontextmanager
 async def cycle(_app: FastAPI):
     Base.metadata.create_all(moteur)  # crée les tables manquantes (pas encore de migrations)
+    ajouter_colonnes()
     yield
+
+
+# Colonnes ajoutées après la création des tables sur le VPS (create_all n'ajoute pas de colonne).
+COLONNES_AJOUTEES = [
+    ("groupes", "nature", "VARCHAR(10) NOT NULL DEFAULT 'bande'"),
+    ("groupes", "photo", "TEXT"),
+    ("invitations", "canal", "VARCHAR(10) NOT NULL DEFAULT 'lien'"),
+    ("invitations", "nom", "VARCHAR(80) NOT NULL DEFAULT ''"),
+    ("invitations", "contact", "VARCHAR(320) NOT NULL DEFAULT ''"),
+    ("invitations", "acceptee_par", "UUID REFERENCES utilisateurs(id)"),
+]
+
+
+def ajouter_colonnes():
+    with moteur.begin() as c:
+        for table, colonne, sql in COLONNES_AJOUTEES:
+            if colonne not in {x["name"] for x in inspect(c).get_columns(table)}:
+                c.execute(text(f"ALTER TABLE {table} ADD COLUMN {colonne} {sql}"))
 
 
 app = FastAPI(title="Mountain Buddies, comptes", lifespan=cycle, docs_url=None, redoc_url=None)
@@ -186,8 +208,33 @@ def changer_moi(ch: Changement, j: dict = Depends(jeton_requis), s: Session = De
         if ch.photo and not ch.photo.startswith(("data:image/", "https://")):
             raise HTTPException(422, "Photo : data:image/… ou https://… attendu")
         u.photo = ch.photo or None
+    buddies.profil_change(s, u)
     s.commit()
     return profil(u)
+
+
+# ---------------------------------------------------------------- Buddies (bloc 1)
+
+class Synchro(BaseModel):
+    ops: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
+    depuis: str | None = None
+
+
+@app.post("/buddies/sync")
+def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    try:
+        buddies.date(corps.depuis)
+    except ValueError as e:
+        raise HTTPException(422, "depuis : date ISO attendue") from e
+    return buddies.synchroniser(s, utilisateur(s, j), corps.ops, corps.depuis)
+
+
+@app.get("/invitations/{code}")
+def invitation(code: str, s: Session = Depends(db)):
+    a = buddies.apercu_invitation(s, code)
+    if a is None:
+        raise HTTPException(404, "Invitation inconnue ou expirée")
+    return a
 
 
 if __name__ == "__main__":

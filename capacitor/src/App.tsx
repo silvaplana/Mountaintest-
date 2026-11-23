@@ -17,6 +17,8 @@ import { ScaleBar } from './map/ScaleBar';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte, useCompte } from './Account';
+import { Buddies, ecouterBuddies, useBuddies } from './buddies/Buddies';
+import { nouveautes } from './buddies/store';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
@@ -108,6 +110,9 @@ export function App() {
   /** 👥 Mon compte (connexion Logto, marche hors ligne une fois connecté). */
   const [account, setAccount] = useState(false);
   const compte = useCompte();
+  /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
+  const [buddies, setBuddies] = useState(false);
+  const buddiesEtat = useBuddies();
   const [lodging, setLodging] = useState(false);
   // ⛷ Sorties skitour.fr : zone encadrée, sorties trouvées, celle choisie.
   // ⛷🗺 : sorties de l'écran affiché (plus de zone à encadrer).
@@ -249,6 +254,8 @@ export function App() {
   useEffect(() => { void offTrackVibrateEnabled().then(setOffVibrate); }, []);
   // 👥 Retour de la page de connexion (fr.assomoutain.rando://callback) et synchro du compte au retour du réseau.
   useEffect(() => ecouterCompte(setToast, () => setAccount(true)), []);
+  // 👥 Liens d'invitation (fr.assomoutain.rando://rejoindre?c=…) et synchro des Buddies.
+  useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
   const [junctions, setJunctions] = useState<{ id: number; pts: LonLat[] | null }>({ id: 0, pts: null });
   const setNavId = (id: number | null) => { setNavIdState(id); setNavPaused(false); };
   // Traces affichées et suivi en cours gardés quand l'appli se ferme ; remis à la réouverture (le suivi reprend).
@@ -1086,6 +1093,8 @@ export function App() {
         offVibrate={offVibrate} onOffVibrate={(on) => { setOffVibrate(on); void setOffTrackVibrateEnabled(on); }}
         onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
+        onBuddies={() => { setBuddies(true); setOpen(false); setSearching(false); }}
+        nouveautes={nouveautes(buddiesEtat)}
         onAccount={() => { setAccount(true); setOpen(false); setSearching(false); }}
         compte={!compte.refresh ? 'aucun' : compte.aReconnecter ? 'reconnecter' : 'ok'}
         onSkiText={() => skiMode('sorties')}
@@ -1124,6 +1133,8 @@ export function App() {
       {topoSheet && <TopoTextPanel key={topoSheet.id} onShowOnMap={(t) => { setTopoSheet(null); showTopoOnMap(t); }} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={topoSheet}
         onMode={(m) => { if (m === 'carteTopos') setTopoSheet(null); else skiMode(m); }} onClose={() => setTopoSheet(null)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
+      {buddies && <Buddies onToast={setToast} onClose={() => setBuddies(false)} onAccount={() => setAccount(true)}
+        onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} />}
       {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}

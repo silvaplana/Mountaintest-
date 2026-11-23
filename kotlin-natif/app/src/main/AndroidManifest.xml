@@ -15,6 +15,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- 👥 Inviter des copains : sélecteur de contacts, Messages et mail (Android 11 et plus). -->
+    <queries>
+        <intent><action android:name="android.intent.action.SENDTO" /><data android:scheme="smsto" /></intent>
+        <intent><action android:name="android.intent.action.SENDTO" /><data android:scheme="mailto" /></intent>
+        <intent><action android:name="android.intent.action.PICK" /><data android:mimeType="vnd.android.cursor.dir/phone_v2" /></intent>
+    </queries>
+
     <application
         android:name=".App"
         android:label="@string/app_name"
@@ -38,6 +45,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="fr.assomoutain.proto.kotlin" android:host="callback" />
+            </intent-filter>
+            <!-- 👥 Lien d'invitation dans un Buddy Group (rejoindre.html → fr.assomoutain.proto.kotlin://rejoindre?c=…). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="fr.assomoutain.proto.kotlin" android:host="rejoindre" />
             </intent-filter>
             <!-- 📥 « Ouvrir avec » / « Partager » un fichier de trace (GPX, KML, GeoJSON), depuis Gmail, Fichiers… -->
             <intent-filter>

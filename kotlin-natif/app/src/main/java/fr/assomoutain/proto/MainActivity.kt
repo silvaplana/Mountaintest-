@@ -208,6 +208,39 @@ class MainActivity : AppCompatActivity() {
         uri?.let { importFrom(it) }
     }
     /** 📥 Ouvrir un fichier de trace : dernier dossier utilisé, sinon Téléchargements. */
+    // 👥 Buddies : photo d'un Buddy Group (galerie) et copain choisi dans les contacts (sans permission « contacts »).
+    private var photoCb: ((String?) -> Unit)? = null
+    private val photoLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val cb = photoCb; photoCb = null
+        if (uri == null) { cb?.invoke(null); return@registerForActivityResult }
+        lifecycleScope.launch {
+            cb?.invoke(withContext(Dispatchers.IO) { runCatching { petitePhoto(uri) }.getOrNull() })
+        }
+    }
+    private var contactCb: ((Pair<String, String>?) -> Unit)? = null
+    private val contactLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val cb = contactCb; contactCb = null
+        val uri = r.data?.data
+        cb?.invoke(uri?.let {
+            runCatching {
+                contentResolver.query(it, arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                    android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) c.getString(0).orEmpty() to c.getString(1).orEmpty() else null
+                }
+            }.getOrNull()
+        })
+    }
+    /** Photo choisie, recadrée en carré de 256 px, en JPEG data: URL (comme la photo du profil). */
+    private fun petitePhoto(uri: Uri): String {
+        val src = contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it) }
+        val c = minOf(src.width, src.height)
+        val carre = android.graphics.Bitmap.createBitmap(src, (src.width - c) / 2, (src.height - c) / 2, c, c)
+        val petit = android.graphics.Bitmap.createScaledBitmap(carre, 256, 256, true)
+        val out = java.io.ByteArrayOutputStream()
+        petit.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+        return "data:image/jpeg;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+    }
+
     private val traceFileLauncher = registerForActivityResult(TraceFile.Pick()) { uri ->
         uri?.let { openTraceFrom(it) }
     }
@@ -218,7 +251,7 @@ class MainActivity : AppCompatActivity() {
         wayTypesOn = activity != "ski"
         // 👥 Relancée par le retour de la page de connexion Logto : finie une fois l'écran prêt.
         val retourConnexion = intent?.data?.takeIf { savedInstanceState == null && it.scheme == Compte.SCHEMA }
-        retourConnexion?.let { u -> window.decorView.post { finConnexion(u) } }
+        retourConnexion?.let { u -> window.decorView.post { if (u.host == "rejoindre") invitationRecue(u) else finConnexion(u) } }
         // 📥 Lancée par « Ouvrir avec » ou « Partager » un fichier de trace : chargé quand la carte est prête.
         if (savedInstanceState == null && retourConnexion == null) pendingTraceUri = TraceFile.sharedUri(intent)
         apiKey = prefs.getString("apiKey", null) ?: Scenario.DEFAULT_SCAN_KEY
@@ -384,7 +417,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickClose to "close", R.id.btnLocate to "locate", R.id.btnQuickSearch to "search", R.id.btnQuickPhoto to "photo",
             R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnReglages to "reglages", R.id.btnCarrefour to "carrefours", R.id.btnVibre to "vibre", R.id.btnDoubleTap to "doubletap", R.id.btnQuickDraw to "draw",
             R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnQuickForests to "forests", R.id.btnSkiText to "skiText",
-            R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses", R.id.btnGroups to "groups",
+            R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses", R.id.btnGroups to "groups", R.id.btnMoi to "moi",
         ).forEach { (id, key) -> findViewById<View>(id).setOnLongClickListener { v -> showIconTip(v, key); true } }
         findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
             if (helpOverlay != null) { hideIconHelp(); return@setOnClickListener }
@@ -401,7 +434,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnWeatherMountain).setOnClickListener { if (!Weather.open(this, true)) toast("Impossible d'ouvrir Météo-France") }
         findViewById<Button>(R.id.btnTravel).setOnClickListener { openTravel() }
         findViewById<ImageButton>(R.id.btnExpenses).setOnClickListener { openExpenses() }
-        findViewById<Button>(R.id.btnGroups).setOnClickListener { openAccount() }
+        findViewById<Button>(R.id.btnGroups).setOnClickListener { openBuddies() }
+        findViewById<Button>(R.id.btnMoi).setOnClickListener { openAccount() }
         findViewById<Button>(R.id.btnLodging).setOnClickListener { openLodging() }
         findViewById<Button>(R.id.btnQuickSearch).setOnClickListener {
             setNature(false)
@@ -1980,7 +2014,7 @@ class MainActivity : AppCompatActivity() {
     /** Fichier de trace ouvert depuis une autre appli pendant que l'appli tourne déjà. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.data?.takeIf { it.scheme == Compte.SCHEMA }?.let { finConnexion(it); return }
+        intent.data?.takeIf { it.scheme == Compte.SCHEMA }?.let { if (it.host == "rejoindre") invitationRecue(it) else finConnexion(it); return }
         val uri = TraceFile.sharedUri(intent) ?: return
         setIntent(intent)
         if (map?.style?.isFullyLoaded == true) openTraceFrom(uri, remember = false) else pendingTraceUri = uri
@@ -2883,7 +2917,7 @@ class MainActivity : AppCompatActivity() {
 
     // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
     override fun onStart() { super.onStart(); mapView.onStart(); if (sheetOpen) { sheetOpen = false; refreshTabs() } }
-    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons(); syncCompte(); mapView.postDelayed({ recenter() }, 500) }
+    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons(); syncCompte(); syncBuddies(); mapView.postDelayed({ recenter() }, 500) }
 
     /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
     private fun airplaneOn() =
@@ -2950,11 +2984,57 @@ class MainActivity : AppCompatActivity() {
         openAccount()
         lifecycleScope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { compte.finConnexion(uri) } }
-            r.onSuccess { toast("Connecté : ${compte.nomAffiche()}") }
+            r.onSuccess { toast("Connecté : ${compte.nomAffiche()}"); syncBuddies() }
                 .onFailure { toast(if (it is Compte.HorsLigne) "Pas de réseau pour finir la connexion : réessaie" else it.message ?: "Connexion impossible") }
             refreshQuickButtons()
         }
     }
+    // ---------- 👥 Buddies (spec/buddies.md, bloc 1) : copie locale, marche hors ligne ----------
+    private val buddies by lazy { Buddies(prefs, compte) }
+    private var buddiesPanel: BuddiesPanel? = null
+    private var buddiesBack: androidx.activity.OnBackPressedCallback? = null
+    private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons() } }
+    private fun openBuddies() {
+        if (buddiesPanel != null) return
+        sheetOpen = false; refreshTabs()
+        val p = BuddiesPanel(this, compte, buddies,
+            choisirPhoto = { cb -> photoCb = cb; photoLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            choisirContact = { cb ->
+                contactCb = cb
+                runCatching { contactLauncher.launch(Intent(Intent.ACTION_PICK, android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI)) }
+                    .onFailure { contactCb = null; toast("Pas de carnet de contacts") }
+            },
+            onAccount = { openAccount() }, onExpenses = { openExpenses() },
+            onLodging = { closeBuddies(); openLodging() }, onClose = { closeBuddies() })
+        buddiesPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.insets(navTop, navBottom)
+        buddiesBack = object : androidx.activity.OnBackPressedCallback(true) { override fun handleOnBackPressed() { if (!p.retour()) closeBuddies() } }
+            .also { onBackPressedDispatcher.addCallback(this, it) }
+    }
+    private fun closeBuddies() {
+        buddiesPanel?.let { it.fermer(); findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        buddiesPanel = null
+        buddiesBack?.remove(); buddiesBack = null
+        refreshQuickButtons()
+    }
+    /** Lien d'invitation ouvert (fr.assomoutain.proto.kotlin://rejoindre?c=…). */
+    private fun invitationRecue(uri: Uri) {
+        buddies.rejoindre(uri.getQueryParameter("c").orEmpty())
+        openBuddies()
+        toast(if (compte.connecte) "Invitation reçue : tu entres dans le Buddy Group" else "Connecte-toi (👤) pour entrer dans le Buddy Group")
+        syncBuddies()
+    }
+    /** Synchro des Buddies en arrière-plan : jamais bloquante, rien sans réseau. */
+    private fun syncBuddies() {
+        buddies.oublierSiDeconnecte()
+        if (!compte.connecte) return
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) { runCatching { buddies.synchroniser() } }.getOrNull()?.forEach { toast(it) }
+            refreshQuickButtons()
+        }
+    }
+
     /** Synchro du compte en arrière-plan (ouverture de l'appli) : jamais bloquante, rien sans réseau. */
     private fun syncCompte() {
         if (!compte.connecte) return
@@ -3126,7 +3206,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnQuickForests to "Forêts", R.id.btnSkiText to (when (activity) { "vtt" -> "Itinéraires VTT"; "rando" -> "Randos"; else -> "Sorties ski" } + " · appui long : " + activityIcon(nextActivity(activity))),
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
-            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Groupes · mon compte",
+            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Buddies", R.id.btnMoi to "Moi · mon compte",
         )
         val d = resources.displayMetrics.density
         val overlay = android.widget.FrameLayout(this).apply {
@@ -3186,7 +3266,7 @@ class MainActivity : AppCompatActivity() {
         val mode = prefs.getInt("iconesMode", 0)
         val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
         icons.visibility = if (mode == 3) View.GONE else View.VISIBLE
-        val voyage = setOf(R.id.btnGroups, R.id.btnWeather, R.id.btnWeatherMountain, R.id.btnTravel, R.id.btnLodging, R.id.btnExpenses)
+        val voyage = setOf(R.id.btnGroups, R.id.btnMoi, R.id.btnWeather, R.id.btnWeatherMountain, R.id.btnTravel, R.id.btnLodging, R.id.btnExpenses)
         for (i in 0 until icons.childCount) {
             val v = icons.getChildAt(i)
             v.visibility = if (when (mode) { 0 -> v.id !in voyage; 1 -> v.id == R.id.btnQuickPhoto; else -> v.id in voyage }) View.VISIBLE else View.GONE
@@ -3201,9 +3281,11 @@ class MainActivity : AppCompatActivity() {
         }
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
         // ✏ pendant une trace commencée (maquette B) : pastille verte ▶ en cours, orange ⏸ en pause.
-        // 👥 : pastille verte = connecté (même hors ligne), orange = à reconnecter.
-        findViewById<View>(R.id.btnGroups).foreground =
+        // 👤 : pastille verte = connecté (même hors ligne), orange = à reconnecter. 👥 : Buddy Groups qui ont bougé.
+        findViewById<View>(R.id.btnMoi).foreground =
             if (compte.connecte) AccountDot(compte.aReconnecter, resources.displayMetrics.density) else null
+        findViewById<View>(R.id.btnGroups).foreground =
+            buddies.nouveautes().takeIf { it > 0 }?.let { CountBadge(it, resources.displayMetrics.density) }
         findViewById<View>(R.id.btnQuickDraw).foreground =
             if (navId != null || freeRec) PencilBadge(navPaused, resources.displayMetrics.density) else null
         // ⚙ visible avec 👖, anneau bleu s'il est déplié ou qu'un réglage est allumé ; ⑂, vibration et double tap quand ⚙ est déplié.
@@ -3227,7 +3309,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() { mapView.onPause(); super.onPause() }
     override fun onStop() { mapView.onStop(); super.onStop() }
     override fun onLowMemory() { super.onLowMemory(); mapView.onLowMemory() }
-    override fun onDestroy() { mapView.onDestroy(); super.onDestroy() }
+    override fun onDestroy() { desabonnerBuddies(); mapView.onDestroy(); super.onDestroy() }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); mapView.onSaveInstanceState(outState) }
 
     companion object {

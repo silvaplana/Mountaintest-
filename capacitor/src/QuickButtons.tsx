@@ -36,9 +36,12 @@ export interface QuickProps {
   onTravel: () => void;
   onExpenses: () => void;
   onLodging: () => void;
-  /** 👥 Groupes / mon compte. */
+  /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de Buddy Groups qui ont bougé. */
+  onBuddies: () => void;
+  nouveautes: number;
+  /** 👤 Moi : mon compte. */
   onAccount: () => void;
-  /** Pastille de 👥 : connecté (vert), à reconnecter (orange), pas de compte. */
+  /** Pastille de 👤 : connecté (vert), à reconnecter (orange), pas de compte. */
   compte: 'ok' | 'reconnecter' | 'aucun';
   /** ⛷ 💬 : question en texte sur les sorties skitour. */
   onSkiText: () => void;
@@ -106,7 +109,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, forests, onForests, onTravel, onExpenses, onLodging, onAccount, compte, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, forests, onForests, onTravel, onExpenses, onLodging, onBuddies, nouveautes, onAccount, compte, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -349,8 +352,10 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
       </>}
       {(show === 2 || help) && <>
-      {/* 👥 Groupes et compte : bouton important, en haut de la seconde barre (demande de Seb). */}
-      <button aria-label="Groupes et mon compte" data-help="Groupes · mon compte" {...lp('groups')} onClick={onAccount}>👥
+      {/* 👥 Buddies et 👤 Moi : en haut de la seconde barre (demande de Seb, spec/buddies.md écran 1). */}
+      <button aria-label="Buddies" data-help="Buddies" {...lp('groups')} onClick={onBuddies}>👥
+        {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
+      <button aria-label="Moi : mon compte" data-help="Moi · mon compte" {...lp('moi')} onClick={onAccount}>👤
         {compte !== 'aucun' && <span className={`acc-dot ${compte === 'ok' ? 'vert' : 'orange'}`} />}</button>
       <button className={weather ? 'on' : ''} aria-label="Météo sur la carte" data-help="Météo sur la carte · appui long : appli Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}

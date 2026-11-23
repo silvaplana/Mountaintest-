@@ -61,4 +61,6 @@ dependencies {
     implementation("androidx.browser:browser:1.8.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // 👥 QR code d'invitation dans un Buddy Group (fabriqué sur le téléphone, même sans réseau).
+    implementation("com.google.zxing:core:3.5.3")
 }
