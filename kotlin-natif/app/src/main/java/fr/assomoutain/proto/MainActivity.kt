@@ -3011,7 +3011,12 @@ class MainActivity : AppCompatActivity() {
         if (lodgingPanel != null) return
         closeTravel(); sheetOpen = false; refreshTabs()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
-        val p = LodgingPanel(this, prefs, password) { closeLodging() }
+        val p = LodgingPanel(this, prefs, password, onProposer = { h ->
+            SharePanel.montrer(this, compte, buddies, h.nom, emptyList(), { syncBuddies() }, hebergement = h) {
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, listOf(h.nom, h.adresse, h.url).filter { it.isNotEmpty() }.joinToString("\n")), h.nom))
+            }
+        }) { closeLodging() }
         lodgingPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (48 * resources.displayMetrics.density).toInt())
@@ -3055,7 +3060,8 @@ class MainActivity : AppCompatActivity() {
     private var buddiesPanel: BuddiesPanel? = null
     private var buddiesBack: androidx.activity.OnBackPressedCallback? = null
     private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons(); rafraichirCarteSortie(); appliquerEpingle() } }
-    private fun openBuddies(depart: String? = null, departAlbum: String? = null, departCarnet: String? = null, departCount: String? = null) {
+    private fun openBuddies(depart: String? = null, departAlbum: String? = null, departCarnet: String? = null, departCount: String? = null,
+                            departDodo: String? = null) {
         if (buddiesPanel != null) return
         album // posé sur buddies avant la première synchro
         fermerCarteSortie()
@@ -3079,7 +3085,7 @@ class MainActivity : AppCompatActivity() {
                     .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Raconte, je t'écoute")) }
                     .onFailure { dicteeCb = null; cb(null) }
             },
-            depart = depart, departAlbum = departAlbum, departCarnet = departCarnet, departCount = departCount)
+            depart = depart, departAlbum = departAlbum, departCarnet = departCarnet, departCount = departCount, departDodo = departDodo)
         buddiesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)
@@ -3133,12 +3139,14 @@ class MainActivity : AppCompatActivity() {
         val racine = findViewById<android.widget.FrameLayout>(R.id.root)
         carteSortie?.let { racine.removeView(it) }
         val reperes = Positions.reperes(sortie, buddies.positions(), buddies.moi)
+        val hebergements = buddies.hebergements().filter { it.sortie == id }
         val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom, photos, album,
             depense = buddies.depenses().filter { it.sortie == id }.sumOf { it.montant },
             reperes = reperes, epingle = buddies.monEpingle(),
             onEnfoncer = { enfoncerEpingle(sortie) },
             onRelever = { buddies.releverEpingle(sortie.id); toast("📍 Épingle relevée : tes buddies ne te voient plus"); syncBuddies() },
             onRedessiner = { rafraichirCarteSortie() },
+            hebergements = hebergements, onDodo = { fermerCarteSortie(); openBuddies(sortie.groupe, departDodo = sortie.id) },
             onAlbum = { fermerCarteSortie(); openBuddies(sortie.groupe, departAlbum = sortie.id) },
             onCarnet = { fermerCarteSortie(); openBuddies(sortie.groupe, departCarnet = sortie.id) },
             onCount = { fermerCarteSortie(); openBuddies(sortie.groupe, departCount = sortie.id) },
@@ -3147,12 +3155,36 @@ class MainActivity : AppCompatActivity() {
         racine.addView(v)
         dessinerPhotos(photos)
         dessinerPositions(reperes)
+        dessinerHebergements(hebergements)
     }
     private fun fermerCarteSortie() {
         carteSortie?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
         carteSortie = null; carteSortieId = null
         dessinerPhotos(emptyList())
         dessinerPositions(emptyList())
+        dessinerHebergements(emptyList())
+    }
+    /** 🏨 Les hébergements proposés sur la carte du Buddy Time ; celui qu'on a retenu en vert (écran 9). */
+    private fun dessinerHebergements(hs: List<Buddies.Hebergement>) {
+        val style = map?.style ?: return
+        if (style.getSource(SRC_BD_HEBERG) == null) {
+            val dd = resources.displayMetrics.density
+            fun image(fond: Int) = android.graphics.Bitmap.createBitmap((40 * dd).toInt(), (40 * dd).toInt(), android.graphics.Bitmap.Config.ARGB_8888).also { b ->
+                val c = android.graphics.Canvas(b); val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                p.color = fond; c.drawRoundRect(android.graphics.RectF(2 * dd, 2 * dd, 38 * dd, 38 * dd), 10 * dd, 10 * dd, p)
+                p.textSize = 22 * dd; p.textAlign = android.graphics.Paint.Align.CENTER
+                c.drawText("🏨", 20 * dd, 20 * dd - (p.ascent() + p.descent()) / 2, p)
+            }
+            style.addImage("bdh-0", image(Color.WHITE)); style.addImage("bdh-1", image(Color.parseColor("#2F6F4F")))
+            style.addSource(GeoJsonSource(SRC_BD_HEBERG))
+            style.addLayer(org.maplibre.android.style.layers.SymbolLayer(SRC_BD_HEBERG, SRC_BD_HEBERG).withProperties(
+                org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)))
+        }
+        style.getSourceAs<GeoJsonSource>(SRC_BD_HEBERG)?.setGeoJson(FeatureCollection.fromFeatures(hs.filter { it.lon != null && it.lat != null }.map { h ->
+            Feature.fromGeometry(Point.fromLngLat(h.lon!!, h.lat!!)).apply { addStringProperty("img", if (h.retenu) "bdh-1" else "bdh-0") }
+        }))
     }
 
     // ---------- 📍 Position des buddies (écran 15, spec/buddies.md §5.9) ----------
@@ -3542,6 +3574,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_SKI = "ski-src"
         private const val SRC_BD_PHOTOS = "bd-photos"
         private const val SRC_BD_POSITIONS = "bd-positions"
+        private const val SRC_BD_HEBERG = "bd-hebergements"
         private const val SRC_TOPOS = "topos-src"
         private const val SRC_TOPO_LINE = "topo-line-src"
         private const val LAYER_TOPOS = "topos"

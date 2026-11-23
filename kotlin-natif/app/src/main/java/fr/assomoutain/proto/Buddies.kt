@@ -107,6 +107,11 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         val id: String, val sortie: String, val titre: String, val montant: Int, val payePar: String, val pour: List<String>, val jour: String,
         val modifie: Long, val attente: Boolean,
     )
+    /** 🏨 Hébergement proposé dans un Buddy Time (spec §5.11) : ♥ de chacun (identifiants), retenu. Prix par nuit en euros. */
+    data class Hebergement(
+        val id: String, val sortie: String, val nom: String, val nature: String, val prixNuit: Int?, val adresse: String, val url: String,
+        val resume: String, val lon: Double?, val lat: Double?, val retenu: Boolean, val coeurs: List<String>, val attente: Boolean = false,
+    )
     /** 📍 Position d'un buddy dans un Buddy Time (spec §5.9) : son épingle (ms) et sa dernière position. */
     data class Position(
         val sortie: String, val qui: String, val depuis: Long, val jusqu: Long, val lon: Double?, val lat: Double?, val alt: Int?,
@@ -306,6 +311,26 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     private fun lirePosition(o: JSONObject) = Position(o.optString("sortie"), o.optString("qui"), o.optLong("depuis"), o.optLong("jusqu"),
         nombre(o, "lon"), nombre(o, "lat"), nombre(o, "alt")?.let { Math.round(it).toInt() }, if (o.isNull("prise_le")) null else o.optLong("prise_le"))
 
+    private fun lireHebergement(o: JSONObject) = Hebergement(o.getString("id"), o.optString("sortie"), o.optString("nom"), o.optString("nature"),
+        nombre(o, "prix_nuit")?.let { Math.round(it).toInt() }, o.optString("adresse"), o.optString("url"), o.optString("resume"),
+        nombre(o, "lon"), nombre(o, "lat"), o.optBoolean("retenu"), chaines(o.optJSONArray("coeurs")))
+    /** 🏨 Hébergements tels qu'affichés : le retenu en haut, puis les plus aimés, puis les moins chers. */
+    fun hebergements(): List<Hebergement> {
+        val me = moi ?: "moi"
+        var l = etat.optJSONArray("hebergements").objets().map { lireHebergement(it) }
+        for (op in attente().objets()) {
+            val h = op.optString("hebergement")
+            when (op.optString("type")) {
+                "proposer_hebergement" -> if (l.none { it.id == h }) l = l + lireHebergement(JSONObject(op.toString()).put("id", h)).copy(attente = true)
+                "coeur" -> l = l.map { if (it.id != h) it else it.copy(coeurs = it.coeurs.filter { c -> c != me } + if (op.optBoolean("coeur")) listOf(me) else emptyList(), attente = true) }
+                "retenir_hebergement" -> l.firstOrNull { it.id == h }?.let { x ->
+                    l = l.map { if (it.id == h) it.copy(retenu = op.optBoolean("retenu"), attente = true) else if (it.sortie == x.sortie && op.optBoolean("retenu")) it.copy(retenu = false) else it }
+                }
+                "retirer_hebergement" -> l = l.filter { it.id != h }
+            }
+        }
+        return l.sortedWith(compareByDescending<Hebergement> { it.retenu }.thenByDescending { it.coeurs.size }.thenBy { it.prixNuit ?: Int.MAX_VALUE })
+    }
     /** 📍 Positions telles qu'affichées : celles du serveur, avec mon épingle et ma dernière position en attente. */
     fun positions(): List<Position> {
         val me = moi ?: "moi"
@@ -455,6 +480,19 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             .put("id", UUID.randomUUID().toString()).put("t", System.currentTimeMillis())
         modifier { put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("type") != "position" } + op)) }
     }
+    /** 🏨 Proposer un hébergement (trouvé par la recherche) dans un ou plusieurs Buddy Times. */
+    fun proposerHebergement(sorties: List<String>, l: Lodging, lon: Double?, lat: Double?) {
+        if (sorties.isEmpty()) return
+        ajouter(*sorties.map { sortie ->
+            JSONObject().put("type", "proposer_hebergement").put("hebergement", UUID.randomUUID().toString()).put("sortie", sortie)
+                .put("nom", l.nom.trim().take(80)).put("nature", l.type.take(40)).put("prix_nuit", l.prixNuit?.let { Math.round(it) } ?: JSONObject.NULL)
+                .put("adresse", l.adresse.take(160)).put("url", if (Regex("^https?://").containsMatchIn(l.url)) l.url.take(500) else "")
+                .put("resume", l.resume.take(300)).put("lon", lon ?: JSONObject.NULL).put("lat", lat ?: JSONObject.NULL)
+        }.toTypedArray())
+    }
+    fun mettreCoeur(h: String, coeur: Boolean) = ajouter(JSONObject().put("type", "coeur").put("hebergement", h).put("coeur", coeur))
+    fun retenirHebergement(h: String, retenu: Boolean) = ajouter(JSONObject().put("type", "retenir_hebergement").put("hebergement", h).put("retenu", retenu))
+    fun retirerHebergement(h: String) = ajouter(JSONObject().put("type", "retirer_hebergement").put("hebergement", h))
     fun retirerDepense(depense: String) = ajouter(JSONObject().put("type", "retirer_depense").put("depense", depense))
     fun annulerInvitation(invitation: String) = ajouter(JSONObject().put("type", "annuler_invitation").put("invitation", invitation))
     fun quitter(groupe: String) = ajouter(JSONObject().put("type", "quitter").put("groupe", groupe))
@@ -498,6 +536,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             fusion("plannings", "plannings", "ids_plannings")
             fusion("photos", "photos", "ids_photos")
             fusion("depenses", "depenses", "ids_depenses")
+            fusion("hebergements", "hebergements", "ids_hebergements")
             r.optJSONArray("positions")?.let { put("positions", it) }
             put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("id") !in envoyees }))
             put("moi", r.getString("moi")); put("synchro", System.currentTimeMillis())

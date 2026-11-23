@@ -22,7 +22,9 @@ import androidx.appcompat.app.AppCompatActivity
  * Les copains un par un arriveront avec la messagerie : aujourd'hui une trace se range dans un Buddy Time ou un groupe.
  */
 object SharePanel {
-    fun montrer(a: AppCompatActivity, compte: Compte, buddies: Buddies, nom: String, ligne: List<LonLat>, apres: () -> Unit, ailleurs: () -> Unit) {
+    /** hebergement : un hébergement trouvé (écran 23), proposé dans les Buddy Times choisis où je pars (pas de groupe). */
+    fun montrer(a: AppCompatActivity, compte: Compte, buddies: Buddies, nom: String, ligne: List<LonLat>, apres: () -> Unit,
+                hebergement: Lodging? = null, ailleurs: () -> Unit) {
         val d = a.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
         val accent = Color.parseColor("#2F6F4F")
@@ -36,7 +38,8 @@ object SharePanel {
         val boite = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(10), dp(16), dp(6)) }
         val dlg = AlertDialog.Builder(a).setView(ScrollView(a).apply { addView(boite) }).create()
         val km = Trails.lineLengthM(ligne) / 1000
-        boite.addView(text("Partager « $nom » · ${"%.1f".format(km)} km", 20f, bold = true))
+        boite.addView(text("Partager « $nom » · " + if (hebergement != null) Hebergements.prix(hebergement.prixNuit?.let { Math.round(it).toInt() })
+            else "${"%.1f".format(km)} km", 20f, bold = true))
 
         /** Une tuile qu'on coche (anneau vert). */
         fun tuile(id: String, titre: String, image: View, rond: Boolean): View = LinearLayout(a).apply {
@@ -53,8 +56,9 @@ object SharePanel {
 
         if (compte.connecte) {
             val auj = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
-            val sorties = buddies.sorties().sortedWith(compareByDescending<Buddies.Sortie> { it.fin >= auj }.thenByDescending { it.modifie }).take(6)
-            val groupes = buddies.groupes().filter { !it.meTime }
+            val moi = buddies.moi ?: "moi"
+            val sorties = buddies.sorties().filter { hebergement == null || (it.fin >= auj && it.participants.any { p -> p.id == moi || p.id == "moi" }) }.sortedWith(compareByDescending<Buddies.Sortie> { it.fin >= auj }.thenByDescending { it.modifie }).take(6)
+            val groupes = if (hebergement != null) emptyList() else buddies.groupes().filter { !it.meTime }
             if (sorties.isNotEmpty()) {
                 boite.addView(text("DANS UN BUDDY TIME · les plus actifs", 14f, muted, bold = true))
                 boite.addView(rangee(sorties.map { x ->
@@ -75,7 +79,8 @@ object SharePanel {
                     }, true)
                 }))
             }
-            if (sorties.isEmpty() && groupes.isEmpty()) boite.addView(text("Crée un Buddy Group ou un Buddy Time (👥) pour y partager tes traces.", 15f, muted))
+            if (sorties.isEmpty() && groupes.isEmpty()) boite.addView(text(if (hebergement != null) "Crée un Buddy Time (👥) pour y proposer un hébergement à tes buddies."
+                else "Crée un Buddy Group ou un Buddy Time (👥) pour y partager tes traces.", 15f, muted))
             val mot = EditText(a).apply { hint = "Un petit mot (facultatif)…"; isSingleLine = true; textSize = 17f }
             boite.addView(mot)
             boite.addView(Button(a).apply {
@@ -83,6 +88,12 @@ object SharePanel {
                 background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(accent) }
                 setOnClickListener {
                     if (choix.isEmpty()) { Toast.makeText(a, "Choisis un Buddy Time ou un groupe", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+                    if (hebergement != null) {
+                        val ids = sorties.map { it.id }.filter { it in choix }
+                        Thread { Hebergements.proposer(buddies, ids, hebergement); a.runOnUiThread { apres() } }.start()
+                        Toast.makeText(a, "« $nom » proposé à tes buddies", Toast.LENGTH_SHORT).show()
+                        dlg.dismiss(); return@setOnClickListener
+                    }
                     buddies.partagerTrace(nom, ligne, mot.text.toString().trim(), sorties.map { it.id }.filter { it in choix }, groupes.map { it.id }.filter { it in choix })
                     Toast.makeText(a, "« $nom » partagée", Toast.LENGTH_SHORT).show()
                     dlg.dismiss(); apres()
@@ -98,7 +109,7 @@ object SharePanel {
                 LinearLayout.LayoutParams(dp(44), dp(44)))
             addView(LinearLayout(a).apply {
                 orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0)
-                addView(text("WhatsApp, mail, fichier GPX…", 17f, bold = true)); addView(text("les autres applis du téléphone", 15f, muted))
+                addView(text(if (hebergement != null) "WhatsApp, mail, SMS…" else "WhatsApp, mail, fichier GPX…", 17f, bold = true)); addView(text("les autres applis du téléphone", 15f, muted))
             })
         })
         dlg.show()

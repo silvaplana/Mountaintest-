@@ -452,6 +452,26 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   sans bruit. Seuls les participants du Buddy Time s'épinglent et voient les positions ; elles reviennent entières à
   chaque synchro.
 
+### 7.8 Bloc 8 : ce qui est construit (23 novembre 2026)
+
+- **Proposer (écran 23)** : dans la recherche d'hébergement existante, chaque résultat a « 👥 Proposer à mes
+  buddies ». Le panneau de partage s'ouvre sur « Dans un Buddy Time » : seulement les Buddy Times à venir ou en cours
+  où je pars (pas de groupe : un hébergement appartient à une sortie) ; « Ou ailleurs » envoie le nom, l'adresse et
+  le lien. L'hébergement est placé sur la carte par son adresse (géocodage IGN) quand on la trouve ; sans réseau, il
+  est proposé sans épingle.
+- **Où on dort ? (écran 9)** : 🏨 de la colonne dans un Buddy Time (carnet, album, Buddy count), ou la ligne « 🏨 Où on
+  dort ? » du bandeau de la carte (avant et pendant le Buddy Time ; une fois retenu : « Gîte Les Baladins ✅ · 60 € /
+  nuit »). Chaque idée : image selon la nature (refuge, gîte, chalet…), prix par nuit, nature, adresse, résumé ; un
+  toucher ouvre son site. ♥ (un par buddy, avec les visages de ceux qui aiment), « On le prend » (✅, un seul retenu par
+  Buddy Time ; n'importe quel participant peut changer), « Retirer l'idée ». Le retenu en haut, puis les plus aimés,
+  puis les moins chers. Un seul bouton principal : « 🔍 Chercher d'autres hébergements ».
+- **Sur la carte** : les épingles 🏨 des idées placées, la retenue en vert.
+- **Pas encore** : la ligne automatique dans le Buddy Count (le prix trouvé n'est pas toujours celui payé : on ajoute
+  la dépense à la main). La recherche elle-même est l'écran existant, non retouché (voir point ouvert 6).
+- **Serveur** : tables `hebergements` (Buddy Time, nom, nature, prix par nuit en euros, adresse, lien http(s), résumé,
+  position, retenu) et `coeurs` ; opérations `proposer_hebergement`, `coeur`, `retenir_hebergement` (un seul retenu),
+  `retirer_hebergement` ; réservées aux participants du Buddy Time.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**
@@ -467,3 +487,5 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
    haut de la liste : à confirmer.
 4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
 5. Bud : les règles du §5.12, son visage, et ce qu'il a le droit de faire seul (rien, par défaut).
+6. La recherche d'hébergement (écran existant) affiche encore « Chercher (IA) » et « Claude cherche… » : à
+   reformuler sans mot technique (règle §3.2), en accord avec Seb.

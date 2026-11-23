@@ -19,7 +19,7 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import (Carnet, Depense, Dispo, FicheJour, Groupe, Invitation, Membre, Participant, Photo, Planning, Position, Recit, Sortie,
+from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, Groupe, Hebergement, Invitation, Membre, Participant, Photo, Planning, Position, Recit, Sortie,
                      TracePartagee, Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
@@ -511,6 +511,64 @@ def position(s: Session, u: Utilisateur, op: dict) -> None:
     p.prise_le, p.modifie_le = t, maintenant()
 
 
+def proposer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
+    """Hébergement (§5.11) : proposé dans un Buddy Time depuis la recherche (panneau de partage, écran 23)."""
+    hid = uuid.UUID(str(op["hebergement"]))
+    if s.get(Hebergement, hid) is not None:
+        return  # renvoyé : déjà là
+    so = sortie_de(s, u, op["sortie"])
+    if u.id not in participants(s, so):
+        raise Refus("Seuls les buddies du Buddy Time proposent un hébergement")
+    url = propre(op.get("url"), 500)
+    if url and not url.startswith(("https://", "http://")):
+        raise Refus("Lien d'hébergement invalide")
+    prix = op.get("prix_nuit")
+    lon, lat = op.get("lon"), op.get("lat")
+    if (lon is None) != (lat is None) or (lon is not None and not (-180 <= float(lon) <= 180 and -90 <= float(lat) <= 90)):
+        raise ValueError("position")
+    s.add(Hebergement(id=hid, sortie_id=so.id, nom=propre(op.get("nom"), 80) or "Hébergement", nature=propre(op.get("nature"), 40),
+                      prix_nuit=entier(round(float(prix)), 100_000) if prix is not None else None, adresse=propre(op.get("adresse"), 160), url=url,
+                      resume=propre(op.get("resume"), 300), lon=float(lon) if lon is not None else None,
+                      lat=float(lat) if lat is not None else None, par=u.id))
+    toucher(so)
+
+
+def hebergement_de(s: Session, u: Utilisateur, hid: Any) -> tuple[Hebergement, Sortie]:
+    h = s.get(Hebergement, uuid.UUID(str(hid)))
+    if h is None:
+        raise Refus("Hébergement inconnu")
+    so = sortie_de(s, u, h.sortie_id)
+    if u.id not in participants(s, so):
+        raise Refus("Seuls les buddies du Buddy Time choisissent l'hébergement")
+    return h, so
+
+
+def coeur(s: Session, u: Utilisateur, op: dict) -> None:
+    h, so = hebergement_de(s, u, op["hebergement"])
+    c = s.get(Coeur, (h.id, u.id))
+    if op.get("coeur") and c is None:
+        s.add(Coeur(hebergement_id=h.id, utilisateur_id=u.id))
+    elif not op.get("coeur") and c is not None:
+        s.delete(c)
+    h.modifie_le = maintenant()
+
+
+def retenir_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
+    """✅ On en retient un : les autres du même Buddy Time ne le sont plus."""
+    h, so = hebergement_de(s, u, op["hebergement"])
+    if op.get("retenu"):
+        for x in s.scalars(select(Hebergement).where(Hebergement.sortie_id == so.id, Hebergement.retenu.is_(True))):
+            x.retenu, x.modifie_le = False, maintenant()
+    h.retenu, h.modifie_le = bool(op.get("retenu")), maintenant()
+    toucher(so)
+
+
+def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
+    h, so = hebergement_de(s, u, op["hebergement"])
+    s.delete(h)
+    toucher(so)
+
+
 def fichier_photo(pid: uuid.UUID, taille: str) -> str:
     return os.path.join(DOSSIER_PHOTOS, f"{pid}-{taille}.jpg")
 
@@ -521,7 +579,8 @@ OPERATIONS = {
     "creer_sortie": creer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
-    "epingle": epingle, "position": position,
+    "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
+    "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
 }
 
 
@@ -572,6 +631,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     plannings = s.scalars(select(Planning).where(Planning.groupe_id.in_(gids)).order_by(Planning.cree_le)).all()
     photos = s.scalars(select(Photo).where(Photo.sortie_id.in_(sids)).order_by(Photo.prise_le)).all()
     depenses = s.scalars(select(Depense).where(Depense.sortie_id.in_(sids)).order_by(Depense.jour, Depense.cree_le)).all()
+    hebergements = s.scalars(select(Hebergement).where(Hebergement.sortie_id.in_(sids)).order_by(Hebergement.cree_le)).all()
     # Positions : toujours toutes (peu nombreuses), seulement des participants, et oubliées après 48 h.
     positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
                                                 & (Participant.utilisateur_id == Position.utilisateur_id))
@@ -584,6 +644,8 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "plannings": [vue_planning(s, p) for p in plannings if neuf(p.modifie_le)],
             "ids_photos": [str(p.id) for p in photos], "photos": [vue_photo(s, p) for p in photos if neuf(p.modifie_le)],
             "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
+            "ids_hebergements": [str(h.id) for h in hebergements],
+            "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
             "positions": [vue_position(x) for x in positions], "refus": refus}
 
 
@@ -636,6 +698,13 @@ def vue_photo(s: Session, p: Photo) -> dict[str, Any]:
 def vue_depense(x: Depense) -> dict[str, Any]:
     return {"id": str(x.id), "sortie": str(x.sortie_id), "titre": x.titre, "montant": x.montant, "paye_par": str(x.paye_par),
             "pour": json.loads(x.pour), "jour": x.jour, "par": str(x.par), "modifie_le": iso(x.modifie_le)}
+
+
+def vue_hebergement(s: Session, h: Hebergement) -> dict[str, Any]:
+    coeurs = s.scalars(select(Coeur.utilisateur_id).where(Coeur.hebergement_id == h.id)).all()
+    return {"id": str(h.id), "sortie": str(h.sortie_id), "nom": h.nom, "nature": h.nature, "prix_nuit": h.prix_nuit,
+            "adresse": h.adresse, "url": h.url, "resume": h.resume, "lon": h.lon, "lat": h.lat, "retenu": h.retenu,
+            "par": str(h.par), "coeurs": sorted(str(c) for c in coeurs), "modifie_le": iso(h.modifie_le)}
 
 
 def vue_position(x: Position) -> dict[str, Any]:

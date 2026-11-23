@@ -71,6 +71,8 @@ class BuddiesPanel(
     departCarnet: String? = null,
     /** Ou son Buddy Count (💶 depuis la carte). */
     departCount: String? = null,
+    /** Ou « Où on dort ? » (🏨 depuis la carte). */
+    departDodo: String? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -93,8 +95,10 @@ class BuddiesPanel(
         // Buddy count (§5.10).
         data class Comptes(val groupe: String?) : Vue(); data class Count(val id: String, val groupe: String?) : Vue()
         data class UneDepense(val id: String, val depense: String?, val groupe: String?) : Vue()
+        // Hébergement (§5.11).
+        data class Dodo(val id: String, val groupe: String?) : Vue()
     }
-    private var vue: Vue = departCount?.let { Vue.Count(it, depart) } ?: departCarnet?.let { Vue.LeCarnet(it, depart) } ?: departAlbum?.let { Vue.UnAlbum(it, depart) }
+    private var vue: Vue = departDodo?.let { Vue.Dodo(it, depart) } ?: departCount?.let { Vue.Count(it, depart) } ?: departCarnet?.let { Vue.LeCarnet(it, depart) } ?: departAlbum?.let { Vue.UnAlbum(it, depart) }
         ?: depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
     private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || vue is Vue.Ecrire || vue is Vue.UneDepense || motOuvert != null
 
@@ -223,7 +227,11 @@ class BuddiesPanel(
                 // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
                 if (!compte.connecte) onExpenses()
                 else { depenseCount(); afficher() }
-            }, "🏨" to onLodging,
+            }, "🏨" to {
+                // 🏨 : « Où on dort ? » du Buddy Time ouvert, sinon la recherche d'hébergement.
+                val sc = sortieCourante()
+                if (sc != null) { vue = Vue.Dodo(sc, groupeCourant()); afficher() } else onLodging()
+            },
         ).forEach { (t, f) -> colonne.addView(rond(t, 52) { f() }.apply { (layoutParams as LinearLayout.LayoutParams).bottomMargin = dp(12) }) }
     }
 
@@ -268,6 +276,7 @@ class BuddiesPanel(
             is Vue.Ecrire -> buddies.sorties().firstOrNull { it.id == v.id }?.let { ecrire(it, v.groupe) } ?: run { vue = Vue.Liste; afficher() }
             is Vue.Comptes -> comptes(v.groupe)
             is Vue.Count -> buddies.sorties().firstOrNull { it.id == v.id }?.let { count(it, v.groupe) } ?: run { vue = Vue.Comptes(v.groupe); afficher() }
+            is Vue.Dodo -> buddies.sorties().firstOrNull { it.id == v.id }?.let { dodo(it, v.groupe) } ?: run { vue = Vue.Liste; afficher() }
             is Vue.UneDepense -> buddies.sorties().firstOrNull { it.id == v.id }
                 ?.let { uneDepense(it, v.depense?.let { d -> buddies.depenses().firstOrNull { it.id == d } }, v.groupe) } ?: run { vue = Vue.Comptes(v.groupe); afficher() }
         }
@@ -673,7 +682,7 @@ class BuddiesPanel(
     private val moiId get() = buddies.moi ?: "moi"
     private fun groupeCourant(): String? = when (val v = vue) {
         is Vue.UnGroupe -> v.id; is Vue.Albums -> v.groupe; is Vue.UnAlbum -> v.groupe; is Vue.LeCarnet -> v.groupe; is Vue.Ecrire -> v.groupe
-        is Vue.Comptes -> v.groupe; is Vue.Count -> v.groupe; is Vue.UneDepense -> v.groupe
+        is Vue.Comptes -> v.groupe; is Vue.Count -> v.groupe; is Vue.UneDepense -> v.groupe; is Vue.Dodo -> v.groupe
         else -> bandeCourante()
     }
     private fun bandeCourante(): String? {
@@ -1328,10 +1337,70 @@ class BuddiesPanel(
         }, lp(8))
     }
 
+    // ---------- Hébergement (spec §5.11, écran 9) ----------
+    /** « Où on dort ? » : les idées proposées, un ♥ par buddy, celle qu'on retient (✅). */
+    private fun dodo(x: Buddies.Sortie, groupe: String?) {
+        val hs = buddies.hebergements().filter { it.sortie == x.id }
+        val nuits = maxOf(0, Math.round((jourMs(x.fin) - jourMs(x.debut)) / 86_400_000.0).toInt())
+        entete(x.nom, "🏨 ${if (nuits > 0) "$nuits nuit${if (nuits > 1) "s" else ""}" else "sur la journée"} · ${x.participants.size} personne${if (x.participants.size > 1) "s" else ""}",
+            retour = true) { if (x.fin < aujourdhui()) vue = Vue.LeCarnet(x.id, groupe) else { onCarte(x, buddies.traces().filter { it.sortie == x.id }); return@entete }; afficher() }
+        col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(text("Où on dort ?", 22f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+            if (hs.isNotEmpty()) addView(text("${hs.size} idée${if (hs.size > 1) "s" else ""}", 15f, muted))
+        }, lp(8))
+        fun qui(id: String) = x.participants.firstOrNull { it.id == id } ?: Buddies.Buddy(id, "?", null, "membre")
+        for (h in hs) col.addView(LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(10), dp(10), dp(10), dp(6))
+            background = GradientDrawable().apply { cornerRadius = 16 * d
+                if (h.retenu) { setColor(Color.parseColor("#E8F1EC")); setStroke(dp(2), accent) } else { setColor(Color.WHITE); setStroke(dp(2), Color.parseColor("#D9DFDC")) } }
+            addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL; isClickable = true
+                setOnClickListener { if (h.url.isNotEmpty()) runCatching { a.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(h.url))) } }
+                addView(text(Hebergements.icone(h.nature), 32f).apply {
+                    gravity = Gravity.CENTER; background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(Color.parseColor("#E3EEF7")) }
+                }, LinearLayout.LayoutParams(dp(64), dp(64)))
+                addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(6), 0)
+                    addView(text(h.nom, 17f, bold = true))
+                    addView(text(listOf(Hebergements.prix(h.prixNuit), h.nature, h.adresse).filter { it.isNotEmpty() }.joinToString(" · "), 15f, muted))
+                    if (h.resume.isNotEmpty()) addView(text(h.resume, 15f, muted))
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                if (h.retenu) addView(text("✅", 26f))
+            })
+            val aime = moiId in h.coeurs
+            addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(rond(if (aime) "♥" else "♡", 48, Color.WHITE) { buddies.mettreCoeur(h.id, !aime); afficher(); synchroniser() }.apply {
+                    setTextColor(Color.parseColor(if (aime) "#D0464F" else "#9AA29E")); contentDescription = if (aime) "Retirer mon ♥" else "Mettre un ♥"
+                })
+                addView(LinearLayout(a).apply {
+                    gravity = Gravity.CENTER_VERTICAL; setPadding(dp(8), 0, 0, 0)
+                    for (c in h.coeurs) { val b = qui(c); addView(visage(b.id, b.pseudo, b.photo, 30)) }
+                    if (h.coeurs.isEmpty()) addView(text("pas encore de ♥", 15f, muted).apply { isSingleLine = true })
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text(if (h.retenu) "Plus retenu" else "On le prend", 16f, accent, bold = true).apply {
+                    minHeight = dp(48); gravity = Gravity.CENTER; setPadding(dp(8), 0, dp(4), 0); isSingleLine = true
+                    setOnClickListener {
+                        buddies.retenirHebergement(h.id, !h.retenu)
+                        toast(if (h.retenu) "« ${h.nom} » n'est plus retenu" else "✅ On dort à « ${h.nom} »"); afficher(); synchroniser()
+                    }
+                })
+            }, lp(6))
+            if (h.attente) addView(text("🕓 partira au retour du réseau", 14f, muted))
+            if (!h.retenu) addView(text("Retirer l'idée", 15f, muted).apply {
+                minHeight = dp(40); gravity = Gravity.CENTER_VERTICAL
+                setOnClickListener { buddies.retirerHebergement(h.id); toast("« ${h.nom} » retiré"); afficher(); synchroniser() }
+            })
+        }, lp(10))
+        if (hs.isEmpty()) col.addView(text("Pas encore d'idée : cherche un hébergement, puis « Proposer à mes buddies ». Chacun met un ♥, et vous en retenez un.", 17f, muted), lp(8))
+        pied.addView(bouton("🔍 Chercher ${if (hs.isNotEmpty()) "d'autres hébergements" else "un hébergement"}") { onLodging() }, lp(8))
+    }
+
     // ---------- Buddy count (spec §5.10, écran 8) ----------
     private fun depenseCount() { vue = sortieCourante()?.let { Vue.Count(it, groupeCourant()) } ?: Vue.Comptes(groupeCourant()) }
     private fun sortieCourante(): String? = when (val v = vue) {
-        is Vue.LeCarnet -> v.id; is Vue.Ecrire -> v.id; is Vue.UnAlbum -> v.id; is Vue.Count -> v.id; is Vue.UneDepense -> v.id; else -> null
+        is Vue.LeCarnet -> v.id; is Vue.Ecrire -> v.id; is Vue.UnAlbum -> v.id; is Vue.Count -> v.id; is Vue.UneDepense -> v.id; is Vue.Dodo -> v.id; else -> null
     }
 
     /** Tous les Buddy counts : un par Buddy Time (le plus récent en haut), et l'ancien partage des frais. */

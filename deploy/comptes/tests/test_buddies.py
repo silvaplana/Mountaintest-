@@ -478,3 +478,41 @@ def test_epingle_limitee_a_un_jour(client):
     r = sync(client, ops=[op("epingle", sortie=so["sortie"], enfoncee=True, quand=T0, jusqu=T0 + 5 * 24 * 3600_000)])
     assert r["positions"][0]["jusqu"] == T0 + 24 * 3600_000
     assert sync(client, ops=[op("epingle", sortie=so["sortie"], enfoncee=True, quand=T0, jusqu=T0 - 1)])["refus"]
+
+
+def nouvel_hebergement(sid, nom="Gîte Les Baladins", **k):
+    champs = {"nature": "gîte", "prix_nuit": 59.6, "adresse": "Ceillac", "url": "https://exemple.fr/gite", "resume": "demi-pension",
+              "lon": 6.78, "lat": 44.66, **k}
+    return op("proposer_hebergement", hebergement=str(uuid.uuid4()), sortie=sid, nom=nom, **champs)
+
+
+def test_hebergement_propose_coeurs_et_retenu(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    seb = sync(client, ops=[so])["moi"]
+    gite, refuge = nouvel_hebergement(so["sortie"]), nouvel_hebergement(so["sortie"], nom="Refuge de la Cime", lon=None, lat=None)
+    r = sync(client, ops=[gite, gite, refuge, op("coeur", hebergement=gite["hebergement"], coeur=True)])
+    assert r["refus"] == [] and r["ids_hebergements"] == [gite["hebergement"], refuge["hebergement"]]
+    h = r["hebergements"][0]
+    assert (h["nom"], h["prix_nuit"], h["coeurs"], h["retenu"], h["lon"]) == ("Gîte Les Baladins", 60, [seb], False, 6.78)
+    # Julie met un ♥ au refuge et le retient ; puis elle retient le gîte : un seul retenu.
+    r = sync(client, sub="julie", ops=[op("coeur", hebergement=refuge["hebergement"], coeur=True),
+                                       op("retenir_hebergement", hebergement=refuge["hebergement"], retenu=True),
+                                       op("retenir_hebergement", hebergement=gite["hebergement"], retenu=True)])
+    assert r["refus"] == []
+    assert {x["nom"]: (x["retenu"], len(x["coeurs"])) for x in r["hebergements"]} == {"Gîte Les Baladins": (True, 1), "Refuge de la Cime": (False, 1)}
+    # Seb retire son ♥ et le refuge ; Luc (hors du Buddy Time) ne voit rien et ne peut rien faire.
+    r = sync(client, ops=[op("coeur", hebergement=gite["hebergement"], coeur=False), op("retirer_hebergement", hebergement=refuge["hebergement"])])
+    assert r["ids_hebergements"] == [gite["hebergement"]]
+    assert sync(client, sub="luc")["ids_hebergements"] == []
+    assert sync(client, sub="luc", ops=[op("coeur", hebergement=gite["hebergement"], coeur=True)])["refus"]
+    assert sync(client, sub="luc", ops=[nouvel_hebergement(so["sortie"])])["refus"]
+
+
+def test_hebergement_refuse(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    sync(client, ops=[so])
+    for mauvais in (nouvel_hebergement(so["sortie"], url="javascript:alert(1)"), nouvel_hebergement(so["sortie"], lat=None),
+                    nouvel_hebergement(so["sortie"], prix_nuit=-5)):
+        assert sync(client, ops=[mauvais])["refus"], mauvais

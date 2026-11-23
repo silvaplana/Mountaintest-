@@ -845,3 +845,24 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-pos-acces { width: 100%; }
 .bd-fleche { font-size: 26px; color: var(--muted); }
 .bd-epingle .bd-texte b, .bd-pos-acces .bd-texte small { white-space: normal; }
+
+/* Hébergement d'un Buddy Time (écrans 9 et 23, spec/buddies.md §5.11) */
+.bd-dodo { gap: 10px; }
+.bd-heberg { flex: none; border: 2px solid #d9dfdc; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
+.bd-heberg.retenu { border-color: var(--accent); background: #e8f1ec; }
+.bd-heberg-haut { display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; text-align: left; width: 100%; min-height: 0; }
+.bd-heberg-haut .bd-texte small { white-space: normal; }
+.bd-heberg-image { flex: none; width: 64px; height: 64px; border-radius: 12px; display: grid; place-items: center; font-size: 34px;
+  background: linear-gradient(#cfe2f3, #f4f7fa); }
+.bd-heberg-ok { font-size: 28px; }
+.bd-heberg-bas { display: flex; align-items: center; gap: 8px; }
+.bd-coeur { width: 48px; height: 48px; min-height: 48px; border-radius: 50%; border: 1px solid #d9dfdc; background: #fff; font-size: 24px; color: #9aa29e; padding: 0; }
+.bd-coeur.oui { color: #d0464f; border-color: #d0464f; }
+.bd-heberg .bd-carte-qui small { margin-left: 4px; }
+.bd-lien.petit { align-self: flex-start; font-size: 15px; color: var(--muted); font-weight: 400; min-height: 40px; }
+.bd-heberg-carte { font-size: 22px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px 12px 12px 2px; background: #fff;
+  box-shadow: 0 2px 6px #0005; }
+.bd-heberg-carte.retenu { background: var(--accent); }
+.lodging-proposer { margin-top: 6px; width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--accent); background: #fff; color: var(--accent);
+  font-weight: 700; font-size: 16px; }
+.bd-heberg-bas .bd-lien, .bd-heberg .bd-carte-qui small { white-space: nowrap; }
