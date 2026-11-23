@@ -24,7 +24,7 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 | **Buddies** | L'espace entier, ouvert par 👥 dans la 2e barre de la carte. |
 | **Buddy Group** | Une bande de copains (comme une conversation de groupe). |
 | **Buddy Time** | Une sortie ou un week-end passé ensemble. |
-| **Me Time** | Le Buddy Group par défaut de chacun : ses sorties à lui. Nom accepté du bout des lèvres, modifiable. |
+| **Me Time** | Le Buddy Group par défaut de chacun : ses sorties à lui, où il peut inviter des copains à une sortie. Nom accepté du bout des lèvres, modifiable. |
 | **Buddy count** | Le partage des frais (l'actuel « partage des frais » du menu Voyage). |
 | **Carnet** | Le compte rendu final d'un Buddy Time. |
 | **buddy** | Une personne d'un de mes Buddy Groups ou Buddy Times. |
@@ -152,6 +152,8 @@ Dans la 2e barre de la carte, 👥 ouvre Buddies (pastille = du nouveau) et 👤
   faire hors du Buddy Time (dans le planning du groupe) ou dedans. **(Seb)**
 - Créé dans un Buddy Group, il appartient à ce groupe ; on décoche ceux qui ne viennent pas.
   Créé depuis la liste, sans groupe choisi, il va dans Me Time. **(Seb)**
+- Dans Me Time, on peut inviter un ou plusieurs copains à une sortie sans créer de Buddy
+  Group. **(Seb)**
 - Création : photo, nom, dates, lieu facultatif.
 - Ouvrir un Buddy Time ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
   bandeau en bas (dans combien de jours, qui vient, chiffres du parcours) se baisse pour ne
@@ -206,7 +208,8 @@ Dans la 2e barre de la carte, 👥 ouvre Buddies (pastille = du nouveau) et 👤
 - **Carnet** : le rendu final, joli et bien rangé. Dans l'ordre :
   1. Une couverture, puis les photos choisies automatiquement dans l'album pour faire un
      ensemble cohérent ; on peut en changer.
-  2. Le récit : dicté à la voix, transcrit, puis modifiable au clavier.
+  2. Le récit : chacun écrit ce qu'il veut. Chaque buddy peut ajouter son propre texte,
+     signé de son visage, dicté à la voix, transcrit, puis modifiable au clavier. **(Seb)**
   3. La trace sur la carte, une couleur par jour ; un toucher l'ouvre en plein écran.
   4. Le profil et les chiffres, à la manière de Skitour ou VisuGPX : distance, montée,
      descente, durée, temps en marche, point haut, vitesse de montée, difficulté, météo,
@@ -247,7 +250,9 @@ de planning, dispo, conversation, message, pièce jointe, photo, carnet, fiche d
 liée, hébergement proposé, dépense, position. Chaque objet porte l'identifiant de son Buddy
 Group ou de son Buddy Time, qui décide qui peut le voir. À détailler bloc par bloc.
 
-## 7. Ordre de construction proposé
+## 7. Ordre de construction
+
+Seb laisse le choix de l'ordre. **(Seb)**
 
 Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable seul.
 
@@ -273,11 +278,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 ## 9. Points ouverts
 
 1. Le nom « Me Time » : accepté « pourquoi pas », à confirmer.
-2. Dans Me Time, inviter un ou deux copains à une sortie sans créer de Buddy Group ?
-3. Le récit du carnet : une seule personne l'écrit et les autres corrigent, ou chacun ajoute
-   son paragraphe ?
-4. La portée de la colonne dans la liste (tous mes buddies à la fois) : à confirmer.
-5. Les icônes 📍 et 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
+2. La portée de la colonne dans la liste (tous mes buddies à la fois) : à confirmer.
+3. Les icônes 📍 et 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
    haut de la liste : à confirmer.
-6. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
-7. L'ordre de construction du §7.
+4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
