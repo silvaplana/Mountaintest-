@@ -56,6 +56,10 @@ class BuddiesPanel(
     private val onExpenses: () -> Unit,
     private val onLodging: () -> Unit,
     private val onClose: () -> Unit,
+    /** Ouvrir un Buddy Time sur la carte (écran 4), ou une trace partagée dans un groupe (sortie = null). */
+    private val onCarte: (Buddies.Sortie?, List<Buddies.TraceBuddy>) -> Unit,
+    /** Revenir sur ce Buddy Group (‹ depuis la carte d'un Buddy Time). */
+    depart: String? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -65,8 +69,11 @@ class BuddiesPanel(
     private val card = Color.parseColor("#F2F4F1")
     private val couleurs = listOf("#2F6F4F", "#3F6FB5", "#8A4FB0", "#C9862B", "#2C8C8C", "#B5534A").map(Color::parseColor)
 
-    private sealed class Vue { object Liste : Vue(); data class UnGroupe(val id: String) : Vue(); object Nouveau : Vue() }
-    private var vue: Vue = Vue.Liste
+    private sealed class Vue {
+        object Liste : Vue(); data class UnGroupe(val id: String) : Vue(); object Nouveau : Vue(); data class NouvelleSortie(val groupe: String) : Vue()
+    }
+    private var vue: Vue = depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
+    private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie
 
     private val tete = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val col = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(16)) }
@@ -213,6 +220,7 @@ class BuddiesPanel(
         when (val v = vue) {
             Vue.Liste -> liste(gs)
             Vue.Nouveau -> nouveau()
+            is Vue.NouvelleSortie -> nouvelleSortie(gs.firstOrNull { it.id == v.groupe } ?: gs.first { it.meTime })
             is Vue.UnGroupe -> gs.firstOrNull { it.id == v.id }?.let { unGroupe(it) } ?: run { vue = Vue.Liste; liste(gs) }
         }
     }
@@ -223,6 +231,8 @@ class BuddiesPanel(
         if (buddies.rejointsEnAttente > 0) col.addView(text("🕓 Invitation reçue : tu entreras dans le Buddy Group au retour du réseau.", 15f, Color.parseColor("#6B4A00")).apply {
             setPadding(dp(12), dp(9), dp(12), dp(9)); background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(Color.parseColor("#FDF0D5")) }
         }, lp())
+        val sorties = buddies.sorties()
+        prochaine(sorties)?.let { col.addView(affiche(it, false) { ouvrir(it) }, lp(8)) }
         col.addView(section("Buddy Groups"), lp(10))
         for (g in gs) col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64); isClickable = true
@@ -235,7 +245,23 @@ class BuddiesPanel(
             }, LinearLayout.LayoutParams(0, -2, 1f))
             addView(text(if (g.attente) "🕓" else quand(g.modifie), 15f, muted))
         }, lp(4))
-        pied.addView(bouton("＋  Buddy Group · une bande", primaire = true) { vue = Vue.Nouveau; afficher() }, lp(8))
+        if (sorties.isNotEmpty()) col.addView(section("Buddy Times"), lp(10))
+        for (x in sorties) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64); isClickable = true
+            setOnClickListener { ouvrir(x) }
+            addView(carre(x, 56))
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(6), 0)
+                addView(text(x.nom, 17f, bold = true).apply { isSingleLine = true })
+                addView(text(listOfNotNull(gs.firstOrNull { it.id == x.groupe }?.nom, if (x.participants.size > 1) "${x.participants.size} partants" else null,
+                    if (x.fin < aujourdhui()) "souvenir" else null).joinToString(" · "), 15f, muted).apply { isSingleLine = true })
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text(if (x.attente) "🕓" else quand(x.modifie), 15f, muted))
+        }, lp(4))
+        pied.addView(LinearLayout(a).apply {
+            addView(bouton("＋ Buddy Group\nune bande", primaire = true) { vue = Vue.Nouveau; afficher() }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
+            addView(bouton("＋ Buddy Time\nune sortie", primaire = true) { nvSortieReset(); vue = Vue.NouvelleSortie(gs.first { it.meTime }.id); afficher() }, LinearLayout.LayoutParams(0, -2, 1f))
+        }, lp(8))
     }
 
     private fun unGroupe(g: Buddies.Groupe) {
@@ -247,9 +273,85 @@ class BuddiesPanel(
             for (i in g.invitations.filter { it.canal != "qr" }) addView(visage(i.id, i.nom, null, pale = true).apply { (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(-6) })
             addView(rond("＋", 40) { membres(g) }.apply { setTextColor(accent); (layoutParams as LinearLayout.LayoutParams).leftMargin = dp(16) })
         }, lp(4))
+        val auj = aujourdhui()
+        val sorties = buddies.sorties().filter { it.groupe == g.id }
+        val avenir = sorties.filter { it.fin >= auj }.sortedBy { it.debut }
+        val souvenirs = sorties.filter { it.fin < auj }.sortedByDescending { it.debut }
         col.addView(section("À venir"), lp(10))
-        col.addView(text(if (g.meTime) "Tes sorties à toi, seul ou avec un ou deux copains invités, viendront ici."
-            else "Les Buddy Times de la bande viendront ici : à venir d’abord, puis les souvenirs en images.", 17f, muted), lp(4))
+        if (avenir.isEmpty()) col.addView(text(if (g.meTime) "Tes sorties à toi, seul ou avec un ou deux copains invités."
+            else "Rien de prévu pour l’instant : ＋ Buddy Time quand vous êtes sûrs de partir.", 17f, muted), lp(4))
+        for (x in avenir) col.addView(affiche(x, false) { ouvrir(x) }, lp(6))
+        if (souvenirs.isNotEmpty()) col.addView(section("Souvenirs"), lp(12))
+        for (paire in souvenirs.chunked(2)) col.addView(LinearLayout(a).apply {
+            paire.forEachIndexed { k, x -> addView(affiche(x, true) { ouvrir(x) }, LinearLayout.LayoutParams(0, dp(120), 1f).apply { if (k == 0) rightMargin = dp(10) }) }
+            if (paire.size == 1) addView(View(a), LinearLayout.LayoutParams(0, 1, 1f))
+        }, lp(6))
+        val traces = buddies.traces().filter { it.groupe == g.id }
+        if (traces.isNotEmpty()) col.addView(section("Traces partagées"), lp(12))
+        for (t in traces) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(52); isClickable = true
+            setOnClickListener { onCarte(null, listOf(t)) }
+            addView(visage(t.par.id, t.par.pseudo, t.par.photo))
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(6), 0)
+                addView(text("〰 ${t.nom}", 17f, bold = true).apply { isSingleLine = true })
+                addView(text(t.par.pseudo + if (t.mot.isNotEmpty()) " : ${t.mot}" else "", 15f, muted).apply { isSingleLine = true })
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text(if (t.attente) "🕓" else quand(t.cree), 15f, muted))
+        }, lp(4))
+        pied.addView(bouton("＋ Buddy Time · une sortie", primaire = true) { nvSortieReset(); vue = Vue.NouvelleSortie(g.id); afficher() }, lp(8))
+    }
+
+    // ---------- Buddy Times ----------
+    private fun aujourdhui(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    private fun jourMs(d: String) = runCatching { SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(d)!!.time }.getOrDefault(0L)
+    private fun joursAvant(x: Buddies.Sortie) = Math.round((jourMs(x.debut) - jourMs(aujourdhui())) / 86_400_000.0).toInt()
+    private fun prochaine(l: List<Buddies.Sortie>) = l.filter { it.fin >= aujourdhui() }.minByOrNull { it.debut }
+    private fun dateCourte(d: String) = SimpleDateFormat("EEE d MMM", Locale.FRANCE).format(Date(jourMs(d)))
+    private fun dates(x: Buddies.Sortie) = if (x.fin == x.debut) dateCourte(x.debut) else "${dateCourte(x.debut)} – ${dateCourte(x.fin)}"
+    private fun quandSortie(x: Buddies.Sortie): String {
+        val n = joursAvant(x)
+        return when { x.fin < aujourdhui() -> "Souvenir"; n <= 0 -> "En cours"; n == 1 -> "Demain"; else -> "Dans $n jours" }
+    }
+    private fun ouvrir(x: Buddies.Sortie) = onCarte(x, buddies.traces().filter { it.sortie == x.id })
+    private fun couleurDe(id: String) = couleurs[Math.floorMod(id.sumOf { it.code }, couleurs.size)]
+    private val moisCourts = listOf("JANV", "FÉVR", "MARS", "AVR", "MAI", "JUIN", "JUIL", "AOÛT", "SEPT", "OCT", "NOV", "DÉC")
+
+    /** Fond d'un Buddy Time : sa photo, sinon une couleur tirée de son identifiant. */
+    private fun fond(x: Buddies.Sortie, rayon: Float) = x.photo?.takeIf { it.startsWith("data:image/") }?.let(::image)
+        ?.let { android.graphics.drawable.BitmapDrawable(a.resources, it) }
+        ?: GradientDrawable().apply { cornerRadius = rayon; setColor(couleurDe(x.id)) }
+
+    /** Photo carrée datée (même code dans la liste et le panneau de partage). */
+    fun carre(x: Buddies.Sortie, taille: Int): View = FrameLayout(a).apply {
+        background = fond(x, 12 * d)
+        outlineProvider = object : ViewOutlineProvider() { override fun getOutline(view: View, o: Outline) { o.setRoundRect(0, 0, view.width, view.height, 12 * d) } }
+        clipToOutline = true
+        addView(LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(4), 0, dp(4), dp(1))
+            background = GradientDrawable().apply { cornerRadius = 6 * d; setColor(Color.WHITE) }
+            addView(TextView(a).apply { text = moisCourts.getOrElse(x.debut.drop(5).take(2).toIntOrNull()?.minus(1) ?: -1) { "" }; textSize = 9f; setTextColor(Color.parseColor("#E0592A")); setTypeface(typeface, Typeface.BOLD) })
+            addView(TextView(a).apply { text = x.debut.takeLast(2).trimStart('0'); textSize = 15f; setTextColor(ink); setTypeface(typeface, Typeface.BOLD); setPadding(0, dp(-3), 0, 0) })
+        }, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(4), 0, 0, dp(4)) })
+        layoutParams = LinearLayout.LayoutParams(dp(taille), dp(taille))
+    }
+
+    /** Grande image d'un Buddy Time (le prochain en haut de la liste, les cartes d'un groupe). */
+    private fun affiche(x: Buddies.Sortie, petite: Boolean, f: () -> Unit): View = FrameLayout(a).apply {
+        background = fond(x, 18 * d)
+        outlineProvider = object : ViewOutlineProvider() { override fun getOutline(view: View, o: Outline) { o.setRoundRect(0, 0, view.width, view.height, 18 * d) } }
+        clipToOutline = true; isClickable = true; setOnClickListener { f() }
+        minimumHeight = dp(if (petite) 120 else 150)
+        addView(View(a).apply { background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x00000000, 0x99000000.toInt())) }, FrameLayout.LayoutParams(-1, -1))
+        if (!petite) addView(TextView(a).apply {
+            text = quandSortie(x); textSize = 15f; setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD); setPadding(dp(10), dp(3), dp(10), dp(3))
+            background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(Color.parseColor("#E0592A")) }
+        }, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { setMargins(dp(12), dp(12), 0, 0) })
+        addView(LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(14), 0, dp(14), dp(12))
+            addView(text(x.nom, if (petite) 17f else 22f, Color.WHITE, bold = true))
+            addView(text((if (petite) dateCourte(x.debut) else "${dates(x)} · ${x.participants.size} partant${if (x.participants.size > 1) "s" else ""}") + if (x.attente) " · 🕓" else "", 15f, Color.WHITE))
+        }, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
     }
 
     /** Les buddies d'un groupe (toucher les visages) : inviter, nommer admin, retirer, quitter (spec §5.3). */
@@ -258,7 +360,7 @@ class BuddiesPanel(
         val boite = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val dlg = AlertDialog.Builder(a).setView(ScrollView(a).apply { addView(boite) }).setNegativeButton("Fermer", null).create()
         boite.addView(text("Inviter mes copains", 20f, bold = true))
-        boite.addView(inviterRangee(g.nom, g.invitations.firstOrNull { it.canal == "qr" }?.code) { i ->
+        boite.addView(inviterFixe(g.nom, g.invitations.firstOrNull { it.canal == "qr" }?.code) { i ->
             buddies.inviter(g.id, i); synchroniser()
             if (i.canal != "qr") toast("Invitation envoyée à ${i.nom}")
         }, lp())
@@ -305,13 +407,14 @@ class BuddiesPanel(
      * Les quatre façons d'inviter (écran 20) : Contacts, Mail, Téléphone, QR code. On n'invite que des gens qu'on
      * connaît, jamais par recherche (spec §3.5). Le message part tout de suite, même sans réseau.
      */
-    private fun inviterRangee(nomGroupe: () -> String, qrExistant: () -> String?, onInvite: (Buddies.NouvelleInvitation) -> Unit): View {
-        fun pret() = nomGroupe().isNotBlank().also { if (!it) toast("Donne d’abord un nom au Buddy Group") }
-        fun texte(code: String) = "${compte.nomAffiche()} t'invite dans « ${nomGroupe()} » sur Mountain Buddies, pour nos sorties montagne : ${Buddies.lien(code)}"
+    private fun inviterRangee(nomGroupe: () -> String, qrExistant: () -> String?, sortie: Boolean = false, onInvite: (Buddies.NouvelleInvitation) -> Unit): View {
+        val dans = if (sortie) "à" else "dans"
+        fun pret() = nomGroupe().isNotBlank().also { if (!it) toast("Donne d’abord un nom au ${if (sortie) "Buddy Time" else "Buddy Group"}") }
+        fun texte(code: String) = "${compte.nomAffiche()} t'invite $dans « ${nomGroupe()} » sur Mountain Buddies, pour nos sorties montagne : ${Buddies.lien(code)}"
         fun envoyer(c: String, nom: String, contact: String) {
             val code = Buddies.nouveauCode()
             val intent = if (c == "mail") Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + Uri.encode(contact))).apply {
-                putExtra(Intent.EXTRA_SUBJECT, "${compte.nomAffiche()} t'invite dans « ${nomGroupe()} »"); putExtra(Intent.EXTRA_TEXT, texte(code))
+                putExtra(Intent.EXTRA_SUBJECT, "${compte.nomAffiche()} t'invite $dans « ${nomGroupe()} »"); putExtra(Intent.EXTRA_TEXT, texte(code))
             } else Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(contact))).apply { putExtra("sms_body", texte(code)) }
             try { a.startActivity(intent) } catch (e: Exception) { toast("Aucune appli pour envoyer"); return }
             onInvite(Buddies.NouvelleInvitation(c, nom.trim().ifEmpty { contact }, contact, code))
@@ -339,7 +442,7 @@ class BuddiesPanel(
             val boite = LinearLayout(a).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(20), dp(8), dp(20), 0)
                 addView(ImageView(a).apply { setImageBitmap(bmp) }, LinearLayout.LayoutParams(taille, taille))
-                addView(text("Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer dans la bande.", 15f, muted), lp())
+                addView(text("Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer ${if (sortie) "dans la sortie" else "dans la bande"}.", 15f, muted), lp())
             }
             AlertDialog.Builder(a).setTitle(nomGroupe()).setView(boite).setPositiveButton("Fermer", null).show()
         }
@@ -358,8 +461,8 @@ class BuddiesPanel(
             }
         }
     }
-    private fun inviterRangee(nomGroupe: String, qrExistant: String?, onInvite: (Buddies.NouvelleInvitation) -> Unit) =
-        inviterRangee({ nomGroupe }, { qrExistant }, onInvite)
+    private fun inviterFixe(nomGroupe: String, qrExistant: String?, onInvite: (Buddies.NouvelleInvitation) -> Unit): View =
+        inviterRangee(nomGroupe = { nomGroupe }, qrExistant = { qrExistant }, sortie = false, onInvite = onInvite)
 
     // ---------- nouveau Buddy Group (écran 20) ----------
     private var nvNom = ""
@@ -420,9 +523,90 @@ class BuddiesPanel(
         }, lp(8))
     }
 
+    // ---------- nouveau Buddy Time (écran 21) : il naît quand on est sûr de partir ----------
+    private var nsNom = ""
+    private var nsPhoto: String? = null
+    private var nsDebut = ""
+    private var nsFin = ""
+    private var nsLieu = ""
+    private var nsQui: MutableSet<String>? = null
+    private val nsInvites = mutableListOf<Buddies.NouvelleInvitation>()
+    private fun nvSortieReset() { nsNom = ""; nsPhoto = null; nsDebut = aujourdhui(); nsFin = nsDebut; nsLieu = ""; nsQui = null; nsInvites.clear() }
+
+    private fun champ(valeur: String, indice: String, f: (String) -> Unit) = EditText(a).apply {
+        setText(valeur); hint = indice; isSingleLine = true; textSize = 17f; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, af: Int) {}
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) { f(s?.toString().orEmpty()) }
+        })
+    }
+
+    private fun nouvelleSortie(g: Buddies.Groupe) {
+        val qui = nsQui ?: g.membres.map { it.id }.toMutableSet().also { nsQui = it }
+        entete("Nouveau Buddy Time", retour = true)
+        // Photo en bandeau, « 📷 Changer »
+        col.addView(FrameLayout(a).apply {
+            background = nsPhoto?.let(::image)?.let { android.graphics.drawable.BitmapDrawable(a.resources, it) }
+                ?: GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(Color.parseColor("#9CC3E6"), Color.parseColor("#6D8FAE"))).apply { cornerRadius = 18 * d }
+            outlineProvider = object : ViewOutlineProvider() { override fun getOutline(view: View, o: Outline) { o.setRoundRect(0, 0, view.width, view.height, 18 * d) } }
+            clipToOutline = true; isClickable = true
+            setOnClickListener { choisirPhoto { p -> if (p != null) { nsPhoto = p; afficher() } } }
+            addView(text(if (nsPhoto == null) "📷 Une photo" else "📷 Changer", 15f, bold = true).apply {
+                setPadding(dp(10), dp(4), dp(10), dp(4)); background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(Color.WHITE) }
+            }, FrameLayout.LayoutParams(-2, -2).apply { setMargins(dp(10), dp(10), 0, 0) })
+        }, LinearLayout.LayoutParams(-1, dp(120)).apply { topMargin = dp(4) })
+        col.addView(champ(nsNom, "Week-end Queyras") { nsNom = it }.apply { gravity = Gravity.CENTER; setTypeface(typeface, Typeface.BOLD) }, lp())
+        col.addView(section("Quand"), lp(12))
+        col.addView(LinearLayout(a).apply {
+            fun date(libelle: String, valeur: String, f: (String) -> Unit) = text("$libelle  ${dateCourte(valeur)}", 17f, bold = true).apply {
+                setPadding(dp(12), dp(12), dp(12), dp(12)); background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(card) }
+                setOnClickListener {
+                    val c = Calendar.getInstance().apply { timeInMillis = jourMs(valeur) }
+                    android.app.DatePickerDialog(a, { _, y, m, j -> f(String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, j)); afficher() },
+                        c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                }
+            }
+            addView(date("du", nsDebut) { nsDebut = it; if (nsFin < it) nsFin = it }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(10) })
+            addView(date("au", nsFin) { nsFin = if (it < nsDebut) nsDebut else it }, LinearLayout.LayoutParams(0, -2, 1f))
+        }, lp(4))
+        col.addView(section("Avec qui · " + if (g.meTime) "Me Time" else "${g.nom} · ${qui.size} sur ${g.membres.size}"), lp(12))
+        if (g.meTime) {
+            col.addView(inviterRangee({ nsNom }, { nsInvites.firstOrNull { it.canal == "qr" }?.code }, sortie = true) { i -> nsInvites += i; if (i.canal != "qr") afficher() }, lp(4))
+            for (i in nsInvites.filter { it.canal != "qr" }) col.addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(52)
+                addView(visage(i.code, i.nom, null))
+                addView(text(i.nom, 17f, bold = true).apply { setPadding(dp(12), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text(canal[i.canal] ?: "", 15f, accent, bold = true))
+            })
+            if (nsInvites.isEmpty()) col.addView(text("Seul, ou invite un ou deux copains à cette sortie, sans créer de Buddy Group.", 15f, muted), lp(4))
+        } else col.addView(android.widget.HorizontalScrollView(a).apply {
+            addView(LinearLayout(a).apply {
+                for (m in g.membres) addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, 0, dp(10), 0)
+                    alpha = if (m.id in qui || buddies.estMoi(m)) 1f else 0.4f
+                    addView(visage(m.id, m.pseudo, m.photo, 48))
+                    addView(text(if (m.id in qui) "✓" else "—", 15f, muted))
+                    if (!buddies.estMoi(m)) { isClickable = true; setOnClickListener { if (!qui.remove(m.id)) qui += m.id; afficher() } }
+                })
+            })
+        }, lp(4))
+        col.addView(section("Où · facultatif"), lp(12))
+        col.addView(champ(nsLieu, "📍 Ceillac, Queyras") { nsLieu = it }, lp(4))
+        pied.addView(bouton("Créer le Buddy Time", primaire = true) {
+            try {
+                val id = buddies.creerSortie(g.id, nsNom, nsPhoto, nsDebut, nsFin, nsLieu,
+                    qui.filter { b -> g.membres.none { it.id == b && buddies.estMoi(it) } }, nsInvites.toList())
+                toast(if (enLigne()) "« ${nsNom.trim()} » est créé" else "« ${nsNom.trim()} » est créé sur ton téléphone ; il partira au retour du réseau")
+                nvSortieReset(); vue = Vue.UnGroupe(g.id); afficher(); synchroniser()
+                buddies.sorties().firstOrNull { it.id == id }?.let { ouvrir(it) }
+            } catch (e: IllegalArgumentException) { toast(e.message ?: "Donne un nom au Buddy Time") }
+        }, lp(8))
+    }
+
     // En dernier : tout ce qui précède est prêt. Pendant la saisie d'un nouveau groupe, la synchro ne redessine pas l'écran.
-    private val desabonner = Buddies.suivre { a.runOnUiThread { if (vue != Vue.Nouveau) afficher() } }
-    private val desabonnerCompte = Compte.suivre { a.runOnUiThread { if (vue != Vue.Nouveau) afficher() } }
+    private val desabonner = Buddies.suivre { a.runOnUiThread { if (!saisie) afficher() } }
+    private val desabonnerCompte = Compte.suivre { a.runOnUiThread { if (!saisie) afficher() } }
     init { remplirColonne(); afficher() }
     // Ouvert : on regarde les nouveautés toutes les minutes.
     private val minuteur: Job = a.lifecycleScope.launch { while (true) { synchroniser(); delay(60_000) } }

@@ -292,8 +292,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 1** : 👥 ouvre Buddies, 👤 ouvre Mon compte (pastille verte ou orange). La pastille de 👥
   compte les Buddy Groups qui ont bougé depuis la dernière ouverture.
 - **Écran 2** : la liste des Buddy Groups (Me Time compris), le plus récemment actif en haut,
-  « à jour à 8 h 12 » et 🕓 pour ce qui attend le réseau. La partie Buddy Times, la grande image
-  du prochain Buddy Time et « ＋ Buddy Time » arrivent avec le bloc 2.
+  « à jour à 8 h 12 » et 🕓 pour ce qui attend le réseau. Les Buddy Times arrivent avec le
+  bloc 2 (§7.2).
 - **Écran 3** : un Buddy Group, ses visages (toucher : inviter, nommer admin, retirer, quitter).
   Le dernier admin qui part passe la main au plus ancien membre ; un groupe vide disparaît.
 - **Écran 20** : photo, nom, invitations par Contacts (sélecteur d'Android, sans permission
@@ -310,6 +310,29 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   envoie ses opérations en attente et reçoit les Buddy Groups changés depuis la fois d'avant.
   Une opération refusée (droits, lien expiré) est montrée puis oubliée. Synchro à l'ouverture de
   l'appli, au retour du réseau, après chaque action et chaque minute quand Buddies est ouvert.
+
+### 7.2 Bloc 2 : ce qui est construit (23 novembre 2026)
+
+- **Écran 2** : en haut, la grande image du Buddy Time en cours, sinon du prochain (« Dans 5 jours »),
+  puis la partie Buddy Times (à venir, du plus proche au plus lointain), puis les Buddy Groups.
+  En bas, « ＋ Buddy Time » et « ＋ Buddy Group ».
+- **Écran 3** : un Buddy Group montre aussi ses Buddy Times à venir, ses souvenirs (Buddy Times
+  passés, en vignettes) et les traces partagées dans le groupe, plus « ＋ Buddy Time ».
+- **Écran 21** : photo, nom, date de début et de fin (fin = début si vide), lieu ; dans une bande,
+  on coche qui part (le créateur part toujours) ; dans Me Time, on invite des copains à la sortie
+  (Contacts, Mail, SMS, QR) : le lien les ajoute au Buddy Time, pas à un groupe.
+- **Écran 4** : toucher un Buddy Time ouvre la carte, cadrée sur ses traces. En haut ‹ nom, dates,
+  lieu ; en bas un bandeau qu'on replie (« Dans N jours », « En cours » ou « Souvenir », qui part,
+  km du parcours, jours avant). Les traces partagées s'ajoutent à Mes traces affichées (« Partagée
+  par Julie ») : profil, Y aller, Commencer et Hors ligne marchent comme pour les siennes.
+  Météo, rendez-vous et dénivelé du bandeau : plus tard.
+- **Écran 22** : l'icône de partage d'une trace ouvre le panneau commun : vignettes des Buddy Times
+  à venir, puis des Buddy Groups, un petit mot, « Partager » ; « Ou ailleurs » garde le partage du
+  téléphone (fichier GPX). Partager à un buddy seul attendra la messagerie (bloc 9).
+- **Serveur** : tables `sorties`, `participants`, `traces` ; la synchro renvoie aussi les Buddy Times
+  et traces changés. Un Buddy Time se voit par les membres de son groupe et ses participants ;
+  une trace par ceux qui voient son groupe ou son Buddy Time. Une trace : 2 à 20 000 points,
+  arrondis à 5 décimales (environ 1 m).
 
 ## 8. Hors périmètre pour l'instant
 

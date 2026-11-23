@@ -601,6 +601,57 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-actions .danger { color: var(--danger); }
 .bd-corps .hint { font-size: 15px; }
 .bd-corps .xp-head h2 { font-size: 22px; }
+
+/* 👥 Buddy Times (écrans 2, 3, 4, 21, 22) */
+.bd-carre { position: relative; flex: none; border-radius: 12px; overflow: hidden; display: inline-block; }
+.bd-date { position: absolute; left: 4px; bottom: 4px; background: #fff; color: #1d2421; border-radius: 6px; padding: 1px 4px;
+  display: flex; flex-direction: column; align-items: center; line-height: 1.05; min-width: 26px; }
+.bd-date small { color: #e0592a; font-size: 9px; font-weight: 700; }
+.bd-date b { font-size: 15px; }
+.bd-affiche { display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 2px; width: 100%;
+  min-height: 150px; border: 0; border-radius: 18px; padding: 14px; color: #fff; text-align: left; position: relative; }
+.bd-affiche b { font-size: 22px; } .bd-affiche small { font-size: 15px; opacity: .95; }
+.bd-affiche.petite { min-height: 120px; padding: 10px; border-radius: 14px; }
+.bd-affiche.petite b { font-size: 17px; }
+.bd-pastille { position: absolute; left: 12px; top: 12px; background: #e0592a; color: #fff; border-radius: 12px; padding: 3px 10px; font-size: 15px; font-weight: 700; }
+.bd-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bd-mini-carre { display: inline-grid; place-items: end center; width: 30px; height: 30px; border-radius: 7px; background: #9cc3e6; color: #e0592a;
+  font-size: 11px; font-weight: 700; padding-bottom: 1px; border: 2px solid #fff; }
+.bd-bandeau-photo { width: 100%; min-height: 120px; border: 0; border-radius: 18px; background: linear-gradient(#9cc3e6, #6d8fae);
+  display: flex; align-items: flex-start; padding: 10px; }
+.bd-bandeau-photo span { background: #fff; color: #1d2421; border-radius: 10px; padding: 4px 10px; font-size: 15px; font-weight: 600; }
+.bd-dates { display: flex; gap: 10px; }
+.bd-dates label { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 12px; padding: 4px 10px; color: var(--muted); }
+.bd-dates input { flex: 1; min-width: 0; border: 0; background: none; font-weight: 600; padding: 8px 0; }
+.bd-qui { display: flex; flex-wrap: wrap; gap: 10px; }
+.bd-qui button { border: 0; background: none; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: .4; min-height: 0; }
+.bd-qui button.oui, .bd-qui button:disabled { opacity: 1; }
+.bd-carte-haut { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 72px; display: flex; align-items: center; gap: 8px;
+  background: var(--bg); border-radius: 26px; padding: 4px 14px 4px 4px; box-shadow: 0 1px 8px #0003; font-size: 17px; }
+.bd-carte-haut > button { width: 44px; height: 44px; border-radius: 50%; padding: 0; background: var(--card); border: 0; font-size: 22px; }
+.bd-carte-bas { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -2px 12px #0003;
+  padding: 4px 16px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 8px; font-size: 17px; }
+.bd-carte-quand { font-size: 20px; }
+.bd-carte-qui { display: flex; align-items: center; gap: 2px; }
+.bd-carte-qui > .bd-visage { margin-right: -6px; border: 2px solid var(--bg); }
+.bd-carte-qui small { margin-left: 14px; color: var(--muted); font-size: 15px; }
+.bd-chiffres { display: flex; gap: 8px; }
+.bd-chiffres span { flex: 1; background: var(--card); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; align-items: center; }
+.bd-chiffres b { font-size: 20px; } .bd-chiffres small { color: var(--muted); font-size: 14px; }
+.bd-partage .xp-head h3 { margin: 0; flex: 1; font-size: 20px; }
+.bd-defile { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 6px; }
+.bd-tuile { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: none; padding: 3px; width: 96px; min-height: 0; }
+.bd-tuile.rond { width: 72px; }
+.bd-tuile small { font-size: 14px; color: var(--fg); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-tuile.oui .bd-carre, .bd-tuile.oui .bd-visage { box-shadow: 0 0 0 3px var(--accent); }
+.bd-plus button { min-width: 0; padding: 8px 10px; gap: 6px; font-size: 18px; }
+.bd-plus .bd-plus-texte { font-size: 15px; }
+.bd-plus .bd-plus-texte b { white-space: nowrap; }
+.bd-plus .bd-faces i { width: 18px; height: 18px; margin-right: -7px; }
+.bd-plus .bd-mini-carre { width: 24px; height: 24px; }
+.bd-dates label { min-width: 0; }
+.bd-plus button { flex-direction: column; justify-content: center; text-align: center; gap: 4px; }
+.bd-plus .bd-plus-texte { align-items: center; }
 /* Connexion : Google, Apple, e-mail (dès l'ouverture tant qu'on n'est pas connecté) */
 .account .acc-social { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 600; flex: none; }
 .account .acc-social.apple { background: #000; border-color: #000; color: #fff; }

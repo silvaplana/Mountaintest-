@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _reinitialiser as reinitCompte, ecrire as ecrireCompte, HorsLigne } from '../src/compte/auth';
 import {
-  _reinitialiser, appliquer, creerGroupe, inviter, lire, nouveauCode, nouveautes, quitter, rejoindre, synchroniser, type Groupe,
+  _reinitialiser, appliquer, creerGroupe, creerSortie, inviter, joursAvant, lire, nouveauCode, nouveautes, partagerTrace, prochaine,
+  quitter, rejoindre, synchroniser, vue, type Groupe, type Sortie,
 } from '../src/buddies/store';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
@@ -112,5 +113,59 @@ describe('Buddies : copie locale et file d’attente', () => {
     reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me', 'a'], refus: [], groupes: [ME, groupe('a', 'A', new Date().toISOString())] }));
     await synchroniser();
     expect(nouveautes()).toBe(1);
+  });
+});
+
+describe('Buddy Times et traces partagées (bloc 2)', () => {
+  const sortie = (id: string, debut: string, fin = debut): Sortie => ({ id, groupe: 'a', nom: id, photo: null, debut, fin, lieu: '',
+    modifie_le: '2026-11-23T10:00:00+00:00', participants: [], invitations: [] });
+
+  it('un Buddy Time créé sans réseau apparaît tout de suite, avec les buddies cochés', async () => {
+    reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me', 'a'], refus: [], ids_sorties: [], sorties: [], ids_traces: [], traces: [],
+      groupes: [ME, { ...groupe('a', 'A'), membres: [{ id: 'u-seb', pseudo: 'Seb', photo: null, role: 'admin' }, { id: 'u-j', pseudo: 'Julie', photo: null, role: 'membre' }, { id: 'u-p', pseudo: 'Paul', photo: null, role: 'membre' }] }] }));
+    await synchroniser();
+    reseau(() => 'coupure');
+    const id = creerSortie({ groupe: 'a', nom: 'Week-end Queyras', photo: null, debut: '2026-12-12', fin: '2026-12-13', lieu: 'Ceillac', participants: ['u-j'] });
+    const x = vue(lire()).sorties.find((y) => y.id === id)!;
+    expect(x.attente).toBe(true);
+    expect(x.participants.map((p) => p.pseudo)).toEqual(['Seb', 'Julie']);
+    expect(lire().attente.at(-1)).toMatchObject({ type: 'creer_sortie', groupe: 'a', participants: ['u-j'] });
+  });
+
+  it('dans Me Time, les copains sont invités à la sortie', () => {
+    reseau(() => 'coupure');
+    const id = creerSortie({ groupe: 'me', nom: 'Sainte-Victoire', photo: null, debut: '2026-11-29', fin: '', lieu: '', participants: [] },
+      [{ canal: 'sms', nom: 'Paul', contact: '06', code: nouveauCode() }]);
+    expect(lire().attente.map((o) => [o.type, o.sortie])).toEqual([['creer_sortie', id], ['inviter', id]]);
+    const x = vue(lire()).sorties[0];
+    expect(x.fin).toBe('2026-11-29');
+    expect(x.invitations[0].nom).toBe('Paul');
+    expect(() => creerSortie({ groupe: 'me', nom: ' ', photo: null, debut: '2026-11-29', fin: '', lieu: '', participants: [] })).toThrow();
+  });
+
+  it('partager une trace : un envoi par Buddy Time ou groupe choisi, visible tout de suite', () => {
+    reseau(() => 'coupure');
+    partagerTrace('Col Girardin', [[6.700001, 44.6], [6.71, 44.61]], 'samedi ?', { sorties: ['s1'], groupes: ['a'] });
+    const ops = lire().attente.filter((o) => o.type === 'partager_trace');
+    expect(ops.map((o) => [o.sortie ?? null, o.groupe ?? null])).toEqual([['s1', null], [null, 'a']]);
+    expect(ops[0].ligne).toEqual([[6.7, 44.6], [6.71, 44.61]]);
+    expect(vue(lire()).traces).toHaveLength(2);
+  });
+
+  it('la synchro garde les Buddy Times et traces reçus', async () => {
+    reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [], ids_sorties: ['s1'], sorties: [sortie('s1', '2026-12-12')],
+      ids_traces: ['t1'], traces: [{ id: 't1', sortie: 's1', groupe: null, nom: 'Col', ligne: [[6, 44], [6.1, 44.1]], mot: '', par: { id: 'u-j', pseudo: 'Julie', photo: null }, cree_le: '2026-11-23T10:00:00+00:00' }] }));
+    await synchroniser();
+    reseau(() => ({ curseur: 'c2', moi: 'u-seb', ids: ['me'], groupes: [], refus: [], ids_sorties: ['s1'], sorties: [], ids_traces: ['t1'], traces: [] }));
+    await synchroniser();
+    expect(vue(lire()).sorties.map((x) => x.id)).toEqual(['s1']);
+    expect(vue(lire()).traces[0].par.pseudo).toBe('Julie');
+  });
+
+  it('le Buddy Time en cours, sinon le prochain, va en haut', () => {
+    const l = [sortie('passé', '2026-11-01'), sortie('loin', '2027-01-10'), sortie('bientôt', '2026-12-12', '2026-12-13')];
+    expect(prochaine(l, '2026-11-23')!.id).toBe('bientôt');
+    expect(prochaine(l, '2026-12-13')!.id).toBe('bientôt');
+    expect(joursAvant(l[2], '2026-12-07')).toBe(5);
   });
 });

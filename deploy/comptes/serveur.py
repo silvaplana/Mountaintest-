@@ -75,6 +75,7 @@ COLONNES_AJOUTEES = [
     ("invitations", "nom", "VARCHAR(80) NOT NULL DEFAULT ''"),
     ("invitations", "contact", "VARCHAR(320) NOT NULL DEFAULT ''"),
     ("invitations", "acceptee_par", "UUID REFERENCES utilisateurs(id)"),
+    ("invitations", "sortie_id", "UUID REFERENCES sorties(id) ON DELETE CASCADE"),
 ]
 
 

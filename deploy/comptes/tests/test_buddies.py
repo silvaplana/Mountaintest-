@@ -160,3 +160,87 @@ def test_colonnes_ajoutees_a_une_base_existante(monkeypatch):
     with moteur.connect() as c:
         assert {"nature", "photo"} <= {x["name"] for x in inspect(c).get_columns("groupes")}
         assert {"canal", "nom", "contact", "acceptee_par"} <= {x["name"] for x in inspect(c).get_columns("invitations")}
+
+
+# ------------------------------------------------------------------ bloc 2 : Buddy Times et traces partagées
+
+def nouvelle_sortie(gid, participants=(), nom="Week-end Queyras", debut="2026-12-12", fin="2026-12-13"):
+    return {"id": str(uuid.uuid4()), "type": "creer_sortie", "sortie": str(uuid.uuid4()), "groupe": gid, "nom": nom,
+            "debut": debut, "fin": fin, "lieu": "Ceillac", "participants": list(participants)}
+
+
+def bande_avec_julie(client):
+    op = nouveau_groupe()
+    gid = op["groupe"]
+    sync(client, ops=[op, invitation(gid)])
+    julie = sync(client, sub="julie", ops=[{"id": "j", "type": "rejoindre", "code": "CodeSecret0123456789"}])["moi"]
+    return gid, julie
+
+
+def test_buddy_time_dans_un_groupe(client):
+    gid, julie = bande_avec_julie(client)
+    op = nouvelle_sortie(gid, participants=[julie, str(uuid.uuid4())])  # un inconnu est ignoré
+    r = sync(client, ops=[op, op])  # renvoyé deux fois : un seul Buddy Time
+    assert r["refus"] == [] and r["ids_sorties"] == [op["sortie"]]
+    so = r["sorties"][0]
+    assert so["groupe"] == gid and so["debut"] == "2026-12-12" and so["lieu"] == "Ceillac"
+    assert sorted(p["id"] for p in so["participants"]) == sorted([r["moi"], julie])
+    # Julie le voit, Luc (hors du groupe) non.
+    assert sync(client, sub="julie")["ids_sorties"] == [op["sortie"]]
+    assert sync(client, sub="luc")["ids_sorties"] == []
+
+
+def test_buddy_time_dans_me_time_avant_la_premiere_synchro(client):
+    op = nouvelle_sortie("me-time", nom="Sainte-Victoire", debut="2026-11-29", fin="2026-11-29")
+    r = sync(client, ops=[op])
+    me = next(g for g in r["groupes"] if g["nature"] == "me_time")
+    assert r["sorties"][0]["groupe"] == me["id"]
+
+
+def test_inviter_un_copain_a_une_sortie_de_me_time(client):
+    op = nouvelle_sortie("me-time")
+    inv = {**invitation(None, code="SortieCode0123456789"), "groupe": None, "sortie": op["sortie"]}
+    r = sync(client, ops=[op, inv])
+    assert r["refus"] == [] and r["sorties"][0]["invitations"][0]["nom"] == "Julie"
+    assert client.get("/invitations/SortieCode0123456789").json()["sortie"] is True
+    # Paul rejoint la sortie, sans entrer dans le Me Time de Seb.
+    rp = sync(client, sub="paul", ops=[{"id": "p", "type": "rejoindre", "code": "SortieCode0123456789"}])
+    assert rp["ids_sorties"] == [op["sortie"]]
+    assert len(rp["ids"]) == 1  # seulement son propre Me Time
+    assert len(sync(client)["sorties"][0]["participants"]) == 2
+
+
+def test_partager_une_trace_dans_un_buddy_time_et_un_groupe(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    ligne = [[6.7, 44.65], [6.71, 44.66], [6.72, 44.67]]
+    t1 = {"id": "t1", "type": "partager_trace", "trace": str(uuid.uuid4()), "sortie": so["sortie"], "nom": "Col Girardin",
+          "ligne": ligne, "mot": "On fait ça samedi ?"}
+    t2 = {"id": "t2", "type": "partager_trace", "trace": str(uuid.uuid4()), "groupe": gid, "nom": "Tour du lac", "ligne": ligne}
+    r = sync(client, ops=[so, t1, t2, t1])
+    assert r["refus"] == [] and len(r["ids_traces"]) == 2
+    r = sync(client, sub="julie")
+    t = next(x for x in r["traces"] if x["nom"] == "Col Girardin")
+    assert t["sortie"] == so["sortie"] and t["ligne"][0] == [6.7, 44.65] and t["mot"] == "On fait ça samedi ?"
+    assert t["par"]["pseudo"] == "seb"
+    assert sync(client, sub="luc")["ids_traces"] == []
+
+
+@pytest.mark.parametrize("mauvais", [
+    {"debut": "12/12/2026"},
+    {"debut": "2026-12-13", "fin": "2026-12-12"},
+    {"nom": "  "},
+])
+def test_buddy_time_refuse(client, mauvais):
+    op = {**nouvelle_sortie("me-time"), **mauvais}
+    assert sync(client, ops=[op])["refus"]
+
+
+def test_trace_refusee(client):
+    op = {"id": "t", "type": "partager_trace", "trace": str(uuid.uuid4()), "groupe": "me-time", "nom": "x", "ligne": [[1, 2]]}
+    assert sync(client, ops=[op])["refus"]
+    # Buddy Time d'un autre : invisible
+    so = nouvelle_sortie("me-time")
+    sync(client, ops=[so])
+    op = {**op, "ligne": [[1, 2], [3, 4]], "groupe": None, "sortie": so["sortie"]}
+    assert sync(client, sub="luc", ops=[op])["refus"]

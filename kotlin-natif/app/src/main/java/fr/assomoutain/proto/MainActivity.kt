@@ -1365,8 +1365,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnTraceListClose).setOnClickListener { showTraceList(null) }
         findViewById<ImageButton>(R.id.btnTraceShare).setOnClickListener {
             val t = selectedTrail ?: return@setOnClickListener
-            runCatching { TraceShare.share(this, t.name, flat(t.segments.flatten())) }
-                .onFailure { toast("Partage impossible : ${it.message}") }
+            // 👥 Panneau de partage commun (Buddy Times, Buddy Groups, puis les autres applis).
+            SharePanel.montrer(this, compte, buddies, t.name, t.segments.flatten(), { syncBuddies() }) {
+                runCatching { TraceShare.share(this, t.name, flat(t.segments.flatten())) }
+                    .onFailure { toast("Partage impossible : ${it.message}") }
+            }
         }
         findViewById<Button>(R.id.btnTraceClose).setOnClickListener { traceMenuOpen = false; refreshTraceMenu() }
         findViewById<CheckBox>(R.id.chkTraceSlopes).setOnCheckedChangeListener { _, c -> drawnSlopes = c; refreshTraceMenu(); refreshSlopeTags() }
@@ -2096,8 +2099,10 @@ class MainActivity : AppCompatActivity() {
                     setImageResource(R.drawable.ic_share_trace); contentDescription = "Partager ${st.name}"
                     minimumWidth = (48 * d).toInt(); minimumHeight = (48 * d).toInt()
                     setOnClickListener {
-                        runCatching { TraceShare.share(this@MainActivity, st.name, flat(st.line)) }
-                            .onFailure { toast("Partage impossible : ${it.message}") }
+                        SharePanel.montrer(this@MainActivity, compte, buddies, st.name, st.line, { syncBuddies() }) {
+                            runCatching { TraceShare.share(this@MainActivity, st.name, flat(st.line)) }
+                                .onFailure { toast("Partage impossible : ${it.message}") }
+                        }
                     }
                 })
                 addView(ImageButton(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
@@ -2996,8 +3001,9 @@ class MainActivity : AppCompatActivity() {
     private var buddiesPanel: BuddiesPanel? = null
     private var buddiesBack: androidx.activity.OnBackPressedCallback? = null
     private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons() } }
-    private fun openBuddies() {
+    private fun openBuddies(depart: String? = null) {
         if (buddiesPanel != null) return
+        fermerCarteSortie()
         sheetOpen = false; refreshTabs()
         val p = BuddiesPanel(this, compte, buddies,
             choisirPhoto = { cb -> photoCb = cb; photoLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
@@ -3007,7 +3013,8 @@ class MainActivity : AppCompatActivity() {
                     .onFailure { contactCb = null; toast("Pas de carnet de contacts") }
             },
             onAccount = { openAccount() }, onExpenses = { openExpenses() },
-            onLodging = { closeBuddies(); openLodging() }, onClose = { closeBuddies() })
+            onLodging = { closeBuddies(); openLodging() }, onClose = { closeBuddies() },
+            onCarte = { sortie, traces -> montrerBuddies(sortie, traces) }, depart = depart)
         buddiesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)
@@ -3020,6 +3027,35 @@ class MainActivity : AppCompatActivity() {
         buddiesBack?.remove(); buddiesBack = null
         refreshQuickButtons()
     }
+    /**
+     * 👥 Un Buddy Time sur la carte (écran 4) ou une trace partagée dans un groupe : ses traces s'ajoutent à mes
+     * traces affichées (profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne marchent comme pour les miennes).
+     */
+    private var carteSortie: View? = null
+    private fun montrerBuddies(sortie: Buddies.Sortie?, traces: List<Buddies.TraceBuddy>) {
+        closeBuddies(); showTraceList(null)
+        for (t in traces) {
+            val kind = "Partagée par ${t.par.pseudo}"
+            if (trails.none { Trails.isMine(it.id) && it.name == t.nom && it.kind == kind }) showMine(t.ligne, false, t.nom, null, kind)
+        }
+        val pts = traces.flatMap { it.ligne }
+        if (pts.size >= 2) {
+            val b = LatLngBounds.Builder()
+            pts.forEach { b.include(LatLng(it.lat, it.lon)) }
+            map?.easeCamera(CameraUpdateFactory.newLatLngBounds(b.build(), 90), 600)
+        }
+        if (sortie == null) return
+        traceMenuOpen = false; refreshTraceMenu()
+        fermerCarteSortie()
+        val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom) { fermerCarteSortie(); openBuddies(sortie.groupe) }
+        carteSortie = v
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(v)
+    }
+    private fun fermerCarteSortie() {
+        carteSortie?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
+        carteSortie = null
+    }
+
     /** Lien d'invitation ouvert (fr.assomoutain.proto.kotlin://rejoindre?c=…). */
     private fun invitationRecue(uri: Uri) {
         buddies.rejoindre(uri.getQueryParameter("c").orEmpty())
