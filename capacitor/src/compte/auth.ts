@@ -185,6 +185,8 @@ export async function api<T>(methode: string, chemin: string, corps?: unknown): 
     body: corps ? JSON.stringify(corps) : undefined,
   });
   if (r.status === 401) { ecrire({ ...lire(), access: undefined }); throw new Refuse('Jeton refusé'); }
+  // 409 : le serveur dit pourquoi (« L'appel est terminé »…), en français, à montrer tel quel.
+  if (r.status === 409) throw new Error(String((await r.json().catch(() => ({})) as { detail?: string }).detail ?? 'Refusé'));
   if (!r.ok) throw new Error(`Serveur : erreur ${r.status}`);
   return await r.json() as T;
 }

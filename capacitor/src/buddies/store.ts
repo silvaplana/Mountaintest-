@@ -72,6 +72,8 @@ export type Position = {
 };
 export type Op = { id: string; type: string; t: number; [k: string]: unknown };
 
+export type AppelBuddy = { id: string; groupe: string | null; sortie: string | null; par: string; en_ligne: string[]; debut: string; fini: boolean };
+
 export type Etat = {
   /** Dernière version reçue du serveur. */
   serveur: Groupe[];
@@ -83,6 +85,8 @@ export type Etat = {
   positions?: Position[];
   hebergements?: Hebergement[];
   messages?: MessageBuddy[];
+  /** 📞 Appels en cours dans mes Buddy Groups et Buddy Times (d'après la dernière synchro). */
+  appels?: AppelBuddy[];
   /** 💬 Dernière lecture de chaque conversation (ms), par identifiant de Buddy Group ou de Buddy Time. */
   lus?: Record<string, number>;
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
@@ -529,6 +533,7 @@ type Reponse = {
   positions?: Position[];
   ids_hebergements?: string[]; hebergements?: Hebergement[];
   ids_messages?: string[]; messages?: MessageBuddy[];
+  appels?: AppelBuddy[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -564,7 +569,7 @@ export function synchroniser(): Promise<string[]> {
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
-        positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste,
+        positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [],
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour

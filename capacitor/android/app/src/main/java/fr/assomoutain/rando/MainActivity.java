@@ -23,5 +23,10 @@ public class MainActivity extends BridgeActivity {
         Updater.init(this, "capacitor");
         // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
         PocketMode.init(this);
+        // 📞 Ouverte par un appel qui sonne (AppelService) : par-dessus l'écran verrouillé, écran allumé.
+        if (getIntent() != null && getIntent().hasExtra("appel") && android.os.Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(true);
+            setTurnScreenOn(true);
+        }
     }
 }

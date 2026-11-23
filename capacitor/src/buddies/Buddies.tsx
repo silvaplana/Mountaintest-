@@ -14,6 +14,7 @@ import type { Lodging } from '../Lodging';
 import { BandePositions, nombreVisibles, PositionsSurCarte, useReperes } from './Positions';
 import { Conversation, Conversations, PointSurCarte } from './Messages';
 import { apercu, fil } from './messages';
+import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
@@ -39,6 +40,11 @@ export const Natif = registerPlugin<{
   relever(): Promise<void>;
   derniere(): Promise<{ position?: PositionNative }>;
   addListener(e: 'position', f: (p: PositionNative) => void): Promise<{ remove: () => Promise<void> }>;
+  /** 📞 Sonnerie appli fermée (AppelService.java, Firebase) : le jeton de ce téléphone, l'appel qui a ouvert l'appli. */
+  jetonPush(): Promise<{ jeton: string }>;
+  appelEnAttente(): Promise<{ appel?: Sonnerie & { action?: string } }>;
+  addListener(e: 'appel', f: (s: Sonnerie & { action?: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(e: 'finAppel', f: (x: { appel: string }) => void): Promise<{ remove: () => Promise<void> }>;
 }>('Buddies');
 export type PositionNative = { lat: number; lon: number; alt?: number; t: number };
 
@@ -126,13 +132,31 @@ function reduire(f: File): Promise<string> {
   });
 }
 
+/** 📞 Appeler toute la bande (ou rejoindre l'appel déjà en cours) ; la barre d'appel s'affiche sur la carte. */
+function appelerBande(dest: Dest, nom: string, onToast: (m: string) => void) {
+  if (appelEnCours()) { onToast('Tu es déjà en appel'); return; }
+  void appeler(dest, nom).catch((e: Error) => onToast(e.message || 'Appel impossible'));
+}
+
+/** « Appel en cours » : rejoindre un appel de la bande (sur iPhone et sans sonnerie, c'est par là qu'on entre). */
+function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: (m: string) => void }) {
+  const e = useBuddies();
+  const a = (e.appels ?? []).find((x) => !x.fini && (dest.sortie ? x.sortie === dest.sortie : x.groupe === dest.groupe));
+  if (!a || appelEnCours() || a.en_ligne.includes(e.moi ?? '')) return null;
+  return <button className="bd-ligne bd-pos-acces ap-rejoindre" onClick={() => appelerBande(dest, nom, onToast)}>
+    <span className="bd-icone">📞</span>
+    <span className="bd-texte"><b>Appel en cours · rejoindre</b><small>{a.en_ligne.length} en ligne</small></span>
+    <span className="bd-fleche">›</span>
+  </button>;
+}
+
 /** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging, onPlanning, onAlbum, onMessages }: {
+function Colonne({ onToast, onExpenses, onLodging, onPlanning, onAlbum, onMessages, onAppel }: {
   onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
+  onAppel?: () => void;
 }) {
-  const bientot = (m: string) => () => onToast(`Bientôt : ${m}`);
   return <div className="bd-colonne">
-    <button aria-label="Appel" onClick={bientot('appeler toute la bande')}>📞</button>
+    <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
     <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
@@ -316,6 +340,14 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       if (x) ouvrir(x, true);
       else if (vue.ecran === 'groupe' && vue.id !== meTime.id) setVue({ ecran: 'conv', id: vue.id });
       else setVue({ ecran: 'messages', groupe: ici });
+    }}
+    onAppel={() => {
+      // 📞 : toute la bande du Buddy Time ouvert, sinon du Buddy Group ouvert (spec §5.7).
+      const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
+      const gr = vue.ecran === 'groupe' || vue.ecran === 'conv' ? groupes.find((y) => y.id === vue.id) : undefined;
+      if (x) appelerBande({ sortie: x.id }, x.nom, onToast);
+      else if (gr && gr.nature !== 'me_time') appelerBande({ groupe: gr.id }, gr.nom, onToast);
+      else onToast('Ouvre un Buddy Group ou un Buddy Time pour appeler toute la bande');
     }} />;
   const album = sortieIci ? sorties.find((x) => x.id === sortieIci) : undefined;
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
@@ -439,6 +471,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
       {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <span key={i.id} className="bd-invite-visage"><Visage b={{ id: i.id, nom: i.nom, photo: null }} taille={34} /></span>)}
       <span className="bd-ajout">＋</span>
     </button>}
+    {!me && <LigneAppel dest={{ groupe: g.id }} nom={g.nom} onToast={onToast} />}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     <h3 className="bd-section">À venir</h3>
     {avenir.length ? avenir.map((x) => <Affiche key={x.id} x={x} onClick={() => onOuvrir(x)} />)
@@ -659,6 +692,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
             <small>{dernier ? apercu(dernier, nomDe, eb.moi ?? 'moi') : 'écrire aux buddies'}</small></span>
           <span className="bd-fleche">›</span>
         </button>}
+        {x.participants.length > 1 && <LigneAppel dest={{ sortie: x.id }} nom={x.nom} onToast={onToast} />}
         {venir && <button className="bd-ligne bd-pos-acces" onClick={onDodo}>
           <span className="bd-icone">🏨</span>
           <span className="bd-texte"><b>{retenu ? `${retenu.nom} ✅` : 'Où on dort ?'}</b>

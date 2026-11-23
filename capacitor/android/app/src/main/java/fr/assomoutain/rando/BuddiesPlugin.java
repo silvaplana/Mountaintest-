@@ -23,6 +23,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * - partager({titre, texte}) : le carnet en texte, vers l'appli choisie.
  * - epingler({jusqu}) / relever() : 📍 la position part toutes les 5 minutes (EpingleService, §5.9) ; chaque
  *   position arrive en événement « position » ; derniere() rend celle reçue appli fermée (et l'oublie).
+ * - 📞 jetonPush() : le jeton Firebase de ce téléphone (vide sans google-services.json) ; appelEnAttente() : l'appel
+ *   dont la notification a ouvert l'appli ; événements « appel » et « finAppel » (AppelService, §5.7).
  */
 @CapacitorPlugin(name = "Buddies")
 public class BuddiesPlugin extends Plugin {
@@ -31,6 +33,66 @@ public class BuddiesPlugin extends Plugin {
         EpingleService.ecouteur = p -> {
             try { notifyListeners("position", JSObject.fromJSONObject(p)); } catch (Exception ignored) { }
         };
+        AppelService.ecouteur = new AppelService.Ecouteur() {
+            @Override public void appel(org.json.JSONObject s) {
+                try { notifyListeners("appel", JSObject.fromJSONObject(s)); } catch (Exception ignored) { }
+            }
+            @Override public void fin(String appel) {
+                JSObject o = new JSObject();
+                o.put("appel", appel);
+                notifyListeners("finAppel", o);
+            }
+        };
+        AppelService.premierPlan = true;
+    }
+
+    @Override
+    protected void handleOnResume() { AppelService.premierPlan = true; }
+
+    @Override
+    protected void handleOnPause() { AppelService.premierPlan = false; }
+
+    /** Appli déjà ouverte, touchée depuis la notification d'appel. */
+    @Override
+    protected void handleOnNewIntent(Intent i) {
+        JSObject a = appelDe(i);
+        if (a != null) notifyListeners("appel", a);
+    }
+
+    private JSObject appelDe(Intent i) {
+        String s = i != null ? i.getStringExtra("appel") : null;
+        if (s == null) return null;
+        String action = i.getStringExtra("appelAction");
+        i.removeExtra("appel");
+        i.removeExtra("appelAction");
+        ((android.app.NotificationManager) getContext().getSystemService(android.content.Context.NOTIFICATION_SERVICE)).cancel(AppelService.NOTIF);
+        try {
+            JSObject a = JSObject.fromJSONObject(new org.json.JSONObject(s));
+            a.put("action", action);
+            return a;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @PluginMethod
+    public void appelEnAttente(PluginCall call) {
+        JSObject r = new JSObject();
+        JSObject a = appelDe(getActivity().getIntent());
+        if (a != null) r.put("appel", a);
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void jetonPush(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("jeton", "");
+        // Sans google-services.json, Firebase n'est pas démarré : l'appli marche, elle ne sonne pas appli fermée.
+        if (com.google.firebase.FirebaseApp.getApps(getContext()).isEmpty()) { call.resolve(r); return; }
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().getToken().addOnCompleteListener(t -> {
+            if (t.isSuccessful() && t.getResult() != null) r.put("jeton", t.getResult());
+            call.resolve(r);
+        });
     }
 
     @PluginMethod
