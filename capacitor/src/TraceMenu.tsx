@@ -17,12 +17,14 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
+export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onShare, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
   slopes: boolean; onSlopes: (v: boolean) => void;
   showProfile: boolean; onShowProfile: (v: boolean) => void;
   cursor: number | null; onCursor: (d: number | null) => void;
   savedId: number | null; onSave: () => void; onDelete: () => void; onClose: () => void;
+  /** Partager le fichier GPX de la trace (mail, WhatsApp…). */
+  onShare: () => void;
   navigating: boolean; onNavigate: () => void; onStopNav: () => void;
   /** ⏸ Pause de la trace commencée (GPS coupé), ▶ reprise : seulement ici, pas sur la carte (demande de Seb). */
   paused: boolean; onPause: () => void; onResume: () => void;
@@ -40,6 +42,7 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
     <section className="trace-menu">
       <div className="head">
         <b><i className="swatch" style={{ background: trail.color }} />{trail.name}</b>
+        <button className="close" onClick={onShare} aria-label={`Partager ${trail.name}`}><ShareTraceIcon /></button>
         <button className="close" onClick={onClose} aria-label="Fermer le menu de la trace">✕</button>
       </div>
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}

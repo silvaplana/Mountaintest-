@@ -1319,6 +1319,11 @@ class MainActivity : AppCompatActivity() {
             selectedTrail?.takeIf { Trails.isMine(it.id) }?.let { downloadTrace(it, ask = false) }
         }
         findViewById<Button>(R.id.btnTraceListClose).setOnClickListener { showTraceList(null) }
+        findViewById<ImageButton>(R.id.btnTraceShare).setOnClickListener {
+            val t = selectedTrail ?: return@setOnClickListener
+            runCatching { TraceShare.share(this, t.name, flat(t.segments.flatten())) }
+                .onFailure { toast("Partage impossible : ${it.message}") }
+        }
         findViewById<Button>(R.id.btnTraceClose).setOnClickListener { traceMenuOpen = false; refreshTraceMenu() }
         findViewById<CheckBox>(R.id.chkTraceSlopes).setOnCheckedChangeListener { _, c -> drawnSlopes = c; refreshTraceMenu(); refreshSlopeTags() }
         findViewById<CheckBox>(R.id.chkTraceProfile).setOnCheckedChangeListener { _, c -> drawnProfile = c; refreshTraceMenu() }

@@ -1024,6 +1024,8 @@ export function App() {
         <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
           savedId={selected.savedId ?? null} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)}
+          onShare={() => void shareTrace({ id: 0, name: selected.name, onPaths: false, line: selected.segments.flat().map((p) => [p.lon, p.lat]) })
+            .catch((e) => setToast(`Partage impossible : ${(e as Error).message}`))}
           navigating={navId === selected.id} onNavigate={startNav} onStopNav={() => { setNavId(null); setTraceMenu(false); }}
           paused={navPaused} onPause={pauseNav} onResume={resumeNav}
           offline={traceOffline?.id === selected.id ? traceOffline.msg + (downloading && progress ? ` ${progress.done + progress.failed}/${progress.total}` : '') : null}
