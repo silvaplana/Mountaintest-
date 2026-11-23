@@ -82,6 +82,11 @@ ids = {}
 for cle, (nom, schema) in APPLIS.items():
     oidc = {"redirectUris": [f"{schema}://callback"], "postLogoutRedirectUris": [f"{schema}://logout"]}
     perso = {"alwaysIssueRefreshToken": True, "rotateRefreshToken": False, "refreshTokenTtlInDays": 180}
+    if cle == "capacitor":
+        # L'appli Capacitor est une page web dans le téléphone (origine https://localhost sur Android,
+        # capacitor://localhost sur iPhone) : sans ça, Logto refuse l'échange du code (CORS) et l'appli
+        # croit qu'il n'y a pas de réseau.
+        perso["corsAllowedOrigins"] = ["https://localhost", "capacitor://localhost", "http://localhost"]
     a = existantes.get(nom)
     if a is None:
         a = appel("POST", "/applications", {"name": nom, "type": "Native", "oidcClientMetadata": oidc,
