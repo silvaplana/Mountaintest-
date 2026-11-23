@@ -85,10 +85,10 @@ export function Albums({ sorties, photos, onOuvrir, onRetour, onClose }: {
 }
 
 /** Un album (écran 11) : Toutes, Sur la carte, ⭐ Carnet ; « Déposer mes photos ». */
-export function UnAlbum({ x, photos, onCarte, onRetour, onClose, onToast }: {
-  x: Sortie; photos: PhotoBuddy[]; onCarte: () => void; onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
+export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose, onToast }: {
+  x: Sortie; photos: PhotoBuddy[]; carnet?: boolean; onCarte: () => void; onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
-  const [vue, setVue] = useState<'toutes' | 'carnet'>('toutes');
+  const [vue, setVue] = useState<'toutes' | 'carnet'>(carnet ? 'carnet' : 'toutes');
   const [ouverte, setOuverte] = useState<number | null>(null);
   const l = vue === 'carnet' ? photos.filter((p) => p.etoile) : photos;
   const auteurs = new Set(photos.map((p) => p.par.id)).size;

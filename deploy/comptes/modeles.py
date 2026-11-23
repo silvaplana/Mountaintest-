@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, String, Text, Uuid
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -181,3 +181,43 @@ class Photo(Base):
     envoyee: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Recit(Base):
+    """Carnet d'un Buddy Time (spec/buddies.md §5.8) : le texte de chaque buddy, signé de son visage.
+    Un texte par personne ; le dernier envoyé gagne."""
+
+    __tablename__ = "recits"
+
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    texte: Mapped[str] = mapped_column(Text, nullable=False)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class FicheJour(Base):
+    """Carnet : la fiche d'un jour, facultative. Ce qui est tapé à la main ; distance et dénivelé
+    viennent de la trace du jour quand ils ne sont pas tapés."""
+
+    __tablename__ = "fiches_jour"
+
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), primary_key=True)
+    jour: Mapped[str] = mapped_column(String(10), primary_key=True)  # AAAA-MM-JJ
+    nom: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    depart: Mapped[str] = mapped_column(String(5), nullable=False, default="")  # HH:MM
+    duree: Mapped[int | None] = mapped_column(Integer)  # minutes
+    distance: Mapped[int | None] = mapped_column(Integer)  # mètres
+    denivele: Mapped[int | None] = mapped_column(Integer)  # mètres de montée
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class Carnet(Base):
+    """Carnet : ce qui ne se lit pas dans la trace (difficulté, météo, conditions)."""
+
+    __tablename__ = "carnets"
+
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), primary_key=True)
+    difficulte: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    meteo: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    conditions: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)

@@ -6,6 +6,7 @@ import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
 import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
+import { EcrireCarnet, UnCarnet } from './Carnet';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin,
@@ -19,8 +20,10 @@ import {
  * partage (22). Mêmes écrans côté Kotlin (BuddiesPanel.kt, SharePanel.kt).
  */
 
-const Natif = registerPlugin<{
+export const Natif = registerPlugin<{
   pickContact(): Promise<{ nom: string; telephone: string }>;
+  dicter(): Promise<{ texte: string }>;
+  partager(o: { titre: string; texte: string }): Promise<void>;
   sms(o: { numero: string; texte: string }): Promise<void>;
   mail(o: { adresse: string; sujet: string; texte: string }): Promise<void>;
 }>('Buddies');
@@ -239,19 +242,21 @@ function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; 
 
 type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }
   | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string } | { ecran: 'dispos'; id: string; groupe?: string }
-  | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string };
+  | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
+  | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string };
+/** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
+export type DepartBuddies = string | { ecran: 'album' | 'carnet'; sortie: string; groupe: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void;
   /** Ouvrir un Buddy Time sur la carte (écran 4), ou une trace partagée dans un groupe. */
   onCarte: (x: { sortie?: Sortie; traces: TraceBuddy[] }) => void;
-  /** Revenir sur un Buddy Group (‹ depuis la carte d'un Buddy Time), ou ouvrir l'album d'un Buddy Time. */
-  depart?: string | { album: string; groupe: string };
+  depart?: DepartBuddies;
 }) {
   const e = useBuddies();
   const compte = useCompte();
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
-    : depart ? { ecran: 'album', id: depart.album, groupe: depart.groupe } : { ecran: 'liste' });
+    : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
   // Ouvert : on regarde les nouveautés toutes les minutes ; fermé, la pastille de 👥 repart de maintenant.
   useEffect(() => {
     const sync = () => { void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };
@@ -273,6 +278,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const groupes = appliquer(e);
   const { sorties, traces, plannings, photos } = vueSorties(e);
   const ouvrir = (x: Sortie) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id) });
+  // Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
+  const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
   const meTime = groupes.find((x) => x.nature === 'me_time')!;
   // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
@@ -280,7 +287,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })} />;
-  const album = vue.ecran === 'album' ? sorties.find((x) => x.id === vue.id) : undefined;
+  const album = vue.ecran === 'album' || vue.ecran === 'carnet' || vue.ecran === 'ecrire' ? sorties.find((x) => x.id === vue.id) : undefined;
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
   const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
@@ -289,8 +296,15 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     {vue.ecran === 'albums' ? <Albums sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} photos={photos} onClose={onClose}
       onOuvrir={(x) => setVue({ ecran: 'album', id: x.id, groupe: vue.groupe })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
-      : vue.ecran === 'album' && album ? <UnAlbum x={album} photos={photos.filter((p) => p.sortie === album.id)} onToast={onToast} onClose={onClose}
-        onCarte={() => ouvrir(album)} onRetour={() => setVue({ ecran: 'albums', groupe: vue.groupe })} />
+      : vue.ecran === 'carnet' && album ? <UnCarnet x={album} photos={photos.filter((p) => p.sortie === album.id)}
+        traces={traces.filter((t) => t.sortie === album.id)} onToast={onToast} onClose={onClose} onCarte={() => ouvrir(album)}
+        onEcrire={() => setVue({ ecran: 'ecrire', id: album.id, groupe: vue.groupe })}
+        onChanger={() => setVue({ ecran: 'album', id: album.id, groupe: vue.groupe, carnet: true })}
+        onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'ecrire' && album ? <EcrireCarnet key={album.id} x={album} traces={traces.filter((t) => t.sortie === album.id)} onToast={onToast}
+        onClose={onClose} onRetour={() => setVue({ ecran: 'carnet', id: album.id, groupe: vue.groupe })} />
+      : vue.ecran === 'album' && album ? <UnAlbum x={album} carnet={vue.carnet} photos={photos.filter((p) => p.sortie === album.id)} onToast={onToast} onClose={onClose}
+        onCarte={() => ouvrir(album)} onRetour={() => setVue(vue.carnet ? { ecran: 'carnet', id: album.id, groupe: vue.groupe } : { ecran: 'albums', groupe: vue.groupe })} />
       : vue.ecran === 'plannings' ? <Plannings plannings={plannings.filter((x) => !vue.groupe || x.groupe === vue.groupe)} groupes={groupes}
       onOuvrir={(id) => setVue({ ecran: 'planning', id, groupe: vue.groupe })} onRemplir={(id) => setVue({ ecran: 'dispos', id, groupe: vue.groupe })}
       onNouveau={() => setVue({ ecran: 'nvPlanning', groupe: vue.groupe })} onClose={onClose}
@@ -305,9 +319,9 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onRetour={() => setVue(vue.groupe === meTime.id ? { ecran: 'liste' } : { ecran: 'groupe', id: vue.groupe })}
         onFini={(id) => { const x = vueSorties(lire()).sorties.find((y) => y.id === id); if (x) ouvrir(x); }} />
       : g ? <UnGroupe g={g} plannings={plannings.filter((x) => x.groupe === g.id)} onRemplir={remplir} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
-        onToast={onToast} onOuvrir={ouvrir} onTrace={(t) => onCarte({ traces: [t] })}
+        onToast={onToast} onOuvrir={voir} onTrace={(t) => onCarte({ traces: [t] })}
         onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-        : <Liste e={e} groupes={groupes} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={ouvrir}
+        : <Liste e={e} groupes={groupes} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
           onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: meTime.id })} onClose={onClose} />}
   </div>;
 }
@@ -527,8 +541,8 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
 /** Haut et bas de la carte d'un Buddy Time : ‹ nom et dates en haut, bandeau rabattable en bas. */
-export function BandeauSortie({ x, traces, onRetour, onAlbum, onToast, map }: {
-  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onToast: (m: string) => void; map: MlMap | null;
+export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onToast, map }: {
+  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onToast: (m: string) => void; map: MlMap | null;
 }) {
   const [replie, setReplie] = useState(false);
   const photos = vueSorties(useBuddies()).photos.filter((p) => p.sortie === x.id);
@@ -561,6 +575,7 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onToast, map }: {
         {x.debut <= aujourdhui() && <div className="bd-plus">
           <BoutonDeposer x={x} onToast={onToast} texte="📷 Ajouter" className="primary" />
           <button onClick={onAlbum}>📸 Album</button>
+          <button onClick={onCarnet}>📖 Carnet</button>
         </div>}
       </>}
     </div>

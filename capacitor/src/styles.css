@@ -733,3 +733,70 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-bande-image { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--card); }
 .bd-bande-image img, .bd-bande-image .bd-img-vide { width: 100%; height: 100%; object-fit: cover; display: grid; place-items: center; }
 .bd-bande-image b { position: absolute; inset: 0; display: grid; place-items: center; background: #0007; color: #fff; font-size: 20px; }
+
+/* Carnet d'un Buddy Time (écrans 12 à 14, spec/buddies.md §5.8) */
+.bd-carnet { gap: 12px; }
+.bd-couverture { position: relative; flex: none; min-height: 190px; margin: 0 -8px 0 -14px; display: flex; align-items: flex-end; overflow: hidden;
+  background: linear-gradient(#0000 35%, #000a), linear-gradient(#8fb7dd, #5f7f9c); color: #fff; padding: 16px; }
+.bd-couverture-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+.bd-couverture-image + button, .bd-couverture::after { z-index: 1; }
+.bd-couverture::after { content: ''; position: absolute; inset: 0; background: linear-gradient(#0000 35%, #000a); pointer-events: none; }
+.bd-couverture > button { position: absolute; top: 12px; left: 12px; width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0;
+  font-size: 24px; background: #fffe; color: #1d2421; z-index: 2; }
+.bd-couverture > button.bd-fermer { left: auto; right: 12px; }
+.bd-couverture .bd-texte { position: relative; z-index: 2; display: flex; flex-direction: column; text-shadow: 0 1px 4px #0008; }
+.bd-couverture .bd-texte b { font-size: 28px; line-height: 1.1; }
+.bd-couverture .bd-texte small { font-size: 16px; color: #fff; }
+.bd-entre { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.bd-entre b { font-size: 17px; color: var(--fg); text-transform: none; letter-spacing: 0; }
+.bd-entre small { color: var(--muted); font-size: 15px; }
+.bd-lien { border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 16px; min-height: 48px; padding: 0 4px; }
+.bd-mosaique { flex: none; display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; height: 220px; }
+.bd-mosaique span { position: relative; border-radius: 14px; overflow: hidden; background: var(--card); display: flex; }
+.bd-mosaique span.grande { grid-row: 1 / 3; }
+.bd-mosaique span:only-child { grid-column: 1 / 3; }
+.bd-mosaique img, .bd-mosaique .bd-img-vide { width: 100%; height: 100%; object-fit: cover; display: flex; align-items: center; justify-content: center; }
+.bd-mosaique b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0006; color: #fff; font-size: 26px; }
+.bd-recit p { margin: 0; font-size: 18px; line-height: 1.5; white-space: pre-wrap; }
+.bd-signe { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--muted); }
+.bd-recit.vide { border: 2px dashed #d9dfdc; background: none; border-radius: 14px; padding: 14px; font-size: 17px; color: var(--muted); text-align: left; min-height: 56px; }
+.bd-petit-plan { flex: none; position: relative; border: 1px solid #d9dfdc; border-radius: 16px; background: #efebe3; padding: 0; height: 200px; overflow: hidden; }
+.bd-petit-plan svg { width: 100%; height: 100%; }
+.bd-petit-plan path { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.bd-agrandir { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.bd-legende { position: absolute; left: 10px; bottom: 10px; background: #fff; border-radius: 12px; padding: 4px 10px; display: flex; gap: 10px; font-size: 15px; font-weight: 700; }
+.bd-legende i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.bd-profil-carnet { flex: none; width: 100%; height: 90px; background: #faf9fd; border-radius: 12px; }
+.bd-profil-carnet text { font-size: 9px; fill: var(--muted); }
+.bd-tuiles { flex: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bd-fiche .bd-tuiles { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.bd-tuiles > span, .bd-tuiles > label { background: var(--card); border-radius: 12px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; }
+.bd-tuiles b { font-size: 18px; white-space: nowrap; } .bd-tuiles small { color: var(--muted); font-size: 14px; }
+.bd-fiche .bd-tuiles b { font-size: 16px; }
+.bd-tuiles .vide { background: none; border: 2px dashed #d9dfdc; }
+.bd-tuiles .vide b { color: var(--muted); }
+.bd-fiche .bd-tuiles.saisie { grid-template-columns: repeat(2, 1fr); }
+.bd-tuiles.saisie > label { border: 2px dashed #d9dfdc; background: none; }
+.bd-tuiles.saisie input { width: 100%; border: 0; background: none; text-align: center; font-size: 17px; font-weight: 700; padding: 4px 0; min-height: 32px; }
+.bd-conditions { margin: 0; font-size: 17px; } .bd-conditions b { margin-right: 6px; }
+.bd-fiche { flex: none; border: 1px solid #d9dfdc; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.bd-fiche-titre { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bd-fiche-titre b { font-size: 19px; }
+.bd-fiche-titre input { flex: 1; min-width: 120px; font-size: 18px; border: 0; border-bottom: 1px solid #d9dfdc; padding: 6px 2px; min-height: 40px; }
+.bd-fiche-titre small { color: var(--muted); font-size: 14px; }
+.bd-jour { color: #fff; font-weight: 700; border-radius: 10px; padding: 3px 10px; font-size: 16px; white-space: nowrap; }
+.bd-fiche-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.bd-fiche-photos img, .bd-fiche-photos .bd-img-vide { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--card); }
+.bd-pratique { display: flex; align-items: center; gap: 10px; border: 0; background: var(--card); border-radius: 14px; padding: 12px 14px; min-height: 56px; font-size: 17px; text-align: left; }
+.bd-pratique b { flex: 1; font-weight: 400; color: var(--muted); }
+.bd-pratique-corps p { margin: 4px 0; } .bd-pratique-corps small { color: var(--muted); }
+.bd-carnet > .bd-plus button { flex: 1; justify-content: center; font-size: 19px; min-height: 56px; }
+.bd-recit-saisie { flex: none; width: 100%; box-sizing: border-box; border: 1px solid #d9dfdc; border-radius: 16px; padding: 14px; font-size: 18px; line-height: 1.5; resize: vertical; font-family: inherit; }
+.bd-micro { flex: none; align-self: center; width: 112px; height: 112px; border-radius: 50%; border: 0; font-size: 48px; background: #e4572e; color: #fff;
+  box-shadow: 0 0 0 14px #e4572e22; margin: 10px 0 0; }
+.bd-micro.ecoute { animation: bd-ecoute 1.2s ease-in-out infinite; }
+@keyframes bd-ecoute { 50% { box-shadow: 0 0 0 26px #e4572e33; } }
+.bd-centre { text-align: center; }
+.bd-champ { display: flex; flex-direction: column; gap: 2px; }
+.bd-champ small { color: var(--muted); font-size: 14px; }
+.bd-champ input { font-size: 17px; border: 0; border-bottom: 1px solid #d9dfdc; padding: 6px 2px; min-height: 40px; }

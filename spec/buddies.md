@@ -159,7 +159,7 @@ Dans la 2e barre de la carte, 👥 ouvre Buddies (pastille = du nouveau) et 👤
 - Ouvrir un Buddy Time ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
   bandeau en bas (dans combien de jours, qui vient, chiffres du parcours) se baisse pour ne
   laisser que la carte. **(proposé)**
-- Une fois terminé, il s'ouvre directement sur son carnet (§5.8). **(proposé)**
+- Une fois terminé, il s'ouvre directement sur son carnet (§5.8). **(proposé, construit au bloc 5)**
 - Pas de vote de dates. **(Seb)**
 
 ### 5.5 Planning de saison (écrans 16 à 19) **(Seb)**
@@ -218,7 +218,7 @@ Dans la 2e barre de la carte, 👥 ouvre Buddies (pastille = du nouveau) et 👤
   5. Une fiche par jour, facultative : nom de la rando, heure de départ, durée, distance,
      dénivelé, quelques photos. Remplie depuis la trace enregistrée quand il y en a une.
   6. Tout en bas, replié, « Le pratique » : hébergement, comptes, messages.
-- Partager le carnet : un lien ou un PDF **(proposé)**.
+- Partager le carnet : un lien ou un PDF **(proposé)** ; d'abord en texte (§7.5).
 
 ### 5.9 Position des buddies (écran 15) **(Seb)**
 
@@ -375,6 +375,38 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   `ajouter_photo`, `etoile`, `retirer_photo` dans la synchro ; les fichiers passent à part,
   `PUT`/`GET /buddies/photos/<id>/<petite|grande>` (auteur seul pour envoyer, participants pour lire),
   rangés dans `COMPTES_DOSSIER/photos` (le volume `comptes-data` du VPS). 300 ko et 4 Mo au plus.
+
+### 7.5 Bloc 5 : ce qui est construit (23 novembre 2026)
+
+- **Accès** : un Buddy Time terminé s'ouvre directement sur son carnet (la carte reste à un toucher de la
+  trace) ; sur la carte d'un Buddy Time commencé, « 📖 Carnet » à côté de « 📷 Ajouter » et « 📸 Album ».
+- **Écran 12** : couverture (la photo du Buddy Time, sinon la première photo choisie), nom, dates, qui est
+  venu. « ⭐ 12 photos choisies sur 42 » : les ⭐ de l'album ; sans ⭐, un choix automatique fait sur le
+  téléphone (au plus 12, réparties sur tout le Buddy Time, signalé ✨). « Changer » ouvre l'album sur la vue
+  ⭐ Carnet. Puis les récits, chacun signé du visage de son auteur, puis « 〰 La trace » : un petit plan,
+  une couleur par jour ; un toucher ouvre le Buddy Time sur la carte.
+- **Une couleur par jour** : quand il y a autant de traces partagées que de jours, la 1re trace partagée
+  est le jour 1, la 2e le jour 2… ; sinon une couleur et le nom par trace.
+- **Écran 13** : le profil de tout le Buddy Time (jours séparés d'un pointillé) et les chiffres connus :
+  distance, montée, descente, durée, point haut, jours et nuits, buddies, difficulté, météo, « + conditions »
+  en pointillé tant qu'elles manquent. Puis une fiche par jour (nom, départ, durée, distance, montée, trois
+  photos du jour), « Le pratique » replié (lieu, qui est venu, traces ; hébergement, comptes et messages
+  viendront avec leurs blocs), « ✏️ Modifier » et « Partager ».
+- **Chiffres depuis la trace** : distance tirée des traces ; montée, descente, point haut et profil tirés
+  du relief IGN (une fois en ligne, puis gardés sur le téléphone). Les traces partagées n'ont pas d'heures :
+  départ et durée se tapent dans la fiche ; « temps en marche » et « vitesse de montée » attendront des
+  traces partagées avec leurs heures.
+- **Écran 14** : mon récit (un texte par buddy ; le dernier envoyé gagne), le gros micro 🎤 (la dictée
+  d'Android, hors ligne quand le téléphone le permet ; dans un navigateur, la sienne ; sinon le micro du
+  clavier) ; les mots sont écrits tels quels, puis se corrigent au clavier. Une fiche par jour (nom, départ,
+  durée « 5 h 20 », distance en km, montée en m ; vide = pris dans la trace, montré en grisé), difficulté,
+  météo, conditions. « Enregistrer le carnet » n'envoie que ce qui a changé ; sans réseau, 🕓.
+- **Partager** : le carnet en texte (récits, chiffres, fiches) vers l'appli choisie. Le lien et le PDF :
+  plus tard.
+- **Serveur** : tables `recits` (Buddy Time, buddy, texte), `fiches_jour` (Buddy Time, jour, nom, départ,
+  durée, distance, dénivelé) et `carnets` (difficulté, météo, conditions) ; opérations `recit`, `fiche`,
+  `carnet` dans la synchro, envoyées avec le Buddy Time (`carnet` dans sa vue). Tout participant du Buddy
+  Time peut écrire ; chacun ne touche qu'à son propre récit.
 
 ## 8. Hors périmètre pour l'instant
 

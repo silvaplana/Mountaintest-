@@ -349,3 +349,59 @@ def test_photo_refusee(client, photos):
     assert sync(client, sub="luc", ops=[nouvelle_photo(so["sortie"])])["refus"]  # Buddy Time d'un autre
     # Sans position (photo sans GPS) : acceptée.
     assert sync(client, ops=[nouvelle_photo(so["sortie"], lon=None, lat=None)])["photos"][0]["lon"] is None
+
+
+# ------------------------------------------------------------------ bloc 5 : carnet
+
+def op(type_=None, **k):
+    return {"id": str(uuid.uuid4()), **({"type": type_} if type_ else {}), **k}
+
+
+def test_carnet_recits_fiches_conditions(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    sid = so["sortie"]
+    r = sync(client, ops=[so, op("recit", sortie=sid, texte="  Départ à la frontale de Castello.  "),
+                          op("fiche", sortie=sid, jour="2026-12-12", nom="Castello → refuge", depart="07:10", duree=320, distance=11000,
+                             denivele=1240),
+                          op("carnet", sortie=sid, difficulte="T3", meteo="☀️ 4°", conditions="Lac gelé sur les bords")])
+    assert r["refus"] == []
+    seb = r["moi"]
+    c = r["sorties"][0]["carnet"]
+    assert c["recits"][0]["texte"] == "Départ à la frontale de Castello." and c["recits"][0]["par"]["id"] == seb
+    assert c["fiches"] == [{"jour": "2026-12-12", "nom": "Castello → refuge", "depart": "07:10", "duree": 320, "distance": 11000,
+                            "denivele": 1240}]
+    assert (c["difficulte"], c["meteo"], c["conditions"]) == ("T3", "☀️ 4°", "Lac gelé sur les bords")
+    # Julie ajoute son texte, signé ; elle le voit dans la synchro suivante (le Buddy Time a bougé).
+    curseur = sync(client, sub="julie")["curseur"]
+    r = sync(client, sub="julie", ops=[op("recit", sortie=sid, texte="Polenta et génépi.")], depuis=curseur)
+    assert [x["par"]["id"] for x in r["sorties"][0]["carnet"]["recits"]] == [seb, julie]
+    # Seb corrige le sien (le dernier envoyé gagne), puis efface la fiche (tout vide).
+    r = sync(client, ops=[op("recit", sortie=sid, texte="Départ à 6 h."), op("fiche", sortie=sid, jour="2026-12-12")])
+    c = r["sorties"][0]["carnet"]
+    assert {x["par"]["id"]: x["texte"] for x in c["recits"]} == {seb: "Départ à 6 h.", julie: "Polenta et génépi."}
+    assert c["fiches"] == []
+    # Un texte vide efface le mien seulement.
+    c = sync(client, ops=[op("recit", sortie=sid, texte="")])["sorties"][0]["carnet"]
+    assert [x["par"]["id"] for x in c["recits"]] == [julie]
+
+
+@pytest.mark.parametrize("mauvais", [
+    {"type": "fiche", "jour": "2026-12-14", "nom": "après"},  # hors des dates
+    {"type": "fiche", "jour": "2026-12-12", "depart": "7h10"},
+    {"type": "fiche", "jour": "2026-12-12", "duree": -5},
+    {"type": "fiche", "jour": "2026-12-12", "distance": "loin"},
+])
+def test_fiche_refusee(client, mauvais):
+    so = nouvelle_sortie("me-time")
+    sync(client, ops=[so])
+    assert sync(client, ops=[op(sortie=so["sortie"], **mauvais)])["refus"]
+
+
+def test_carnet_d_un_autre_refuse(client):
+    so = nouvelle_sortie("me-time")
+    sync(client, ops=[so])
+    for o in (op("recit", sortie=so["sortie"], texte="intrus"), op("carnet", sortie=so["sortie"], meteo="pluie")):
+        assert sync(client, sub="luc", ops=[o])["refus"]
+    c = sync(client)["sorties"][0]["carnet"]
+    assert c["recits"] == [] and c["meteo"] == ""

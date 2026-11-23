@@ -61,10 +61,14 @@ class BuddiesPanel(
     /** Fichiers des photos de l'album, et « Déposer mes photos » (choix multiple, préparé par l'activité). */
     private val album: Album,
     private val deposer: (Buddies.Sortie) -> Unit,
+    /** Dictée d'Android pour le récit du carnet : rend le texte transcrit, ou null (annulée, indisponible). */
+    private val dicter: ((String?) -> Unit) -> Unit,
     /** Revenir sur ce Buddy Group (‹ depuis la carte d'un Buddy Time). */
     depart: String? = null,
     /** Ou ouvrir l'album de ce Buddy Time (📸 Album depuis la carte). */
     departAlbum: String? = null,
+    /** Ou son carnet (📖 Carnet depuis la carte). */
+    departCarnet: String? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -80,10 +84,14 @@ class BuddiesPanel(
         data class Plannings(val groupe: String?) : Vue(); data class UnPlanning(val id: String, val groupe: String?) : Vue()
         data class Dispos(val id: String, val groupe: String?) : Vue(); data class NvPlanning(val groupe: String?) : Vue()
         // Album (§5.8).
-        data class Albums(val groupe: String?) : Vue(); data class UnAlbum(val id: String, val groupe: String?, val carnet: Boolean = false) : Vue()
+        data class Albums(val groupe: String?) : Vue()
+        data class UnAlbum(val id: String, val groupe: String?, val carnet: Boolean = false, val retourCarnet: Boolean = false) : Vue()
+        // Carnet (§5.8).
+        data class LeCarnet(val id: String, val groupe: String?) : Vue(); data class Ecrire(val id: String, val groupe: String?) : Vue()
     }
-    private var vue: Vue = departAlbum?.let { Vue.UnAlbum(it, depart) } ?: depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
-    private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || motOuvert != null
+    private var vue: Vue = departCarnet?.let { Vue.LeCarnet(it, depart) } ?: departAlbum?.let { Vue.UnAlbum(it, depart) }
+        ?: depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
+    private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || vue is Vue.Ecrire || motOuvert != null
 
     private val tete = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val col = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(16)) }
@@ -247,6 +255,8 @@ class BuddiesPanel(
             is Vue.Dispos -> buddies.plannings().firstOrNull { it.id == v.id }?.let { mesDispos(it, v.groupe) } ?: run { vue = Vue.Plannings(v.groupe); afficher() }
             is Vue.Albums -> albums(v.groupe)
             is Vue.UnAlbum -> buddies.sorties().firstOrNull { it.id == v.id }?.let { unAlbum(it, v) } ?: run { vue = Vue.Albums(v.groupe); afficher() }
+            is Vue.LeCarnet -> buddies.sorties().firstOrNull { it.id == v.id }?.let { carnet(it, v.groupe) } ?: run { vue = Vue.Liste; afficher() }
+            is Vue.Ecrire -> buddies.sorties().firstOrNull { it.id == v.id }?.let { ecrire(it, v.groupe) } ?: run { vue = Vue.Liste; afficher() }
         }
     }
 
@@ -274,7 +284,7 @@ class BuddiesPanel(
         if (sorties.isNotEmpty()) col.addView(section("Buddy Times"), lp(10))
         for (x in sorties) col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64); isClickable = true
-            setOnClickListener { ouvrir(x) }
+            setOnClickListener { voir(x, null) }
             addView(carre(x, 56))
             addView(LinearLayout(a).apply {
                 orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(6), 0)
@@ -310,7 +320,7 @@ class BuddiesPanel(
         for (x in avenir) col.addView(affiche(x, false) { ouvrir(x) }, lp(6))
         if (souvenirs.isNotEmpty()) col.addView(section("Souvenirs"), lp(12))
         for (paire in souvenirs.chunked(2)) col.addView(LinearLayout(a).apply {
-            paire.forEachIndexed { k, x -> addView(affiche(x, true) { ouvrir(x) }, LinearLayout.LayoutParams(0, dp(120), 1f).apply { if (k == 0) rightMargin = dp(10) }) }
+            paire.forEachIndexed { k, x -> addView(affiche(x, true) { voir(x, g.id) }, LinearLayout.LayoutParams(0, dp(120), 1f).apply { if (k == 0) rightMargin = dp(10) }) }
             if (paire.size == 1) addView(View(a), LinearLayout.LayoutParams(0, 1, 1f))
         }, lp(6))
         val traces = buddies.traces().filter { it.groupe == g.id }
@@ -341,6 +351,8 @@ class BuddiesPanel(
         return when { x.fin < aujourdhui() -> "Souvenir"; n <= 0 -> "En cours"; n == 1 -> "Demain"; else -> "Dans $n jours" }
     }
     private fun ouvrir(x: Buddies.Sortie) = onCarte(x, buddies.traces().filter { it.sortie == x.id })
+    /** Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher. */
+    private fun voir(x: Buddies.Sortie, groupe: String?) { if (x.fin < aujourdhui()) { vue = Vue.LeCarnet(x.id, groupe); afficher() } else ouvrir(x) }
     private fun couleurDe(id: String) = couleurs[Math.floorMod(id.sumOf { it.code }, couleurs.size)]
     private val moisCourts = listOf("JANV", "FÉVR", "MARS", "AVR", "MAI", "JUIN", "JUIL", "AOÛT", "SEPT", "OCT", "NOV", "DÉC")
 
@@ -647,7 +659,8 @@ class BuddiesPanel(
         else "${jourN(dt.first)}–${jourN(dt.second)} ${moisAbr[mois(dt.second)]}"
     private val moiId get() = buddies.moi ?: "moi"
     private fun groupeCourant(): String? = when (val v = vue) {
-        is Vue.UnGroupe -> v.id; is Vue.Albums -> v.groupe; is Vue.UnAlbum -> v.groupe; else -> bandeCourante()
+        is Vue.UnGroupe -> v.id; is Vue.Albums -> v.groupe; is Vue.UnAlbum -> v.groupe; is Vue.LeCarnet -> v.groupe; is Vue.Ecrire -> v.groupe
+        else -> bandeCourante()
     }
     private fun bandeCourante(): String? {
         val gs = buddies.groupes()
@@ -992,7 +1005,7 @@ class BuddiesPanel(
         val l = if (v.carnet) toutes.filter { it.etoile } else toutes
         val auteurs = toutes.map { it.par.id }.toSet().size
         entete(x.nom, "📸 ${toutes.size} photo${if (toutes.size > 1) "s" else ""}" + if (auteurs > 0) " · $auteurs ${if (auteurs > 1) "buddies" else "buddy"}" else "",
-            retour = true) { vue = Vue.Albums(v.groupe); afficher() }
+            retour = true) { vue = if (v.retourCarnet) Vue.LeCarnet(x.id, v.groupe) else Vue.Albums(v.groupe); afficher() }
         col.addView(LinearLayout(a).apply {
             setPadding(dp(4), dp(4), dp(4), dp(4)); background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(card) }
             for ((k, t) in listOf(0 to "Toutes", 1 to "Sur la carte", 2 to "⭐ Carnet")) {
@@ -1028,6 +1041,273 @@ class BuddiesPanel(
         val miennes = toutes.count { it.attente }
         if (miennes > 0) col.addView(text("🕓 $miennes photo${if (miennes > 1) "s" else ""} à toi ${if (miennes > 1) "partiront" else "partira"} au retour du réseau.", 15f, muted), lp(10))
         pied.addView(bouton("📷 Déposer mes photos", primaire = true) { deposer(x) }, lp(8))
+    }
+
+    // ---------- carnet (spec §5.8, écrans 12 à 14) ----------
+    private val prefsCarnet by lazy { a.getSharedPreferences("carnet", android.content.Context.MODE_PRIVATE) }
+    private val reliefs = HashMap<String, Carnet.Relief>()
+    private val reliefsEnCours = HashSet<String>()
+    /** Relief des traces : gardé sur le téléphone, sinon demandé une fois en ligne ; l'écran se redessine à l'arrivée. */
+    private fun chargerReliefs(tc: List<Carnet.TraceCarnet>) {
+        for (t in tc) {
+            if (reliefs.containsKey(t.t.id)) continue
+            val garde = Carnet.reliefGarde(prefsCarnet, t.t.id)
+            if (garde != null) { reliefs[t.t.id] = garde; continue }
+            if (!reliefsEnCours.add(t.t.id)) continue
+            a.lifecycleScope.launch {
+                val r = withContext(Dispatchers.IO) { Carnet.relief(prefsCarnet, t.t) }
+                reliefsEnCours.remove(t.t.id)
+                if (r != null) { reliefs[t.t.id] = r; if (vue is Vue.LeCarnet) afficher() }
+            }
+        }
+    }
+    private fun arrondi(v: View, r: Int) = v.apply {
+        outlineProvider = object : ViewOutlineProvider() { override fun getOutline(view: View, o: Outline) { o.setRoundRect(0, 0, view.width, view.height, r * d) } }
+        clipToOutline = true
+    }
+    private fun photoCarnet(p: Buddies.PhotoBuddy, grande: Boolean): View = arrondi(FrameLayout(a).apply {
+        background = GradientDrawable().apply { setColor(card) }
+        val img = ImageView(a).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
+        addView(img, FrameLayout.LayoutParams(-1, -1))
+        AlbumVue.charger(a, album, p, "petite", img)
+        if (grande) AlbumVue.charger(a, album, p, "grande", img)
+        isClickable = true
+    }, 14)
+    private fun grilleTuiles(l: List<Carnet.Tuile>, parRangee: Int, taille: Float = 18f): View = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL
+        for (rang in l.chunked(parRangee)) addView(LinearLayout(a).apply {
+            for (t in rang) addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(2), dp(8), dp(2), dp(8))
+                background = GradientDrawable().apply {
+                    cornerRadius = 12 * d
+                    if (t.vide) setStroke(dp(2), Color.parseColor("#D9DFDC"), 6 * d, 4 * d) else setColor(card)
+                }
+                addView(text(t.v, taille, if (t.vide) muted else ink, bold = true).apply { gravity = Gravity.CENTER; isSingleLine = true })
+                addView(text(t.l, 14f, muted).apply { gravity = Gravity.CENTER; isSingleLine = true })
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
+            repeat(parRangee - rang.size) { addView(View(a), LinearLayout.LayoutParams(0, 1, 1f).apply { rightMargin = dp(6) }) }
+        }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+    }
+    private fun pastilleJour(n: Int, couleur: String) = text("Jour $n", 16f, Color.WHITE, bold = true).apply {
+        setPadding(dp(10), dp(3), dp(10), dp(3)); background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(Color.parseColor(couleur)) }
+    }
+    private fun cadre() = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(12), dp(12), dp(12))
+        background = GradientDrawable().apply { cornerRadius = 16 * d; setColor(Color.WHITE); setStroke(dp(1), Color.parseColor("#D9DFDC")) }
+    }
+    private fun chiffresFiche(f: Buddies.Fiche) = listOf(
+        Carnet.Tuile(if (f.depart.isNotEmpty()) f.depart.replace(":", " h ") else "—", "départ", f.depart.isEmpty()),
+        Carnet.Tuile(f.duree?.let(Carnet::duree) ?: "—", "durée", f.duree == null),
+        Carnet.Tuile(f.distance?.let(Carnet::km) ?: "—", "distance", f.distance == null),
+        Carnet.Tuile(f.denivele?.let { "+${Carnet.metres(it)}" } ?: "—", "montée", f.denivele == null))
+    private var pratiqueOuvert = false
+
+    /** Le carnet (écrans 12 et 13) : photos choisies, récits signés, trace, profil et chiffres, fiches des jours, « Le pratique ». */
+    private fun carnet(x: Buddies.Sortie, groupe: String?) {
+        val photos = buddies.photos().filter { it.sortie == x.id }
+        val traces = buddies.traces().filter { it.sortie == x.id }
+        val tc = Carnet.tracesDuCarnet(traces, Carnet.joursDe(x))
+        chargerReliefs(tc)
+        val (choix, auto) = Carnet.choixPhotos(photos)
+        val fs = Carnet.fiches(x, tc, reliefs)
+        val tuiles = Carnet.chiffres(x, tc, reliefs, fs)
+        entete(x.nom, "${dates(x)} · ${x.participants.joinToString(", ") { it.pseudo }}", retour = true) {
+            vue = groupe?.let { Vue.UnGroupe(it) } ?: Vue.Liste; afficher()
+        }
+        // Couverture : la photo du Buddy Time, sinon la première photo choisie.
+        col.addView(arrondi(FrameLayout(a).apply {
+            background = fond(x, 18 * d)
+            if (x.photo == null) choix.firstOrNull()?.let { addView(photoCarnet(it, true), FrameLayout.LayoutParams(-1, -1)) }
+            addView(View(a).apply { background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x00000000, 0x99000000.toInt())) }, FrameLayout.LayoutParams(-1, -1))
+            addView(text(x.nom, 26f, Color.WHITE, bold = true).apply { setPadding(dp(14), 0, dp(14), dp(12)) }, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        }, 18), LinearLayout.LayoutParams(-1, dp(170)).apply { topMargin = dp(8) })
+        if (photos.isNotEmpty()) {
+            col.addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(text("${if (auto) "✨" else "⭐"} ${choix.size} photo${if (choix.size > 1) "s" else ""} choisie${if (choix.size > 1) "s" else ""} sur ${photos.size}", 17f, bold = true),
+                    LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text("Changer", 16f, accent, bold = true).apply {
+                    gravity = Gravity.CENTER; minHeight = dp(48); setPadding(dp(8), 0, dp(4), 0); isClickable = true
+                    setOnClickListener { vue = Vue.UnAlbum(x.id, groupe, carnet = true, retourCarnet = true); afficher() }
+                })
+            }, lp(10))
+            col.addView(LinearLayout(a).apply {
+                addView(photoCarnet(choix[0], true).apply { setOnClickListener { AlbumVue.visionneuse(a, buddies, album, choix, 0) } },
+                    LinearLayout.LayoutParams(0, -1, 2f).apply { rightMargin = dp(8) })
+                if (choix.size > 1) addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL
+                    for (i in 1..minOf(2, choix.size - 1)) addView(FrameLayout(a).apply {
+                        addView(photoCarnet(choix[i], false).apply { setOnClickListener { AlbumVue.visionneuse(a, buddies, album, choix, i) } }, FrameLayout.LayoutParams(-1, -1))
+                        if (i == 2 && choix.size > 3) addView(text("+${choix.size - 3}", 24f, Color.WHITE, bold = true).apply {
+                            gravity = Gravity.CENTER; setBackgroundColor(0x66000000)
+                        }, FrameLayout.LayoutParams(-1, -1))
+                    }, LinearLayout.LayoutParams(-1, 0, 1f).apply { if (i == 1) bottomMargin = dp(8) })
+                }, LinearLayout.LayoutParams(0, -1, 1f))
+            }, LinearLayout.LayoutParams(-1, dp(220)).apply { topMargin = dp(6) })
+        }
+        for (r in x.carnet.recits) {
+            col.addView(text(r.texte, 18f).apply { setLineSpacing(0f, 1.25f) }, lp(12))
+            col.addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(visage(r.par.id, r.par.pseudo, r.par.photo, 26))
+                addView(text(r.par.pseudo + if (r.attente) " · 🕓" else "", 15f, muted).apply { setPadding(dp(8), 0, 0, 0) })
+            }, lp(2))
+        }
+        if (x.carnet.recits.isEmpty()) col.addView(text("🎤 Raconte la sortie : chacun ajoute son texte, à la voix ou au clavier.", 17f, muted).apply {
+            setPadding(dp(14), dp(14), dp(14), dp(14)); isClickable = true
+            background = GradientDrawable().apply { cornerRadius = 14 * d; setStroke(dp(2), Color.parseColor("#D9DFDC"), 6 * d, 4 * d) }
+            setOnClickListener { vue = Vue.Ecrire(x.id, groupe); ecrireReset(x); afficher() }
+        }, lp(12))
+        if (tc.isNotEmpty()) {
+            col.addView(LinearLayout(a).apply {
+                addView(text("〰 La trace", 17f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text(listOfNotNull(tuiles.firstOrNull { it.l == "distance" }?.v, tuiles.firstOrNull { it.l == "montée" }?.v).joinToString(" · "), 15f, muted))
+            }, lp(14))
+            col.addView(arrondi(FrameLayout(a).apply {
+                addView(PetitPlanView(a, tc), FrameLayout.LayoutParams(-1, -1))
+                addView(text("⤢", 20f).apply {
+                    gravity = Gravity.CENTER; background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(Color.WHITE) }
+                }, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(10), dp(10), 0) })
+                if (tc.size > 1 || tc[0].jour == null) addView(LinearLayout(a).apply {
+                    setPadding(dp(10), dp(4), dp(10), dp(4)); background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(Color.WHITE) }
+                    for (t in tc) addView(text("━ ", 15f, Color.parseColor(t.couleur), bold = true).apply { append(android.text.SpannableString(t.libelle + "  ").apply {
+                        setSpan(android.text.style.ForegroundColorSpan(ink), 0, length, 0) }) })
+                }, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(10), 0, 0, dp(10)) })
+                isClickable = true; setOnClickListener { ouvrir(x) }
+            }, 16), LinearLayout.LayoutParams(-1, dp(200)).apply { topMargin = dp(6) })
+            val parts = tc.mapNotNull { t -> reliefs[t.t.id]?.let { t to it } }
+            if (parts.isNotEmpty()) col.addView(arrondi(ProfilCarnetView(a, parts), 12), LinearLayout.LayoutParams(-1, dp(90)).apply { topMargin = dp(8) })
+        }
+        col.addView(grilleTuiles(tuiles, 3), lp(12))
+        if (x.carnet.conditions.isNotEmpty()) col.addView(text("Conditions : ${x.carnet.conditions}", 17f), lp(4))
+        for (fa in fs) col.addView(cadre().apply {
+            addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(pastilleJour(fa.n, fa.couleur))
+                addView(text(fa.f.nom.ifEmpty { AlbumVue.jourLong(fa.f.jour) }, 19f, bold = true).apply { setPadding(dp(8), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+            })
+            addView(grilleTuiles(chiffresFiche(fa.f), 4, 16f), lp(8))
+            val ph = (if (auto) photos else choix).filter { it.priseLe.startsWith(fa.f.jour) }.take(3)
+            if (ph.isNotEmpty()) addView(LinearLayout(a).apply {
+                for (p in ph) addView(photoCarnet(p, false).apply { setOnClickListener { AlbumVue.visionneuse(a, buddies, album, ph, ph.indexOf(p)) } },
+                    LinearLayout.LayoutParams(0, -1, 1f).apply { rightMargin = dp(6) })
+                repeat(3 - ph.size) { addView(View(a), LinearLayout.LayoutParams(0, 1, 1f).apply { rightMargin = dp(6) }) }
+            }, LinearLayout.LayoutParams(-1, dp(80)).apply { topMargin = dp(4) })
+        }, lp(10))
+        col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(56); setPadding(dp(14), 0, dp(14), 0); isClickable = true
+            background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(card) }
+            addView(text("📍 👥 〰", 17f)); addView(text("Le pratique", 17f, muted).apply { setPadding(dp(10), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text(if (pratiqueOuvert) "▾" else "▸", 17f, muted))
+            setOnClickListener { pratiqueOuvert = !pratiqueOuvert; afficher() }
+        }, lp(12))
+        if (pratiqueOuvert) {
+            if (x.lieu.isNotEmpty()) col.addView(text("📍 ${x.lieu}"), lp(4))
+            col.addView(text("👥 ${x.participants.joinToString(", ") { it.pseudo }}"), lp(4))
+            for (t in traces) col.addView(text("〰 ${t.nom} · par ${t.par.pseudo}"), lp(2))
+            col.addView(text("L’hébergement, les comptes et les messages s’ajouteront ici.", 15f, muted), lp(4))
+        }
+        pied.addView(LinearLayout(a).apply {
+            addView(bouton("✏️ Modifier") { ecrireReset(x); vue = Vue.Ecrire(x.id, groupe); afficher() }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
+            addView(bouton("Partager", primaire = true) {
+                val t = Carnet.texte(x, dates(x), tuiles, fs)
+                runCatching { a.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_SUBJECT, x.nom).putExtra(Intent.EXTRA_TEXT, t), x.nom)) }
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }, lp(8))
+    }
+
+    // Écrire le carnet (écran 14) : ce qui est tapé reste là pendant la synchro.
+    private var ecTexte = ""
+    private var ecSaisies = mutableListOf<Array<String>>()  // nom, départ, durée, distance, montée
+    private var ecAutres = arrayOf("", "", "")
+    private var ecDebut = 0L
+    private fun ecrireReset(x: Buddies.Sortie) {
+        ecTexte = x.carnet.recits.firstOrNull { buddies.estMoi(it.par) }?.texte ?: ""
+        ecSaisies = Carnet.joursDe(x).map { j ->
+            val f = x.carnet.fiches.firstOrNull { it.jour == j }
+            arrayOf(f?.nom ?: "", f?.depart ?: "", f?.duree?.let(Carnet::duree) ?: "", f?.distance?.let { (it / 1000.0).toString().removeSuffix(".0").replace('.', ',') } ?: "",
+                f?.denivele?.toString() ?: "")
+        }.toMutableList()
+        ecAutres = arrayOf(x.carnet.difficulte, x.carnet.meteo, x.carnet.conditions)
+        ecDebut = System.currentTimeMillis()
+    }
+
+    private fun ecrire(x: Buddies.Sortie, groupe: String?) {
+        val jours = Carnet.joursDe(x)
+        if (ecSaisies.size != jours.size) ecrireReset(x)
+        val tc = Carnet.tracesDuCarnet(buddies.traces().filter { it.sortie == x.id }, jours)
+        chargerReliefs(tc)
+        val derives = Carnet.fiches(x.copy(carnet = x.carnet.copy(fiches = emptyList())), tc, reliefs)
+        entete(x.nom, "📖 écrire le carnet", retour = true) { vue = Vue.LeCarnet(x.id, groupe); afficher() }
+        col.addView(LinearLayout(a).apply {
+            addView(text("Le récit", 17f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text(compte.nomAffiche(), 15f, muted))
+        }, lp(10))
+        val recit = champ(ecTexte, "Ce que tu veux raconter : le départ, le temps, les rires du soir…") { ecTexte = it }.apply {
+            isSingleLine = false; minLines = 5; gravity = Gravity.TOP or Gravity.START; textSize = 18f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        }
+        col.addView(recit, lp(4))
+        col.addView(FrameLayout(a).apply {
+            addView(rond("🎤", 112, Color.parseColor("#E4572E")) {
+                dicter { t -> if (!t.isNullOrBlank()) { ecTexte = if (ecTexte.isBlank()) t else "${ecTexte.trim()} $t"; afficher() } else toast("Pas de texte : réessaie, ou touche 🎤 sur le clavier") }
+            }.apply { textSize = 44f }, FrameLayout.LayoutParams(dp(112), dp(112), Gravity.CENTER))
+        }, LinearLayout.LayoutParams(-1, dp(130)).apply { topMargin = dp(8) })
+        col.addView(text("Touche le micro et raconte : tes mots sont écrits tels quels, puis corrige le texte.", 15f, muted).apply { gravity = Gravity.CENTER }, lp(2))
+        for ((i, j) in jours.withIndex()) {
+            val v = ecSaisies[i]
+            val dv = derives.firstOrNull { it.f.jour == j }
+            col.addView(cadre().apply {
+                addView(LinearLayout(a).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(pastilleJour(i + 1, tc.firstOrNull { it.jour == j }?.couleur ?: "#2F6F4F"))
+                    addView(champ(v[0], "Nom de la rando") { v[0] = it }, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
+                })
+                if (dv?.trace == true) addView(text("depuis la trace", 14f, muted), lp(2))
+                fun case(k: Int, libelle: String, indice: String, type: Int) = LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(4), dp(4), dp(4), dp(4))
+                    background = GradientDrawable().apply { cornerRadius = 12 * d; setStroke(dp(2), Color.parseColor("#D9DFDC"), 6 * d, 4 * d) }
+                    addView(champ(v[k], indice) { v[k] = it }.apply { gravity = Gravity.CENTER; inputType = type; setTypeface(typeface, Typeface.BOLD); background = null })
+                    addView(text(libelle, 14f, muted))
+                }
+                for (paire in listOf(listOf(1, 2), listOf(3, 4))) addView(LinearLayout(a).apply {
+                    for (k in paire) addView(when (k) {
+                        1 -> case(1, "départ (7:10)", "—", InputType.TYPE_CLASS_DATETIME or InputType.TYPE_DATETIME_VARIATION_TIME)
+                        2 -> case(2, "durée", "5 h 20", InputType.TYPE_CLASS_TEXT)
+                        3 -> case(3, "distance (km)", dv?.f?.distance?.let(Carnet::km) ?: "—", InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL)
+                        else -> case(4, "montée (m)", dv?.f?.denivele?.let { "+${Carnet.metres(it)}" } ?: "—", InputType.TYPE_CLASS_NUMBER)
+                    }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
+                }, lp(6))
+            }, lp(10))
+        }
+        col.addView(cadre().apply {
+            for ((k, l) in listOf("Difficulté" to "T3, PD, 3.1…", "Météo" to "☀️ 4°", "Conditions" to "Neige dure le matin, lac gelé…").withIndex()) {
+                addView(text(l.first, 14f, muted), lp(if (k == 0) 0 else 8))
+                addView(champ(ecAutres[k], l.second) { ecAutres[k] = it })
+            }
+        }, lp(10))
+        pied.addView(bouton("Enregistrer le carnet", primaire = true) {
+            val fiches = mutableListOf<Buddies.Fiche>()
+            for ((i, j) in jours.withIndex()) {
+                val v = ecSaisies[i]
+                val dep = v[1].trim().let { t -> Regex("^(\\d{1,2})\\s*[h:]\\s*(\\d{2})?$").find(t)?.let {
+                    "${it.groupValues[1].padStart(2, '0')}:${it.groupValues[2].ifEmpty { "00" }}" } ?: t }
+                val f = Buddies.Fiche(j, v[0].trim(), dep, Carnet.lireDuree(v[2]), Carnet.lireKm(v[3]), Carnet.lireMetres(v[4]))
+                if ((v[2].isNotBlank() && f.duree == null) || (v[3].isNotBlank() && f.distance == null) || (v[4].isNotBlank() && f.denivele == null) ||
+                    (dep.isNotEmpty() && !Regex("^([01]\\d|2[0-3]):[0-5]\\d$").matches(dep))) {
+                    toast("Jour ${i + 1} : un chiffre est illisible (départ « 7:10 », durée « 5 h 20 », distance en km, montée en m)"); return@bouton
+                }
+                val avant = x.carnet.fiches.firstOrNull { it.jour == j }
+                if (avant != (if (f.vide) null else f)) fiches += f
+            }
+            val mien = x.carnet.recits.firstOrNull { buddies.estMoi(it.par) }?.texte ?: ""
+            val autres = Triple(ecAutres[0], ecAutres[1], ecAutres[2])
+            buddies.enregistrerCarnet(x.id, ecTexte.trim().takeIf { it != mien }, fiches,
+                autres.takeIf { it != Triple(x.carnet.difficulte, x.carnet.meteo, x.carnet.conditions) })
+            toast(if (enLigne()) "Carnet enregistré" else "Carnet enregistré : il partira au retour du réseau 🕓")
+            vue = Vue.LeCarnet(x.id, groupe); afficher(); synchroniser()
+        }, lp(8))
     }
 
     // En dernier : tout ce qui précède est prêt. Pendant la saisie d'un nouveau groupe, la synchro ne redessine pas l'écran.

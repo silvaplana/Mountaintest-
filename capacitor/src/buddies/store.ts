@@ -22,10 +22,16 @@ export type Groupe = {
   id: string; nom: string; nature: 'bande' | 'me_time'; photo: string | null; modifie_le: string;
   membres: Buddy[]; invitations: Invitation[]; attente?: boolean;
 };
+/** Carnet d'un Buddy Time (spec §5.8) : le texte de chaque buddy, une fiche par jour (facultative), ce que la trace ne dit pas. */
+export type Recit = { par: Buddy; texte: string; modifie_le: string; attente?: boolean };
+/** Ce qui est tapé à la main : duree en minutes, distance et denivele en mètres (null : pris dans la trace du jour). */
+export type Fiche = { jour: string; nom: string; depart: string; duree: number | null; distance: number | null; denivele: number | null };
+export type CarnetBuddy = { difficulte: string; meteo: string; conditions: string; recits: Recit[]; fiches: Fiche[] };
+export const carnetVide = (): CarnetBuddy => ({ difficulte: '', meteo: '', conditions: '', recits: [], fiches: [] });
 /** Buddy Time (spec §5.4). Dates du calendrier AAAA-MM-JJ. */
 export type Sortie = {
   id: string; groupe: string; nom: string; photo: string | null; debut: string; fin: string; lieu: string; modifie_le: string;
-  participants: Buddy[]; invitations: Invitation[]; attente?: boolean;
+  participants: Buddy[]; invitations: Invitation[]; carnet?: CarnetBuddy; attente?: boolean;
 };
 /** Trace partagée dans un Buddy Time ou un Buddy Group (panneau de partage, spec §3.4). */
 export type TraceBuddy = {
@@ -151,6 +157,21 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
       photos = photos.map((x) => x.id === op.photo ? { ...x, etoile: !!op.etoile } : x);
     } else if (op.type === 'retirer_photo') {
       photos = photos.filter((x) => x.id !== op.photo);
+    } else if (op.type === 'recit' || op.type === 'fiche' || op.type === 'carnet') {
+      const k = sorties.findIndex((y) => y.id === op.sortie);
+      if (k < 0) continue;
+      const c = { ...carnetVide(), ...sorties[k].carnet };
+      if (op.type === 'recit') {
+        c.recits = c.recits.filter((r) => r.par.id !== moi);
+        if (op.texte) c.recits.push({ par: moiBuddy(e), texte: String(op.texte), modifie_le: quand(op), attente: true });
+      } else if (op.type === 'fiche') {
+        const f: Fiche = { jour: String(op.jour), nom: String(op.nom ?? ''), depart: String(op.depart ?? ''),
+          duree: (op.duree as number) ?? null, distance: (op.distance as number) ?? null, denivele: (op.denivele as number) ?? null };
+        c.fiches = [...c.fiches.filter((x) => x.jour !== f.jour), ...(ficheVide(f) ? [] : [f])].sort((a, b) => a.jour.localeCompare(b.jour));
+      } else {
+        c.difficulte = String(op.difficulte ?? ''); c.meteo = String(op.meteo ?? ''); c.conditions = String(op.conditions ?? '');
+      }
+      sorties[k] = { ...sorties[k], carnet: c, modifie_le: quand(op), attente: true };
     }
   }
   // Mes fichiers pas encore partis : 🕓 sur la photo.
@@ -206,6 +227,10 @@ export function parJour(photos: PhotoBuddy[], x: Sortie) {
   return [...jours.entries()].sort(([a], [b]) => a.localeCompare(b))
     .map(([jour, l]) => ({ jour, n: Math.round((Date.parse(jour) - Date.parse(x.debut)) / 86400e3) + 1, photos: l }));
 }
+
+// ------------------------------------------------------------------ carnet (§5.8)
+
+export const ficheVide = (f: Omit<Fiche, 'jour'>) => !f.nom && !f.depart && f.duree == null && f.distance == null && f.denivele == null;
 
 /** Applique les opérations en attente à la version du serveur : ce que montre l'écran. */
 export function appliquer(e: Etat): Groupe[] {
@@ -324,6 +349,17 @@ export function retirerPhoto(photo: string) {
   ecrire({ ...lire(), envois: (lire().envois ?? []).filter((x) => x !== photo) });
   ajouter({ type: 'retirer_photo', photo });
   void oublierFichier(photo);
+}
+/**
+ * Enregistrer le carnet (écran 14) : seulement ce qui a changé. Mon texte (vide : je l'efface), les fiches des jours
+ * (toute vide : elle disparaît), difficulté, météo et conditions.
+ */
+export function enregistrerCarnet(sortie: string, ch: { recit?: string; fiches?: Fiche[]; carnet?: { difficulte: string; meteo: string; conditions: string } }) {
+  const ops: Omit<Op, 'id' | 't'>[] = [];
+  if (ch.recit != null) ops.push({ type: 'recit', sortie, texte: ch.recit.trim().slice(0, 5000) });
+  for (const f of ch.fiches ?? []) ops.push({ type: 'fiche', sortie, ...f, nom: f.nom.trim().slice(0, 80) });
+  if (ch.carnet) ops.push({ type: 'carnet', sortie, difficulte: ch.carnet.difficulte.trim(), meteo: ch.carnet.meteo.trim(), conditions: ch.carnet.conditions.trim() });
+  if (ops.length) ajouter(...ops);
 }
 export const annulerInvitation = (invitation: string) => ajouter({ type: 'annuler_invitation', invitation });
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
