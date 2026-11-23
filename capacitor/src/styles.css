@@ -706,3 +706,30 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .acc-ou { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
 .acc-ou::before, .acc-ou::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .account .acc-plus-tard { border: 0; background: none; color: var(--muted); flex: none; }
+
+/* Album (spec/buddies.md §5.8, écrans 7 et 11) */
+.bd-grille-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.bd-vignette { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: var(--card); min-height: 0; }
+.bd-vignette img, .bd-vignette .bd-img-vide { width: 100%; height: 100%; object-fit: cover; display: grid; place-items: center; }
+.bd-vignette.attente img { opacity: .55; }
+.bd-etoile { position: absolute; top: 4px; right: 4px; font-size: 18px; }
+.bd-montre { position: absolute; inset: 0; display: grid; place-items: center; font-size: 26px; }
+.bd-auteur { position: absolute; left: 4px; bottom: 4px; display: flex; border-radius: 50%; border: 2px solid #fff; }
+.bd-album-mini { width: 56px; height: 56px; border-radius: 12px; overflow: hidden; background: var(--card); display: grid; place-items: center; font-size: 26px; flex: none; }
+.bd-album-mini img { width: 100%; height: 100%; object-fit: cover; }
+.bd-visionneuse { position: fixed; inset: 0; z-index: 9; background: #000; display: flex; flex-direction: column; color: #fff; }
+.bd-vis-haut, .bd-vis-bas { display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top) + 10px) 12px 10px; }
+.bd-vis-bas { padding: 10px 12px calc(env(safe-area-inset-bottom) + 14px); justify-content: space-between; }
+.bd-vis-haut .bd-texte { flex: 1; }
+.bd-vis-haut small { color: #ccc; }
+.bd-vis-haut button, .bd-vis-bas button { background: #fff2; color: #fff; border: 0; min-height: 48px; min-width: 48px; border-radius: 24px; font-size: 17px; }
+.bd-vis-bas button:disabled { opacity: .3; }
+.bd-vis-bas button.oui { background: #f2c94c; color: #1d2421; }
+.bd-vis-image { flex: 1; min-height: 0; width: 100%; object-fit: contain; display: grid; place-items: center; font-size: 40px; }
+.bd-photo-carte { width: 46px; height: 46px; border-radius: 10px; border: 3px solid #fff; box-shadow: 0 2px 6px #0005; background: #dde center/cover; padding: 0; min-height: 0; }
+.bd-bande-photos { display: flex; flex-direction: column; gap: 6px; border: 0; background: none; padding: 0; text-align: left; width: 100%; }
+.bd-bande-photos .bd-section { text-transform: none; letter-spacing: 0; color: var(--fg); font-size: 17px; margin: 0; }
+.bd-bande-images { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.bd-bande-image { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--card); }
+.bd-bande-image img, .bd-bande-image .bd-img-vide { width: 100%; height: 100%; object-fit: cover; display: grid; place-items: center; }
+.bd-bande-image b { position: absolute; inset: 0; display: grid; place-items: center; background: #0007; color: #fff; font-size: 20px; }

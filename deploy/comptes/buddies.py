@@ -10,6 +10,7 @@ l'oublie, pour que sa file d'attente ne reste jamais bloquée.
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -18,7 +19,7 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import Dispo, Groupe, Invitation, Membre, Participant, Planning, Sortie, TracePartagee, Utilisateur, maintenant
+from modeles import Dispo, Groupe, Invitation, Membre, Participant, Photo, Planning, Sortie, TracePartagee, Utilisateur, maintenant
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -304,10 +305,73 @@ def dispo(s: Session, u: Utilisateur, op: dict) -> None:
     p.modifie_le = maintenant()
 
 
+def heure_photo(t: Any) -> str:
+    t = str(t or "")[:19]
+    datetime.strptime(t, "%Y-%m-%dT%H:%M:%S")  # ValueError si mal formée
+    return t
+
+
+def ajouter_photo(s: Session, u: Utilisateur, op: dict) -> None:
+    """Album (§5.8) : la photo est annoncée ici, son fichier arrive ensuite (PUT /buddies/photos/…)."""
+    pid = uuid.UUID(str(op["photo"]))
+    if s.get(Photo, pid) is not None:
+        return
+    so = sortie_de(s, u, op["sortie"])
+    lon, lat = op.get("lon"), op.get("lat")
+    if lon is not None and lat is not None:
+        lon, lat = float(lon), float(lat)
+        if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+            lon = lat = None
+    else:
+        lon = lat = None
+    s.add(Photo(id=pid, sortie_id=so.id, par=u.id, prise_le=heure_photo(op.get("prise_le")), lon=lon, lat=lat))
+    toucher(so)
+
+
+def photo_de(s: Session, u: Utilisateur, pid: Any) -> Photo:
+    p = s.get(Photo, uuid.UUID(str(pid)))
+    if p is None or not sortie_visible(s, u, s.get(Sortie, p.sortie_id)):
+        raise Refus("Photo inconnue")
+    return p
+
+
+def etoile(s: Session, u: Utilisateur, op: dict) -> None:
+    p = photo_de(s, u, op["photo"])
+    p.etoile = bool(op.get("etoile"))
+    p.modifie_le = maintenant()
+
+
+def retirer_photo(s: Session, u: Utilisateur, op: dict) -> None:
+    """Seul l'auteur retire sa photo (le fichier est effacé par le serveur)."""
+    try:
+        p = photo_de(s, u, op["photo"])
+    except Refus:
+        return  # déjà retirée : rejouer ne coûte rien
+    if p.par != u.id:
+        raise Refus("Seul l'auteur peut retirer sa photo")
+    s.delete(p)
+    toucher(s.get(Sortie, p.sortie_id))
+    for taille in TAILLES:
+        try:
+            os.remove(fichier_photo(p.id, taille))
+        except OSError:
+            pass
+
+
+# Fichiers des photos : COMPTES_DOSSIER/photos/<id>-petite.jpg et -grande.jpg.
+DOSSIER_PHOTOS = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "photos")
+TAILLES = {"petite": 300_000, "grande": 4_000_000}  # octets au plus
+
+
+def fichier_photo(pid: uuid.UUID, taille: str) -> str:
+    return os.path.join(DOSSIER_PHOTOS, f"{pid}-{taille}.jpg")
+
+
 OPERATIONS = {
     "creer_groupe": creer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
+    "ajouter_photo": ajouter_photo, "etoile": etoile, "retirer_photo": retirer_photo,
 }
 
 
@@ -356,12 +420,14 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     traces = s.scalars(select(TracePartagee).where(or_(TracePartagee.groupe_id.in_(gids), TracePartagee.sortie_id.in_(sids)))
                        .order_by(TracePartagee.cree_le)).all()
     plannings = s.scalars(select(Planning).where(Planning.groupe_id.in_(gids)).order_by(Planning.cree_le)).all()
+    photos = s.scalars(select(Photo).where(Photo.sortie_id.in_(sids)).order_by(Photo.prise_le)).all()
     return {"curseur": iso(debut), "moi": str(u.id), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
             "ids_traces": [str(t.id) for t in traces], "traces": [vue_trace(s, t) for t in traces if neuf(t.cree_le)],
             "ids_plannings": [str(p.id) for p in plannings],
             "plannings": [vue_planning(s, p) for p in plannings if neuf(p.modifie_le)],
+            "ids_photos": [str(p.id) for p in photos], "photos": [vue_photo(s, p) for p in photos if neuf(p.modifie_le)],
             "refus": refus}
 
 
@@ -390,6 +456,11 @@ def vue_planning(s: Session, p: Planning) -> dict[str, Any]:
     return {"id": str(p.id), "groupe": str(p.groupe_id), "nom": p.nom, "par": personne(s.get(Utilisateur, p.cree_par)),
             "dates": json.loads(p.dates), "limite": p.limite, "modifie_le": iso(p.modifie_le),
             "dispos": [{"qui": str(d.utilisateur_id), "debut": d.debut, "etat": d.etat, "mot": d.mot} for d in dispos]}
+
+
+def vue_photo(s: Session, p: Photo) -> dict[str, Any]:
+    return {"id": str(p.id), "sortie": str(p.sortie_id), "par": personne(s.get(Utilisateur, p.par)), "prise_le": p.prise_le,
+            "lon": p.lon, "lat": p.lat, "etoile": p.etoile, "envoyee": p.envoyee, "modifie_le": iso(p.modifie_le)}
 
 
 def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:

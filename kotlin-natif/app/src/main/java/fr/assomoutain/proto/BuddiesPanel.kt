@@ -58,8 +58,13 @@ class BuddiesPanel(
     private val onClose: () -> Unit,
     /** Ouvrir un Buddy Time sur la carte (écran 4), ou une trace partagée dans un groupe (sortie = null). */
     private val onCarte: (Buddies.Sortie?, List<Buddies.TraceBuddy>) -> Unit,
+    /** Fichiers des photos de l'album, et « Déposer mes photos » (choix multiple, préparé par l'activité). */
+    private val album: Album,
+    private val deposer: (Buddies.Sortie) -> Unit,
     /** Revenir sur ce Buddy Group (‹ depuis la carte d'un Buddy Time). */
     depart: String? = null,
+    /** Ou ouvrir l'album de ce Buddy Time (📸 Album depuis la carte). */
+    departAlbum: String? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -74,8 +79,10 @@ class BuddiesPanel(
         // Planning de saison (§5.5) : groupe = la bande d'où l'on vient (null : toutes mes bandes).
         data class Plannings(val groupe: String?) : Vue(); data class UnPlanning(val id: String, val groupe: String?) : Vue()
         data class Dispos(val id: String, val groupe: String?) : Vue(); data class NvPlanning(val groupe: String?) : Vue()
+        // Album (§5.8).
+        data class Albums(val groupe: String?) : Vue(); data class UnAlbum(val id: String, val groupe: String?, val carnet: Boolean = false) : Vue()
     }
-    private var vue: Vue = depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
+    private var vue: Vue = departAlbum?.let { Vue.UnAlbum(it, depart) } ?: depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
     private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || motOuvert != null
 
     private val tete = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
@@ -194,8 +201,12 @@ class BuddiesPanel(
             if (!compte.connecte) toast("Connecte-toi (👤) pour les plannings de saison")
             else { vue = Vue.Plannings(bandeCourante()); afficher() }
         }
+        val albums = {
+            if (!compte.connecte) toast("Connecte-toi (👤) pour les albums")
+            else { vue = Vue.Albums(groupeCourant()); afficher() }
+        }
         listOf("📞" to bientot("appeler toute la bande"), "📅" to planning, "💬" to bientot("la messagerie de la bande"),
-            "📸" to bientot("l’album photo"), "💶" to onExpenses, "🏨" to onLodging,
+            "📸" to albums, "💶" to onExpenses, "🏨" to onLodging,
         ).forEach { (t, f) -> colonne.addView(rond(t, 52) { f() }.apply { (layoutParams as LinearLayout.LayoutParams).bottomMargin = dp(12) }) }
     }
 
@@ -234,6 +245,8 @@ class BuddiesPanel(
             is Vue.NvPlanning -> nouveauPlanning(v.groupe, gs)
             is Vue.UnPlanning -> buddies.plannings().firstOrNull { it.id == v.id }?.let { unPlanning(it, v.groupe, gs) } ?: run { vue = Vue.Plannings(v.groupe); afficher() }
             is Vue.Dispos -> buddies.plannings().firstOrNull { it.id == v.id }?.let { mesDispos(it, v.groupe) } ?: run { vue = Vue.Plannings(v.groupe); afficher() }
+            is Vue.Albums -> albums(v.groupe)
+            is Vue.UnAlbum -> buddies.sorties().firstOrNull { it.id == v.id }?.let { unAlbum(it, v) } ?: run { vue = Vue.Albums(v.groupe); afficher() }
         }
     }
 
@@ -633,6 +646,9 @@ class BuddiesPanel(
     private fun ligneCourte(dt: Pair<String, String>) = if (dt.first == dt.second) "${jourSemaine(dt.first)} ${jourN(dt.first)} ${moisAbr[mois(dt.first)]}"
         else "${jourN(dt.first)}–${jourN(dt.second)} ${moisAbr[mois(dt.second)]}"
     private val moiId get() = buddies.moi ?: "moi"
+    private fun groupeCourant(): String? = when (val v = vue) {
+        is Vue.UnGroupe -> v.id; is Vue.Albums -> v.groupe; is Vue.UnAlbum -> v.groupe; else -> bandeCourante()
+    }
     private fun bandeCourante(): String? {
         val gs = buddies.groupes()
         val id = when (val v = vue) { is Vue.UnGroupe -> v.id; is Vue.NouvelleSortie -> v.groupe; is Vue.Plannings -> v.groupe
@@ -936,6 +952,82 @@ class BuddiesPanel(
                 npDe = ""; vue = Vue.UnPlanning(id, groupe); afficher(); synchroniser()
             } catch (e: IllegalArgumentException) { toast(e.message ?: "Donne un nom au planning") }
         }, lp(8))
+    }
+
+    // ---------- album (spec §5.8, écrans 7 et 11) ----------
+    private fun imagePhoto(p: Buddies.PhotoBuddy, taille: Int): View = FrameLayout(a).apply {
+        background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(card) }
+        outlineProvider = object : ViewOutlineProvider() { override fun getOutline(view: View, o: Outline) { o.setRoundRect(0, 0, view.width, view.height, 12 * d) } }
+        clipToOutline = true
+        val montre = text("🕓", 22f).apply { gravity = Gravity.CENTER }
+        addView(montre, FrameLayout.LayoutParams(-1, -1))
+        val img = ImageView(a).apply { scaleType = ImageView.ScaleType.CENTER_CROP; if (p.attente) alpha = 0.55f }
+        addView(img, FrameLayout.LayoutParams(-1, -1))
+        AlbumVue.charger(a, album, p, "petite", img)
+        if (!p.attente) montre.text = ""
+        if (taille > 0) layoutParams = LinearLayout.LayoutParams(dp(taille), dp(taille))
+    }
+
+    private fun albums(groupe: String?) {
+        entete("Albums", retour = true) { vue = groupe?.let { Vue.UnGroupe(it) } ?: Vue.Liste; afficher() }
+        val photos = buddies.photos()
+        val l = buddies.sorties().filter { (groupe == null || it.groupe == groupe) && it.debut <= aujourdhui() }.sortedByDescending { it.debut }
+        for (x in l) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64); isClickable = true
+            setOnClickListener { vue = Vue.UnAlbum(x.id, groupe); afficher() }
+            val ph = photos.filter { it.sortie == x.id }
+            addView(ph.firstOrNull()?.let { imagePhoto(it, 56) } ?: text("📸", 28f).apply { gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(56), dp(56)) })
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0)
+                addView(text(x.nom, 17f, bold = true).apply { isSingleLine = true })
+                addView(text(if (ph.isEmpty()) "pas encore de photo" else "${ph.size} photo${if (ph.size > 1) "s" else ""}", 15f, muted))
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }, lp(6))
+        if (l.isEmpty()) col.addView(text("L’album d’un Buddy Time s’ouvre le jour du départ : chacun y dépose ses photos.", 17f, muted), lp(12))
+    }
+
+    /** Un album (écran 11) : Toutes, Sur la carte, ⭐ Carnet ; « Déposer mes photos ». */
+    private fun unAlbum(x: Buddies.Sortie, v: Vue.UnAlbum) {
+        val toutes = buddies.photos().filter { it.sortie == x.id }
+        val l = if (v.carnet) toutes.filter { it.etoile } else toutes
+        val auteurs = toutes.map { it.par.id }.toSet().size
+        entete(x.nom, "📸 ${toutes.size} photo${if (toutes.size > 1) "s" else ""}" + if (auteurs > 0) " · $auteurs ${if (auteurs > 1) "buddies" else "buddy"}" else "",
+            retour = true) { vue = Vue.Albums(v.groupe); afficher() }
+        col.addView(LinearLayout(a).apply {
+            setPadding(dp(4), dp(4), dp(4), dp(4)); background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(card) }
+            for ((k, t) in listOf(0 to "Toutes", 1 to "Sur la carte", 2 to "⭐ Carnet")) {
+                val choisi = (k == 0 && !v.carnet) || (k == 2 && v.carnet)
+                addView(text(t, 16f, if (choisi) ink else muted, bold = choisi).apply {
+                    gravity = Gravity.CENTER; setPadding(0, dp(10), 0, dp(10)); isClickable = true
+                    if (choisi) background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(Color.WHITE) }
+                    setOnClickListener {
+                        when (k) { 0 -> { vue = v.copy(carnet = false); afficher() }; 2 -> { vue = v.copy(carnet = true); afficher() }; else -> ouvrir(x) }
+                    }
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+            }
+        }, lp(6))
+        // Rangées par jour : « Jour 1 · sam. 18 oct. »
+        for ((jour, ph) in l.groupBy { it.priseLe.take(10) }.toSortedMap()) {
+            val n = Math.round((jourMs(jour) - jourMs(x.debut)) / 86_400_000.0).toInt() + 1
+            col.addView(LinearLayout(a).apply {
+                addView(section((if (n >= 1) "Jour $n · " else "") + AlbumVue.jourLong(jour)), LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text("${ph.size} photo${if (ph.size > 1) "s" else ""}", 14f, muted))
+            }, lp(12))
+            for (rang in ph.chunked(3)) col.addView(LinearLayout(a).apply {
+                for (p in rang) addView(FrameLayout(a).apply {
+                    addView(imagePhoto(p, 0), FrameLayout.LayoutParams(-1, -1))
+                    if (p.etoile) addView(text("⭐", 16f), FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(0, dp(2), dp(4), 0) })
+                    addView(visage(p.par.id, p.par.pseudo, p.par.photo, 24), FrameLayout.LayoutParams(dp(24), dp(24), Gravity.BOTTOM or Gravity.START).apply { setMargins(dp(4), 0, 0, dp(4)) })
+                    isClickable = true; setOnClickListener { AlbumVue.visionneuse(a, buddies, album, l, l.indexOf(p)) }
+                }, LinearLayout.LayoutParams(0, dp(108), 1f).apply { rightMargin = dp(6) })
+                repeat(3 - rang.size) { addView(View(a), LinearLayout.LayoutParams(0, 1, 1f).apply { rightMargin = dp(6) }) }
+            }, lp(6))
+        }
+        if (l.isEmpty()) col.addView(text(if (v.carnet) "Touche ⭐ sur une photo pour la garder pour le carnet."
+            else "Pas encore de photo : dépose les tiennes, chacun ajoute les siennes.", 17f, muted), lp(12))
+        val miennes = toutes.count { it.attente }
+        if (miennes > 0) col.addView(text("🕓 $miennes photo${if (miennes > 1) "s" else ""} à toi ${if (miennes > 1) "partiront" else "partira"} au retour du réseau.", 15f, muted), lp(10))
+        pied.addView(bouton("📷 Déposer mes photos", primaire = true) { deposer(x) }, lp(8))
     }
 
     // En dernier : tout ce qui précède est prêt. Pendant la saisie d'un nouveau groupe, la synchro ne redessine pas l'écran.

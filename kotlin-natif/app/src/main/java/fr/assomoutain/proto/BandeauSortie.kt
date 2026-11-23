@@ -19,7 +19,11 @@ import java.util.Locale
  * Même écran que BandeauSortie dans src/buddies/Buddies.tsx.
  */
 object BandeauSortie {
-    fun vue(a: android.app.Activity, x: Buddies.Sortie, traces: List<Buddies.TraceBuddy>, haut: Int, bas: Int, onRetour: () -> Unit): View {
+    /** Bandeau replié ou non : gardé quand le bandeau est redessiné (nouvelles photos). */
+    var replie = false
+
+    fun vue(a: androidx.appcompat.app.AppCompatActivity, x: Buddies.Sortie, traces: List<Buddies.TraceBuddy>, haut: Int, bas: Int,
+            photos: List<Buddies.PhotoBuddy>, album: Album, onAlbum: () -> Unit, onAjouter: () -> Unit, onRetour: () -> Unit): View {
         val d = a.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
         val ink = Color.parseColor("#1D2421"); val muted = Color.parseColor("#5F6B66"); val card = Color.parseColor("#F2F4F1")
@@ -70,7 +74,45 @@ object BandeauSortie {
                 addView(chiffre(if (x.fin >= auj) "${maxOf(0, n)}" else "✓", if (x.fin >= auj) "jours avant" else "souvenir"), LinearLayout.LayoutParams(0, -2, 1f))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
             if (traces.isEmpty()) addView(text("Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.", 15f, muted))
+            // 📸 Les photos de l'album (écran 7), puis « Ajouter » et « Album » une fois parti.
+            if (photos.isNotEmpty()) {
+                val auteurs = photos.map { it.par.id }.toSet().size
+                addView(LinearLayout(a).apply {
+                    gravity = Gravity.CENTER_VERTICAL; isClickable = true; setOnClickListener { onAlbum() }
+                    addView(text("📸 ${photos.size} photo${if (photos.size > 1) "s" else ""}", 17f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(text("de $auteurs ${if (auteurs > 1) "buddies" else "buddy"}", 15f, muted))
+                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+                addView(LinearLayout(a).apply {
+                    photos.take(4).forEachIndexed { i, p ->
+                        addView(FrameLayout(a).apply {
+                            background = GradientDrawable().apply { cornerRadius = 10 * d; setColor(card) }
+                            outlineProvider = object : android.view.ViewOutlineProvider() {
+                                override fun getOutline(view: View, o: android.graphics.Outline) { o.setRoundRect(0, 0, view.width, view.height, 10 * d) }
+                            }
+                            clipToOutline = true; isClickable = true; setOnClickListener { onAlbum() }
+                            val img = android.widget.ImageView(a).apply { scaleType = android.widget.ImageView.ScaleType.CENTER_CROP }
+                            addView(img, FrameLayout.LayoutParams(-1, -1))
+                            AlbumVue.charger(a, album, p, "petite", img)
+                            if (i == 3 && photos.size > 4) addView(text("+${photos.size - 3}", 20f, Color.WHITE, bold = true).apply {
+                                gravity = Gravity.CENTER; setBackgroundColor(Color.parseColor("#77000000"))
+                            }, FrameLayout.LayoutParams(-1, -1))
+                        }, LinearLayout.LayoutParams(0, dp(76), 1f).apply { if (i < 3) rightMargin = dp(6) })
+                    }
+                    repeat(4 - minOf(4, photos.size)) { addView(View(a), LinearLayout.LayoutParams(0, 1, 1f).apply { rightMargin = dp(6) }) }
+                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+            }
+            if (x.debut <= auj) addView(LinearLayout(a).apply {
+                fun bouton(t: String, primaire: Boolean, f: () -> Unit) = Button(a).apply {
+                    text = t; isAllCaps = false; textSize = 17f; minHeight = dp(52); setTextColor(if (primaire) Color.WHITE else ink)
+                    background = GradientDrawable().apply { cornerRadius = 14 * d
+                        if (primaire) setColor(Color.parseColor("#2F6F4F")) else { setColor(Color.WHITE); setStroke(dp(1), Color.parseColor("#D9DFDC")) } }
+                    setOnClickListener { f() }
+                }
+                addView(bouton("📷 Ajouter", true, onAjouter), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
+                addView(bouton("📸 Album", false, onAlbum), LinearLayout.LayoutParams(0, -2, 1f))
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         }
+        contenu.visibility = if (replie) View.GONE else View.VISIBLE
         racine.addView(LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(6), dp(16), bas + dp(16))
             background = GradientDrawable().apply { cornerRadii = floatArrayOf(18 * d, 18 * d, 18 * d, 18 * d, 0f, 0f, 0f, 0f); setColor(Color.WHITE) }
@@ -79,7 +121,7 @@ object BandeauSortie {
                 background = GradientDrawable().apply { cornerRadius = 3 * d; setColor(Color.parseColor("#D9DFDC")) }
                 contentDescription = "Replier"
             }, LinearLayout.LayoutParams(dp(44), dp(5)).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = dp(8) })
-            setOnClickListener { contenu.visibility = if (contenu.visibility == View.VISIBLE) View.GONE else View.VISIBLE }
+            setOnClickListener { replie = !replie; contenu.visibility = if (replie) View.GONE else View.VISIBLE }
             addView(contenu)
         }, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         return racine

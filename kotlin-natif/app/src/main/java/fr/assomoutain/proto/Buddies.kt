@@ -88,6 +88,14 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         val modifie: Long, val dispos: List<Dispo>, val attente: Boolean,
     )
 
+    /** Photo de l'album d'un Buddy Time (spec §5.8). priseLe : heure locale AAAA-MM-JJTHH:MM:SS. */
+    data class PhotoBuddy(
+        val id: String, val sortie: String, val par: Buddy, val priseLe: String, val lon: Double?, val lat: Double?,
+        val etoile: Boolean, val envoyee: Boolean, val modifie: Long, val attente: Boolean,
+    )
+    /** Fichiers des photos (posé par MainActivity) : envoyés après chaque synchro. */
+    var album: Album? = null
+
     /** État gardé sur le téléphone (JSON dans les préférences, mêmes champs que store.ts). */
     var etat: JSONObject = runCatching { JSONObject(prefs.getString(CLE, "{}")!!) }.getOrDefault(JSONObject())
         private set
@@ -221,6 +229,25 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         }
         return l.sortedByDescending { it.modifie }
     }
+    private fun lirePhoto(p: JSONObject) = PhotoBuddy(p.getString("id"), p.optString("sortie"),
+        lireBuddy(p.optJSONObject("par") ?: JSONObject().put("id", "?")), p.optString("prise_le"),
+        if (p.isNull("lon")) null else p.optDouble("lon"), if (p.isNull("lat")) null else p.optDouble("lat"),
+        p.optBoolean("etoile"), p.optBoolean("envoyee"), ms(p.optString("modifie_le")), false)
+    private fun envois() = etat.optJSONArray("envois").let { a -> if (a == null) emptyList() else (0 until a.length()).map { a.getString(it) } }
+
+    /** Photos telles qu'affichées (version du serveur + mes dépôts, ⭐ et retraits en attente), dans l'ordre de prise de vue. */
+    fun photos(): List<PhotoBuddy> {
+        val l = etat.optJSONArray("photos").objets().map(::lirePhoto).toMutableList()
+        for (op in attente().objets()) when (op.optString("type")) {
+            "ajouter_photo" -> if (l.none { it.id == op.optString("photo") }) l += PhotoBuddy(op.getString("photo"), op.optString("sortie"), moiBuddy(),
+                op.optString("prise_le"), if (op.isNull("lon")) null else op.optDouble("lon"), if (op.isNull("lat")) null else op.optDouble("lat"),
+                false, false, op.optLong("t"), true)
+            "etoile" -> { val k = l.indexOfFirst { it.id == op.optString("photo") }; if (k >= 0) l[k] = l[k].copy(etoile = op.optBoolean("etoile")) }
+            "retirer_photo" -> l.removeAll { it.id == op.optString("photo") }
+        }
+        val e = envois().toSet()
+        return l.map { if (it.id in e) it.copy(attente = true) else it }.sortedBy { it.priseLe }
+    }
     fun marquerVu() = modifier { put("vu", System.currentTimeMillis()) }
 
     fun estAdmin(g: Groupe) = g.membres.any { (it.id == moi || it.id == "moi") && it.role == "admin" }
@@ -286,6 +313,19 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     /** Ma réponse pour une date (etat vide : j'efface). */
     fun repondre(planning: String, debut: String, etat: String, mot: String = "") = ajouter(JSONObject().put("type", "dispo")
         .put("planning", planning).put("debut", debut).put("etat", etat).put("mot", mot.trim().take(200)))
+    /** Déposer des photos déjà réduites et gardées sur le téléphone (Album) : elles partent au retour du réseau. */
+    fun deposerPhotos(sortie: String, l: List<Triple<String, String, Pair<Double?, Double?>>>) {
+        if (l.isEmpty()) return
+        modifier { put("envois", JSONArray(envois() + l.map { it.first })) }
+        ajouter(*l.map { (id, quand, pos) -> JSONObject().put("type", "ajouter_photo").put("sortie", sortie).put("photo", id).put("prise_le", quand)
+            .put("lon", pos.first ?: JSONObject.NULL).put("lat", pos.second ?: JSONObject.NULL) }.toTypedArray())
+    }
+    fun mettreEtoile(photo: String, etoile: Boolean) = ajouter(JSONObject().put("type", "etoile").put("photo", photo).put("etoile", etoile))
+    fun retirerPhoto(photo: String) {
+        modifier { put("envois", JSONArray(envois().filter { it != photo })) }
+        ajouter(JSONObject().put("type", "retirer_photo").put("photo", photo))
+        album?.oublier(photo)
+    }
     fun annulerInvitation(invitation: String) = ajouter(JSONObject().put("type", "annuler_invitation").put("invitation", invitation))
     fun quitter(groupe: String) = ajouter(JSONObject().put("type", "quitter").put("groupe", groupe))
     fun retirer(groupe: String, buddy: String) = ajouter(JSONObject().put("type", "retirer").put("groupe", groupe).put("buddy", buddy))
@@ -326,9 +366,19 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             }
             fusion("serveur", "groupes", "ids"); fusion("sorties", "sorties", "ids_sorties"); fusion("traces", "traces", "ids_traces")
             fusion("plannings", "plannings", "ids_plannings")
+            fusion("photos", "photos", "ids_photos")
             put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("id") !in envoyees }))
             put("moi", r.getString("moi")); put("synchro", System.currentTimeMillis())
             if (manque) remove("curseur") else put("curseur", r.getString("curseur"))
+        }
+        // Fichiers de mes photos acceptées ; une photo refusée est oubliée. Sans réseau : au prochain tour.
+        val connues = r.optJSONArray("ids_photos").let { a -> if (a == null) emptySet() else (0 until a.length()).map { a.getString(it) }.toSet() }
+        runCatching {
+            for (id in envois()) {
+                if (id in connues) album?.envoyer(id)
+                else if (attente().objets().any { it.optString("type") == "ajouter_photo" && it.optString("photo") == id }) continue
+                modifier { put("envois", JSONArray(envois().filter { it != id })) }
+            }
         }
         return r.getJSONArray("refus").objets().map { it.optString("raison") }
     }

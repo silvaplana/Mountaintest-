@@ -115,7 +115,7 @@ export function App() {
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);
   /** ‹ depuis la carte d'un Buddy Time : on revient sur son Buddy Group. */
-  const [buddiesDepart, setBuddiesDepart] = useState<string | undefined>();
+  const [buddiesDepart, setBuddiesDepart] = useState<string | { album: string; groupe: string } | undefined>();
   /** Un Buddy Time ouvert sur la carte (écran 4). */
   const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[] } | null>(null);
   /** Panneau de partage d'une trace (écran 22). */
@@ -1168,7 +1168,9 @@ export function App() {
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onCarte={montrerBuddies} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie x={carteSortie.sortie} traces={carteSortie.traces}
-        onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }} />}
+        onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }}
+        onAlbum={() => { setBuddiesDepart({ album: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
+        onToast={setToast} map={map} />}
       {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
       {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
