@@ -360,7 +360,7 @@ class BuddiesPanel(
         val boite = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(8), dp(16), dp(8)) }
         val dlg = AlertDialog.Builder(a).setView(ScrollView(a).apply { addView(boite) }).setNegativeButton("Fermer", null).create()
         boite.addView(text("Inviter mes copains", 20f, bold = true))
-        boite.addView(inviterRangee(g.nom, g.invitations.firstOrNull { it.canal == "qr" }?.code) { i ->
+        boite.addView(inviterFixe(g.nom, g.invitations.firstOrNull { it.canal == "qr" }?.code) { i ->
             buddies.inviter(g.id, i); synchroniser()
             if (i.canal != "qr") toast("Invitation envoyée à ${i.nom}")
         }, lp())
@@ -461,8 +461,8 @@ class BuddiesPanel(
             }
         }
     }
-    private fun inviterRangee(nomGroupe: String, qrExistant: String?, onInvite: (Buddies.NouvelleInvitation) -> Unit) =
-        inviterRangee({ nomGroupe }, { qrExistant }, onInvite)
+    private fun inviterFixe(nomGroupe: String, qrExistant: String?, onInvite: (Buddies.NouvelleInvitation) -> Unit): View =
+        inviterRangee(nomGroupe = { nomGroupe }, qrExistant = { qrExistant }, sortie = false, onInvite = onInvite)
 
     // ---------- nouveau Buddy Group (écran 20) ----------
     private var nvNom = ""
