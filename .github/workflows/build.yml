@@ -177,7 +177,7 @@ jobs:
           # Relais IA (randos trouvées par Claude) : le VPS le fait tourner, voir deploy/ia/README.md.
           mkdir -p site/ia && cp deploy/ia/relais.py deploy/ia/installer-ia.sh deploy/ia/activer-mail.sh site/ia/
           # Comptes (Logto + serveur Python) : installés une fois sur le VPS, voir deploy/comptes/README.md.
-          mkdir -p site/comptes && cp deploy/comptes/*.py deploy/comptes/requirements.txt deploy/comptes/installer-comptes.sh site/comptes/
+          mkdir -p site/comptes && cp deploy/comptes/*.py deploy/comptes/requirements.txt deploy/comptes/installer-comptes.sh deploy/comptes/installer-appels.sh site/comptes/
           sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" \
               -e "s/@CAP@/$(du -m site/apk/mountain-buddies-capacitor.apk | cut -f1)/" \
               -e "s/@KOT@/$(du -m site/apk/mountain-buddies-kotlin.apk | cut -f1)/" \
