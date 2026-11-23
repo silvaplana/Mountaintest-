@@ -67,7 +67,7 @@ object BandeauSortie {
             addView(LinearLayout(a).apply {
                 orientation = LinearLayout.VERTICAL; setPadding(dp(8), 0, 0, 0)
                 addView(text(x.nom, 17f, bold = true).apply { isSingleLine = true })
-                addView(text(if (conversation != null) "💬 ${x.participants.size} ${if (x.participants.size > 1) "buddies" else "buddy"}"
+                addView(text(if (conversation != null) "💬 ${x.participants.size} ${if (x.participants.size > 1) "buddies" else "buddy"} + Bud"
                     else if (positions) "📍 ${if (visibles == 0) "aucun" else "$visibles"} ${if (visibles > 1) "buddies visibles" else "buddy visible"}"
                     else dates + if (x.lieu.isNotEmpty()) " · ${x.lieu}" else "", 14f, muted).apply { isSingleLine = true })
             })

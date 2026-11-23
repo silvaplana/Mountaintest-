@@ -74,7 +74,7 @@ class ConversationVue(
     }
 
     private val champ = EditText(a).apply {
-        hint = "Message"; textSize = 17f; setTextColor(ink); isSingleLine = true; imeOptions = EditorInfo.IME_ACTION_SEND
+        hint = "Message, ou « Bud, … »"; textSize = 17f; setTextColor(ink); isSingleLine = true; imeOptions = EditorInfo.IME_ACTION_SEND
         inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
         setPadding(dp(16), 0, dp(16), 0)
         background = GradientDrawable().apply { cornerRadius = 24 * d; setColor(Color.WHITE); setStroke(dp(1), Color.parseColor("#D9DFDC")) }
@@ -111,6 +111,27 @@ class ConversationVue(
         if (t.isBlank()) return
         buddies.envoyerMessage(groupe, sortie?.id, texte = t)
         champ.setText(""); synchroniser()
+        if (Bud.pourBud(t)) bud(t)
+    }
+
+    /** 🐻 « Bud, … » : la question est partie comme un message ; la réponse de Bud arrive dans sa bulle, vue de tous. */
+    private var budPense = false
+    private fun bud(question: String) {
+        val moi = buddies.moi ?: "moi"
+        val ctx = Bud.contexte(groupe, sortie, buddies.groupes().firstOrNull { it.id == groupe }?.nom.orEmpty(), membres, moi,
+            buddies.traces(), buddies.hebergements(), buddies.depenses(), buddies.plannings(), buddies.messages())
+        budPense = true; rafraichir()
+        a.lifecycleScope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { Bud.demander(Bud.motDePasse(), question, ctx) } }
+            budPense = false
+            r.onSuccess { x ->
+                if (x.texte.isNotBlank()) buddies.envoyerMessage(groupe, sortie?.id, texte = x.texte, bud = true)
+                x.point?.let { buddies.envoyerMessage(groupe, sortie?.id, "point", texte = it.nom, lon = it.lon, lat = it.lat, bud = true) }
+                if (sortie != null) for (h in x.hebergements) buddies.proposerHebergement(listOf(sortie.id), h.lodging, h.lon, h.lat)
+                synchroniser()
+            }.onFailure { Toast.makeText(a, it.message ?: "Bud ne répond pas", Toast.LENGTH_LONG).show() }
+            rafraichir()
+        }
     }
     private fun point() = localiser { s ->
         if (s == null) Toast.makeText(a, "Position introuvable : le GPS est-il allumé ?", Toast.LENGTH_LONG).show()
@@ -128,6 +149,7 @@ class ConversationVue(
         if (bulles.isEmpty()) fil.addView(text("Pas encore de message. Écris, dicte avec 🎤, ou montre où tu es avec 📍.", 17f, muted))
         val photos = buddies.photos()
         for (b in if (court) bulles.takeLast(2) else bulles) fil.addView(bulle(b, photos), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        if (budPense) fil.addView(cote(budBulle("…"), false), LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         if (buddies.nonLus(cle, ms) > 0) buddies.marquerLu(cle)
         fil.post { defiler() }
     }
@@ -156,7 +178,21 @@ class ConversationVue(
         is Messages.Bulle.Message -> message(b.m, photos)
     }
 
+    /** 🐻 La bulle de Bud : à part, sombre, à gauche chez tout le monde. */
+    private fun budBulle(t: String, pied: String = "") = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(14), dp(8))
+        background = GradientDrawable().apply { cornerRadius = 16 * d; setColor(ink) }
+        addView(text("🐻 Bud", 15f, Color.parseColor("#F2C14E"), bold = true))
+        addView(text(t, 17f, Color.WHITE))
+        if (pied.isNotEmpty()) addView(text(pied, 13f, Color.parseColor("#A0FFFFFF")).apply { gravity = Gravity.END }, LinearLayout.LayoutParams(-1, -2))
+    }
+
     private fun message(m: Buddies.MessageBuddy, photos: List<Buddies.PhotoBuddy>): View {
+        if (m.bud) {
+            val n = m.texte.ifEmpty { "Bud montre ici" }
+            return cote(if (m.nature == "point") carte("📍", n, "🐻 Bud · voir sur la carte") { if (m.lon != null && m.lat != null) onPoint(m.lon, m.lat, n) }
+                else budBulle(m.texte, Messages.heure(m.cree) + if (m.attente) " · 🕓" else ""), false)
+        }
         val mien = m.par == buddies.moi || m.par == "moi"
         val pied = Messages.heure(m.cree) + if (m.attente) " · 🕓 partira au retour du réseau" else ""
         val choisir = { choisi = if (choisi == m.id) null else m.id; rafraichir() }

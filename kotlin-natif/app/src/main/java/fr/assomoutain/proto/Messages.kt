@@ -35,7 +35,7 @@ object Messages {
             null -> ""
             is Bulle.Trace -> "〰 ${if (b.t.par.id == moi) "Toi" else b.t.par.pseudo} : ${b.t.nom}"
             is Bulle.Heberg -> "🏨 ${qui(b.h.par)} : ${b.h.nom}"
-            is Bulle.Message -> "${qui(b.m.par)} : " + when (b.m.nature) { "point" -> "📍 je suis ici"; "photo" -> "📷 une photo"; else -> b.m.texte }
+            is Bulle.Message -> if (b.m.bud) "🐻 Bud : " + (if (b.m.nature == "point") "📍 ${b.m.texte}" else b.m.texte) else "${qui(b.m.par)} : " + when (b.m.nature) { "point" -> "📍 je suis ici"; "photo" -> "📷 une photo"; else -> b.m.texte }
         }
     }
 

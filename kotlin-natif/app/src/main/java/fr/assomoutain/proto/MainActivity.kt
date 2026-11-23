@@ -3204,6 +3204,7 @@ class MainActivity : AppCompatActivity() {
         override fun run() { if (Appel.etat?.phase == "en_ligne") { majAppel(Appel.etat); mapView.postDelayed(this, 1000) } }
     }
     private fun initAppels() {
+        Bud.motDePasse = { BuildConfig.IA_MOT_DE_PASSE.ifEmpty { prefs.getString("iaPassword", "").orEmpty() } }
         Appel.init(this, compte)
         Appel.onDoigt = { lon, lat, qui ->
             montrerPoint(lon, lat, if (qui.isEmpty()) "Tu montres" else "$qui te montre", "👉")
