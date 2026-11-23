@@ -539,9 +539,21 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   lieu, qui vient, invités), les traces partagées (longueur, départ, arrivée), les hébergements proposés et leurs ♥,
   le Buddy count (qui doit quoi), les plannings de la bande et les 30 derniers messages.
 - **Pas encore** : la pente ou l'altitude d'une trace (les traces partagées n'ont pas l'altitude : Bud le dit), le
-  tronçon « montré en rouge » de la maquette, et toute action de Bud (dépense, Buddy Time, dispo) : à décider (§9.5).
+  tronçon « montré en rouge » de la maquette. Les actions de Bud : §7.12.
 - **Réseau et coût** : besoin de réseau ; passe par le relais (`deploy/ia/relais.py`, route `/bud`, même mot de passe
   et même limite par jour que les recherches) ; son coût s'ajoute à l'écran 📊 (ligne « Bud »).
+
+### 7.12 Bud peut aussi agir (choix de Seb, 23 novembre 2026)
+
+- Sur demande claire de celui qui lui parle (« Bud, ajoute le gîte, 120 €, payé par Julie », « Bud, crée un Buddy
+  Time samedi 6 février à Belledonne », « Bud, mets-moi oui pour le 10 janvier »), Bud fait **trois choses, en son
+  nom** : une dépense du Buddy count de ce Buddy Time (qui paie et pour qui : des participants), un Buddy Time dans
+  cette bande, sa propre dispo à un planning de la bande (jamais celle d'un autre). Trois actions au plus par réponse.
+- Sous la bulle de Bud : la liste de ce qui est fait (« ✓ 💶 Gîte · 120 € ») et **« Annuler »** (sur le téléphone de
+  celui qui a demandé) : la dépense est retirée, la dispo revient comme avant, le Buddy Time est retiré s'il n'a pas
+  encore servi (opération `retirer_sortie` : seulement son créateur, et seulement sans trace, photo, dépense, message
+  ni hébergement).
+- Ce qui sort de ces règles (un buddy hors du Buddy Time, une date hors du planning…) n'est pas fait : un message le dit.
 
 ## 8. Hors périmètre pour l'instant
 
@@ -558,7 +570,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
    haut de la liste : à confirmer.
 4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
 5. Bud : les règles du §5.12 sont construites telles quelles (bloc 11, §7.11), visage 🐻 ; ce qu'il a le droit de
-   faire seul (rien, par défaut) : question posée à Seb le 23 novembre.
+   faire : sur demande, une dépense, un Buddy Time, sa propre dispo, avec « Annuler » (choix de Seb le 23 novembre, §7.12).
 6. ~~La recherche d'hébergement affiche « Chercher (IA) » et « Claude cherche… »~~ : reformulée (« 🔍 Chercher »,
    « Je cherche les meilleurs prix… »), accord de Seb le 23 novembre. Même chose pour la recherche de randos sur le web, le coût du
    voyage (carburant, péages), la lecture de facture et l'aide des icônes. Seul l'écran 📊 du menu (usage et coûts,
