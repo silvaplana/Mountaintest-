@@ -28,6 +28,7 @@ object IconHelp {
         "travel" to IconHelp.Entry("🚗 Voyage en voiture", "Km, coût, péages."),
         "lodging" to IconHelp.Entry("🏨 Hébergement", "Meilleurs prix (IA)."),
         "expenses" to IconHelp.Entry("Partage des frais", "Qui doit combien à qui."),
+        "groups" to IconHelp.Entry("👥 Groupes", "Mon compte, puis mes groupes d’amis. Rond vert : connecté."),
     )
 
     /** Légende de la couche IGN « Carte des pentes » (GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN). */

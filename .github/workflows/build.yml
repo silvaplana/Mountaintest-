@@ -3,6 +3,9 @@ name: Construire les APK et le site web
 on:
   push:
     branches: [main]
+  # PR : on vérifie que tout se construit (tests, APK), sans rien publier (release et site : main seulement).
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +16,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  serveur:
+    name: Serveur des comptes (tests Python)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: deploy/comptes } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q -r requirements.txt pytest httpx
+      - run: python -m pytest -q tests
+
   web:
     name: Site web (proto React)
     runs-on: ubuntu-latest
@@ -127,6 +141,7 @@ jobs:
   release:
     name: Mettre les APK en téléchargement
     needs: [apk-capacitor, apk-kotlin]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -146,7 +161,8 @@ jobs:
     # Branche « site » = ce que le VPS sert sur https://silvaplana.cloud/mountaintest/
     # (le VPS la récupère toutes les 5 minutes, voir deploy/README.md).
     name: Préparer le site pour le VPS
-    needs: [web, apk-capacitor, apk-kotlin]
+    needs: [serveur, web, apk-capacitor, apk-kotlin]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -160,6 +176,8 @@ jobs:
           rm -f site/*.map site/assets/*.map
           # Relais IA (randos trouvées par Claude) : le VPS le fait tourner, voir deploy/ia/README.md.
           mkdir -p site/ia && cp deploy/ia/relais.py deploy/ia/installer-ia.sh deploy/ia/activer-mail.sh site/ia/
+          # Comptes (Logto + serveur Python) : installés une fois sur le VPS, voir deploy/comptes/README.md.
+          mkdir -p site/comptes && cp deploy/comptes/*.py deploy/comptes/requirements.txt deploy/comptes/installer-comptes.sh site/comptes/
           sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" \
               -e "s/@CAP@/$(du -m site/apk/mountain-buddies-capacitor.apk | cut -f1)/" \
               -e "s/@KOT@/$(du -m site/apk/mountain-buddies-kotlin.apk | cut -f1)/" \

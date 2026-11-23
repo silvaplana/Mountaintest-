@@ -33,6 +33,10 @@ export interface QuickProps {
   onTravel: () => void;
   onExpenses: () => void;
   onLodging: () => void;
+  /** 👥 Groupes / mon compte. */
+  onAccount: () => void;
+  /** Pastille de 👥 : connecté (vert), à reconnecter (orange), pas de compte. */
+  compte: 'ok' | 'reconnecter' | 'aucun';
   /** ⛷ 💬 : question en texte sur les sorties skitour. */
   onSkiText: () => void;
   /** Météo posée sur la carte (icône 🌦) ; appui long : ouvre l'appli Météo-France. */
@@ -95,7 +99,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onSkiText, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onAccount, compte, onSkiText, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -325,6 +329,9 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       <button aria-label="Sorties ski (skitour.fr)" data-help="Sorties ski" {...lp('skiText')} onClick={() => { setPairOpen(null); onSkiText(); }}>⛷</button>
       </>}
       {(show === 2 || help) && <>
+      {/* 👥 Groupes et compte : bouton important, en haut de la seconde barre (demande de Seb). */}
+      <button aria-label="Groupes et mon compte" data-help="Groupes · mon compte" {...lp('groups')} onClick={onAccount}>👥
+        {compte !== 'aucun' && <span className={`acc-dot ${compte === 'ok' ? 'vert' : 'orange'}`} />}</button>
       <button className={weather ? 'on' : ''} aria-label="Météo sur la carte" data-help="Météo sur la carte · appui long : appli Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
         onPointerUp={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}

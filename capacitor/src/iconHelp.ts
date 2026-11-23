@@ -4,7 +4,7 @@
  */
 export type IconKey =
   | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'
-  | 'slopes' | 'shade' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses';
+  | 'slopes' | 'shade' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
@@ -27,6 +27,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   travel: { title: '🚗 Voyage en voiture', text: 'Km, coût, péages.' },
   lodging: { title: '🏨 Hébergement', text: 'Meilleurs prix (IA).' },
   expenses: { title: 'Partage des frais', text: 'Qui doit combien à qui.' },
+  groups: { title: '👥 Groupes', text: 'Mon compte, puis mes groupes d’amis. Rond vert : connecté.' },
 };
 
 /** Légende de la couche IGN « Carte des pentes » (GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN). */

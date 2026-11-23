@@ -753,7 +753,20 @@
                     android:textSize="20sp"
                     android:visibility="gone" />
             </LinearLayout>
-            <!-- Menu Voyage -->
+            <!-- Menu Voyage, 👥 en haut (bouton important, demande de Seb) -->
+            <Button
+                android:id="@+id/btnGroups"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/round_btn"
+                android:contentDescription="Groupes et mon compte"
+                android:elevation="4dp"
+                android:padding="0dp"
+                android:text="👥"
+                android:textColor="#1D2421"
+                android:textSize="20sp" />
+
             <Button
                 android:id="@+id/btnWeather"
                 android:layout_width="44dp"

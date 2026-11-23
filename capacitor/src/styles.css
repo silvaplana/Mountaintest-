@@ -511,3 +511,22 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ski-topos { list-style: none; padding: 0; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
 .ski-topos button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; }
 .ski-topos small { color: var(--muted, #8a9590); }
+
+/* 👥 Mon compte (maquettes 2 et 3, maquettes/comptes) */
+.account .xp-head h2 { margin: 0; }
+.acc-logo { width: 84px; height: 84px; border-radius: 20px; margin: 4px auto 0; display: block; }
+.acc-titre { text-align: center; margin: 0; font-size: 17px; font-weight: 600; }
+.acc-centre { text-align: center; }
+.acc-avatar { position: relative; width: 76px; height: 76px; margin: 6px auto; border-radius: 50%; background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 700; }
+.acc-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.acc-pastille { position: absolute; right: 2px; bottom: 2px; width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--bg); }
+.acc-pastille.vert, .quick .acc-dot.vert { background: #2f9e5f; }
+.acc-pastille.orange, .quick .acc-dot.orange { background: #f0a000; }
+.acc-lecture { background: var(--card) !important; color: var(--muted) !important; }
+.acc-bandeau { display: flex; gap: 8px; border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.4; }
+.acc-bandeau.orange { background: #fdf0d5; color: #6b4a00; }
+.acc-bandeau.vert { background: #e3efe8; color: #1f4d36; }
+.acc-deco { color: var(--danger); border-color: #e7b6b2; }
+.quick .acc-dot { position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; pointer-events: none; }
+.account button.primary { flex: none; }
