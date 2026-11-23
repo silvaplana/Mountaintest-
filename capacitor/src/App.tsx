@@ -18,7 +18,7 @@ import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte, useCompte } from './Account';
 import { connecte } from './compte/auth';
-import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies } from './buddies/Buddies';
+import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type DepartBuddies } from './buddies/Buddies';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
@@ -115,7 +115,7 @@ export function App() {
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);
   /** ‹ depuis la carte d'un Buddy Time : on revient sur son Buddy Group. */
-  const [buddiesDepart, setBuddiesDepart] = useState<string | { album: string; groupe: string } | undefined>();
+  const [buddiesDepart, setBuddiesDepart] = useState<DepartBuddies | undefined>();
   /** Un Buddy Time ouvert sur la carte (écran 4). */
   const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[] } | null>(null);
   /** Panneau de partage d'une trace (écran 22). */
@@ -1169,7 +1169,8 @@ export function App() {
         onCarte={montrerBuddies} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie x={carteSortie.sortie} traces={carteSortie.traces}
         onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }}
-        onAlbum={() => { setBuddiesDepart({ album: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
+        onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
+        onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onToast={setToast} map={map} />}
       {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
       {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}

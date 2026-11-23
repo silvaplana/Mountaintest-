@@ -70,10 +70,19 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         val membres: List<Buddy>, val invitations: List<Invitation>, val attente: Boolean,
     ) { val meTime get() = nature == "me_time" }
     data class NouvelleInvitation(val canal: String, val nom: String, val contact: String, val code: String)
+    /** Carnet d'un Buddy Time (spec §5.8) : le texte de chaque buddy, une fiche par jour (facultative), ce que la trace ne dit pas. */
+    data class Recit(val par: Buddy, val texte: String, val attente: Boolean)
+    /** Ce qui est tapé à la main : duree en minutes, distance et denivele en mètres (null : pris dans la trace du jour). */
+    data class Fiche(val jour: String, val nom: String, val depart: String, val duree: Int?, val distance: Int?, val denivele: Int?) {
+        val vide get() = nom.isBlank() && depart.isEmpty() && duree == null && distance == null && denivele == null
+    }
+    data class CarnetBuddy(val difficulte: String = "", val meteo: String = "", val conditions: String = "",
+                           val recits: List<Recit> = emptyList(), val fiches: List<Fiche> = emptyList())
     /** Buddy Time (spec §5.4). Dates du calendrier AAAA-MM-JJ. */
     data class Sortie(
         val id: String, val groupe: String, val nom: String, val photo: String?, val debut: String, val fin: String, val lieu: String,
         val modifie: Long, val participants: List<Buddy>, val invitations: List<Invitation>, val attente: Boolean,
+        val carnet: CarnetBuddy = CarnetBuddy(),
     )
     /** Trace partagée dans un Buddy Time ou un Buddy Group (panneau de partage, spec §3.4). */
     data class TraceBuddy(
@@ -165,7 +174,14 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     private fun lireLigne(a: JSONArray?) = a.let { l -> if (l == null) emptyList() else (0 until l.length()).map { l.getJSONArray(it).let { p -> LonLat(p.getDouble(0), p.getDouble(1)) } } }
     private fun lireSortie(x: JSONObject) = Sortie(x.getString("id"), x.optString("groupe"), x.optString("nom"), x.optString("photo").takeIf { it.isNotEmpty() && it != "null" },
         x.optString("debut"), x.optString("fin"), x.optString("lieu"), ms(x.optString("modifie_le")),
-        x.optJSONArray("participants").objets().map(::lireBuddy), x.optJSONArray("invitations").objets().map { lireInvitation(it) }, false)
+        x.optJSONArray("participants").objets().map(::lireBuddy), x.optJSONArray("invitations").objets().map { lireInvitation(it) }, false,
+        x.optJSONObject("carnet")?.let(::lireCarnet) ?: CarnetBuddy())
+    private fun entierOuNul(o: JSONObject, k: String) = if (o.isNull(k) || !o.has(k)) null else o.optInt(k)
+    private fun lireFiche(f: JSONObject) = Fiche(f.optString("jour"), f.optString("nom"), f.optString("depart"),
+        entierOuNul(f, "duree"), entierOuNul(f, "distance"), entierOuNul(f, "denivele"))
+    private fun lireCarnet(c: JSONObject) = CarnetBuddy(c.optString("difficulte"), c.optString("meteo"), c.optString("conditions"),
+        c.optJSONArray("recits").objets().map { Recit(lireBuddy(it.optJSONObject("par") ?: JSONObject().put("id", "?")), it.optString("texte"), false) },
+        c.optJSONArray("fiches").objets().map(::lireFiche))
     private fun lireTrace(t: JSONObject) = TraceBuddy(t.getString("id"), t.optString("sortie").takeIf { it.isNotEmpty() && it != "null" },
         t.optString("groupe").takeIf { it.isNotEmpty() && it != "null" }, t.optString("nom"), lireLigne(t.optJSONArray("ligne")), t.optString("mot"),
         lireBuddy(t.optJSONObject("par") ?: JSONObject().put("id", "?")), ms(t.optString("cree_le")), false)
@@ -192,6 +208,16 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             "partager_trace" -> {
                 val k = l.indexOfFirst { it.id == op.optString("sortie") }
                 if (k >= 0) l[k] = l[k].copy(modifie = op.optLong("t"))
+            }
+            "recit", "fiche", "carnet" -> l.indexOfFirst { it.id == op.optString("sortie") }.takeIf { it >= 0 }?.let { k ->
+                val c = l[k].carnet
+                val c2 = when (op.optString("type")) {
+                    "recit" -> c.copy(recits = c.recits.filter { !estMoi(it.par) } +
+                        listOfNotNull(op.optString("texte").takeIf { it.isNotEmpty() }?.let { Recit(moiBuddy(), it, true) }))
+                    "fiche" -> lireFiche(op).let { f -> c.copy(fiches = (c.fiches.filter { it.jour != f.jour } + listOfNotNull(f.takeIf { !it.vide })).sortedBy { it.jour }) }
+                    else -> c.copy(difficulte = op.optString("difficulte"), meteo = op.optString("meteo"), conditions = op.optString("conditions"))
+                }
+                l[k] = l[k].copy(carnet = c2, modifie = op.optLong("t"), attente = true)
             }
         }
         return l.sortedByDescending { it.modifie }
@@ -325,6 +351,20 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         modifier { put("envois", JSONArray(envois().filter { it != photo })) }
         ajouter(JSONObject().put("type", "retirer_photo").put("photo", photo))
         album?.oublier(photo)
+    }
+    /**
+     * Enregistrer le carnet (écran 14) : seulement ce qui a changé. Mon texte (vide : je l'efface), les fiches des jours
+     * (toute vide : elle disparaît), difficulté, météo et conditions.
+     */
+    fun enregistrerCarnet(sortie: String, recit: String?, fiches: List<Fiche>, autres: Triple<String, String, String>?) {
+        val ops = mutableListOf<JSONObject>()
+        if (recit != null) ops += JSONObject().put("type", "recit").put("sortie", sortie).put("texte", recit.trim().take(5000))
+        for (f in fiches) ops += JSONObject().put("type", "fiche").put("sortie", sortie).put("jour", f.jour).put("nom", f.nom.trim().take(80))
+            .put("depart", f.depart).put("duree", f.duree ?: JSONObject.NULL).put("distance", f.distance ?: JSONObject.NULL)
+            .put("denivele", f.denivele ?: JSONObject.NULL)
+        if (autres != null) ops += JSONObject().put("type", "carnet").put("sortie", sortie).put("difficulte", autres.first.trim())
+            .put("meteo", autres.second.trim()).put("conditions", autres.third.trim())
+        if (ops.isNotEmpty()) ajouter(*ops.toTypedArray())
     }
     fun annulerInvitation(invitation: String) = ajouter(JSONObject().put("type", "annuler_invitation").put("invitation", invitation))
     fun quitter(groupe: String) = ajouter(JSONObject().put("type", "quitter").put("groupe", groupe))

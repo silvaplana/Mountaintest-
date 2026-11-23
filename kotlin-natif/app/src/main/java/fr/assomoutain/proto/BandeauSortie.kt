@@ -23,7 +23,7 @@ object BandeauSortie {
     var replie = false
 
     fun vue(a: androidx.appcompat.app.AppCompatActivity, x: Buddies.Sortie, traces: List<Buddies.TraceBuddy>, haut: Int, bas: Int,
-            photos: List<Buddies.PhotoBuddy>, album: Album, onAlbum: () -> Unit, onAjouter: () -> Unit, onRetour: () -> Unit): View {
+            photos: List<Buddies.PhotoBuddy>, album: Album, onAlbum: () -> Unit, onCarnet: () -> Unit, onAjouter: () -> Unit, onRetour: () -> Unit): View {
         val d = a.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
         val ink = Color.parseColor("#1D2421"); val muted = Color.parseColor("#5F6B66"); val card = Color.parseColor("#F2F4F1")
@@ -74,7 +74,7 @@ object BandeauSortie {
                 addView(chiffre(if (x.fin >= auj) "${maxOf(0, n)}" else "✓", if (x.fin >= auj) "jours avant" else "souvenir"), LinearLayout.LayoutParams(0, -2, 1f))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
             if (traces.isEmpty()) addView(text("Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.", 15f, muted))
-            // 📸 Les photos de l'album (écran 7), puis « Ajouter » et « Album » une fois parti.
+            // 📸 Les photos de l'album (écran 7), puis « Ajouter », « Album » et « Carnet » une fois parti.
             if (photos.isNotEmpty()) {
                 val auteurs = photos.map { it.par.id }.toSet().size
                 addView(LinearLayout(a).apply {
@@ -109,7 +109,8 @@ object BandeauSortie {
                     setOnClickListener { f() }
                 }
                 addView(bouton("📷 Ajouter", true, onAjouter), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
-                addView(bouton("📸 Album", false, onAlbum), LinearLayout.LayoutParams(0, -2, 1f))
+                addView(bouton("📸 Album", false, onAlbum), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
+                addView(bouton("📖 Carnet", false, onCarnet), LinearLayout.LayoutParams(0, -2, 1f))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         }
         contenu.visibility = if (replie) View.GONE else View.VISIBLE

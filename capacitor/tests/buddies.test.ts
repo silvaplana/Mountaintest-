@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _reinitialiser as reinitCompte, ecrire as ecrireCompte, HorsLigne } from '../src/compte/auth';
 import {
   _reinitialiser, aRemplir, appliquer, deposerPhotos, mettreEtoile, parJour, retirerPhoto, creerGroupe, creerPlanning, creerSortie, datesPlanning, inviter, joursAvant, lire, nouveauCode,
-  nouveautes, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type Planning, type Sortie,
+  enregistrerCarnet, nouveautes, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type PhotoBuddy, type Planning, type Sortie, type TraceBuddy,
 } from '../src/buddies/store';
 import { exif } from '../src/buddies/album';
+import { chiffres, choixPhotos, fiches, joursDe, lireDuree, lireKm, lireMetres, texteCarnet, tracesDuCarnet, type Relief } from '../src/buddies/carnet';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
 let appels: Appel[] = [];
@@ -242,6 +243,65 @@ describe('Album (bloc 4)', () => {
   it('lit l’heure et le lieu dans l’EXIF d’une photo', () => {
     expect(exif(exifDeTest())).toEqual({ prise_le: '2026-10-18T09:41:07', lat: 44.5, lon: -6.75 });
     expect(exif(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer)).toEqual({ prise_le: null, lon: null, lat: null });
+  });
+});
+
+describe('Carnet (bloc 5)', () => {
+  const seb = { id: 'u-seb', pseudo: 'Seb', photo: null };
+  const julie = { id: 'u-julie', pseudo: 'Julie', photo: null };
+  const x: Sortie = { id: 's1', groupe: 'a', nom: 'Viso', photo: null, debut: '2026-10-18', fin: '2026-10-19', lieu: '', modifie_le: '',
+    participants: [seb, julie], invitations: [],
+    carnet: { difficulte: '', meteo: '', conditions: '', recits: [{ par: julie, texte: 'Polenta.', modifie_le: '' }], fiches: [] } };
+  const trace = (id: string, cree_le: string, ligne: [number, number][]): TraceBuddy =>
+    ({ id, sortie: 's1', groupe: null, nom: id, ligne, mot: '', par: seb, cree_le });
+  const photo = (id: string, prise_le: string, etoile = false): PhotoBuddy =>
+    ({ id, sortie: 's1', par: seb, prise_le, lon: null, lat: null, etoile, envoyee: true, modifie_le: '' });
+
+  it('écrire sans réseau : mon texte à côté de celui de Julie, la fiche du jour et les conditions, avec 🕓', () => {
+    localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [] }));
+    _reinitialiser();
+    reseau(() => 'coupure');
+    enregistrerCarnet('s1', { recit: ' Départ à la frontale. ', fiches: [{ jour: '2026-10-18', nom: 'Castello', depart: '07:10', duree: 320, distance: null, denivele: null }],
+      carnet: { difficulte: 'T3', meteo: '', conditions: 'Lac gelé' } });
+    const c = vue(lire()).sorties[0].carnet!;
+    expect(c.recits.map((r) => [r.par.pseudo, r.texte, !!r.attente])).toEqual([['Julie', 'Polenta.', false], ['Seb', 'Départ à la frontale.', true]]);
+    expect(c.fiches.map((f) => [f.jour, f.nom, f.duree])).toEqual([['2026-10-18', 'Castello', 320]]);
+    expect([c.difficulte, c.conditions]).toEqual(['T3', 'Lac gelé']);
+    // Tout vider : mon texte et la fiche disparaissent.
+    enregistrerCarnet('s1', { recit: '', fiches: [{ jour: '2026-10-18', nom: ' ', depart: '', duree: null, distance: null, denivele: null }] });
+    const c2 = vue(lire()).sorties[0].carnet!;
+    expect(c2.recits.map((r) => r.par.pseudo)).toEqual(['Julie']);
+    expect(c2.fiches).toEqual([]);
+  });
+
+  it('photos : les ⭐, sinon 12 réparties dans le temps', () => {
+    const l = Array.from({ length: 30 }, (_, i) => photo(`p${i}`, `2026-10-18T${String(6 + Math.floor(i / 3)).padStart(2, '0')}:${String(i % 3 * 10).padStart(2, '0')}:00`));
+    const auto = choixPhotos(l);
+    expect(auto.auto).toBe(true);
+    expect(auto.photos.length).toBe(12);
+    expect([auto.photos[0].id, auto.photos[11].id]).toEqual(['p0', 'p29']);
+    expect(choixPhotos([...l, photo('et', '2026-10-19T10:00:00', true)])).toEqual({ photos: [expect.objectContaining({ id: 'et' })], auto: false });
+  });
+
+  it('une couleur par jour quand il y a une trace par jour ; fiches et chiffres depuis la trace', () => {
+    const t1 = trace('aller', '2026-10-10T10:00:00Z', [[7, 44.6], [7, 44.61]]), t2 = trace('retour', '2026-10-11T10:00:00Z', [[7, 44.61], [7, 44.63]]);
+    const tc = tracesDuCarnet([t2, t1], joursDe(x));
+    expect(tc.map((t) => [t.t.id, t.libelle, t.jour])).toEqual([['aller', 'Jour 1', '2026-10-18'], ['retour', 'Jour 2', '2026-10-19']]);
+    expect(tracesDuCarnet([t1], joursDe(x)).map((t) => [t.libelle, t.jour])).toEqual([['aller', null]]);
+    const reliefs = new Map<string, Relief>([['aller', { d: [0, 1112], z: [1500, 2740], montee: 1240, descente: 0, haut: 2740 }],
+      ['retour', { d: [0, 2224], z: [2740, 3019], montee: 600, descente: 0, haut: 3019 }]]);
+    const xx = { ...x, carnet: { ...x.carnet!, fiches: [{ jour: '2026-10-18', nom: 'Castello', depart: '07:10', duree: 320, distance: null, denivele: null }] } };
+    const fs = fiches(xx, tc, reliefs);
+    expect(fs.map((f) => [f.n, f.nom, f.distance, f.denivele])).toEqual([[1, 'Castello', 1112, 1240], [2, '', 2224, 600]]);
+    expect(chiffres(xx, tc, reliefs, fs).map((t) => `${t.v} ${t.l}`)).toEqual([
+      '3,3 km distance', '+1\u00a0840 m montée', '−0 m descente', '5 h 20 durée', '3\u00a0019 m point haut', '2 jours 1 nuit', '2 buddies', '+ conditions']);
+    expect(texteCarnet(xx, '18 – 19 oct.', chiffres(xx, tc, reliefs, fs), fs)).toContain('Polenta.\n— Julie');
+  });
+
+  it('lit les chiffres tapés : durée, km, mètres', () => {
+    expect(['5 h 20', '5h20', '5 h', '320', 'demain'].map(lireDuree)).toEqual([320, 320, 300, 320, null]);
+    expect(['11', '11,5', '11.5 km', 'x'].map(lireKm)).toEqual([11000, 11500, 11500, null]);
+    expect(['1 240', '+600 m', ''].map(lireMetres)).toEqual([1240, 600, null]);
   });
 });
 

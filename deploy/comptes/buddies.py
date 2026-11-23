@@ -19,7 +19,8 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import Dispo, Groupe, Invitation, Membre, Participant, Photo, Planning, Sortie, TracePartagee, Utilisateur, maintenant
+from modeles import (Carnet, Dispo, FicheJour, Groupe, Invitation, Membre, Participant, Photo, Planning, Recit, Sortie, TracePartagee,
+                     Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -358,6 +359,69 @@ def retirer_photo(s: Session, u: Utilisateur, op: dict) -> None:
             pass
 
 
+MAX_RECIT = 5000
+
+
+def recit(s: Session, u: Utilisateur, op: dict) -> None:
+    """Carnet (§5.8) : mon texte, transcrit mot pour mot puis corrigé au clavier. Un texte vide l'efface."""
+    so = sortie_de(s, u, op["sortie"])
+    texte = str(op.get("texte") or "").strip()[:MAX_RECIT]
+    r = s.get(Recit, (so.id, u.id))
+    if not texte:
+        if r is not None:
+            s.delete(r)
+    elif r is None:
+        s.add(Recit(sortie_id=so.id, utilisateur_id=u.id, texte=texte))
+    else:
+        r.texte, r.modifie_le = texte, maintenant()
+    toucher(so)
+
+
+def entier(v: Any, maxi: int) -> int | None:
+    if v is None or v == "":
+        return None
+    n = int(v)
+    if not 0 <= n <= maxi:
+        raise Refus("Chiffre hors limites")
+    return n
+
+
+def fiche(s: Session, u: Utilisateur, op: dict) -> None:
+    """Carnet : la fiche d'un jour (nom, départ, durée, distance, dénivelé). Tout vide : la fiche disparaît."""
+    so = sortie_de(s, u, op["sortie"])
+    j = jour(op.get("jour"))
+    if not so.debut <= j <= so.fin:
+        raise Refus("Jour hors du Buddy Time")
+    depart = str(op.get("depart") or "")
+    if depart and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", depart):
+        raise Refus("Heure de départ mal formée")
+    champs = {"nom": propre(op.get("nom"), 80), "depart": depart, "duree": entier(op.get("duree"), 48 * 60),
+              "distance": entier(op.get("distance"), 1_000_000), "denivele": entier(op.get("denivele"), 20_000)}
+    f = s.get(FicheJour, (so.id, j))
+    if not any(v not in (None, "") for v in champs.values()):
+        if f is not None:
+            s.delete(f)
+    elif f is None:
+        s.add(FicheJour(sortie_id=so.id, jour=j, **champs))
+    else:
+        for k, v in champs.items():
+            setattr(f, k, v)
+        f.modifie_le = maintenant()
+    toucher(so)
+
+
+def carnet(s: Session, u: Utilisateur, op: dict) -> None:
+    """Carnet : difficulté, météo, conditions (n'importe quel participant ; le dernier envoyé gagne)."""
+    so = sortie_de(s, u, op["sortie"])
+    c = s.get(Carnet, so.id)
+    if c is None:
+        c = Carnet(sortie_id=so.id)
+        s.add(c)
+    c.difficulte, c.meteo = propre(op.get("difficulte"), 20), propre(op.get("meteo"), 40)
+    c.conditions, c.modifie_le = propre(op.get("conditions"), 300), maintenant()
+    toucher(so)
+
+
 # Fichiers des photos : COMPTES_DOSSIER/photos/<id>-petite.jpg et -grande.jpg.
 DOSSIER_PHOTOS = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "photos")
 TAILLES = {"petite": 300_000, "grande": 4_000_000}  # octets au plus
@@ -372,6 +436,7 @@ OPERATIONS = {
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "retirer_photo": retirer_photo,
+    "recit": recit, "fiche": fiche, "carnet": carnet,
 }
 
 
@@ -441,6 +506,20 @@ def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
         "lieu": so.lieu, "modifie_le": iso(so.modifie_le), "participants": [personne(x) for x in qui],
         "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact,
                          "par": str(i.invite_par)} for i in invitations],
+        "carnet": vue_carnet(s, so),
+    }
+
+
+def vue_carnet(s: Session, so: Sortie) -> dict[str, Any]:
+    c = s.get(Carnet, so.id)
+    recits = s.execute(select(Recit, Utilisateur).join(Utilisateur, Utilisateur.id == Recit.utilisateur_id)
+                       .where(Recit.sortie_id == so.id).order_by(Recit.modifie_le)).all()
+    fiches = s.scalars(select(FicheJour).where(FicheJour.sortie_id == so.id).order_by(FicheJour.jour)).all()
+    return {
+        "difficulte": c.difficulte if c else "", "meteo": c.meteo if c else "", "conditions": c.conditions if c else "",
+        "recits": [{"par": personne(x), "texte": r.texte, "modifie_le": iso(r.modifie_le)} for r, x in recits],
+        "fiches": [{"jour": f.jour, "nom": f.nom, "depart": f.depart, "duree": f.duree, "distance": f.distance,
+                    "denivele": f.denivele} for f in fiches],
     }
 
 

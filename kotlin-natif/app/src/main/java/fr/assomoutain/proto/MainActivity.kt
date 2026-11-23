@@ -219,6 +219,12 @@ class MainActivity : AppCompatActivity() {
     }
     // 📸 Album : plusieurs photos choisies d'un coup, réduites et gardées, puis annoncées (elles partent au retour du réseau).
     private var albumSortie: Buddies.Sortie? = null
+    /** Dictée d'Android (récit du carnet, spec/buddies.md §5.8) : hors ligne quand le téléphone le permet. */
+    private var dicteeCb: ((String?) -> Unit)? = null
+    private val dicteeLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        val cb = dicteeCb; dicteeCb = null
+        cb?.invoke(r.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull())
+    }
     private val photosLauncher = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { uris ->
         val x = albumSortie ?: return@registerForActivityResult
         albumSortie = null
@@ -3034,7 +3040,7 @@ class MainActivity : AppCompatActivity() {
     private var buddiesPanel: BuddiesPanel? = null
     private var buddiesBack: androidx.activity.OnBackPressedCallback? = null
     private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons(); rafraichirCarteSortie() } }
-    private fun openBuddies(depart: String? = null, departAlbum: String? = null) {
+    private fun openBuddies(depart: String? = null, departAlbum: String? = null, departCarnet: String? = null) {
         if (buddiesPanel != null) return
         album // posé sur buddies avant la première synchro
         fermerCarteSortie()
@@ -3049,7 +3055,16 @@ class MainActivity : AppCompatActivity() {
             onAccount = { openAccount() }, onExpenses = { openExpenses() },
             onLodging = { closeBuddies(); openLodging() }, onClose = { closeBuddies() },
             onCarte = { sortie, traces -> montrerBuddies(sortie, traces) }, album = album, deposer = { deposerPhotos(it) },
-            depart = depart, departAlbum = departAlbum)
+            dicter = { cb ->
+                dicteeCb = cb
+                runCatching { dicteeLauncher.launch(Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Raconte, je t'écoute")) }
+                    .onFailure { dicteeCb = null; cb(null) }
+            },
+            depart = depart, departAlbum = departAlbum, departCarnet = departCarnet)
         buddiesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)
@@ -3104,6 +3119,7 @@ class MainActivity : AppCompatActivity() {
         carteSortie?.let { racine.removeView(it) }
         val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom, photos, album,
             onAlbum = { fermerCarteSortie(); openBuddies(sortie.groupe, departAlbum = sortie.id) },
+            onCarnet = { fermerCarteSortie(); openBuddies(sortie.groupe, departCarnet = sortie.id) },
             onAjouter = { deposerPhotos(sortie) }) { fermerCarteSortie(); openBuddies(sortie.groupe) }
         carteSortie = v
         racine.addView(v)
