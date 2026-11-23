@@ -308,3 +308,29 @@ class MessageBuddy(Base):
     photo_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Appareil(Base):
+    """Un téléphone qui peut sonner (spec/buddies.md §5.7) : son jeton Firebase (FCM), donné par l'appli."""
+
+    __tablename__ = "appareils"
+
+    jeton: Mapped[str] = mapped_column(String(400), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), index=True, nullable=False)
+    plateforme: Mapped[str] = mapped_column(String(20), default="android", nullable=False)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class Appel(Base):
+    """📞 Un appel de groupe (§5.7) : la conversation vocale d'un Buddy Group ou d'un Buddy Time. Le son passe par
+    LiveKit (sur le VPS) ; ici on garde seulement qui a appelé, qui est en ligne, et la fin."""
+
+    __tablename__ = "appels"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), index=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), index=True)
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    en_ligne: Mapped[str] = mapped_column(Text, default="[]", nullable=False)  # identifiants JSON
+    debut: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

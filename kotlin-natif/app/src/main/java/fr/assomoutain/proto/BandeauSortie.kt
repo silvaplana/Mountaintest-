@@ -31,6 +31,8 @@ object BandeauSortie {
             /** 💬 Écrans 6 et 24 : la conversation ouverte (son fil défile dans `filConv`), à la place du bandeau. */
             conversation: ConversationVue? = null, filConv: View? = null, nonLus: Int = 0, apercu: String = "",
             onParler: () -> Unit = {}, onFinParler: () -> Unit = {},
+            /** 📞 Appel en cours dans ce Buddy Time, que je n'ai pas encore rejoint. */
+            appel: Buddies.AppelBuddy? = null, onAppel: () -> Unit = {},
             onAjouter: () -> Unit, onRetour: () -> Unit): View {
         val d = a.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
@@ -100,6 +102,17 @@ object BandeauSortie {
                     orientation = LinearLayout.VERTICAL
                     addView(text("Messagerie" + if (nonLus > 0) " · $nonLus nouveau${if (nonLus > 1) "x" else ""}" else "", 17f, bold = true))
                     addView(text(apercu.ifEmpty { "écrire aux buddies" }, 15f, muted).apply { maxLines = 2 })
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text("›", 26f, muted))
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+            if (appel != null) addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL; isClickable = true; minimumHeight = dp(56)
+                background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(Color.parseColor("#E3F6EA")) }
+                setOnClickListener { onAppel() }
+                addView(text("📞", 28f), LinearLayout.LayoutParams(dp(44), -2))
+                addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(text("Appel en cours · rejoindre", 17f, bold = true)); addView(text("${appel.enLigne.size} en ligne", 15f, muted))
                 }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(text("›", 26f, muted))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
@@ -265,7 +278,7 @@ object BandeauSortie {
         return racine
     }
 
-    private fun visage(a: android.content.Context, b: Buddies.Buddy, taille: Int): View {
+    fun visage(a: android.content.Context, b: Buddies.Buddy, taille: Int): View {
         val bmp = b.photo?.takeIf { it.startsWith("data:image/") }?.let {
             runCatching { android.util.Base64.decode(it.substringAfter(","), android.util.Base64.DEFAULT).let { x -> android.graphics.BitmapFactory.decodeByteArray(x, 0, x.size) } }.getOrNull()
         }

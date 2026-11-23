@@ -21,6 +21,8 @@ import { connecte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
 import { useEpingle } from './buddies/Positions';
+import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
+import { montrer } from './buddies/appel';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
 import { LodgingPanel, type Lodging } from './Lodging';
 import { SkiPanel } from './SkiPanel';
@@ -268,6 +270,11 @@ export function App() {
   useEffect(() => ecouterCompte(setToast, () => setAccount(true)), []);
   // 👥 Liens d'invitation (fr.assomoutain.rando://rejoindre?c=…) et synchro des Buddies.
   useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
+  // 📞 Appel : la sonnerie (écran 10) et, une fois en ligne, la carte à l'écran avec la barre d'appel (écran 24).
+  useSonnerie(setToast);
+  const appel = useAppel();
+  const enAppel = !!appel && appel.phase !== 'sonne';
+  useEffect(() => { if (enAppel) setBuddies(false); }, [enAppel]);
   // 📍 Épingle enfoncée dans un Buddy Time : la position part toutes les 5 minutes (spec/buddies.md §5.9).
   useEpingle();
   const [junctions, setJunctions] = useState<{ id: number; pts: LonLat[] | null }>({ id: 0, pts: null });
@@ -430,7 +437,8 @@ export function App() {
   // Appui long sur la carte : choisir un lieu où aller.
   useEffect(() => {
     if (!map) return;
-    const onLong = (e: maplibregl.MapMouseEvent) => setTarget({ lon: e.lngLat.lng, lat: e.lngLat.lat, label: 'Point choisi sur la carte' });
+    // Pendant un appel, l'appui long montre l'endroit aux autres (👉, spec §5.7) au lieu d'y aller.
+    const onLong = (e: maplibregl.MapMouseEvent) => montrer(e.lngLat.lng, e.lngLat.lat) || setTarget({ lon: e.lngLat.lng, lat: e.lngLat.lat, label: 'Point choisi sur la carte' });
     map.on('contextmenu', onLong);
     return () => { map.off('contextmenu', onLong); };
   }, [map]);
@@ -1192,6 +1200,9 @@ export function App() {
         routes={travelRoutes} selected={travelSel}
         onRoutes={(r, i) => { setTravelRoutes(r); setTravelSel(i); }}
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
+      <DoigtsSurCarte map={map} onToast={setToast} />
+      <BarreAppel />
+      <EcranSonnerie onToast={setToast} />
       {toast && <div className="toast">{toast}</div>}
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
       {showWeather && map && <WeatherLayer map={map} hidden={framing || drawing} below={showShade} onToast={setToast} onClose={() => setShowWeather(false)} />}

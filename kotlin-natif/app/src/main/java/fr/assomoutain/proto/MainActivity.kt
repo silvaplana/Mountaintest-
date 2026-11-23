@@ -358,7 +358,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             // Appui long sur la carte : choisir un lieu où aller.
-            m.addOnMapLongClickListener { p -> setTarget(p.latitude, p.longitude, "Point choisi sur la carte"); true }
+            // Pendant un appel, l'appui long montre l'endroit aux autres (👉, spec §5.7) au lieu d'y aller.
+            m.addOnMapLongClickListener { p -> if (!Appel.montrer(p.longitude, p.latitude)) setTarget(p.latitude, p.longitude, "Point choisi sur la carte"); true }
             // Appui sur une rando affichée : on la choisit (zone de 20 dp autour du doigt).
             m.addOnMapClickListener { p ->
                 val pt = m.projection.toScreenLocation(p)
@@ -620,6 +621,7 @@ class MainActivity : AppCompatActivity() {
         setNature(true)
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "kotlin")
+        initAppels()
         // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
         PocketMode.init(this)
         // Écran noir dans la poche : on coupe le GPS du bouton ◎ (gros consommateur) et on le relance au réveil.
@@ -2082,6 +2084,7 @@ class MainActivity : AppCompatActivity() {
     /** Fichier de trace ouvert depuis une autre appli pendant que l'appli tourne déjà. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (appelRecu(intent)) return
         intent.data?.takeIf { it.scheme == Compte.SCHEMA }?.let { if (it.host == "rejoindre") invitationRecue(it) else finConnexion(it); return }
         val uri = TraceFile.sharedUri(intent) ?: return
         setIntent(intent)
@@ -2989,6 +2992,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() { super.onStart(); mapView.onStart(); if (sheetOpen) { sheetOpen = false; refreshTabs() } }
     override fun onResume() {
         super.onResume(); mapView.onResume(); refreshQuickButtons(); syncCompte()
+        AppelService.premierPlan = true; enregistrerAppareil()
         // 📍 Position reçue appli fermée, puis le service suit l'épingle (relancé si l'appli a été tuée).
         EpingleService.ecouteur = { o -> runOnUiThread { positionRecue(o) } }
         EpingleService.derniere(this)?.let { runCatching { buddies.envoyerPosition(it.getDouble("lat"), it.getDouble("lon"),
@@ -3105,7 +3109,8 @@ class MainActivity : AppCompatActivity() {
             depart = depart, departAlbum = departAlbum, departCarnet = departCarnet, departCount = departCount, departDodo = departDodo,
             onParler = { montrerBuddies(it, buddies.traces().filter { t -> t.sortie == it.id }, parler = true) },
             onPoint = { lon, lat, nom -> closeBuddies(); montrerPoint(lon, lat, nom) },
-            localiser = { cb -> localiser(cb) })
+            localiser = { cb -> localiser(cb) },
+            onAppeler = { g, so, nom -> appeler(g, so, nom) })
         buddiesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)
@@ -3182,8 +3187,83 @@ class MainActivity : AppCompatActivity() {
             .putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)) }
             .onFailure { dicteeCb = null; cb(null) }
     }
+    // ---------- 📞 Appels de groupe (spec §5.7, écrans 10 et 24) : Appel.kt, AppelVue.kt, AppelService.kt ----------
+    private var appelVue: View? = null
+    private var desabonnerAppel: (() -> Unit)? = null
+    private var apresMicro: (() -> Unit)? = null
+    private var sonnerie: android.media.Ringtone? = null
+    private val askMicro = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        val f = apresMicro; apresMicro = null
+        if (ok) f?.invoke() else { Appel.refuser(); toast("Autorise le micro pour parler à tes buddies") }
+    }
+    private fun avecMicro(f: () -> Unit) {
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) f()
+        else { apresMicro = f; askMicro.launch(android.Manifest.permission.RECORD_AUDIO) }
+    }
+    private val tic = object : Runnable {
+        override fun run() { if (Appel.etat?.phase == "en_ligne") { majAppel(Appel.etat); mapView.postDelayed(this, 1000) } }
+    }
+    private fun initAppels() {
+        Appel.init(this, compte)
+        Appel.onDoigt = { lon, lat, qui ->
+            montrerPoint(lon, lat, if (qui.isEmpty()) "Tu montres" else "$qui te montre", "👉")
+            if (qui.isNotEmpty()) toast("$qui te montre un endroit")
+            mapView.postDelayed({ montrerPoint(null) }, 10_000)
+        }
+        var avant: String? = null
+        desabonnerAppel = Appel.suivre { e ->
+            // L'appel commence : la carte à l'écran, la barre d'appel en haut ; le compteur tourne une fois en ligne.
+            if (e != null && e.phase != "sonne" && buddiesPanel != null) closeBuddies()
+            if (e?.phase == "en_ligne" && avant != "en_ligne") { mapView.removeCallbacks(tic); mapView.postDelayed(tic, 1000) }
+            if (e == null || avant == null) rafraichirCarteSortie(force = true)
+            avant = e?.phase
+            // Appli à l'écran : la sonnerie du téléphone tant que l'écran 10 est affiché.
+            if (e?.phase == "sonne") { if (sonnerie == null) sonnerie = runCatching {
+                android.media.RingtoneManager.getRingtone(this, android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE))
+                    .apply { if (android.os.Build.VERSION.SDK_INT >= 28) isLooping = true; play() } }.getOrNull() }
+            else { sonnerie?.stop(); sonnerie = null }
+            majAppel(e)
+        }
+        appelRecu(intent)
+    }
+    private fun appeler(groupe: String?, sortie: String?, nom: String) = avecMicro { Appel.appeler(groupe, sortie, nom) { toast(it) } }
+    /** Ouverte depuis la notification d'un appel qui sonne (« Répondre » ou toucher). */
+    private fun appelRecu(i: Intent?): Boolean {
+        val s = i?.getStringExtra("appel") ?: return false
+        val action = i.getStringExtra("appelAction")
+        i.removeExtra("appel"); i.removeExtra("appelAction")
+        (getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(AppelService.NOTIF)
+        if (android.os.Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(true); setTurnScreenOn(true) }
+        runCatching { Appel.sonner(org.json.JSONObject(s)) }
+        if (action == "decrocher") avecMicro { Appel.decrocher { toast(it) } }
+        return true
+    }
+    private fun majAppel(e: Appel.Etat?) {
+        val racine = findViewById<android.widget.FrameLayout>(R.id.root)
+        appelVue?.let { racine.removeView(it) }; appelVue = null
+        if (e == null) { if (android.os.Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(false); setTurnScreenOn(false) }; return }
+        val v = if (e.phase == "sonne" || (e.phase == "connexion" && e.de != null)) {
+            val qui = e.sortie?.let { id -> buddies.sorties().firstOrNull { it.id == id }?.participants }
+                ?: buddies.groupes().firstOrNull { it.id == e.groupe }?.membres ?: emptyList()
+            val ligne = buddies.appels().firstOrNull { it.id == e.id }?.enLigne?.toSet() ?: emptySet()
+            AppelVue.sonnerie(this, e, qui.filter { it.id != buddies.moi }, ligne, navTop, navBottom,
+                onRefuser = { Appel.refuser() }, onRepondre = { avecMicro { Appel.decrocher { toast(it) } } })
+        } else AppelVue.barre(this, e, navTop, onMuet = { Appel.couperMicro(!e.muet) }, onRaccrocher = { Appel.raccrocher() })
+        appelVue = v
+        racine.addView(v)
+    }
+    /** Jeton Firebase de ce téléphone, envoyé au serveur pour qu'il sonne (sans google-services.json : rien). */
+    private fun enregistrerAppareil() {
+        if (!compte.connecte || com.google.firebase.FirebaseApp.getApps(this).isEmpty()) return
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnSuccessListener { jeton ->
+            lifecycleScope.launch(Dispatchers.IO) {
+                runCatching { compte.api("POST", "/appareils", org.json.JSONObject().put("jeton", jeton).put("plateforme", "android")) }
+            }
+        }
+    }
+
     /** 📍 Le point d'un message (« Julie est ici ») ou un hébergement, montré sur la carte ; null l'enlève. */
-    private fun montrerPoint(lon: Double?, lat: Double? = null, nom: String = "") {
+    private fun montrerPoint(lon: Double?, lat: Double? = null, nom: String = "", icone: String = "📍") {
         val style = map?.style ?: return
         if (style.getSource(SRC_BD_POINT) == null) {
             style.addSource(GeoJsonSource(SRC_BD_POINT))
@@ -3196,7 +3276,7 @@ class MainActivity : AppCompatActivity() {
         if (lon == null || lat == null) { style.getSourceAs<GeoJsonSource>(SRC_BD_POINT)?.setGeoJson(FeatureCollection.fromFeatures(emptyList())); return }
         val dd = resources.displayMetrics.density
         val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textSize = 15 * dd; typeface = android.graphics.Typeface.DEFAULT_BOLD }
-        val t = "📍 $nom"
+        val t = "$icone $nom"
         val w = p.measureText(t) + 20 * dd; val h = 34 * dd
         style.addImage("bd-point", android.graphics.Bitmap.createBitmap(w.toInt(), (h + 6 * dd).toInt(), android.graphics.Bitmap.Config.ARGB_8888).also { b ->
             val c = android.graphics.Canvas(b)
@@ -3237,6 +3317,8 @@ class MainActivity : AppCompatActivity() {
                 { q -> sortie.participants.firstOrNull { it.id == q }?.pseudo ?: "?" }, buddies.moi),
             onParler = { ouvrirConversation(sortie); rafraichirCarteSortie(force = true) },
             onFinParler = { fermerConversation(); rafraichirCarteSortie(force = true) },
+            appel = if (Appel.etat != null || sortie.participants.size < 2) null else buddies.appels().firstOrNull { it.sortie == id && buddies.moi !in it.enLigne },
+            onAppel = { appeler(null, sortie.id, sortie.nom) },
             onAjouter = { deposerPhotos(sortie) }) { fermerCarteSortie(); openBuddies(sortie.groupe) }
         carteSortie = v
         racine.addView(v)
@@ -3632,10 +3714,10 @@ class MainActivity : AppCompatActivity() {
                 colorFilter = if (on) null else android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(0f) })
             }
     }
-    override fun onPause() { mapView.onPause(); super.onPause() }
+    override fun onPause() { AppelService.premierPlan = false; mapView.onPause(); super.onPause() }
     override fun onStop() { mapView.onStop(); super.onStop() }
     override fun onLowMemory() { super.onLowMemory(); mapView.onLowMemory() }
-    override fun onDestroy() { desabonnerBuddies(); EpingleService.ecouteur = null; mapView.onDestroy(); super.onDestroy() }
+    override fun onDestroy() { desabonnerBuddies(); desabonnerAppel?.invoke(); Appel.onDoigt = null; sonnerie?.stop(); EpingleService.ecouteur = null; mapView.onDestroy(); super.onDestroy() }
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); mapView.onSaveInstanceState(outState) }
 
     companion object {

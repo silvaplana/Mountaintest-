@@ -19,6 +19,9 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
   PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
   GET  /buddies/photos/{id}/{petite|grande}   la lire (participants du Buddy Time)
+  POST /appareils             📞 le jeton Firebase de ce téléphone (pour sonner)
+  POST /appels                📞 appeler un Buddy Group ou un Buddy Time (ou rejoindre l'appel en cours) (appels.py)
+  POST /appels/{id}/rejoindre décrocher ; POST /appels/{id}/presence  entrer / raccrocher
 """
 from __future__ import annotations
 
@@ -41,6 +44,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, func, inspect, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+import appels
 import buddies
 from modeles import Base, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
@@ -271,6 +275,55 @@ def lire_photo(pid: str, taille: str, j: dict = Depends(jeton_requis), s: Sessio
             return Response(f.read(), media_type="image/jpeg", headers={"Cache-Control": "private, max-age=31536000, immutable"})
     except OSError as e:
         raise HTTPException(404, "Pas encore arrivée") from e
+
+
+# ---------------------------------------------------------------- 📞 appels (bloc 10)
+
+class UnAppareil(BaseModel):
+    jeton: str = Field(min_length=20, max_length=400)
+    plateforme: str = Field("android", max_length=20)
+
+
+class Destination(BaseModel):
+    groupe: str | None = None
+    sortie: str | None = None
+
+
+class Presence(BaseModel):
+    en_ligne: bool
+
+
+def refus(f):
+    try:
+        return f()
+    except buddies.Refus as e:
+        raise HTTPException(409, str(e)) from e
+    except (ValueError, KeyError) as e:
+        raise HTTPException(422, "Demande mal formée") from e
+
+
+@app.post("/appareils")
+def appareil(a: UnAppareil, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    appels.enregistrer_appareil(s, utilisateur(s, j), a.jeton, a.plateforme)
+    return {"ok": True}
+
+
+@app.post("/appels")
+def appeler(d: Destination, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    u = utilisateur(s, j)
+    return refus(lambda: appels.appeler(s, Sessions, u, d.groupe, d.sortie))
+
+
+@app.post("/appels/{aid}/rejoindre")
+def rejoindre_appel(aid: str, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    u = utilisateur(s, j)
+    return refus(lambda: appels.rejoindre(s, u, aid))
+
+
+@app.post("/appels/{aid}/presence")
+def presence_appel(aid: str, p: Presence, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    u = utilisateur(s, j)
+    return refus(lambda: appels.presence(s, Sessions, u, aid, p.en_ligne))
 
 
 @app.get("/invitations/{code}")

@@ -35,6 +35,22 @@ Le serveur redémarre tout seul quand une nouvelle version de `serveur.py` arriv
 `spec/buddies.md` §7.1). `GET /invitations/{code}` sert la page du lien d'invitation (`capacitor/public/rejoindre.html`).
 Les colonnes ajoutées aux tables déjà créées sur le VPS s'ajoutent seules au démarrage (`ajouter_colonnes`).
 
+## Appels de groupe (bloc 10)
+
+`appels.py` : jetons d'entrée LiveKit, sonnerie Firebase, qui est en ligne (`spec/buddies.md` §7.10). Le son passe
+par le conteneur `mb-livekit` (https://appels.silvaplana.cloud, ports TCP 7881 et UDP 50000-50200 ouverts sur le VPS).
+
+1. **DNS** : enregistrement **A**, nom **appels**, valeur 187.124.17.136 (comme « auth »).
+2. **Firebase** (pour que ça sonne appli fermée) : console.firebase.google.com › projet « Mountain Buddies » ›
+   Paramètres › Comptes de service › « Générer une nouvelle clé privée ». Copier le fichier sur le VPS sous
+   `~/mountaintest/firebase-cle.json` (depuis PowerShell : `scp chemin\du\fichier.json root@187.124.17.136:mountaintest/firebase-cle.json`).
+   Cette clé est secrète : jamais dans le dépôt ni dans un message.
+3. **VPS** : `bash <(curl -fsSL https://silvaplana.cloud/mountaintest/comptes/installer-appels.sh)`. Relançable :
+   à relancer après avoir ajouté la clé Firebase.
+
+Les fichiers `google-services.json` des deux applis (`capacitor/android/app/`, `kotlin-natif/app/`) ne sont pas
+secrets : ils vont dans le dépôt. Sans eux, l'appli marche, sans sonnerie appli fermée.
+
 ## Console d'admin de Logto (voir les comptes)
 
 Dans PowerShell : `ssh -L 3002:localhost:3002 root@187.124.17.136`, puis ouvrir http://localhost:3002 dans le

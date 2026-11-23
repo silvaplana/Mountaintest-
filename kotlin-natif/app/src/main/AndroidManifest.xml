@@ -14,6 +14,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 📞 Appels de groupe : le micro, et la sonnerie en plein écran. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <!-- 👥 Inviter des copains : sélecteur de contacts, Messages et mail (Android 11 et plus). -->
     <queries>
@@ -105,6 +109,16 @@
             android:name=".TrackingService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- 📞 Sonnerie des appels de groupe, même appli fermée (message Firebase). -->
+        <service
+            android:name=".AppelService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <receiver android:name=".AppelService$Refus" android:exported="false" />
 
         <!-- Donne l'APK de mise à jour téléchargé à l'installeur d'Android (Updater.java). -->
         <provider
