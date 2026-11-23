@@ -12,7 +12,7 @@ import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
 import { outingLabel, parkingText, topoLine, type Outing, type TopoRow } from './ski/skitour';
 import { placeLabels } from './ski/labels';
-import { GR_COLOR, WAY_COLOR, type WayType } from './trails/wayTypes';
+import { GR_COLOR, isWide, WAY_COLOR, type WayType } from './trails/wayTypes';
 
 /** Zoom à partir duquel on écrit les étiquettes des sorties (sommets), puis montre les parkings : de loin, des points seuls. */
 
@@ -151,7 +151,9 @@ export function MapView(props: MapViewProps) {
           { id: 'c2c', type: 'circle', source: 'c2c', paint: { 'circle-radius': 6, 'circle-color': '#00897b', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } },
           { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8 } },
           { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
-          { id: 'way-types', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
+          // Liseré sombre : le jaune (chemin) et le gris (hors chemin) restent lisibles sur le SCAN 25.
+          { id: 'way-types-casing', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#222', 'line-width': ['+', ['get', 'w'], 2] } },
+          { id: 'way-types', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'w'] } },
           // Portions sur GR : tireté rouge au milieu du trait, comme sur le SCAN 25.
           { id: 'way-gr', type: 'line', source: 'wayTypes', filter: ['==', ['get', 'gr'], true], paint: { 'line-color': GR_COLOR, 'line-width': 2, 'line-dasharray': [2, 2] } },
           { id: 'imported', type: 'line', source: 'imported', paint: { 'line-color': '#7b3fe4', 'line-width': 4, 'line-opacity': 0.8 } },
@@ -314,7 +316,7 @@ export function MapView(props: MapViewProps) {
   useEffect(() => {
     if (!ready) return;
     (map.current!.getSource('wayTypes') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.wayLines ?? []).map((w) => ({
-      type: 'Feature', properties: { color: WAY_COLOR[w.type], gr: w.gr }, geometry: { type: 'LineString', coordinates: w.coords } })) });
+      type: 'Feature', properties: { color: WAY_COLOR[w.type], w: isWide(w.type) ? 7 : 3.5, gr: w.gr }, geometry: { type: 'LineString', coordinates: w.coords } })) });
   }, [props.wayLines, ready]);
 
   useEffect(() => {

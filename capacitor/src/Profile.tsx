@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { LonLat } from './trails/osmTrails';
 import { buildProfile, formatSlope, kmTick, pointAt, profileScale, PROFILE_EXAG, slopeAt, SLOPE_WINDOW_M } from './trails/profile';
-import { GR_COLOR, sharePct, WAY_COLOR, WAY_TYPES, wayTotals, type WayRun } from './trails/wayTypes';
+import { GR_COLOR, isWide, sharePct, WAY_COLOR, WAY_TYPES, wayTotals, type WayRun } from './trails/wayTypes';
 
 const km = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 
@@ -101,8 +101,8 @@ export function Profile({ segments, cursor, onCursor, pctFirst = false, runs }: 
           <g clipPath="url(#profile-clip)">
             <path d={area} className="profile-area" />
             <path d={line} className="profile-line" />
-            {runs?.map((r, i) => <rect key={i} x={x(r.from * runScale)} y={base + 2} width={Math.max(1, (r.to - r.from) * runScale * sc.s)}
-              height={band - 3} fill={WAY_COLOR[r.type]} />)}
+            {runs?.map((r, i) => <rect key={i} x={x(r.from * runScale)} y={isWide(r.type) ? base + 2 : base + 3.5} width={Math.max(1, (r.to - r.from) * runScale * sc.s)}
+              height={isWide(r.type) ? band - 3 : 3} fill={WAY_COLOR[r.type]} />)}
             {runs?.filter((r) => r.gr).map((r, i) => <line key={`gr${i}`} x1={x(r.from * runScale)} x2={x(r.to * runScale)} y1={base + 1} y2={base + 1}
               stroke={GR_COLOR} strokeWidth={2} strokeDasharray="4 3" />)}
             {ticks.map((k) => <text key={k} x={x(k * 1000)} y={H - G - 3} textAnchor="middle">{String(k).replace('.', ',')}</text>)}
@@ -134,13 +134,13 @@ export function Profile({ segments, cursor, onCursor, pctFirst = false, runs }: 
 /** 🚵 Bilan des types de chemin, sous le profil : part de chacun en % et en km, puis la part sur GR. */
 export function WayLegend({ runs }: { runs: WayRun[] }) {
   const t = wayTotals(runs);
-  // Du plus présent au moins présent, sans les types absents de la trace (demande de Seb) ; GR à la fin s'il y en a.
-  const rows = WAY_TYPES.filter((w) => t.byType[w.key] > 0).sort((a, b) => t.byType[b.key] - t.byType[a.key]);
+  // Toujours le même ordre, des plus grandes voies aux plus petites, sans les types absents (demande de Seb) ; GR à la fin s'il y en a.
+  const rows = WAY_TYPES.filter((w) => t.byType[w.key] > 0);
   return (
     <ul className="way-legend">
       {rows.map((w) => { const m = t.byType[w.key]; return (
         <li key={w.key}>
-          <i style={{ background: w.color }} /><span>{w.label}</span>
+          <i style={{ background: w.color, height: isWide(w.key) ? 8 : 4 }} /><span>{w.label}</span>
           <small><b>{sharePct(m, t.total)}</b> · {km(m)}</small>
         </li>); })}
       {t.gr > 0 && <li>

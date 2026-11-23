@@ -203,8 +203,9 @@ export function App() {
   /** ⛷ ski de rando / 🚵 VTT (appui long sur ⛷ pour basculer), et 🚵 type de chemin le long de la trace choisie. */
   const [activity, setActivityState] = useState<Activity>(loadActivity);
   const vtt = activity === 'vtt';
-  const setActivity = (a: Activity) => { setActivityState(a); saveActivity(a); };
-  const [wayTypesOn, setWayTypesOn] = useState(true);
+  const setActivity = (a: Activity) => { setActivityState(a); saveActivity(a); setWayTypesOn(a !== 'ski'); };
+  // Coche « Type de chemin » du menu de la trace (Seb) : cochée d'office en 🚵 et 🥾, absente en ⛷.
+  const [wayTypesOn, setWayTypesOn] = useState(() => loadActivity() !== 'ski');
   // 🥾 / 🚵 Itinéraires Camptocamp de l'écran : liste ou carte (tracés des plus proches, façon Komoot), fiche touchée.
   const [c2c, setC2c] = useState<{ act: C2cActivity; bbox: [number, number, number, number]; center: LonLat } | null>(null);
   const [c2cRoutes, setC2cRoutes] = useState<C2cRoute[]>([]);
@@ -292,7 +293,7 @@ export function App() {
     ];
   }, [showSlopes, profile, importProfile, drawnSel, drawnSlopes, vtt]);
   // 🚵 Types de chemin de la trace choisie (mode VTT) : gardés sur le téléphone, sinon cherchés sur le réseau.
-  const wantWays = vtt && wayTypesOn && drawnSel;
+  const wantWays = activity !== 'ski' && wayTypesOn && drawnSel;
   const selKey = useMemo(() => (selected && isMine(selected.id) ? lineKey(selected.segments.flat()) : ''), [selected]);
   useEffect(() => {
     if (!wantWays || !selected) return;
@@ -1028,7 +1029,7 @@ export function App() {
           offline={traceOffline?.id === selected.id ? traceOffline.msg + (downloading && progress ? ` ${progress.done + progress.failed}/${progress.total}` : '') : null}
           onOffline={() => void downloadTrace(selected)}
           onGo={() => { const p = selected.segments[0][0]; openDirections(p.lat, p.lon); }}
-          vtt={vtt} wayTypes={wayTypesOn} onWayTypes={setWayTypesOn} runs={selRuns} />
+          vtt={vtt} ways={activity !== 'ski'} wayTypes={wayTypesOn} onWayTypes={setWayTypesOn} runs={selRuns} />
       )}
       {traceList && !drawing && (
         <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}

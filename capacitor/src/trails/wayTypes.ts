@@ -13,16 +13,18 @@ export type WayType = 'route' | 'empierree' | 'velo' | 'chemin' | 'sentier' | 't
  * plus « sentier difficile » (difficulté VTT ou montagne notée dans OSM) pour le VTT.
  */
 export const WAY_TYPES: { key: WayType; label: string; color: string }[] = [
-  { key: 'route', label: 'Route goudronnée', color: '#4a4f55' },
-  { key: 'velo', label: 'Piste cyclable', color: '#1e88e5' },
-  { key: 'empierree', label: 'Route empierrée', color: '#e0a800' },
-  { key: 'chemin', label: 'Chemin', color: '#8d5a2b' },
-  { key: 'sentier', label: 'Sentier', color: '#2e9d4a' },
-  { key: 'technique', label: 'Sentier difficile', color: '#8e24aa' },
-  { key: 'inconnu', label: 'Hors chemin connu', color: '#b8bcc0' },
+  { key: 'route', label: 'Route goudronnée', color: '#111111' },
+  { key: 'velo', label: 'Piste cyclable', color: '#0a6fd6' },
+  { key: 'empierree', label: 'Route empierrée', color: '#ff8c00' },
+  { key: 'chemin', label: 'Chemin', color: '#ffd000' },
+  { key: 'sentier', label: 'Sentier', color: '#00a651' },
+  { key: 'technique', label: 'Sentier difficile', color: '#d6007e' },
+  { key: 'inconnu', label: 'Hors chemin connu', color: '#c4c4c4' },
 ];
 /** Portions sur un GR ou un GR de Pays : tireté rouge par-dessus, comme sur le SCAN 25. */
 export const GR_COLOR = '#e53935';
+/** Deux largeurs de trait (demande de Seb) : les routes et pistes en large, les chemins et sentiers en fin. */
+export const isWide = (t: WayType) => t === 'route' || t === 'velo' || t === 'empierree';
 export const WAY_COLOR = Object.fromEntries(WAY_TYPES.map((t) => [t.key, t.color])) as Record<WayType, string>;
 
 const ROADS = /^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)(_link)?$/;
