@@ -567,3 +567,18 @@ def test_reponse_de_bud(client, photos):
     r = sync(client, ops=[question, reponse])
     assert r["refus"] == []
     assert [m["bud"] for m in r["messages"]] == [False, True]
+
+
+def test_annuler_un_buddy_time(client, photos):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    r = sync(client, ops=[so])
+    assert so["sortie"] in r["ids_sorties"]
+    # Julie ne peut pas l'annuler ; celui qui l'a créé, oui (et rejouer ne change rien).
+    assert sync(client, sub="julie", ops=[{"id": "a", "type": "retirer_sortie", "sortie": so["sortie"]}])["refus"]
+    r = sync(client, ops=[{"id": "b", "type": "retirer_sortie", "sortie": so["sortie"]}] * 2)
+    assert r["refus"] == [] and so["sortie"] not in r["ids_sorties"]
+    # Un Buddy Time qui a déjà servi reste.
+    so2 = nouvelle_sortie(gid)
+    sync(client, ops=[so2, nouveau_message(sortie=so2["sortie"])])
+    assert sync(client, ops=[{"id": "c", "type": "retirer_sortie", "sortie": so2["sortie"]}])["refus"]

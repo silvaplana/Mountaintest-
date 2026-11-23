@@ -315,8 +315,29 @@ OUTIL_BUD = {
                 "anyOf": [{"type": "object", "properties": {"nom": {"type": "string"}, "lat": {"type": "number"}, "lon": {"type": "number"}},
                            "required": ["nom", "lat", "lon"], "additionalProperties": False}, {"type": "null"}],
             },
+            "actions": {
+                "type": "array",
+                "description": "Ce que le buddy t'a explicitement demandé de faire dans l'appli (vide sinon). L'appli le fait en son nom.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string", "enum": ["depense", "buddy_time", "dispo"]},
+                        "titre": {"type": ["string", "null"], "description": "depense : ce qui a été payé"},
+                        "montant_euros": {"type": ["number", "null"], "description": "depense : montant total"},
+                        "paye_par": {"type": ["string", "null"], "description": "depense : prénom de qui a payé (null : celui qui te parle)"},
+                        "pour": {"type": "array", "items": {"type": "string"}, "description": "depense : prénoms concernés (vide : tous les participants) ; buddy_time : qui part (vide : toute la bande)"},
+                        "nom": {"type": ["string", "null"], "description": "buddy_time : nom de la sortie ; dispo : nom du planning"},
+                        "debut": {"type": ["string", "null"], "description": "buddy_time et dispo : date AAAA-MM-JJ"},
+                        "fin": {"type": ["string", "null"], "description": "buddy_time : date AAAA-MM-JJ"},
+                        "lieu": {"type": ["string", "null"], "description": "buddy_time"},
+                        "etat": {"type": ["string", "null"], "enum": ["oui", "peut", "non", None], "description": "dispo de celui qui te parle"},
+                    },
+                    "required": ["type", "titre", "montant_euros", "paye_par", "pour", "nom", "debut", "fin", "lieu", "etat"],
+                    "additionalProperties": False,
+                },
+            },
         },
-        "required": ["texte", "hebergements", "point"],
+        "required": ["texte", "hebergements", "point", "actions"],
         "additionalProperties": False,
     },
 }
@@ -327,6 +348,10 @@ plannings, dépenses, derniers messages), puis la question qu'un buddy t'a posé
 Règles :
 - Tu réponds seulement à la question, court et chaleureux, comme un copain qui s'y connaît (tutoiement).
 - Tu proposes, les buddies décident : ne dis jamais que tu as réservé, payé ou décidé quoi que ce soit.
+- Tu n'agis dans l'appli (« actions ») que si celui qui te parle te le demande clairement (« ajoute », « crée »,
+  « mets-moi oui »…), et seulement pour : une dépense du Buddy count de ce Buddy Time (« depense »), un nouveau
+  Buddy Time dans cette bande (« buddy_time »), sa propre réponse à un planning de la bande (« dispo » : jamais celle
+  d'un autre). Dans le texte, dis ce que tu as fait ; il pourra toucher « Annuler ». Dans le doute, demande plutôt.
 - Tu ne te fais jamais passer pour l'un d'eux.
 - Pour trouver un hébergement, cherche sur le web (pages réellement vues, jamais inventées), donne leurs coordonnées
   approximatives et mets-les dans « hebergements » : l'appli les pose sur la carte. Dis-le dans le texte.

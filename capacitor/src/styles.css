@@ -926,3 +926,5 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-bulle.bud { background: #1d2421; color: #fff; align-self: flex-start; }
 .bd-bulle.bud .bd-qui-ecrit { color: #f2c14e; }
 .bd-bulle.bud .bd-heure { color: #ffffffa0; }
+.bd-bud-fait { color: #ffffffd0; font-size: 15px; }
+.bd-bulle.bud .bd-bud-annuler { color: #f2c14e; min-height: 48px; align-self: flex-start; padding: 0; font-size: 17px; }
