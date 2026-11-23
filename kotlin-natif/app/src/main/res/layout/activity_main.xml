@@ -768,17 +768,30 @@
                     android:textSize="20sp"
                     android:visibility="gone" />
             </LinearLayout>
-            <!-- Menu Voyage, 👥 en haut (bouton important, demande de Seb) -->
+            <!-- Menu Voyage, 👥 Buddies et 👤 Moi en haut (demande de Seb, spec/buddies.md écran 1) -->
             <Button
                 android:id="@+id/btnGroups"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
                 android:layout_marginTop="8dp"
                 android:background="@drawable/round_btn"
-                android:contentDescription="Groupes et mon compte"
+                android:contentDescription="Buddies"
                 android:elevation="4dp"
                 android:padding="0dp"
                 android:text="👥"
+                android:textColor="#1D2421"
+                android:textSize="20sp" />
+
+            <Button
+                android:id="@+id/btnMoi"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/round_btn"
+                android:contentDescription="Moi : mon compte"
+                android:elevation="4dp"
+                android:padding="0dp"
+                android:text="👤"
                 android:textColor="#1D2421"
                 android:textSize="20sp" />
 

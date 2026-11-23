@@ -154,7 +154,7 @@ class Compte(private val prefs: SharedPreferences) {
         return etat.getString("access")
     }
 
-    private fun api(methode: String, chemin: String, corps: JSONObject? = null): JSONObject {
+    fun api(methode: String, chemin: String, corps: JSONObject? = null): JSONObject {
         val r = requete("$API_URL$chemin", methode, corps?.toString(), null, jetonAcces())
         if (r.code == 401) { modifier { remove("access") }; throw Refuse("Jeton refusé") }
         if (r.code != 200) throw IOException("Serveur : erreur ${r.code}")

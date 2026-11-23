@@ -287,6 +287,30 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 10. Appels, puis montrer du doigt (10, 24).
 11. Bud (25).
 
+### 7.1 Bloc 1 : ce qui est construit (23 novembre 2026)
+
+- **Écran 1** : 👥 ouvre Buddies, 👤 ouvre Mon compte (pastille verte ou orange). La pastille de 👥
+  compte les Buddy Groups qui ont bougé depuis la dernière ouverture.
+- **Écran 2** : la liste des Buddy Groups (Me Time compris), le plus récemment actif en haut,
+  « à jour à 8 h 12 » et 🕓 pour ce qui attend le réseau. La partie Buddy Times, la grande image
+  du prochain Buddy Time et « ＋ Buddy Time » arrivent avec le bloc 2.
+- **Écran 3** : un Buddy Group, ses visages (toucher : inviter, nommer admin, retirer, quitter).
+  Le dernier admin qui part passe la main au plus ancien membre ; un groupe vide disparaît.
+- **Écran 20** : photo, nom, invitations par Contacts (sélecteur d'Android, sans permission
+  « contacts »), Mail, Téléphone (SMS) ou QR code.
+- **Colonne d'icônes** : visible partout ; 💶 ouvre le partage des frais et 🏨 l'hébergement
+  existants ; 📞 📅 💬 📸 disent « Bientôt » jusqu'à leur bloc.
+- **Me Time** : créé par le serveur à la première synchro, le même sur tous les téléphones de la
+  personne ; on ne le quitte pas et on n'y invite pas de groupe (inviter à une sortie : bloc 2).
+- **Invitations** : le code est tiré au hasard par le téléphone, donc le SMS part même sans réseau.
+  Le lien `silvaplana.cloud/mountaintest/rejoindre.html?c=…` montre le groupe et qui invite, ouvre
+  l'appli (`…://rejoindre?c=…`) ou propose de l'installer ; il sert 30 jours. Un lien SMS ou mail
+  sert à une personne ; un QR code sert à toute la bande.
+- **Synchro** : une seule route, `POST /buddies/sync` (deploy/comptes/buddies.py) : le téléphone
+  envoie ses opérations en attente et reçoit les Buddy Groups changés depuis la fois d'avant.
+  Une opération refusée (droits, lien expiré) est montrée puis oubliée. Synchro à l'ouverture de
+  l'appli, au retour du réseau, après chaque action et chaque minute quand Buddies est ouvert.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

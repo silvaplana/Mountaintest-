@@ -155,7 +155,7 @@ export async function jetonAcces(): Promise<string> {
   return n.access!;
 }
 
-async function api<T>(methode: string, chemin: string, corps?: unknown): Promise<T> {
+export async function api<T>(methode: string, chemin: string, corps?: unknown): Promise<T> {
   const t = await jetonAcces();
   const r = await requete(`${API_URL}${chemin}`, {
     method: methode,

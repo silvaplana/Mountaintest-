@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TraceFilePlugin.class);
         registerPlugin(TraceWakePlugin.class);
         registerPlugin(TraceSharePlugin.class);
+        registerPlugin(BuddiesPlugin.class);
         super.onCreate(savedInstanceState);
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "capacitor");

@@ -29,6 +29,12 @@ appli ─▶ https://auth.silvaplana.cloud         ─▶ conteneur mb-logto (Lo
 
 Le serveur redémarre tout seul quand une nouvelle version de `serveur.py` arrive avec le site (`~/mountaintest/maj-comptes.sh`, toutes les 5 min).
 
+## Buddies (bloc 1)
+
+`buddies.py` : Buddy Groups, Me Time, invitations, et la synchro des téléphones (`POST /buddies/sync`, voir
+`spec/buddies.md` §7.1). `GET /invitations/{code}` sert la page du lien d'invitation (`capacitor/public/rejoindre.html`).
+Les colonnes ajoutées aux tables déjà créées sur le VPS s'ajoutent seules au démarrage (`ajouter_colonnes`).
+
 ## Console d'admin de Logto (voir les comptes)
 
 Dans PowerShell : `ssh -L 3002:localhost:3002 root@187.124.17.136`, puis ouvrir http://localhost:3002 dans le

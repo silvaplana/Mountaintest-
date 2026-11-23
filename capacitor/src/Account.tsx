@@ -118,7 +118,6 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
         try { await synchroniser(); onToast('Synchronisé'); } catch (err) { onToast(err instanceof HorsLigne ? 'Pas de réseau' : String((err as Error).message)); }
         finally { setOccupe(false); }
       }}>🔄 Synchroniser</button>
-      <p className="hint">👥 Les groupes d'amis arrivent à l'étape suivante.</p>
       <span style={{ flex: 1 }} />
       <button className="acc-deco" onClick={() => { if (confirm('Se déconnecter ? Tes traces restent sur le téléphone.')) { void deconnecter(); onToast('Déconnecté'); } }}>Se déconnecter</button>
       <p className="hint acc-centre">Se déconnecter garde tes traces sur le téléphone.</p>

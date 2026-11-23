@@ -39,12 +39,16 @@ class Utilisateur(Base):
 
 
 class Groupe(Base):
-    """Groupe d'amis (étape 3)."""
+    """Buddy Group (spec/buddies.md §5.3). `nature` = « bande » (copains invités) ou « me_time » (le
+    Buddy Group par défaut de chacun, créé par le serveur, un seul membre)."""
 
     __tablename__ = "groupes"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     nom: Mapped[str] = mapped_column(String(80), nullable=False)
+    nature: Mapped[str] = mapped_column(String(10), nullable=False, default="bande")
+    # Petite image en data: URL (~256 px), comme la photo du profil.
+    photo: Mapped[str | None] = mapped_column(Text)
     activite: Mapped[str] = mapped_column(String(16), nullable=False, default="")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     cree_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
@@ -64,7 +68,8 @@ class Membre(Base):
 
 
 class Invitation(Base):
-    """Lien / QR code (`code`) ou e-mail (étape 2). Sans groupe : simple invitation à installer l'appli."""
+    """Lien envoyé par SMS, mail ou QR code (`code`, choisi par le téléphone pour pouvoir l'envoyer hors
+    ligne). Le lien sert jusqu'à `expire_le`, à plusieurs personnes (un QR code montré à la bande)."""
 
     __tablename__ = "invitations"
 
@@ -73,5 +78,10 @@ class Invitation(Base):
     groupe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"))
     invite_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     email: Mapped[str | None] = mapped_column(String(320))
+    # Ce que montre l'appli dans « Dans la bande » : « Julie Martin · invitée par SMS ».
+    canal: Mapped[str] = mapped_column(String(10), nullable=False, default="lien")
+    nom: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    contact: Mapped[str] = mapped_column(String(320), nullable=False, default="")
+    acceptee_par: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("utilisateurs.id"))
     expire_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
