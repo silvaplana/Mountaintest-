@@ -64,6 +64,8 @@ export type Hebergement = {
 export type MessageBuddy = {
   id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo'; texte: string;
   lon: number | null; lat: number | null; photo: string | null; cree_le: string; attente?: boolean;
+  /** 🐻 Réponse de Bud (§5.12), demandée par `par`. */
+  bud?: boolean;
 };
 /** 📍 Position d'un buddy dans un Buddy Time (§5.9) : son épingle (ms) et sa dernière position. */
 export type Position = {
@@ -217,7 +219,7 @@ export function vue(e: Etat): {
     } else if (op.type === 'message' && !messages.some((m) => m.id === op.message)) {
       messages.push({ id: String(op.message), groupe: (op.groupe as string) ?? null, sortie: (op.sortie as string) ?? null, par: moi,
         nature: op.nature as MessageBuddy['nature'], texte: String(op.texte ?? ''), lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null,
-        photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true });
+        photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true, ...(op.bud ? { bud: true } : {}) });
     } else if (op.type === 'retirer_message') {
       messages = messages.filter((m) => m.id !== op.message);
     } else if (op.type === 'recit' || op.type === 'fiche' || op.type === 'carnet') {
@@ -494,13 +496,13 @@ export function proposerHebergement(sorties: string[], h: { nom: string; nature:
     url: /^https?:\/\//.test(h.url) ? h.url.slice(0, 500) : '' })));
 }
 /** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
-export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string }) {
+export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string; bud?: boolean }) {
   const texte = (m.texte ?? '').trim().slice(0, 2000);
   const nature = m.nature ?? 'texte';
   if (nature === 'texte' && !texte) return;
   ajouter({ type: 'message', message: uuid(), ...(dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe }), nature, texte,
     ...(m.lon != null && m.lat != null ? { lon: Math.round(m.lon * 1e6) / 1e6, lat: Math.round(m.lat * 1e6) / 1e6 } : {}),
-    ...(m.photo ? { photo: m.photo } : {}) });
+    ...(m.photo ? { photo: m.photo } : {}), ...(m.bud ? { bud: true } : {}) });
 }
 export const retirerMessage = (message: string) => ajouter({ type: 'retirer_message', message });
 /** Conversation lue jusqu'à maintenant. */

@@ -35,6 +35,7 @@ export function apercu(b: Bulle | undefined, nom: (id: string) => string, moi: s
   if (b.genre === 'trace') return `〰 ${b.t.par.id === moi ? 'Toi' : b.t.par.pseudo} : ${b.t.nom}`;
   if (b.genre === 'hebergement') return `🏨 ${qui(b.h.par)} : ${b.h.nom}`;
   const m = b.m;
+  if (m.bud) return `🐻 Bud : ${m.nature === 'point' ? `📍 ${m.texte}` : m.texte}`;
   return `${qui(m.par)} : ${m.nature === 'point' ? '📍 je suis ici' : m.nature === 'photo' ? '📷 une photo' : m.texte}`;
 }
 

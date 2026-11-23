@@ -82,13 +82,15 @@ COLONNES_AJOUTEES = [
     ("invitations", "contact", "VARCHAR(320) NOT NULL DEFAULT ''"),
     ("invitations", "acceptee_par", "UUID REFERENCES utilisateurs(id)"),
     ("invitations", "sortie_id", "UUID REFERENCES sorties(id) ON DELETE CASCADE"),
+    ("messages_buddies", "bud", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 
 def ajouter_colonnes():
     with moteur.begin() as c:
+        tables = set(inspect(c).get_table_names())
         for table, colonne, sql in COLONNES_AJOUTEES:
-            if colonne not in {x["name"] for x in inspect(c).get_columns(table)}:
+            if table in tables and colonne not in {x["name"] for x in inspect(c).get_columns(table)}:
                 c.execute(text(f"ALTER TABLE {table} ADD COLUMN {colonne} {sql}"))
 
 

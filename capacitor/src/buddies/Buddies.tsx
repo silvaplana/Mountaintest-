@@ -662,7 +662,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
     <div className="bd-carte-haut">
       <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
       <span className="bd-texte"><b>{x.nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
-        : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'}` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
+        : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
     </div>
     <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}`}>
       <button className="handle" aria-label={replie ? 'Déplier' : 'Replier'} onClick={() => setReplie(!replie)} />

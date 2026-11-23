@@ -28,6 +28,7 @@ export const IA_TYPES: Record<string, string> = {
   voyage: 'Coût des trajets',
   hebergement: 'Hébergements',
   facture: 'Lecture des factures',
+  bud: 'Bud (réponses dans les conversations)',
 };
 
 const KEY = 'usageIa';

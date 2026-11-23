@@ -34,6 +34,7 @@ object UsagePanel {
         "voyage" to "Coût des trajets",
         "hebergement" to "Hébergements",
         "facture" to "Lecture des factures",
+        "bud" to "Bud (réponses dans les conversations)",
     )
     private const val KEY = "usageIa"
 

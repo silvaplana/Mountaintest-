@@ -921,3 +921,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ap-icone { font-size: 22px; }
 .ap-doigt { background: #1f5a3a; color: #fff; padding: 6px 10px; border-radius: 16px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 8px #0005; white-space: nowrap; }
 .ap-rejoindre { background: #2fae5c26; }
+
+/* 🐻 Bud (spec/buddies.md §5.12, écran 25) : sa bulle à part, sombre, à gauche chez tout le monde */
+.bd-bulle.bud { background: #1d2421; color: #fff; align-self: flex-start; }
+.bd-bulle.bud .bd-qui-ecrit { color: #f2c14e; }
+.bd-bulle.bud .bd-heure { color: #ffffffa0; }

@@ -8,8 +8,10 @@ import { couleur, useBuddies, Visage } from './Buddies';
 import { useDictee } from './Carnet';
 import { iconeHebergement, prixHebergement } from './Hebergements';
 import { apercu, cle, fil, heureMessage, longueurTrace, type Bulle, type Dest } from './messages';
+import { contexte, demander, pourBud } from './bud';
 import {
-  envoyerMessage, marquerLu, nonLus, retirerMessage, synchroniser, vue, type Buddy, type Groupe, type Hebergement, type Sortie, type TraceBuddy,
+  appliquer, envoyerMessage, marquerLu, nonLus, proposerHebergement, retirerMessage, synchroniser, vue, type Buddy, type Groupe, type Hebergement,
+  type Sortie, type TraceBuddy,
 } from './store';
 
 /**
@@ -62,7 +64,26 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [k, dernier, bulles.length]);
 
-  const envoyer = () => { envoyerMessage(dest, { texte }); setTexte(''); };
+  // 🐻 « Bud, … » : la question part comme un message, puis la réponse de Bud arrive dans sa bulle, vue de tous.
+  const [budPense, setBudPense] = useState(false);
+  const bud = async (question: string) => {
+    setBudPense(true);
+    try {
+      const ctx = contexte(dest, { nom: appliquer(e).find((g) => g.id === dest.groupe)?.nom ?? '', sortie, membres, moi, traces: v.traces,
+        hebergements: v.hebergements, depenses: v.depenses, plannings: v.plannings, messages: v.messages });
+      const r = await demander(question, ctx);
+      if (r.texte) envoyerMessage(dest, { texte: r.texte, bud: true });
+      if (r.point) envoyerMessage(dest, { nature: 'point', texte: r.point.nom, lon: r.point.lon, lat: r.point.lat, bud: true });
+      if (sortie) for (const h of r.hebergements) proposerHebergement([sortie.id], { ...h, nature: h.type });
+      void synchroniser().catch(() => undefined);
+    } catch (err) { onToast((err as Error).message); }
+    setBudPense(false);
+  };
+  const envoyer = () => {
+    envoyerMessage(dest, { texte });
+    if (pourBud(texte)) void bud(texte);
+    setTexte('');
+  };
   const point = async () => {
     setOccupe(true);
     try { envoyerMessage(dest, { nature: 'point', ...await maPosition() }); } catch { onToast('Position introuvable : le GPS est-il allumé ?'); }
@@ -74,12 +95,13 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
       {!bulles.length && <p className="bd-vide">Pas encore de message. Écris, dicte avec 🎤, ou montre où tu es avec 📍.</p>}
       {montrees.map((b) => <UneBulle key={`${b.genre}${b.genre === 'message' ? b.m.id : b.genre === 'trace' ? b.t.id : b.h.id}`} b={b} moi={moi}
         nom={nom} photos={v.photos} choisi={choisi} onChoisir={setChoisi} {...a} />)}
+      {budPense && <div className="bd-bulle bud"><b className="bd-qui-ecrit">🐻 Bud</b><span>…</span></div>}
       <div ref={bas} />
     </div>
     <div className="bd-saisie">
       {sortie && <button aria-label="Envoyer une photo" disabled={occupe} onClick={() => fichier.current?.click()}>📷</button>}
       <button aria-label="Montrer où je suis" disabled={occupe} onClick={() => void point()}>📍</button>
-      <input value={texte} onChange={(ev) => setTexte(ev.target.value)} placeholder="Message" enterKeyHint="send" maxLength={2000}
+      <input value={texte} onChange={(ev) => setTexte(ev.target.value)} placeholder="Message, ou « Bud, … »" enterKeyHint="send" maxLength={2000}
         onKeyDown={(ev) => { if (ev.key === 'Enter') envoyer(); }} />
       {texte.trim() ? <button className="bd-envoyer" aria-label="Envoyer" onClick={envoyer}>➤</button>
         : <button className={dictee.ecoute ? 'bd-ecoute' : ''} aria-label="Dicter" onClick={() => void dictee.basculer()}>🎤</button>}
@@ -111,6 +133,14 @@ function UneBulle({ b, moi, nom, photos, choisi, onChoisir, onPoint, onTrace, on
     </button>;
   }
   const m = b.m;
+  if (m.bud) {
+    // 🐻 Bud : sa bulle à part, à gauche chez tout le monde ; un point qu'il montre s'ouvre sur la carte.
+    const heure = <small className="bd-heure">{heureMessage(m.cree_le)}{m.attente ? ' · 🕓' : ''}</small>;
+    if (m.nature === 'point') return <button className="bd-bulle-carte" onClick={() => m.lon != null && m.lat != null && onPoint({ lon: m.lon, lat: m.lat, nom: m.texte || 'Bud montre ici' })}>
+      <span className="bd-icone">📍</span><span className="bd-texte"><b>{m.texte || 'Bud montre ici'}</b><small>🐻 Bud · voir sur la carte</small></span>
+    </button>;
+    return <div className="bd-bulle bud"><b className="bd-qui-ecrit">🐻 Bud</b><span>{m.texte}</span>{heure}</div>;
+  }
   const mien = m.par === moi || m.par === 'moi';
   const qui = !mien && <b className="bd-qui-ecrit" style={{ color: couleur(m.par) }}>{nom(m.par)}</b>;
   const pied = <small className="bd-heure">{heureMessage(m.cree_le)}{m.attente ? ' · 🕓 partira au retour du réseau' : ''}</small>;

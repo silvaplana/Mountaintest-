@@ -306,6 +306,8 @@ class MessageBuddy(Base):
     lon: Mapped[float | None] = mapped_column(Float)
     lat: Mapped[float | None] = mapped_column(Float)
     photo_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    # 🐻 Réponse de Bud (§5.12), demandée par `par` : affichée dans la bulle de Bud, jamais comme un message du buddy.
+    bud: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
 
