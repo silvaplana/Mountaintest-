@@ -514,5 +514,6 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
    haut de la liste : à confirmer.
 4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
 5. Bud : les règles du §5.12, son visage, et ce qu'il a le droit de faire seul (rien, par défaut).
-6. La recherche d'hébergement (écran existant) affiche encore « Chercher (IA) » et « Claude cherche… » : à
-   reformuler sans mot technique (règle §3.2), en accord avec Seb.
+6. ~~La recherche d'hébergement affiche « Chercher (IA) » et « Claude cherche… »~~ : reformulée (« 🔍 Chercher »,
+   « Je cherche les meilleurs prix… »), accord de Seb le 23 novembre. D'autres écrans anciens (recherche de randos
+   sur le web, prix du carburant et des péages) disent encore « Claude cherche… ».

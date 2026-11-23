@@ -72,9 +72,9 @@ export function LodgingPanel({ password, onClose, onProposer }: { password: stri
         <button onClick={() => { const x = cleanSite(newSite); if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x) && !sites.includes(x)) { setSites([...sites, x]); setChecked([...checked, x]); } setNewSite(''); }}>Ajouter</button>
       </span>
       <button className="primary" disabled={busy || !password} onClick={() => void search()}>
-        {busy ? `Claude cherche les meilleurs prix… ${elapsed} s` : 'Chercher (IA)'}</button>
-      {busy && <p className="hint">Claude compare plusieurs sites : 30 s à 2 min.</p>}
-      {!password && <p className="hint">Mot de passe IA manquant (onglet Randos).</p>}
+        {busy ? `Je cherche les meilleurs prix… ${elapsed} s` : '🔍 Chercher'}</button>
+      {busy && <p className="hint">Je compare plusieurs sites : 30 s à 2 min.</p>}
+      {!password && <p className="hint">Mot de passe de recherche manquant (onglet Randos).</p>}
       {error && <p className="error">{error}</p>}
       {answer && <>
         {(answer.hebergements ?? []).length === 0 && <p className="hint">Aucun hébergement trouvé sous ce prix.</p>}
