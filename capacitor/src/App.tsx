@@ -17,6 +17,7 @@ import { ScaleBar } from './map/ScaleBar';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte, useCompte } from './Account';
+import { connecte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies } from './buddies/Buddies';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
 import { LodgingPanel } from './Lodging';
@@ -108,7 +109,8 @@ export function App() {
   const [travel, setTravel] = useState(false);
   const [expenses, setExpenses] = useState(false);
   /** 👥 Mon compte (connexion Logto, marche hors ligne une fois connecté). */
-  const [account, setAccount] = useState(false);
+  // Tant qu'on n'est pas connecté, l'écran de connexion s'ouvre au lancement (« Plus tard » le ferme) : demande de Seb.
+  const [account, setAccount] = useState(() => !connecte());
   const compte = useCompte();
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);

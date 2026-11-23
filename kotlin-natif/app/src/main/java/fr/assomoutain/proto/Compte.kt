@@ -97,10 +97,19 @@ class Compte(private val prefs: SharedPreferences) {
         val id = c.optJSONObject("applis")?.optString("kotlin").orEmpty()
         if (id.isEmpty()) throw IOException("Serveur des comptes pas encore configuré")
         return JSONObject().put("logto", c.getString("logto")).put("ressource", c.getString("ressource")).put("appId", id)
+            .put("fournisseurs", c.optJSONArray("fournisseurs") ?: org.json.JSONArray())
     }
 
-    /** 1re étape : adresse de la page de connexion Logto (à ouvrir dans le navigateur). */
-    fun debutConnexion(config: JSONObject, emailIndique: String?): String {
+    /**
+     * 1re étape : adresse de la page de connexion Logto (à ouvrir dans le navigateur).
+     * Avec un fournisseur ("google", "apple"), Logto envoie tout de suite vers sa page (direct_sign_in).
+     */
+    fun debutConnexion(config: JSONObject, emailIndique: String?, fournisseur: String? = null): String {
+        if (fournisseur != null) {
+            val actifs = config.optJSONArray("fournisseurs")
+            if (actifs != null && (0 until actifs.length()).none { actifs.optString(it) == fournisseur })
+                throw IOException("${if (fournisseur == "google") "Google" else "Apple"} n'est pas encore activé : utilise ton e-mail")
+        }
         val verifier = aleatoire(48); val state = aleatoire(16)
         modifier { put("config", config); put("pkce", JSONObject().put("verifier", verifier).put("state", state)) }
         val q = mutableListOf(
@@ -109,6 +118,7 @@ class Compte(private val prefs: SharedPreferences) {
             "code_challenge" to defi(verifier), "code_challenge_method" to "S256", "ui_locales" to "fr",
         )
         if (!emailIndique.isNullOrBlank()) q += "login_hint" to emailIndique.trim()
+        if (fournisseur != null) q += "direct_sign_in" to "social:$fournisseur"
         return "${config.getString("logto")}/oidc/auth?${form(*q.toTypedArray())}"
     }
 

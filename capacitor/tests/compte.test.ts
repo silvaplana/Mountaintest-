@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   _reinitialiser, API_URL, changerPseudo, claims, connecte, debutConnexion, defi, deconnecter, finConnexion,
-  HorsLigne, jetonAcces, lire, REDIRECT, Refuse, synchroniser, type Config,
+  HorsLigne, jetonAcces, lire, REDIRECT, Refuse, retourWeb, retourWebEnAttente, synchroniser, type Config,
 } from '../src/compte/auth';
 
 const CONFIG: Config = { logto: 'https://auth.test', ressource: 'https://api.test', appId: 'app1' };
@@ -118,5 +118,29 @@ describe('compte (connexion Logto, hors ligne)', () => {
   it('lit les infos d\'un jeton, accents compris', () => {
     const t = `x.${btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify({ name: 'Séb' })))).replace(/=+$/, '')}.y`;
     expect(claims(t).name).toBe('Séb');
+  });
+
+  it('Google : la page Logto envoie directement chez Google ; refusé si pas encore activé', async () => {
+    const url = new URL(await debutConnexion({ ...CONFIG, fournisseurs: ['google'] }, undefined, 'google'));
+    expect(url.searchParams.get('direct_sign_in')).toBe('social:google');
+    await expect(debutConnexion({ ...CONFIG, fournisseurs: [] }, undefined, 'google')).rejects.toThrow(/pas encore activé/);
+    await expect(debutConnexion({ ...CONFIG, fournisseurs: ['google'] }, undefined, 'apple')).rejects.toThrow(/Apple/);
+  });
+
+  it('version web (iPhone) : retour sur la page, même adresse donnée à Logto puis à l\'échange du code', async () => {
+    const page = retourWeb({ origin: 'https://silvaplana.cloud', pathname: '/mountaintest/index.html' });
+    expect(page).toBe('https://silvaplana.cloud/mountaintest/');
+    const url = new URL(await debutConnexion(CONFIG, undefined, 'google', page));
+    expect(url.searchParams.get('redirect_uri')).toBe(page);
+    const retour = `${page}?code=C9&state=${url.searchParams.get('state')}`;
+    expect(retourWebEnAttente(retour)).toBe(true);
+    expect(retourWebEnAttente(page)).toBe(false);
+    reseau((a) => a.url.endsWith('/oidc/token')
+      ? json({ access_token: 'A1', refresh_token: 'R1', id_token: ID_TOKEN, expires_in: 3600 })
+      : json({ id: 'p1', email: 'seb@exemple.fr', pseudo: 'seb', photo: null }));
+    await finConnexion(retour);
+    expect(corps(appels[0]).get('redirect_uri')).toBe(page);
+    expect(corps(appels[0]).get('code')).toBe('C9');
+    expect(connecte()).toBe(true);
   });
 });
