@@ -1049,8 +1049,11 @@ class BuddiesPanel(
             val pour = npPour
             if (pour == null) { toast("Crée d'abord un Buddy Group"); return@bouton }
             try {
-                val id = buddies.creerPlanning(pour, npNom, choisies, npLimite)
-                toast("« ${npNom.trim()} » est publié : ${g?.nom ?: "la bande"} est prévenue")
+                // Le nom grisé proposé sert de nom si on n'en tape pas.
+                val nom = npNom.trim().ifEmpty { "Saison ski $an-${(an + 1) % 100}" }
+                if (choisies.isEmpty()) { toast("Coche au moins une date"); return@bouton }
+                val id = buddies.creerPlanning(pour, nom, choisies, npLimite)
+                toast("« $nom » est publié : ${g?.nom ?: "la bande"} est prévenue")
                 npDe = ""; vue = Vue.UnPlanning(id, groupe); afficher(); synchroniser()
             } catch (e: IllegalArgumentException) { toast(e.message ?: "Donne un nom au planning") }
         }, lp(8))
