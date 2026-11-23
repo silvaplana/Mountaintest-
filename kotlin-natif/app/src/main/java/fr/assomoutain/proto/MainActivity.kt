@@ -2043,16 +2043,17 @@ class MainActivity : AppCompatActivity() {
                         if (shown != null) selectTrail(shown) else showMine(st.line, st.onPaths, st.name, st.id)
                     }
                 }, android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(Button(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
-                    text = "📤"; contentDescription = "Partager ${st.name}"
-                    minWidth = 0; minimumWidth = 0
+                addView(ImageButton(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
+                    setImageResource(R.drawable.ic_share_trace); contentDescription = "Partager ${st.name}"
+                    minimumWidth = (48 * d).toInt(); minimumHeight = (48 * d).toInt()
                     setOnClickListener {
                         runCatching { TraceShare.share(this@MainActivity, st.name, flat(st.line)) }
                             .onFailure { toast("Partage impossible : ${it.message}") }
                     }
                 })
-                addView(Button(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
-                    text = "🗑"; contentDescription = "Effacer ${st.name}"
+                addView(ImageButton(this@MainActivity, null, android.R.attr.borderlessButtonStyle).apply {
+                    setImageResource(R.drawable.ic_delete_trace); contentDescription = "Effacer ${st.name}"
+                    minimumWidth = (48 * d).toInt(); minimumHeight = (48 * d).toInt()
                     setOnClickListener {
                         android.app.AlertDialog.Builder(this@MainActivity)
                             .setMessage("Effacer « ${st.name} » du téléphone ?")

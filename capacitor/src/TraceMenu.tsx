@@ -103,11 +103,30 @@ export function TraceList({ traces, onPick, onDelete, onShare, onClose, onFile }
               <i style={{ background: '#7b3fe4' }} />
               <span><b>{t.name}</b><small>{formatKm(traceLengthM(t))}{t.onPaths ? ' · recalée sur les chemins' : ''}</small></span>
             </button>
-            <button className="del" onClick={() => onShare(t)} aria-label={`Partager ${t.name}`}>📤</button>
-            <button className="del" onClick={() => onDelete(t)} aria-label={`Effacer ${t.name}`}>🗑</button>
+            <button className="del" onClick={() => onShare(t)} aria-label={`Partager ${t.name}`}><ShareTraceIcon /></button>
+            <button className="del" onClick={() => onDelete(t)} aria-label={`Effacer ${t.name}`}><TrashIcon /></button>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Partager : 3 ronds reliés par 2 traits (même dessin que ic_share_trace côté Kotlin). */
+function ShareTraceIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <path d="M8 12L17 6M8 12L17 18" stroke="#1565c0" strokeWidth="2.2" fill="none" />
+      <circle cx="18" cy="5" r="3" fill="#1565c0" /><circle cx="6" cy="12" r="3" fill="#1565c0" /><circle cx="18" cy="19" r="3" fill="#1565c0" />
+    </svg>
+  );
+}
+
+/** Effacer : poubelle simple, couvercle, cuve, 2 rayures (même dessin que ic_delete_trace côté Kotlin). */
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="#c62828" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18M9 6V4h6v2M5.5 6l1 14h11l1-14M10 10v6M14 10v6" />
+    </svg>
   );
 }

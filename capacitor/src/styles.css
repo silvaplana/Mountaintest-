@@ -510,7 +510,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .trace-menu .trail-list button { padding: 10px 4px; }
 .trace-menu .trail-list li { display: flex; align-items: center; }
 .trace-menu .trail-list li > button:first-child { flex: 1; }
-.trace-menu .trail-list .del { width: auto; flex: 0 0 auto; padding: 8px 12px; color: #c62828; }
+.trace-menu .trail-list .del { width: auto; flex: 0 0 auto; min-width: 48px; min-height: 48px; padding: 8px 11px; color: #c62828; display: flex; align-items: center; justify-content: center; }
 
 /* Onglets du ski : Sorties, Carte sorties, Topos, Carte topos. */
 .ski-tabs { display: flex; gap: 4px; align-items: stretch; margin: 0 0 8px; }
