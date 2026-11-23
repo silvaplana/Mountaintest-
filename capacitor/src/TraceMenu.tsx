@@ -17,7 +17,7 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, wayTypes, onWayTypes, runs }: {
+export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
   slopes: boolean; onSlopes: (v: boolean) => void;
   showProfile: boolean; onShowProfile: (v: boolean) => void;
@@ -31,7 +31,7 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
   /** 🚗 Y aller : Google Maps en voiture jusqu'au départ de la trace. */
   onGo: () => void;
   /** 🚵 Mode VTT : durée à vélo, pente en %, et case « type de chemin » (carte + bande sous le profil + légende). */
-  vtt: boolean; wayTypes: boolean; onWayTypes: (v: boolean) => void;
+  vtt: boolean; /** Coche « Type de chemin » : en 🚵 et 🥾, pas en ⛷. */ ways: boolean; wayTypes: boolean; onWayTypes: (v: boolean) => void;
   runs: WayRun[] | 'loading' | 'error' | null;
 }) {
   const el = elevated && typeof elevated === 'object' ? elevated : null;
@@ -47,12 +47,12 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
       <div className="checks">
         <label><input type="checkbox" checked={slopes} onChange={(e) => onSlopes(e.target.checked)} /> Afficher la pente</label>
         <label><input type="checkbox" checked={showProfile} onChange={(e) => onShowProfile(e.target.checked)} /> Afficher le profil</label>
-        {<label><input type="checkbox" checked={wayTypes} onChange={(e) => onWayTypes(e.target.checked)} /> Type de chemin</label>}
+        {ways && <label><input type="checkbox" checked={wayTypes} onChange={(e) => onWayTypes(e.target.checked)} /> Type de chemin</label>}
       </div>
       {(slopes || showProfile) && elevated === 'error' && <p className="hint">Altitudes indisponibles (pas de réseau ?) : pente et profil ne peuvent pas être calculés.</p>}
       {showProfile && el && <Profile segments={el.segments} cursor={cursor} onCursor={onCursor} pctFirst={vtt}
-        runs={wayTypes && Array.isArray(runs) ? runs : null} />}
-      {wayTypes && (runs === 'loading' ? <p className="hint">Recherche des types de chemin…</p>
+        runs={ways && wayTypes && Array.isArray(runs) ? runs : null} />}
+      {ways && wayTypes && (runs === 'loading' ? <p className="hint">Recherche des types de chemin…</p>
         : runs === 'error' ? <p className="hint">Types de chemin introuvables sans réseau. Fais 📶 Hors ligne avant de partir.</p>
         : runs && <WayLegend runs={runs} />)}
       <div className="row">
