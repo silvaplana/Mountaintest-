@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Effacer une trace : poubelle simple, couvercle, cuve, 2 rayures (même dessin que TrashIcon côté Capacitor). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26dp" android:height="26dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:pathData="M3,6h18M9,6V4h6v2M5.5,6l1,14h11l1,-14M10,10v6M14,10v6"
+        android:strokeColor="#C62828" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" />
+</vector>
