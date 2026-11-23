@@ -162,8 +162,18 @@ progress { width: 100%; }
 .draw-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .draw-svg path { fill: none; stroke: #7b3fe4; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .frame-banner label.paths { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-.profile { width: 100%; height: auto; display: block; }
-.profile text { font-size: 9px; fill: var(--muted); }
+.profile-scroll { width: 100%; overflow: hidden; }
+.profile { display: block; }
+.profile text { font-size: 11px; fill: var(--muted); }
+.profile-gauge line { stroke: #e4572e; stroke-width: 1.8; }
+.profile-gauge text { font-size: 10px; }
+.way-legend { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 2px; font-size: 13px; }
+.way-legend li { display: flex; align-items: center; gap: 6px; }
+.way-legend li.absent { opacity: .45; }
+.way-legend i { width: 14px; height: 6px; border-radius: 2px; flex: none; }
+.way-legend small { margin-left: auto; color: var(--muted); white-space: nowrap; }
+.way-legend small b { color: var(--fg); }
+.way-legend i.gr { background: repeating-linear-gradient(90deg, #e53935 0 5px, transparent 5px 8px); height: 3px; }
 .profile-line { fill: none; stroke: #e4572e; stroke-width: 1.8; }
 .profile-area { fill: #e4572e33; }
 .hike-card { border-color: #f28c28; }

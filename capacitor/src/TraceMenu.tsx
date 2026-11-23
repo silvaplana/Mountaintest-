@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
-import { Profile } from './Profile';
+import { Profile, WayLegend } from './Profile';
 import type { ElevatedTrail } from './trails/elevation';
 import type { Trail } from './trails/osmTrails';
-import { walkingHours } from './trails/route';
+import { bikeHours, walkingHours } from './trails/route';
+import type { WayRun } from './trails/wayTypes';
 import { traceLengthM, type SavedTrace } from './trails/savedTraces';
 import { TRACE_FOLDER } from './trails/traceShare';
 import { formatKm } from './track/stats';
@@ -16,7 +17,7 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo }: {
+export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, wayTypes, onWayTypes, runs }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
   slopes: boolean; onSlopes: (v: boolean) => void;
   showProfile: boolean; onShowProfile: (v: boolean) => void;
@@ -29,6 +30,9 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
   offline: string | null; onOffline: () => void;
   /** 🚗 Y aller : Google Maps en voiture jusqu'au départ de la trace. */
   onGo: () => void;
+  /** 🚵 Mode VTT : durée à vélo, pente en %, et case « type de chemin » (carte + bande sous le profil + légende). */
+  vtt: boolean; wayTypes: boolean; onWayTypes: (v: boolean) => void;
+  runs: WayRun[] | 'loading' | 'error' | null;
 }) {
   const el = elevated && typeof elevated === 'object' ? elevated : null;
   const wait = elevated === 'loading' ? '…' : '—';
@@ -39,13 +43,18 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
         <button className="close" onClick={onClose} aria-label="Fermer le menu de la trace">✕</button>
       </div>
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}
-        {el && ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`}</span>
+        {el && (vtt ? ` · ${hours(bikeHours(trail.distanceM, el.gainM))} à VTT` : ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`)}</span>
       <div className="checks">
         <label><input type="checkbox" checked={slopes} onChange={(e) => onSlopes(e.target.checked)} /> Afficher la pente</label>
         <label><input type="checkbox" checked={showProfile} onChange={(e) => onShowProfile(e.target.checked)} /> Afficher le profil</label>
+        {vtt && <label><input type="checkbox" checked={wayTypes} onChange={(e) => onWayTypes(e.target.checked)} /> Type de chemin</label>}
       </div>
       {(slopes || showProfile) && elevated === 'error' && <p className="hint">Altitudes indisponibles (pas de réseau ?) : pente et profil ne peuvent pas être calculés.</p>}
-      {showProfile && el && <Profile segments={el.segments} cursor={cursor} onCursor={onCursor} />}
+      {showProfile && el && <Profile segments={el.segments} cursor={cursor} onCursor={onCursor} pctFirst={vtt}
+        runs={vtt && wayTypes && Array.isArray(runs) ? runs : null} />}
+      {vtt && wayTypes && (runs === 'loading' ? <p className="hint">Recherche des types de chemin…</p>
+        : runs === 'error' ? <p className="hint">Types de chemin introuvables sans réseau. Fais 📶 Hors ligne avant de partir.</p>
+        : runs && <WayLegend runs={runs} />)}
       <div className="row">
         <button className="primary" onClick={onGo}>🚗 Y aller</button>
         {navigating ? <>

@@ -12,6 +12,7 @@ import { forestsGeoJson, type Forest } from './forests/bdForet';
 import type { CarRoute } from './travel/travel';
 import { outingLabel, parkingText, topoLine, type Outing, type TopoRow } from './ski/skitour';
 import { placeLabels } from './ski/labels';
+import { GR_COLOR, WAY_COLOR, type WayType } from './trails/wayTypes';
 
 /** Zoom à partir duquel on écrit les étiquettes des sorties (sommets), puis montre les parkings : de loin, des points seuls. */
 
@@ -36,6 +37,8 @@ export interface MapViewProps {
   cursor?: { lon: number; lat: number } | null;
   /** Étiquettes de pente le long des tracés (case Pentes cochée). */
   slopeTags?: { lon: number; lat: number; deg: number; text: string }[];
+  /** 🚵 Type de chemin le long de la trace choisie (mode VTT) : un bout de trait par portion, de sa couleur. */
+  wayLines?: { type: WayType; gr: boolean; coords: [number, number][] }[];
   /** Randos trouvées sur le web par Claude : un point par rando, celle choisie en surbrillance. */
   webHikes: WebHike[];
   selectedHike: number | null;
@@ -120,7 +123,7 @@ export function MapView(props: MapViewProps) {
         version: 8,
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
-          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
+          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
@@ -138,6 +141,9 @@ export function MapView(props: MapViewProps) {
           { id: 'trails-hit', type: 'line', source: 'trails', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
           { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8 } },
           { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
+          { id: 'way-types', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
+          // Portions sur GR : tireté rouge au milieu du trait, comme sur le SCAN 25.
+          { id: 'way-gr', type: 'line', source: 'wayTypes', filter: ['==', ['get', 'gr'], true], paint: { 'line-color': GR_COLOR, 'line-width': 2, 'line-dasharray': [2, 2] } },
           { id: 'imported', type: 'line', source: 'imported', paint: { 'line-color': '#7b3fe4', 'line-width': 4, 'line-opacity': 0.8 } },
           { id: 'recorded', type: 'line', source: 'recorded', paint: { 'line-color': '#e4572e', 'line-width': 4 } },
           { id: 'web-hikes', type: 'circle', source: 'webHikes', paint: { 'circle-radius': 8, 'circle-color': '#f28c28', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
@@ -281,6 +287,12 @@ export function MapView(props: MapViewProps) {
       ['case', ['==', ['get', 'i'], props.selectedHike ?? -1], '#7b3fe4', '#f28c28']);
     m.setPaintProperty('web-hikes', 'circle-radius', ['case', ['==', ['get', 'i'], props.selectedHike ?? -1], 11, 8]);
   }, [props.webHikes, props.selectedHike, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    (map.current!.getSource('wayTypes') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.wayLines ?? []).map((w) => ({
+      type: 'Feature', properties: { color: WAY_COLOR[w.type], gr: w.gr }, geometry: { type: 'LineString', coordinates: w.coords } })) });
+  }, [props.wayLines, ready]);
 
   useEffect(() => {
     if (!ready) return;

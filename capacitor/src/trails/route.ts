@@ -79,3 +79,8 @@ export function nextMine(trails: Trail[]): { id: number; color: string } {
 export function walkingHours(distM: number, gainM: number, lossM: number) {
   return distM / 4000 + gainM / 300 + lossM / 500;
 }
+
+/** 🚵 Durée à VTT : 15 km/h sur le plat, plus 1 h par 600 m de montée (même calcul côté Kotlin). */
+export function bikeHours(distM: number, gainM: number) {
+  return distM / 15000 + gainM / 600;
+}

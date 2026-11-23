@@ -39,6 +39,8 @@ export interface QuickProps {
   compte: 'ok' | 'reconnecter' | 'aucun';
   /** ⛷ 💬 : question en texte sur les sorties skitour. */
   onSkiText: () => void;
+  /** ⛷ ski de rando / 🚵 VTT : appui long sur le bouton pour basculer ; en 🚵, toucher cherche les circuits VTT de l'écran. */
+  activity: 'ski' | 'vtt'; onActivity: (a: 'ski' | 'vtt') => void; onVtt: () => void;
   /** Météo posée sur la carte (icône 🌦) ; appui long : ouvre l'appli Météo-France. */
   weather: boolean; onWeather: (on: boolean) => void;
   /** ⑂ Écran rallumé avant les carrefours pendant le suivi d'une trace (à gauche de 👖). */
@@ -99,7 +101,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onAccount, compte, onSkiText, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onAccount, compte, onSkiText, activity, onActivity, onVtt, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -239,6 +241,15 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       onClickCapture: (e: React.MouseEvent) => { if (tipPress.current.long) { tipPress.current.long = false; e.stopPropagation(); e.preventDefault(); } },
     };
   };
+  /** Appui long qui bascule ⛷ / 🚵 au lieu d'ouvrir la bulle d'aide. */
+  const lpSwitch = (to: 'ski' | 'vtt') => ({
+    ...lp('skiText'),
+    onPointerDown: () => {
+      if (tipPress.current.timer) clearTimeout(tipPress.current.timer);
+      tipPress.current.long = false;
+      tipPress.current.timer = setTimeout(() => { tipPress.current.long = true; onActivity(to); }, 550);
+    },
+  });
   return (
     <>
     {tip && <div className="tip-close" onPointerDown={() => setTip(null)} onContextMenu={(e) => e.preventDefault()}>
@@ -326,7 +337,12 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       </div>
       {/* ⛷ : la liste « Sorties ski » ; sa carte s'ouvre avec 🗺 à droite du titre. */}
-      <button aria-label="Sorties ski (skitour.fr)" data-help="Sorties ski" {...lp('skiText')} onClick={() => { setPairOpen(null); onSkiText(); }}>⛷</button>
+      {/* Appui long : bascule ⛷ ski de rando ↔ 🚵 VTT (demande de Seb), au lieu de la bulle d'aide. */}
+      {activity === 'vtt'
+        ? <button aria-label="Circuits VTT de l'écran (appui long : ski de rando)" data-help="Circuits VTT · appui long : ⛷ ski" {...lpSwitch('ski')}
+            onClick={() => { setPairOpen(null); onVtt(); }}>🚵</button>
+        : <button aria-label="Sorties ski (skitour.fr) (appui long : VTT)" data-help="Sorties ski · appui long : 🚵 VTT" {...lpSwitch('vtt')}
+            onClick={() => { setPairOpen(null); onSkiText(); }}>⛷</button>}
       </>}
       {(show === 2 || help) && <>
       {/* 👥 Groupes et compte : bouton important, en haut de la seconde barre (demande de Seb). */}
