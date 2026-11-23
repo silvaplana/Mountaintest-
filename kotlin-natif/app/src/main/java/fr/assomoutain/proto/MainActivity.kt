@@ -19,6 +19,7 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -59,6 +60,7 @@ import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
+import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineOpacity
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
 import org.maplibre.android.style.layers.PropertyFactory.rasterOpacity
@@ -128,6 +130,12 @@ class MainActivity : AppCompatActivity() {
     private var traceMenuOpen = false
     private var drawnSlopes = false
     private var drawnProfile = false
+    /** ⛷ ski de rando / 🚵 VTT : appui long sur ⛷ pour basculer, choix gardé (préférence « activite »). */
+    private val vtt get() = prefs.getString("activite", "ski") == "vtt"
+    /** 🚵 Case « Type de chemin » du menu de la trace, et types de chemin de la trace choisie (null : recherche en cours). */
+    private var wayTypesOn = true
+    private var wayRuns: Pair<Long, Result<List<WayTypes.Run>>?>? = null
+    private var wayJob: kotlinx.coroutines.Job? = null
     /** 🧭 Navigation sur une de mes traces (identifiant) ; on vibre une fois en sortant de la trace. */
     private var navId: Long? = null
         set(v) { field = v; saveShown(); runCatching { refreshQuickButtons() } }
@@ -281,10 +289,10 @@ class MainActivity : AppCompatActivity() {
                         val pd = prof.profile
                         if (Trails.isMine(id) && selectedTrail?.id == id) {
                             // Toucher une de mes traces déjà choisie : son menu du bas (et la pente à cet endroit).
-                            if (pd != null) { prof.cursor = pd.nearestD(p.longitude, p.latitude); findViewById<ProfileView>(R.id.traceProfile).cursor = prof.cursor }
+                            if (pd != null) { prof.cursor = pd.nearestD(p.longitude, p.latitude); findViewById<ProfileView>(R.id.traceProfile).apply { cursor = prof.cursor; post { reveal() } } }
                             showTraceList(null); traceMenuOpen = true; refreshTraceMenu(); showSlopeCursor()
                         } else if (selectedTrail?.id == id && pd != null) {
-                            prof.cursor = pd.nearestD(p.longitude, p.latitude)
+                            prof.cursor = pd.nearestD(p.longitude, p.latitude); prof.post { prof.reveal() }
                             sheetOpen = true; refreshTabs(); showSlopeCursor()
                         } else trails.firstOrNull { it.id == id }?.let { selectTrail(it) }
                         return@addOnMapClickListener true
@@ -566,6 +574,11 @@ class MainActivity : AppCompatActivity() {
                 lineColor(Expression.get("color")), lineWidth(3f), lineOpacity(0.75f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel-casing", SRC_TRAIL_SEL).withProperties(lineColor("#ffffff"), lineWidth(8f), lineCap(Property.LINE_CAP_ROUND)))
             style.addLayer(LineLayer("trail-sel", SRC_TRAIL_SEL).withProperties(lineColor(Expression.get("color")), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND)))
+            // 🚵 Type de chemin le long de la trace choisie (mode VTT), portions sur GR en tireté rouge comme sur le SCAN 25.
+            style.addSource(GeoJsonSource(SRC_WAY_TYPES))
+            style.addLayer(LineLayer("way-types", SRC_WAY_TYPES).withProperties(lineColor(Expression.get("color")), lineWidth(5f), lineJoin(Property.LINE_JOIN_ROUND)))
+            style.addLayer(LineLayer("way-gr", SRC_WAY_TYPES).withProperties(lineColor(WayTypes.GR_COLOR), lineWidth(2f), lineDasharray(arrayOf(2f, 2f)))
+                .withFilter(Expression.eq(Expression.get("gr"), true)))
             // Étiquettes de pente le long des tracés.
             style.addSource(GeoJsonSource(SRC_SLOPE_TAGS))
             style.addLayer(org.maplibre.android.style.layers.SymbolLayer("slope-tags", SRC_SLOPE_TAGS).withProperties(
@@ -712,8 +725,8 @@ class MainActivity : AppCompatActivity() {
         }
         // « Afficher la pente » du menu de la trace violette : étiquettes sur cette trace seule.
         val own = slopes || (drawnSlopes && Trails.isMine(selectedTrail?.id))
-        val ownLabels = if (!own) null else findViewById<ProfileView>(R.id.trailProfile).profile?.slopeLabels()
-        val importLabels = if (!slopes) null else importProfile?.takeIf { imp.size >= 2 }?.let { (p, gps) -> p.slopeLabels(if (gps) 100.0 else 50.0) }
+        val ownLabels = if (!own) null else findViewById<ProfileView>(R.id.trailProfile).profile?.slopeLabels(pctFirst = vtt)
+        val importLabels = if (!slopes) null else importProfile?.takeIf { imp.size >= 2 }?.let { (p, gps) -> p.slopeLabels(if (gps) 100.0 else 50.0, pctFirst = vtt) }
         val labels = (ownLabels ?: emptyList()) + (importLabels ?: emptyList())
         val feats = labels.map { l ->
             val img = "slope:" + l.text + ":" + (if (Math.abs(l.deg) >= 17) 2 else if (Math.abs(l.deg) >= 9) 1 else 0)
@@ -1286,6 +1299,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnTraceClose).setOnClickListener { traceMenuOpen = false; refreshTraceMenu() }
         findViewById<CheckBox>(R.id.chkTraceSlopes).setOnCheckedChangeListener { _, c -> drawnSlopes = c; refreshTraceMenu(); refreshSlopeTags() }
         findViewById<CheckBox>(R.id.chkTraceProfile).setOnCheckedChangeListener { _, c -> drawnProfile = c; refreshTraceMenu() }
+        findViewById<CheckBox>(R.id.chkTraceWays).setOnCheckedChangeListener { _, c -> if (wayTypesOn != c) { wayTypesOn = c; refreshTraceMenu() } }
         findViewById<ProfileView>(R.id.traceProfile).onCursor = { c ->
             findViewById<ProfileView>(R.id.trailProfile).cursor = c; showSlopeCursor()
         }
@@ -1316,10 +1330,22 @@ class MainActivity : AppCompatActivity() {
         }
         // Une seule icône ⛷ : la liste « Sorties ski » ; sa carte s'ouvre avec 🗺 à droite du titre.
         findViewById<Button>(R.id.btnSki).visibility = View.GONE
-        findViewById<Button>(R.id.btnSkiText).text = "⛷"
+        // ⛷ ↔ 🚵 : appui long pour basculer ski de rando / VTT (demande de Seb), au lieu de la bulle d'aide.
+        // En 🚵, toucher cherche les circuits VTT de l'écran affiché.
+        findViewById<Button>(R.id.btnSkiText).text = if (vtt) "🚵" else "⛷"
         findViewById<Button>(R.id.btnSkiText).setOnClickListener {
             pairOpen = 0; refreshQuickButtons()
-            skiMode(SkiMode.SORTIES)
+            if (vtt) map?.projection?.visibleRegion?.latLngBounds?.let {
+                searchTrails(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth), mtb = true)
+            } else skiMode(SkiMode.SORTIES)
+        }
+        findViewById<Button>(R.id.btnSkiText).setOnLongClickListener { b ->
+            val now = if (vtt) "ski" else "vtt"
+            prefs.edit().putString("activite", now).apply()
+            (b as Button).text = if (now == "vtt") "🚵" else "⛷"
+            toast(if (now == "vtt") "🚵 Mode VTT : circuits VTT, durée à vélo, pente en %, type de chemin des traces" else "⛷ Mode ski de rando")
+            refreshTrails(); refreshTraceMenu(); refreshSlopeTags(); showSlopeCursor()
+            true
         }
         findViewById<Button>(R.id.btnTrailsView).setOnClickListener {
             map?.projection?.visibleRegion?.latLngBounds?.let {
@@ -1664,7 +1690,8 @@ class MainActivity : AppCompatActivity() {
         if (on) { sheetOpen = false; refreshTabs() }
     }
 
-    private fun searchTrails(z: Zone) {
+    /** Randos balisées de la zone ; 🚵 mtb : circuits VTT (sans les randos trouvées sur le web). */
+    private fun searchTrails(z: Zone, mtb: Boolean = false) {
         setFraming(false)
         tab = Tab.RANDOS; sheetOpen = true; refreshTabs()
         if (Trails.zoneTooBig(z)) {
@@ -1672,20 +1699,21 @@ class MainActivity : AppCompatActivity() {
             refreshTrails(); return
         }
         frame = z
-        searchWebHikes(z)
+        if (!mtb) searchWebHikes(z)
         trails = trails.filter { Trails.isMine(it.id) }
         if (!Trails.isMine(selectedTrail?.id)) { selectedTrail = null; elevated = null; elevJob?.cancel() }
-        trailsMessage = "Recherche des randos dans OpenStreetMap…"
+        trailsMessage = if (mtb) "Recherche des circuits VTT dans OpenStreetMap…" else "Recherche des randos dans OpenStreetMap…"
         drawTrails(fit = false); refreshTrails()
         trailsJob?.cancel()
         trailsJob = lifecycleScope.launch {
             val t0 = SystemClock.elapsedRealtime()
-            val r = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(z) } }
+            val r = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(z, mtb) } }
             r.onSuccess { found ->
                 Log.i(Scenario.BENCH_TAG, "{\"event\":\"trails-search\",\"found\":${found.size},\"ms\":${SystemClock.elapsedRealtime() - t0}}")
                 trails = trails.filter { Trails.isMine(it.id) } + found
                 val n = found.size; val s = if (n > 1) "s" else ""
-                trailsMessage = if (n > 0) "$n rando$s balisée$s trouvée$s. Touche-en une (liste ou carte)."
+                trailsMessage = if (mtb) { if (n > 0) "🚵 $n circuit$s VTT trouvé$s. Touche-en un (liste ou carte)." else "🚵 Aucun circuit VTT dans OpenStreetMap sur cette zone." }
+                    else if (n > 0) "$n rando$s balisée$s trouvée$s. Touche-en une (liste ou carte)."
                     else "Aucune rando balisée dans OpenStreetMap sur cette zone."
             }.onFailure { e ->
                 if (e is kotlinx.coroutines.CancellationException) return@launch
@@ -1953,8 +1981,67 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Annuler", null).show()
     }
 
+    /**
+     * 🚵 Type de chemin de la trace choisie (mode VTT, case cochée) : gardé sur le téléphone, sinon cherché sur
+     * le réseau (même requête que les carrefours ⑂). Colore la trace sur la carte, la bande sous le profil et le bilan.
+     */
+    private fun refreshWayTypes() {
+        val sel = selectedTrail?.takeIf { Trails.isMine(it.id) && vtt && wayTypesOn }
+        if (sel != null && (wayRuns?.first != sel.id || wayRuns?.second?.isFailure == true) && wayJob?.isActive != true) {
+            wayRuns = sel.id to null
+            val line = sel.segments.flatten()
+            wayJob = lifecycleScope.launch {
+                val r = withContext(Dispatchers.IO) { runCatching { Junctions.waysForLine(this@MainActivity, line) } }
+                if (r.exceptionOrNull() is kotlinx.coroutines.CancellationException) return@launch
+                if (wayRuns?.first == sel.id) { wayRuns = sel.id to r; refreshTraceMenu() }
+            }
+        }
+        val res = if (sel != null && wayRuns?.first == sel.id) wayRuns?.second else null
+        val runs = res?.getOrNull()
+        map?.style?.takeIf { it.isFullyLoaded }?.getSourceAs<GeoJsonSource>(SRC_WAY_TYPES)?.setGeoJson(FeatureCollection.fromFeatures(
+            if (sel == null || runs == null) emptyList() else WayTypes.lines(sel.segments.flatten(), runs).map { (r, pts) ->
+                Feature.fromGeometry(LineString.fromLngLats(pts.map { Point.fromLngLat(it.lon, it.lat) })).apply {
+                    addStringProperty("color", WayTypes.color(r.type)); addBooleanProperty("gr", r.gr)
+                }
+            }))
+        findViewById<ProfileView>(R.id.traceProfile).runs = runs
+        findViewById<TextView>(R.id.traceWayMsg).apply {
+            text = when {
+                sel == null -> ""
+                res == null -> "Recherche des types de chemin…"
+                res.isFailure -> "Types de chemin introuvables sans réseau. Fais 📶 Hors ligne avant de partir."
+                else -> ""
+            }
+            visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+        }
+        val legend = findViewById<LinearLayout>(R.id.traceWayLegend)
+        legend.removeAllViews()
+        legend.visibility = if (runs != null) View.VISIBLE else View.GONE
+        if (runs == null) return
+        // Bilan : tous les types possibles (absents en grisé), avec la part de chacun en % et en km, puis la part sur GR.
+        val t = WayTypes.totals(runs)
+        val d = resources.displayMetrics.density
+        fun row(color: String, label: String, m: Double, dashed: Boolean) {
+            val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL; alpha = if (m > 0) 1f else 0.45f }
+            r.addView(View(this).apply {
+                background = if (dashed) android.graphics.drawable.GradientDrawable().apply { setStroke((3 * d).toInt(), Color.parseColor(color), 5 * d, 3 * d) }
+                    else android.graphics.drawable.GradientDrawable().apply { setColor(Color.parseColor(color)); cornerRadius = 2 * d }
+            }, LinearLayout.LayoutParams((14 * d).toInt(), ((if (dashed) 3 else 6) * d).toInt()).apply { marginEnd = (6 * d).toInt() })
+            r.addView(TextView(this).apply { text = label; textSize = 15f; setTextColor(Color.parseColor("#1D2421")) },
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            r.addView(TextView(this).apply {
+                text = if (m > 0) "${WayTypes.sharePct(m, t.total)} · ${WayTypes.km(m)}" else "—"
+                textSize = 14f; setTextColor(Color.parseColor("#5F6B66"))
+            })
+            legend.addView(r)
+        }
+        WayTypes.TYPES.forEach { row(it.color, it.label, t.byType[it.key] ?: 0.0, false) }
+        row(WayTypes.GR_COLOR, "Sur GR (balisage rouge et blanc)", t.gr, true)
+    }
+
     /** Menu du bas de la trace violette : visible quand elle est choisie et que le menu est ouvert. */
     private fun refreshTraceMenu() {
+        refreshWayTypes()
         val sel = selectedTrail?.takeIf { Trails.isMine(it.id) }
         val menu = findViewById<View>(R.id.traceMenu)
         val show = sel != null && traceMenuOpen
@@ -1974,8 +2061,8 @@ class MainActivity : AppCompatActivity() {
         val e = elevated?.getOrNull()
         val wait = if (elevated == null) "…" else "—"
         val walk = e?.let {
-            val min = Math.round(Trails.walkingHours(sel.distanceM, it.gainM, it.lossM) * 60).toInt()
-            String.format(Locale.FRANCE, " · %dh%02d de marche", min / 60, min % 60)
+            val min = Math.round((if (vtt) Trails.bikeHours(sel.distanceM, it.gainM) else Trails.walkingHours(sel.distanceM, it.gainM, it.lossM)) * 60).toInt()
+            String.format(Locale.FRANCE, if (vtt) " · %dh%02d à VTT" else " · %dh%02d de marche", min / 60, min % 60)
         } ?: ""
         findViewById<TextView>(R.id.traceInfo).text = String.format(Locale.FRANCE, "%.2f km", sel.distanceM / 1000) +
             " · D+ ${e?.let { "${it.gainM.toInt()} m" } ?: wait} · D− ${e?.let { "${it.lossM.toInt()} m" } ?: wait}$walk"
@@ -1988,6 +2075,7 @@ class MainActivity : AppCompatActivity() {
             cursor = this@MainActivity.findViewById<ProfileView>(R.id.trailProfile).cursor
             visibility = if (drawnProfile && e != null) View.VISIBLE else View.GONE
         }
+        findViewById<CheckBox>(R.id.chkTraceWays).apply { visibility = if (vtt) View.VISIBLE else View.GONE; isChecked = wayTypesOn }
         findViewById<Button>(R.id.btnTraceSave).apply {
             isEnabled = sel.savedId == null
             text = if (sel.savedId == null) "💾 Sauvegarder" else "✓ Enregistrée"
@@ -2028,6 +2116,7 @@ class MainActivity : AppCompatActivity() {
         val sel = selectedTrail
         style.getSourceAs<GeoJsonSource>(SRC_TRAIL_SEL)?.setGeoJson(
             FeatureCollection.fromFeatures(if (sel != null) listOf(trailFeature(sel)) else emptyList()))
+        refreshWayTypes()
         val z = frame
         style.getSourceAs<GeoJsonSource>(SRC_FRAME)?.setGeoJson(
             if (z == null) FeatureCollection.fromFeatures(emptyList<Feature>())
@@ -2325,9 +2414,9 @@ class MainActivity : AppCompatActivity() {
         val txt = findViewById<TextView>(R.id.trailSlope)
         txt.visibility = if (pd != null) View.VISIBLE else View.GONE
         val at = if (pd != null && c != null) pd.pointAt(c) else null
-        txt.text = if (pd != null && at != null) stat(ProfileData.format(pd.slopeAt(at.d)),
+        txt.text = if (pd != null && at != null) stat(ProfileData.format(pd.slopeAt(at.d), vtt),
             String.format(Locale.FRANCE, "%.2f km · %d m", at.d / 1000, at.z.roundToInt()))
-            else "Glisse le doigt sur le profil (ou touche le tracé) : pente moyenne sur ${ProfileData.SLOPE_WINDOW_M.toInt()} m."
+            else "Touche le profil (ou le tracé) : pente moyenne sur ${ProfileData.SLOPE_WINDOW_M.toInt()} m."
         map?.style?.getSourceAs<GeoJsonSource>(SRC_SLOPE_CURSOR)?.setGeoJson(
             if (at == null) FeatureCollection.fromFeatures(emptyList<Feature>())
             else FeatureCollection.fromFeature(Feature.fromGeometry(Point.fromLngLat(at.lon, at.lat))))
@@ -2351,9 +2440,9 @@ class MainActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.trailGain).text = stat(e?.let { "${it.gainM.toInt()} m" } ?: wait, "D+")
             findViewById<TextView>(R.id.trailLoss).text = stat(e?.let { "${it.lossM.toInt()} m" } ?: wait, "D−")
             findViewById<TextView>(R.id.trailTime).text = stat(e?.let {
-                val min = Math.round(Trails.walkingHours(sel.distanceM, it.gainM, it.lossM) * 60).toInt()
+                val min = Math.round((if (vtt) Trails.bikeHours(sel.distanceM, it.gainM) else Trails.walkingHours(sel.distanceM, it.gainM, it.lossM)) * 60).toInt()
                 String.format(Locale.FRANCE, "%dh%02d", min / 60, min % 60)
-            } ?: wait, "marche")
+            } ?: wait, if (vtt) "à VTT" else "marche")
             findViewById<ProfileView>(R.id.trailProfile).apply {
                 setData(e?.segments)
                 visibility = if (e != null) View.VISIBLE else View.GONE
@@ -2891,7 +2980,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
-            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to "Sorties ski (🗺 : sur la carte)",
+            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to (if (vtt) "Circuits VTT · appui long : ⛷ ski" else "Sorties ski · appui long : 🚵 VTT"),
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Groupes · mon compte",
         )
@@ -3005,6 +3094,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_SLOPES = "slopes-src"
         private const val SRC_TRAILS = "trails-src"
         private const val SRC_TRAIL_SEL = "trail-sel-src"
+        private const val SRC_WAY_TYPES = "way-types-src"
         private const val SRC_SLOPE_CURSOR = "slope-cursor-src"
         private const val SRC_SLOPE_TAGS = "slope-tags-src"
         private const val SRC_FRAME = "frame-src"

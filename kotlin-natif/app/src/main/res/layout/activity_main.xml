@@ -1033,7 +1033,7 @@
                         <TextView android:id="@+id/trailSlope" style="@style/Hint" android:layout_marginTop="6dp"
                             android:visibility="gone" />
                         <fr.assomoutain.proto.ProfileView android:id="@+id/trailProfile"
-                            android:layout_width="match_parent" android:layout_height="120dp"
+                            android:layout_width="match_parent" android:layout_height="wrap_content"
                             android:layout_marginTop="6dp" android:visibility="gone" />
 
                         <TextView android:id="@+id/trailAltError" style="@style/Hint" android:visibility="gone"
@@ -1214,13 +1214,20 @@
             <CheckBox android:id="@+id/chkTraceProfile" android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="Afficher le profil" android:textSize="15sp" />
         </LinearLayout>
+        <CheckBox android:id="@+id/chkTraceWays" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Type de chemin" android:textSize="15sp" android:checked="true" android:visibility="gone" />
 
         <TextView android:id="@+id/traceAltError" style="@style/Hint" android:visibility="gone"
             android:text="Altitudes indisponibles (pas de réseau ?) : pente et profil ne peuvent pas être calculés." />
 
         <fr.assomoutain.proto.ProfileView android:id="@+id/traceProfile"
-            android:layout_width="match_parent" android:layout_height="120dp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="6dp" android:visibility="gone" />
+
+        <!-- 🚵 Type de chemin (mode VTT) : message, puis bilan en % et km de chaque type (WayTypes.kt). -->
+        <TextView android:id="@+id/traceWayMsg" style="@style/Hint" android:visibility="gone" />
+        <LinearLayout android:id="@+id/traceWayLegend" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:layout_marginTop="4dp" android:visibility="gone" />
 
         <LinearLayout style="@style/Row">
             <Button android:id="@+id/btnTraceGo" style="@style/Btn.Primary" android:text="🚗 Y aller" />
