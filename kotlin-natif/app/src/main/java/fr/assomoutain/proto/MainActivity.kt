@@ -2129,7 +2129,7 @@ class MainActivity : AppCompatActivity() {
         legend.removeAllViews()
         legend.visibility = if (runs != null) View.VISIBLE else View.GONE
         if (runs == null) return
-        // Bilan : tous les types possibles (absents en grisé), avec la part de chacun en % et en km, puis la part sur GR.
+        // Bilan : part de chaque type en % et en km, puis la part sur GR.
         val t = WayTypes.totals(runs)
         val d = resources.displayMetrics.density
         fun row(color: String, label: String, m: Double, dashed: Boolean) {
@@ -2138,7 +2138,7 @@ class MainActivity : AppCompatActivity() {
                 background = if (dashed) android.graphics.drawable.GradientDrawable().apply { setStroke((3 * d).toInt(), Color.parseColor(color), 5 * d, 3 * d) }
                     else android.graphics.drawable.GradientDrawable().apply { setColor(Color.parseColor(color)); cornerRadius = 2 * d }
             }, LinearLayout.LayoutParams((14 * d).toInt(), ((if (dashed) 3 else 6) * d).toInt()).apply { marginEnd = (6 * d).toInt() })
-            r.addView(TextView(this).apply { text = label; textSize = 15f; setTextColor(Color.parseColor("#1D2421")) },
+            r.addView(TextView(this).apply { text = label; textSize = 15f; setTextColor(Color.parseColor("#1D2421")); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END },
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             r.addView(TextView(this).apply {
                 text = if (m > 0) "${WayTypes.sharePct(m, t.total)} · ${WayTypes.km(m)}" else "—"
@@ -2146,8 +2146,10 @@ class MainActivity : AppCompatActivity() {
             })
             legend.addView(r)
         }
-        WayTypes.TYPES.forEach { row(it.color, it.label, t.byType[it.key] ?: 0.0, false) }
-        row(WayTypes.GR_COLOR, "Sur GR (balisage rouge et blanc)", t.gr, true)
+        // Du plus présent au moins présent, sans les types absents de la trace (demande de Seb) ; GR à la fin s'il y en a.
+        WayTypes.TYPES.filter { (t.byType[it.key] ?: 0.0) > 0 }.sortedByDescending { t.byType[it.key] ?: 0.0 }
+            .forEach { row(it.color, it.label, t.byType[it.key] ?: 0.0, false) }
+        if (t.gr > 0) row(WayTypes.GR_COLOR, "Sur GR (balisage rouge et blanc)", t.gr, true)
     }
 
     /** Menu du bas de la trace violette : visible quand elle est choisie et que le menu est ouvert. */
