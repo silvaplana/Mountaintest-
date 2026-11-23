@@ -284,6 +284,57 @@ et garde pour chacun le prix le plus bas trouvé. Si une liste « sites » est d
 hébergements trouvés sur ces sites. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
 
 
+OUTIL_BUD = {
+    "name": "repondre",
+    "description": "Ta réponse dans la conversation. À appeler une seule fois, à la fin.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "texte": {"type": "string", "description": "Ta réponse, courte (1 à 3 phrases), en français familier"},
+            "hebergements": {
+                "type": "array", "description": "Hébergements trouvés à poser sur la carte (vide si la question n'en demande pas)",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "nom": {"type": "string"},
+                        "type": {"type": "string", "description": "gîte, refuge, hôtel, chambre d'hôtes…"},
+                        "prix_nuit": {"type": ["number", "null"], "description": "Prix indicatif de la nuit pour le groupe, en euros"},
+                        "adresse": {"type": "string"},
+                        "url": {"type": "string", "description": "Page réellement vue pendant la recherche"},
+                        "resume": {"type": "string", "description": "Une phrase : distance au départ, demi-pension, capacité…"},
+                        "lat": {"type": ["number", "null"]},
+                        "lon": {"type": ["number", "null"]},
+                    },
+                    "required": ["nom", "type", "prix_nuit", "adresse", "url", "resume", "lat", "lon"],
+                    "additionalProperties": False,
+                },
+            },
+            "point": {
+                "description": "Un endroit à montrer sur la carte (sinon null)",
+                "anyOf": [{"type": "object", "properties": {"nom": {"type": "string"}, "lat": {"type": "number"}, "lon": {"type": "number"}},
+                           "required": ["nom", "lat", "lon"], "additionalProperties": False}, {"type": "null"}],
+            },
+        },
+        "required": ["texte", "hebergements", "point"],
+        "additionalProperties": False,
+    },
+}
+
+CONSIGNE_BUD = """Tu es Bud 🐻, le buddy à part d'une bande de copains qui partent en montagne ensemble (appli Mountain Buddies).
+On te donne ce que l'appli sait de leur sortie ou de leur bande (dates, qui vient, traces, hébergements proposés,
+plannings, dépenses, derniers messages), puis la question qu'un buddy t'a posée en commençant par « Bud, … ».
+Règles :
+- Tu réponds seulement à la question, court et chaleureux, comme un copain qui s'y connaît (tutoiement).
+- Tu proposes, les buddies décident : ne dis jamais que tu as réservé, payé ou décidé quoi que ce soit.
+- Tu ne te fais jamais passer pour l'un d'eux.
+- Pour trouver un hébergement, cherche sur le web (pages réellement vues, jamais inventées), donne leurs coordonnées
+  approximatives et mets-les dans « hebergements » : l'appli les pose sur la carte. Dis-le dans le texte.
+- Pour un endroit précis (sommet, parking, col…), mets-le dans « point » : l'appli le montre sur la carte.
+- Si l'appli ne te donne pas l'information (par exemple l'altitude ou la pente d'une trace), dis-le simplement.
+Termine en appelant l'outil repondre."""
+
+
 OUTIL_FACTURE = {
     "name": "donner_la_facture",
     "description": "Renvoie ce qui est lu sur la facture ou le ticket.",
@@ -1425,11 +1476,11 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos")):
+        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -1484,6 +1535,8 @@ class Relais(BaseHTTPRequestHandler):
             return self._skitour_topos()
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
+        if chemin.endswith("/bud"):
+            return self._bud()
         try:
             z = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 10_000)))
             z = {k: float(z[k]) for k in ("ouest", "sud", "est", "nord")}
@@ -1644,6 +1697,34 @@ class Relais(BaseHTTPRequestHandler):
         with verrou:
             with open(_fichier("couts.jsonl"), "a") as f:
                 f.write(json.dumps({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "type": "facture", "cout_usd": cout, **jetons}) + "\n")
+        self._json(200, {**r, "cout_usd": cout, **cumuls()})
+
+    def _bud(self):
+        """🐻 Bud (spec/buddies.md §5.12) : la question d'un buddy et ce que son téléphone sait de la sortie."""
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 60_000)))
+            question = " ".join(str(d["question"]).split())[:600]
+            contexte = str(d.get("contexte", ""))[:40_000]
+            if len(question) < 2:
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            return self._json(400, {"erreur": "question invalide"})
+        jour = time.strftime("%Y-%m-%d")
+        with verrou:
+            quota = _lire("quota.json", {})
+            if quota.get(jour, 0) >= MAX_PAR_JOUR:
+                return self._json(429, {"erreur": f"Bud a assez parlé pour aujourd'hui ({MAX_PAR_JOUR} demandes)"})
+            _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
+        try:
+            r, cout, jetons = appeler(CONSIGNE_BUD, f"Aujourd'hui : {jour}\n\n{contexte}\n\nQuestion : {question}", OUTIL_BUD, 4)
+        except anthropic.APIError as e:
+            return self._json(502, {"erreur": f"Bud ne répond pas : {getattr(e, 'message', e)}"})
+        except Exception as e:  # noqa: BLE001
+            return self._json(502, {"erreur": f"Bud ne répond pas : {e}"})
+        with verrou:
+            with open(_fichier("couts.jsonl"), "a") as f:
+                f.write(json.dumps({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "type": "bud", "cout_usd": cout, **jetons}) + "\n")
+        print(f"{jour} bud : {cout:.3f} $", flush=True)
         self._json(200, {**r, "cout_usd": cout, **cumuls()})
 
     def _invitation(self):

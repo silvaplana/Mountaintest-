@@ -558,3 +558,12 @@ def test_message_refuse(client, photos):
                     nouveau_message(groupe=str(uuid.uuid4()))):
         assert sync(client, ops=[mauvais])["refus"], mauvais
     assert sync(client, sub="luc", ops=[nouveau_message(sortie=so["sortie"])])["refus"]
+
+
+def test_reponse_de_bud(client, photos):
+    gid, julie = bande_avec_julie(client)
+    question = nouveau_message(groupe=gid, texte="Bud, quel week-end ?")
+    reponse = nouveau_message(groupe=gid, texte="Le 14, vous êtes 4.", bud=True)
+    r = sync(client, ops=[question, reponse])
+    assert r["refus"] == []
+    assert [m["bud"] for m in r["messages"]] == [False, True]

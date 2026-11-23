@@ -599,7 +599,7 @@ def message(s: Session, u: Utilisateur, op: dict) -> None:
             raise Refus("Photo inconnue")
         photo = p.id
     s.add(MessageBuddy(id=mid, groupe_id=g.id if g else None, sortie_id=so.id if so else None, par=u.id, nature=nature,
-                       texte=texte, lon=lon, lat=lat, photo_id=photo))
+                       texte=texte, lon=lon, lat=lat, photo_id=photo, bud=bool(op.get("bud"))))
 
 
 def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
@@ -758,7 +758,7 @@ def vue_hebergement(s: Session, h: Hebergement) -> dict[str, Any]:
 def vue_message(m: MessageBuddy) -> dict[str, Any]:
     return {"id": str(m.id), "groupe": str(m.groupe_id) if m.groupe_id else None, "sortie": str(m.sortie_id) if m.sortie_id else None,
             "par": str(m.par), "nature": m.nature, "texte": m.texte, "lon": m.lon, "lat": m.lat,
-            "photo": str(m.photo_id) if m.photo_id else None, "cree_le": iso(m.cree_le)}
+            "photo": str(m.photo_id) if m.photo_id else None, "bud": m.bud, "cree_le": iso(m.cree_le)}
 
 
 def vue_position(x: Position) -> dict[str, Any]:

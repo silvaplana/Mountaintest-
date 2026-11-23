@@ -117,6 +117,8 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     data class MessageBuddy(
         val id: String, val groupe: String?, val sortie: String?, val par: String, val nature: String, val texte: String,
         val lon: Double?, val lat: Double?, val photo: String?, val cree: Long, val attente: Boolean = false,
+        /** 🐻 Réponse de Bud (§5.12), demandée par `par`. */
+        val bud: Boolean = false,
     )
     /** 📍 Position d'un buddy dans un Buddy Time (spec §5.9) : son épingle (ms) et sa dernière position. */
     data class Position(
@@ -331,7 +333,8 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         cree = o.optString("cree_le").takeIf { it.isNotEmpty() && it != "null" }?.let { ms(it) } ?: ms(o.optString("modifie_le")))
     private fun texteOuNul(o: JSONObject, k: String) = o.optString(k).takeIf { it.isNotEmpty() && it != "null" }
     private fun lireMessage(o: JSONObject) = MessageBuddy(o.getString("id"), texteOuNul(o, "groupe"), texteOuNul(o, "sortie"), o.optString("par"),
-        o.optString("nature", "texte"), o.optString("texte"), nombre(o, "lon"), nombre(o, "lat"), texteOuNul(o, "photo"), ms(o.optString("cree_le")))
+        o.optString("nature", "texte"), o.optString("texte"), nombre(o, "lon"), nombre(o, "lat"), texteOuNul(o, "photo"), ms(o.optString("cree_le")),
+        bud = o.optBoolean("bud"))
     /** 💬 Messages tels qu'affichés (version du serveur + mes envois en attente), du plus ancien au plus récent. */
     fun messages(): List<MessageBuddy> {
         val me = moi ?: "moi"
@@ -520,13 +523,15 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         }.toTypedArray())
     }
     /** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
-    fun envoyerMessage(groupe: String?, sortie: String?, nature: String = "texte", texte: String = "", lon: Double? = null, lat: Double? = null, photo: String? = null) {
+    fun envoyerMessage(groupe: String?, sortie: String?, nature: String = "texte", texte: String = "", lon: Double? = null, lat: Double? = null, photo: String? = null,
+                       bud: Boolean = false) {
         val t = texte.trim().take(2000)
         if (nature == "texte" && t.isEmpty()) return
         val op = JSONObject().put("type", "message").put("message", UUID.randomUUID().toString()).put("nature", nature).put("texte", t)
         if (sortie != null) op.put("sortie", sortie) else op.put("groupe", groupe)
         if (lon != null && lat != null) op.put("lon", Math.round(lon * 1e6) / 1e6).put("lat", Math.round(lat * 1e6) / 1e6)
         if (photo != null) op.put("photo", photo)
+        if (bud) op.put("bud", true)
         ajouter(op)
     }
     fun retirerMessage(message: String) = ajouter(JSONObject().put("type", "retirer_message").put("message", message))

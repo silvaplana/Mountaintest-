@@ -525,6 +525,24 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   en cours), `POST /appels/{id}/rejoindre`, `POST /appels/{id}/presence`. Un appel finit quand plus personne n'est en
   ligne (ou au bout de 4 h) ; la synchro rend les appels en cours. Installation : `deploy/comptes/installer-appels.sh`.
 
+### 7.11 Bloc 11 : ce qui est construit (23 novembre 2026)
+
+- **Bud parle seulement si on l'appelle** : un message qui contient « Bud, … » (ou « Bud : … », écrit ou dicté)
+  part comme les autres, puis le téléphone pose la question à Bud. Pendant qu'il cherche : une bulle « 🐻 Bud … ».
+- **Sa réponse est un message de la conversation**, vu de tous, dans sa bulle à part (sombre, « 🐻 Bud », toujours à
+  gauche) : il ne se fait jamais passer pour un buddy. Le message est enregistré au nom de celui qui a demandé, avec
+  la marque Bud (colonne `bud` de `messages_buddies`).
+- **Il propose, les buddies décident** : les hébergements qu'il trouve (recherche web) sont proposés dans « Où on
+  dort ? » du Buddy Time et posés sur la carte (♥ et ✅ comme les autres) ; un endroit précis (col, parking…) arrive
+  en carte « 📍 … · voir sur la carte ». Il ne réserve, ne paie et ne décide rien.
+- **Ce qu'il sait** : ce que le téléphone connaît de la conversation, envoyé avec la question : le Buddy Time (dates,
+  lieu, qui vient, invités), les traces partagées (longueur, départ, arrivée), les hébergements proposés et leurs ♥,
+  le Buddy count (qui doit quoi), les plannings de la bande et les 30 derniers messages.
+- **Pas encore** : la pente ou l'altitude d'une trace (les traces partagées n'ont pas l'altitude : Bud le dit), le
+  tronçon « montré en rouge » de la maquette, et toute action de Bud (dépense, Buddy Time, dispo) : à décider (§9.5).
+- **Réseau et coût** : besoin de réseau ; passe par le relais (`deploy/ia/relais.py`, route `/bud`, même mot de passe
+  et même limite par jour que les recherches) ; son coût s'ajoute à l'écran 📊 (ligne « Bud »).
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**
@@ -539,7 +557,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 3. Les icônes 📍 et 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
    haut de la liste : à confirmer.
 4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
-5. Bud : les règles du §5.12, son visage, et ce qu'il a le droit de faire seul (rien, par défaut).
+5. Bud : les règles du §5.12 sont construites telles quelles (bloc 11, §7.11), visage 🐻 ; ce qu'il a le droit de
+   faire seul (rien, par défaut) : question posée à Seb le 23 novembre.
 6. ~~La recherche d'hébergement affiche « Chercher (IA) » et « Claude cherche… »~~ : reformulée (« 🔍 Chercher »,
    « Je cherche les meilleurs prix… »), accord de Seb le 23 novembre. Même chose pour la recherche de randos sur le web, le coût du
    voyage (carburant, péages), la lecture de facture et l'aide des icônes. Seul l'écran 📊 du menu (usage et coûts,
