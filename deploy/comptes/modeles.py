@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -239,4 +239,21 @@ class Depense(Base):
     jour: Mapped[str] = mapped_column(String(10), nullable=False)
     par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Position(Base):
+    """Position des buddies (spec/buddies.md §5.9) : la dernière position d'un buddy dans un Buddy Time, et son
+    épingle. Personne n'apparaît sans avoir enfoncé l'épingle ; elle se relève seule le soir. Heures en ms (epoch)."""
+
+    __tablename__ = "positions"
+
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    depuis: Mapped[int] = mapped_column(BigInteger, nullable=False)  # épingle enfoncée à
+    jusqu: Mapped[int] = mapped_column(BigInteger, nullable=False)  # épingle relevée (ou prévue) à
+    lon: Mapped[float | None] = mapped_column(Float)
+    lat: Mapped[float | None] = mapped_column(Float)
+    alt: Mapped[float | None] = mapped_column(Float)
+    prise_le: Mapped[int | None] = mapped_column(BigInteger)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)

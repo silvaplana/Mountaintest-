@@ -55,6 +55,11 @@ export type Depense = {
   id: string; sortie: string; titre: string; montant: number; paye_par: string; pour: string[]; jour: string; par: string; modifie_le: string;
   attente?: boolean;
 };
+/** 📍 Position d'un buddy dans un Buddy Time (§5.9) : son épingle (ms) et sa dernière position. */
+export type Position = {
+  sortie: string; qui: string; depuis: number; jusqu: number; lon: number | null; lat: number | null; alt: number | null; prise_le: number | null;
+  attente?: boolean;
+};
 export type Op = { id: string; type: string; t: number; [k: string]: unknown };
 
 export type Etat = {
@@ -65,6 +70,7 @@ export type Etat = {
   plannings: Planning[];
   photos: PhotoBuddy[];
   depenses?: Depense[];
+  positions?: Position[];
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
   envois?: string[];
   curseur?: string;
@@ -195,6 +201,33 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
   return { sorties: sorties.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), traces,
     plannings: plannings.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), photos,
     depenses: depenses.sort((a, b) => b.jour.localeCompare(a.jour) || b.modifie_le.localeCompare(a.modifie_le)) };
+}
+
+/** 📍 Positions telles qu'affichées : celles du serveur, avec mon épingle et ma dernière position en attente. */
+export function positions(e: Etat): Position[] {
+  const moi = e.moi ?? 'moi';
+  let l = (e.positions ?? []).map((p) => ({ ...p }));
+  for (const op of e.attente) {
+    if (op.type !== 'epingle' && op.type !== 'position') continue;
+    const sortie = String(op.sortie);
+    let p = l.find((x) => x.sortie === sortie && x.qui === moi);
+    if (op.type === 'epingle' && op.enfoncee) {
+      const n: Position = { sortie, qui: moi, depuis: Number(op.quand), jusqu: Number(op.jusqu), lon: p?.lon ?? null, lat: p?.lat ?? null,
+        alt: p?.alt ?? null, prise_le: p?.prise_le ?? null, attente: true };
+      l = [...l.filter((x) => x !== p), n];
+    } else if (op.type === 'epingle' && p) {
+      p.jusqu = Math.min(p.jusqu, Number(op.quand)); p.attente = true;
+    } else if (op.type === 'position' && p && Number(op.prise_le) > (p.prise_le ?? 0)
+      && Number(op.prise_le) >= p.depuis - 60_000 && Number(op.prise_le) <= p.jusqu + 60_000) {
+      Object.assign(p, { lon: op.lon, lat: op.lat, alt: op.alt ?? null, prise_le: Number(op.prise_le), attente: true });
+    }
+  }
+  return l;
+}
+/** Le Buddy Time où mon épingle est enfoncée en ce moment (un seul à la fois). */
+export function monEpingle(e: Etat = lire(), t = Date.now()): Position | undefined {
+  const moi = e.moi ?? 'moi';
+  return positions(e).filter((p) => p.qui === moi && p.depuis <= t + 60_000 && p.jusqu > t).sort((a, b) => b.depuis - a.depuis)[0];
 }
 
 /** Aujourd'hui en AAAA-MM-JJ (heure du téléphone). */
@@ -384,6 +417,28 @@ export function enregistrerDepense(d: { depense?: string; sortie: string; titre:
   ajouter({ type: 'depense', ...d, depense, titre: d.titre.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Dépense', montant: Math.round(d.montant) });
   return depense;
 }
+/** L'épingle se relève seule ce soir à 22 h (à minuit si on l'enfonce après 21 h). */
+export function finEpingle(d = new Date()): number {
+  const f = new Date(d); f.setHours(22, 0, 0, 0);
+  if (d.getHours() >= 21) f.setHours(23, 59, 59, 0);
+  return f.getTime();
+}
+/** 📍 Enfoncer l'épingle dans ce Buddy Time (et la relever ailleurs : une seule à la fois). */
+export function enfoncerEpingle(sortie: string, t = Date.now()) {
+  const autre = monEpingle(lire(), t);
+  ajouter(...(autre && autre.sortie !== sortie ? [{ type: 'epingle', sortie: autre.sortie, enfoncee: false, quand: t }] : []),
+    { type: 'epingle', sortie, enfoncee: true, quand: t, jusqu: finEpingle(new Date(t)) });
+}
+export const releverEpingle = (sortie: string, t = Date.now()) => ajouter({ type: 'epingle', sortie, enfoncee: false, quand: t });
+/** Une position du GPS pendant que l'épingle est enfoncée : seule la dernière attend le réseau. */
+export function envoyerPosition(f: { lat: number; lon: number; alt?: number | null; t: number }) {
+  const p = monEpingle(lire(), f.t);
+  if (!p) return;
+  const op = { type: 'position', sortie: p.sortie, lat: Math.round(f.lat * 1e6) / 1e6, lon: Math.round(f.lon * 1e6) / 1e6,
+    alt: f.alt == null ? null : Math.round(f.alt), prise_le: f.t, id: uuid(), t: Date.now() } as Op;
+  ecrire({ ...lire(), attente: [...lire().attente.filter((o) => o.type !== 'position'), op] });
+  void synchroniser().catch(() => undefined);
+}
 export const retirerDepense = (depense: string) => ajouter({ type: 'retirer_depense', depense });
 export const annulerInvitation = (invitation: string) => ajouter({ type: 'annuler_invitation', invitation });
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
@@ -401,6 +456,7 @@ type Reponse = {
   curseur: string; moi: string; ids: string[]; groupes: Groupe[]; refus: { id: string; raison: string }[];
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
+  positions?: Position[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -434,6 +490,7 @@ export function synchroniser(): Promise<string[]> {
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
+        positions: r.positions ?? e.positions,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour

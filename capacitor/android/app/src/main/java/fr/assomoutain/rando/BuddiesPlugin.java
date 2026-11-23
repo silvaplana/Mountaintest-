@@ -21,9 +21,40 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * - sms({numero, texte}) / mail({adresse, sujet, texte}) : ouvre Messages ou l'appli mail, prêts à envoyer.
  * - dicter() : la dictée d'Android (hors ligne quand le téléphone le permet), pour le récit du carnet (§5.8).
  * - partager({titre, texte}) : le carnet en texte, vers l'appli choisie.
+ * - epingler({jusqu}) / relever() : 📍 la position part toutes les 5 minutes (EpingleService, §5.9) ; chaque
+ *   position arrive en événement « position » ; derniere() rend celle reçue appli fermée (et l'oublie).
  */
 @CapacitorPlugin(name = "Buddies")
 public class BuddiesPlugin extends Plugin {
+    @Override
+    public void load() {
+        EpingleService.ecouteur = p -> {
+            try { notifyListeners("position", JSObject.fromJSONObject(p)); } catch (Exception ignored) { }
+        };
+    }
+
+    @PluginMethod
+    public void epingler(PluginCall call) {
+        EpingleService.demarrer(getContext(), call.getData().optLong("jusqu", 0L));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void relever(PluginCall call) {
+        getContext().stopService(new Intent(getContext(), EpingleService.class));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void derniere(PluginCall call) {
+        android.content.SharedPreferences sp = getContext().getSharedPreferences(EpingleService.PREFS, android.content.Context.MODE_PRIVATE);
+        String s = sp.getString("derniere", null);
+        sp.edit().remove("derniere").apply();
+        JSObject r = new JSObject();
+        try { if (s != null) r.put("position", JSObject.fromJSONObject(new org.json.JSONObject(s))); } catch (Exception ignored) { }
+        call.resolve(r);
+    }
+
     @PluginMethod
     public void pickContact(PluginCall call) {
         Intent i = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);

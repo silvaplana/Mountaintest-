@@ -9,6 +9,8 @@ import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } f
 import { BuddyCount, Comptes, UneDepense } from './BuddyCount';
 import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
+import { BandePositions, nombreVisibles, PositionsSurCarte, useReperes } from './Positions';
+import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin,
@@ -28,7 +30,13 @@ export const Natif = registerPlugin<{
   partager(o: { titre: string; texte: string }): Promise<void>;
   sms(o: { numero: string; texte: string }): Promise<void>;
   mail(o: { adresse: string; sujet: string; texte: string }): Promise<void>;
+  /** 📍 Service de position (EpingleService.java) : une position toutes les 5 minutes jusqu'à `jusqu` (ms). */
+  epingler(o: { jusqu: number }): Promise<void>;
+  relever(): Promise<void>;
+  derniere(): Promise<{ position?: PositionNative }>;
+  addListener(e: 'position', f: (p: PositionNative) => void): Promise<{ remove: () => Promise<void> }>;
 }>('Buddies');
+export type PositionNative = { lat: number; lon: number; alt?: number; t: number };
 
 export function useBuddies(): Etat {
   const [e, setE] = useState<Etat>(lire);
@@ -67,7 +75,7 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: () => voi
 // ------------------------------------------------------------------ petits morceaux
 
 const COULEURS = ['#2f6f4f', '#3f6fb5', '#8a4fb0', '#c9862b', '#2c8c8c', '#b5534a'];
-const couleur = (id: string) => COULEURS[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % COULEURS.length];
+export const couleur = (id: string) => COULEURS[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % COULEURS.length];
 
 export function Visage({ b, taille = 34 }: { b: { id: string; pseudo?: string; nom?: string; photo: string | null }; taille?: number }) {
   const nom = b.pseudo ?? b.nom ?? '?';
@@ -561,6 +569,10 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
   onToast: (m: string) => void; map: MlMap | null;
 }) {
   const [replie, setReplie] = useState(false);
+  // 📍 Écran 15 : la position des buddies, à la place du bandeau (pendant le Buddy Time).
+  const [pos, setPos] = useState(false);
+  const rs = useReperes(x);
+  const visibles = nombreVisibles(rs);
   const v = vueSorties(useBuddies());
   const photos = v.photos.filter((p) => p.sortie === x.id);
   const depense = v.depenses.filter((d) => d.sortie === x.id).reduce((n, d) => n + d.montant, 0);
@@ -570,11 +582,16 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
   return <>
     <div className="bd-carte-haut">
       <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
-      <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)}{x.lieu ? ` · ${x.lieu}` : ''}</small></span>
+      <span className="bd-texte"><b>{x.nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
+        : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
     </div>
     <div className={`bd-carte-bas${replie ? ' replie' : ''}`}>
       <button className="handle" aria-label={replie ? 'Déplier' : 'Replier'} onClick={() => setReplie(!replie)} />
-      {!replie && <>
+      {!replie && pos && <>
+        <div className="bd-entre"><b className="bd-gros">📍 Position des buddies</b><button className="bd-lien" onClick={() => setPos(false)}>Retour</button></div>
+        <BandePositions x={x} onToast={onToast} />
+      </>}
+      {!replie && !pos && <>
         <b className="bd-carte-quand">{quandSortie(x)}</b>
         <div className="bd-carte-qui">
           {x.participants.map((p) => <Visage key={p.id} b={p} taille={30} />)}
@@ -585,6 +602,12 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
           <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'souvenir'}</small></span>
           <button className="bd-chiffre-count" onClick={onCount}><b>💶 {depense ? euros(depense) : '＋'}</b><small>{depense ? `à ${x.participants.length}` : 'Buddy count'}</small></button>
         </div>
+        {pendant(x, aujourdhui()) && <button className="bd-ligne bd-pos-acces" onClick={() => setPos(true)}>
+          <span className="bd-icone">📍</span>
+          <span className="bd-texte"><b>Position des buddies</b><small>{visibles ? `${visibles} visible${visibles > 1 ? 's' : ''}` : 'qui veut se montrer enfonce son épingle'}
+            {rs.some((r) => r.moi && r.actif) ? ' · tu es visible' : ''}</small></span>
+          <span className="bd-fleche">›</span>
+        </button>}
         {!traces.length && <p className="hint">Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.</p>}
         {photos.length > 0 && <button className="bd-bande-photos" onClick={onAlbum}>
           <span className="bd-section"><b>📸 {photos.length} photo{photos.length > 1 ? 's' : ''}</b><small>de {auteurs} {auteurs > 1 ? 'buddies' : 'buddy'}</small></span>
@@ -599,6 +622,7 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
       </>}
     </div>
     <PhotosSurCarte map={map} photos={photos} />
+    <PositionsSurCarte map={map} x={x} />
   </>;
 }
 
