@@ -79,9 +79,56 @@ class Invitation(Base):
     invite_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     email: Mapped[str | None] = mapped_column(String(320))
     # Ce que montre l'appli dans « Dans la bande » : « Julie Martin · invitée par SMS ».
+    # Invitation à un Buddy Time seulement (une sortie de Me Time) : on devient participant, pas membre du groupe.
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"))
     canal: Mapped[str] = mapped_column(String(10), nullable=False, default="lien")
     nom: Mapped[str] = mapped_column(String(80), nullable=False, default="")
     contact: Mapped[str] = mapped_column(String(320), nullable=False, default="")
     acceptee_par: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("utilisateurs.id"))
     expire_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class Sortie(Base):
+    """Buddy Time (spec/buddies.md §5.4) : une sortie ou un week-end, rangé dans un Buddy Group (ou Me Time).
+    Le voient les membres du groupe et les participants (copains invités à une sortie de Me Time)."""
+
+    __tablename__ = "sorties"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    groupe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), nullable=False, index=True)
+    nom: Mapped[str] = mapped_column(String(80), nullable=False)
+    photo: Mapped[str | None] = mapped_column(Text)
+    # Dates du calendrier (AAAA-MM-JJ), sans heure ni fuseau.
+    debut: Mapped[str] = mapped_column(String(10), nullable=False)
+    fin: Mapped[str] = mapped_column(String(10), nullable=False)
+    lieu: Mapped[str] = mapped_column(String(120), nullable=False, default="")
+    cree_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Participant(Base):
+    """Qui part dans ce Buddy Time."""
+
+    __tablename__ = "participants"
+
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True, index=True)
+
+
+class TracePartagee(Base):
+    """Trace partagée dans un Buddy Time ou un Buddy Group (panneau de partage, spec §3.4)."""
+
+    __tablename__ = "traces"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), index=True)
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), index=True)
+    nom: Mapped[str] = mapped_column(String(80), nullable=False)
+    # [[lon, lat], …] en JSON.
+    ligne: Mapped[str] = mapped_column(Text, nullable=False)
+    mot: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)

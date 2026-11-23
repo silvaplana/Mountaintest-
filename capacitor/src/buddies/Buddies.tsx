@@ -5,13 +5,15 @@ import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
 import {
-  annulerInvitation, appliquer, creerGroupe, estAdmin, inviter, lien, lire, marquerVu, nommerAdmin, nouveauCode, quitter,
-  rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation,
+  annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin,
+  nouveauCode, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, vue as vueSorties,
+  type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Sortie, type TraceBuddy,
 } from './store';
 
 /**
- * Buddies, bloc 1 (spec/buddies.md, écrans 2, 3 et 20) : la liste façon WhatsApp, un Buddy Group,
- * nouveau Buddy Group et invitations. Même écran côté Kotlin (BuddiesPanel.kt).
+ * Buddies (spec/buddies.md) : la liste façon WhatsApp (écran 2), un Buddy Group (3), nouveau Buddy Group et
+ * invitations (20), nouveau Buddy Time (21), le bandeau d'un Buddy Time sur la carte (4) et le panneau de
+ * partage (22). Mêmes écrans côté Kotlin (BuddiesPanel.kt, SharePanel.kt).
  */
 
 const Natif = registerPlugin<{
@@ -134,19 +136,21 @@ type Formulaire = { canal: 'mail' | 'sms'; nom: string; contact: string };
  * connaît, jamais par recherche (spec §3.5). Le message part tout de suite, même sans réseau ; l'invitation
  * est enregistrée par `onInvite` (et envoyée au serveur au retour du réseau).
  */
-function Inviter({ nomGroupe, qrExistant, onInvite, onToast }: {
+function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   nomGroupe: string; qrExistant?: string; onInvite: (i: NouvelleInvitation) => void; onToast: (m: string) => void;
+  /** Invitation à un Buddy Time (une sortie de Me Time) plutôt qu'à un Buddy Group. */
+  sortie?: boolean;
 }) {
   const [form, setForm] = useState<Formulaire | null>(null);
   const [qr, setQr] = useState<string | null>(null);
-  const texte = (code: string) => `${nomAffiche()} t'invite dans « ${nomGroupe} » sur Mountain Buddies, pour nos sorties montagne : ${lien(code)}`;
-  const pret = () => { if (!nomGroupe.trim()) { onToast('Donne d’abord un nom au Buddy Group'); return false; } return true; };
+  const texte = (code: string) => `${nomAffiche()} t'invite ${sortie ? 'à' : 'dans'} « ${nomGroupe} » sur Mountain Buddies, pour nos sorties montagne : ${lien(code)}`;
+  const pret = () => { if (!nomGroupe.trim()) { onToast(`Donne d’abord un nom au ${sortie ? 'Buddy Time' : 'Buddy Group'}`); return false; } return true; };
 
   const envoyer = async (canal: Canal, nom: string, contact: string) => {
     const code = nouveauCode();
     try {
       if (canal === 'mail') {
-        const sujet = `${nomAffiche()} t'invite dans « ${nomGroupe} »`;
+        const sujet = `${nomAffiche()} t'invite ${sortie ? 'à' : 'dans'} « ${nomGroupe} »`;
         if (Capacitor.isNativePlatform()) await Natif.mail({ adresse: contact, sujet, texte: texte(code) });
         else window.location.href = `mailto:${encodeURIComponent(contact)}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(texte(code))}`;
       } else if (Capacitor.isNativePlatform()) await Natif.sms({ numero: contact, texte: texte(code) });
@@ -192,22 +196,54 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast }: {
     {qr && <div className="bd-voile" onClick={() => setQr(null)}><div className="bd-feuille bd-centre" onClick={(ev) => ev.stopPropagation()}>
       <h3>{nomGroupe}</h3>
       <Qr texte={lien(qr)} />
-      <p className="hint">Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer dans la bande.</p>
+      <p className="hint">Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer {sortie ? 'dans la sortie' : 'dans la bande'}.</p>
       <button onClick={() => setQr(null)}>Fermer</button>
     </div></div>}
   </>;
 }
 
-// ------------------------------------------------------------------ écrans
+// ------------------------------------------------------------------ Buddy Times
 
-type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' };
+const MOIS = ['JANV', 'FÉVR', 'MARS', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
+const jourMois = (d: string) => ({ j: String(+d.slice(8, 10)), m: MOIS[+d.slice(5, 7) - 1] ?? '' });
+const dateCourte = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+export function dates(x: Sortie) { return x.fin === x.debut ? dateCourte(x.debut) : `${dateCourte(x.debut)} – ${dateCourte(x.fin)}`; }
+export function quandSortie(x: Sortie) {
+  const n = joursAvant(x);
+  if (x.fin < aujourdhui()) return 'Souvenir';
+  if (n <= 0) return 'En cours';
+  return n === 1 ? 'Demain' : `Dans ${n} jours`;
+}
 
-export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging }: {
+/** Photo carrée datée (même code dans la liste, le groupe et le panneau de partage). */
+function Carre({ x, taille = 56 }: { x: Sortie; taille?: number }) {
+  const { j, m } = jourMois(x.debut);
+  return <span className="bd-carre" style={{ width: taille, height: taille, background: x.photo ? `center/cover url("${x.photo}")` : couleur(x.id) }}>
+    <span className="bd-date"><small>{m}</small><b>{j}</b></span></span>;
+}
+
+/** Grande image d'un Buddy Time (le prochain en haut de la liste, les cartes d'un groupe). */
+function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; onClick: () => void }) {
+  return <button className={`bd-affiche${petite ? ' petite' : ''}`} onClick={onClick}
+    style={{ background: x.photo ? `linear-gradient(#0000 40%, #000a), center/cover url("${x.photo}")` : `linear-gradient(#0000 30%, #0008), ${couleur(x.id)}` }}>
+    {!petite && <span className="bd-pastille">{quandSortie(x)}</span>}
+    <b>{x.nom}</b>
+    <small>{petite ? dateCourte(x.debut) : `${dates(x)} · ${x.participants.length} partant${x.participants.length > 1 ? 's' : ''}`}{x.attente ? ' · 🕓' : ''}</small>
+  </button>;
+}
+
+type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string };
+
+export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void;
+  /** Ouvrir un Buddy Time sur la carte (écran 4), ou une trace partagée dans un groupe. */
+  onCarte: (x: { sortie?: Sortie; traces: TraceBuddy[] }) => void;
+  /** Revenir sur un Buddy Group (‹ depuis la carte d'un Buddy Time). */
+  depart?: string;
 }) {
   const e = useBuddies();
   const compte = useCompte();
-  const [vue, setVue] = useState<Vue>({ ecran: 'liste' });
+  const [vue, setVue] = useState<Vue>(depart ? { ecran: 'groupe', id: depart } : { ecran: 'liste' });
   // Ouvert : on regarde les nouveautés toutes les minutes ; fermé, la pastille de 👥 repart de maintenant.
   useEffect(() => {
     const sync = () => { void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };
@@ -227,23 +263,36 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging }: 
   }
 
   const groupes = appliquer(e);
+  const { sorties, traces } = vueSorties(e);
+  const ouvrir = (x: Sortie) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id) });
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
+  const meTime = groupes.find((x) => x.nature === 'me_time')!;
   return <div className="buddies">
     {colonne}
     {vue.ecran === 'nouveau' ? <Nouveau onToast={onToast} onFini={(id) => setVue({ ecran: 'groupe', id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-      : g ? <UnGroupe g={g} onToast={onToast} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-        : <Liste e={e} groupes={groupes} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onNouveau={() => setVue({ ecran: 'nouveau' })} onClose={onClose} />}
+      : vue.ecran === 'sortie' ? <NouvelleSortie g={groupes.find((x) => x.id === vue.groupe) ?? meTime} onToast={onToast} onClose={onClose}
+        onRetour={() => setVue(vue.groupe === meTime.id ? { ecran: 'liste' } : { ecran: 'groupe', id: vue.groupe })}
+        onFini={(id) => { const x = vueSorties(lire()).sorties.find((y) => y.id === id); if (x) ouvrir(x); }} />
+      : g ? <UnGroupe g={g} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
+        onToast={onToast} onOuvrir={ouvrir} onTrace={(t) => onCarte({ traces: [t] })}
+        onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
+        : <Liste e={e} groupes={groupes} sorties={sorties} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={ouvrir}
+          onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: meTime.id })} onClose={onClose} />}
   </div>;
 }
 
-function Liste({ e, groupes, onOuvrir, onNouveau, onClose }: {
-  e: Etat; groupes: Groupe[]; onOuvrir: (id: string) => void; onNouveau: () => void; onClose: () => void;
+function Liste({ e, groupes, sorties, onOuvrir, onSortie, onNouveau, onNouvelle, onClose }: {
+  e: Etat; groupes: Groupe[]; sorties: Sortie[]; onOuvrir: (id: string) => void; onSortie: (x: Sortie) => void;
+  onNouveau: () => void; onNouvelle: () => void; onClose: () => void;
 }) {
   const enAttente = e.attente.length;
+  const haut = prochaine(sorties);
+  const nomGroupe = (x: Sortie) => groupes.find((g) => g.id === x.groupe)?.nom ?? '';
   return <div className="bd-corps">
     <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
     <p className="hint">{enAttente ? `🕓 ${enAttente} changement${enAttente > 1 ? 's' : ''} partira au retour du réseau · ` : ''}{heure(e.synchro)}</p>
-    {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le Buddy Group au retour du réseau.</span></div>}
+    {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
+    {haut && <Affiche x={haut} onClick={() => onSortie(haut)} />}
     <h3 className="bd-section">Buddy Groups</h3>
     {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
       {g.nature === 'me_time' ? <Visage b={{ id: g.id, pseudo: nomAffiche(), photo: lireCompte().profil?.photo ?? null }} taille={56} />
@@ -252,18 +301,33 @@ function Liste({ e, groupes, onOuvrir, onNouveau, onClose }: {
         <small>{g.nature === 'me_time' ? 'Mes sorties à moi' : resume(g)}</small></span>
       <small className="bd-quand">{g.attente ? '🕓' : quand(g.modifie_le)}</small>
     </button>)}
+    {sorties.length > 0 && <h3 className="bd-section">Buddy Times</h3>}
+    {sorties.map((x) => <button key={x.id} className="bd-ligne" onClick={() => onSortie(x)}>
+      <Carre x={x} />
+      <span className="bd-texte"><b>{x.nom}</b>
+        <small>{[nomGroupe(x), x.participants.length > 1 ? `${x.participants.length} partants` : '', x.fin < aujourdhui() ? 'souvenir' : ''].filter(Boolean).join(' · ')}</small></span>
+      <small className="bd-quand">{x.attente ? '🕓' : quand(x.modifie_le)}</small>
+    </button>)}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
-      <button className="primary" onClick={onNouveau}>＋ <span className="bd-faces"><i /><i /><i /></span>
-        <span className="bd-plus-texte"><b>Buddy Group</b><small>une bande</small></span></button>
+      <button className="primary" onClick={onNouveau}><span className="bd-faces"><i /><i /><i /></span>
+        <span className="bd-plus-texte"><b>＋ Buddy Group</b><small>une bande</small></span></button>
+      <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
+        <span className="bd-plus-texte"><b>＋ Buddy Time</b><small>une sortie</small></span></button>
     </div>
   </div>;
 }
 
-function UnGroupe({ g, onToast, onRetour, onClose }: { g: Groupe; onToast: (m: string) => void; onRetour: () => void; onClose: () => void }) {
+function UnGroupe({ g, sorties, traces, onToast, onOuvrir, onTrace, onNouvelle, onRetour, onClose }: {
+  g: Groupe; sorties: Sortie[]; traces: TraceBuddy[]; onToast: (m: string) => void; onOuvrir: (x: Sortie) => void;
+  onTrace: (t: TraceBuddy) => void; onNouvelle: () => void; onRetour: () => void; onClose: () => void;
+}) {
   const [membres, setMembres] = useState(false);
   const me = g.nature === 'me_time';
   const qr = g.invitations.find((i) => i.canal === 'qr')?.code;
+  const auj = aujourdhui();
+  const avenir = sorties.filter((x) => x.fin >= auj).sort((a, b) => a.debut.localeCompare(b.debut));
+  const souvenirs = sorties.filter((x) => x.fin < auj).sort((a, b) => b.debut.localeCompare(a.debut));
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
@@ -276,7 +340,19 @@ function UnGroupe({ g, onToast, onRetour, onClose }: { g: Groupe; onToast: (m: s
       <span className="bd-ajout">＋</span>
     </button>}
     <h3 className="bd-section">À venir</h3>
-    <p className="bd-vide">{me ? 'Tes sorties à toi, seul ou avec un ou deux copains invités, viendront ici.' : 'Les Buddy Times de la bande viendront ici : à venir d’abord, puis les souvenirs en images.'}</p>
+    {avenir.length ? avenir.map((x) => <Affiche key={x.id} x={x} onClick={() => onOuvrir(x)} />)
+      : <p className="bd-vide">{me ? 'Tes sorties à toi, seul ou avec un ou deux copains invités.' : 'Rien de prévu pour l’instant : ＋ Buddy Time quand vous êtes sûrs de partir.'}</p>}
+    {souvenirs.length > 0 && <><h3 className="bd-section">Souvenirs</h3>
+      <div className="bd-grille">{souvenirs.map((x) => <Affiche key={x.id} x={x} petite onClick={() => onOuvrir(x)} />)}</div></>}
+    {traces.length > 0 && <><h3 className="bd-section">Traces partagées</h3>
+      {traces.map((t) => <button key={t.id} className="bd-ligne petite" onClick={() => onTrace(t)}>
+        <Visage b={t.par} /><span className="bd-texte"><b>〰 {t.nom}</b><small>{t.par.pseudo}{t.mot ? ` : ${t.mot}` : ''}</small></span>
+        <small className="bd-quand">{t.attente ? '🕓' : quand(t.cree_le)}</small></button>)}</>}
+    <span style={{ flex: 1 }} />
+    <div className="bd-plus">
+      <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
+        <span className="bd-plus-texte"><b>＋ Buddy Time</b><small>une sortie</small></span></button>
+    </div>
     {membres && <Membres g={g} qr={qr} onToast={onToast} onFermer={() => setMembres(false)} onParti={onRetour} />}
   </div>;
 }
@@ -313,12 +389,24 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
   </div></div>;
 }
 
+function ChoixPhoto({ photo, onPhoto, onToast, grand = false }: { photo: string | null; onPhoto: (p: string) => void; onToast: (m: string) => void; grand?: boolean }) {
+  const fichier = useRef<HTMLInputElement>(null);
+  return <>
+    {grand
+      ? <button className="bd-bandeau-photo" onClick={() => fichier.current?.click()} style={photo ? { background: `center/cover url("${photo}")` } : undefined}>
+        <span>📷 {photo ? 'Changer' : 'Une photo'}</span></button>
+      : <button className="bd-photo" onClick={() => fichier.current?.click()} aria-label="Photo">{photo ? <img src={photo} alt="" /> : '📷'}</button>}
+    <input ref={fichier} type="file" accept="image/*" hidden onChange={(ev) => {
+      const f = ev.target.files?.[0]; if (f) void reduire(f).then(onPhoto).catch(() => onToast('Photo illisible'));
+    }} />
+  </>;
+}
+
 /** Nouveau Buddy Group (écran 20) : photo, nom, invitations, puis « Créer le Buddy Group ». */
 function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) => void; onFini: (id: string) => void; onRetour: () => void; onClose: () => void }) {
   const [nom, setNom] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [invites, setInvites] = useState<NouvelleInvitation[]>([]);
-  const fichier = useRef<HTMLInputElement>(null);
   const compte = lireCompte();
   const creer = () => {
     try {
@@ -332,11 +420,7 @@ function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) 
       <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau Buddy Group</h2>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    <button className="bd-photo" onClick={() => fichier.current?.click()} aria-label="Photo du Buddy Group">
-      {photo ? <img src={photo} alt="" /> : '📷'}</button>
-    <input ref={fichier} type="file" accept="image/*" hidden onChange={(ev) => {
-      const f = ev.target.files?.[0]; if (f) void reduire(f).then(setPhoto).catch(() => onToast('Photo illisible'));
-    }} />
+    <ChoixPhoto photo={photo} onPhoto={setPhoto} onToast={onToast} />
     <input className="bd-nom" value={nom} maxLength={80} placeholder="Nom de la bande" onChange={(ev) => setNom(ev.target.value)} />
     <h3 className="bd-section">Inviter mes copains</h3>
     <Inviter nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast}
@@ -353,3 +437,143 @@ function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) 
   </div>;
 }
 
+/**
+ * Nouveau Buddy Time (écran 21) : il naît quand on est sûr de partir. Dans un Buddy Group, tout le monde est
+ * coché, on décoche ceux qui ne viennent pas ; dans Me Time, on invite un ou deux copains à l'unité.
+ */
+function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
+  g: Groupe; onToast: (m: string) => void; onFini: (id: string) => void; onRetour: () => void; onClose: () => void;
+}) {
+  const me = g.nature === 'me_time';
+  const [nom, setNom] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [debut, setDebut] = useState(aujourdhui());
+  const [fin, setFin] = useState(aujourdhui());
+  const [lieu, setLieu] = useState('');
+  const [qui, setQui] = useState<Set<string>>(() => new Set(g.membres.map((m) => m.id)));
+  const [invites, setInvites] = useState<NouvelleInvitation[]>([]);
+  const moiId = lire().moi ?? 'moi';
+  const creer = () => {
+    try {
+      const id = creerSortie({ groupe: g.id, nom, photo, debut, fin, lieu, participants: [...qui].filter((x) => x !== moiId) }, invites);
+      onToast(navigator.onLine ? `« ${nom.trim()} » est créé` : `« ${nom.trim()} » est créé sur ton téléphone ; il partira au retour du réseau`);
+      onFini(id);
+    } catch (err) { onToast(String((err as Error).message)); }
+  };
+  return <div className="bd-corps">
+    <div className="xp-head">
+      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau Buddy Time</h2>
+      <button onClick={onClose} aria-label="Fermer">✕</button>
+    </div>
+    <ChoixPhoto grand photo={photo} onPhoto={setPhoto} onToast={onToast} />
+    <input className="bd-nom" value={nom} maxLength={80} placeholder="Week-end Queyras" onChange={(ev) => setNom(ev.target.value)} />
+    <h3 className="bd-section">Quand</h3>
+    <div className="bd-dates">
+      <label>du<input type="date" value={debut} onChange={(ev) => { setDebut(ev.target.value); if (fin < ev.target.value) setFin(ev.target.value); }} /></label>
+      <label>au<input type="date" value={fin} min={debut} onChange={(ev) => setFin(ev.target.value)} /></label>
+    </div>
+    <h3 className="bd-section">Avec qui <small>{me ? 'Me Time' : `${g.nom} · ${qui.size} sur ${g.membres.length}`}</small></h3>
+    {me ? <>
+      <Inviter sortie nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast} onInvite={(i) => setInvites((l) => [...l, i])} />
+      {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">
+        <Visage b={{ id: i.code, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
+        <small className="bd-etat">{CANAL[i.canal]}</small></div>)}
+      {!invites.length && <p className="hint">Seul, ou invite un ou deux copains à cette sortie, sans créer de Buddy Group.</p>}
+    </> : <div className="bd-qui">
+      {g.membres.map((m) => <button key={m.id} className={qui.has(m.id) ? 'oui' : ''} disabled={m.id === moiId}
+        onClick={() => setQui((q) => { const n = new Set(q); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n; })}>
+        <Visage b={m} taille={48} /><small>{qui.has(m.id) ? '✓' : '—'}</small></button>)}
+    </div>}
+    <h3 className="bd-section">Où <small>facultatif</small></h3>
+    <input value={lieu} maxLength={120} placeholder="📍 Ceillac, Queyras" onChange={(ev) => setLieu(ev.target.value)} />
+    <span style={{ flex: 1 }} />
+    <button className="primary bd-grand" disabled={!nom.trim()} onClick={creer}>Créer le Buddy Time</button>
+  </div>;
+}
+
+// ------------------------------------------------------------------ sur la carte (écran 4)
+
+/** Haut et bas de la carte d'un Buddy Time : ‹ nom et dates en haut, bandeau rabattable en bas. */
+export function BandeauSortie({ x, traces, onRetour }: { x: Sortie; traces: TraceBuddy[]; onRetour: () => void }) {
+  const [replie, setReplie] = useState(false);
+  const km = traces.reduce((n, t) => n + longueur(t.ligne), 0) / 1000;
+  const venir = x.fin >= aujourdhui();
+  return <>
+    <div className="bd-carte-haut">
+      <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
+      <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)}{x.lieu ? ` · ${x.lieu}` : ''}</small></span>
+    </div>
+    <div className={`bd-carte-bas${replie ? ' replie' : ''}`}>
+      <button className="handle" aria-label={replie ? 'Déplier' : 'Replier'} onClick={() => setReplie(!replie)} />
+      {!replie && <>
+        <b className="bd-carte-quand">{quandSortie(x)}</b>
+        <div className="bd-carte-qui">
+          {x.participants.map((p) => <Visage key={p.id} b={p} taille={30} />)}
+          <small>{x.participants.length} partant{x.participants.length > 1 ? 's' : ''}{x.invitations.length ? ` · ${x.invitations.filter((i) => i.canal !== 'qr').map((i) => `${i.nom} ?`).join(' · ')}` : ''}</small>
+        </div>
+        <div className="bd-chiffres">
+          <span><b>{traces.length ? `${km.toFixed(km < 10 ? 1 : 0)} km` : '—'}</b><small>{traces.length > 1 ? `${traces.length} traces` : 'parcours'}</small></span>
+          <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'souvenir'}</small></span>
+        </div>
+        {!traces.length && <p className="hint">Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.</p>}
+      </>}
+    </div>
+  </>;
+}
+
+function longueur(l: [number, number][]) {
+  let m = 0;
+  for (let i = 1; i < l.length; i++) {
+    const [a, b] = [l[i - 1], l[i]];
+    const k = Math.PI / 180, x = (b[0] - a[0]) * k * Math.cos(((a[1] + b[1]) / 2) * k), y = (b[1] - a[1]) * k;
+    m += Math.sqrt(x * x + y * y) * 6371e3;
+  }
+  return m;
+}
+
+// ------------------------------------------------------------------ panneau de partage (écran 22, spec §3.4)
+
+/**
+ * Le même panneau partout : « Dans un Buddy Time » (les plus actifs), « Ou à mes buddies » (mes Buddy Groups),
+ * un petit mot, un seul bouton Partager, puis « Ou ailleurs » (les autres applis du téléphone).
+ * Les copains un par un arriveront avec la messagerie : aujourd'hui une trace se range dans un Buddy Time ou un groupe.
+ */
+export function PartagePanel({ nom, ligne, onAilleurs, onFermer, onToast }: {
+  nom: string; ligne: [number, number][]; onAilleurs: () => void; onFermer: () => void; onToast: (m: string) => void;
+}) {
+  const e = useBuddies();
+  const compte = useCompte();
+  const [choix, setChoix] = useState<Set<string>>(new Set());
+  const [tous, setTous] = useState(false);
+  const [mot, setMot] = useState('');
+  const auj = aujourdhui();
+  const { sorties } = vueSorties(e);
+  // À venir ou en cours d'abord, puis les plus récemment actives.
+  const actives = [...sorties].sort((a, b) => Number(b.fin >= auj) - Number(a.fin >= auj) || b.modifie_le.localeCompare(a.modifie_le)).slice(0, 6);
+  const groupes = appliquer(e).filter((g) => g.nature === 'bande');
+  const basculer = (id: string) => setChoix((c) => { const n = new Set(c); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const partager = () => {
+    const ids = [...choix];
+    partagerTrace(nom, ligne, mot.trim(), { sorties: ids.filter((id) => sorties.some((x) => x.id === id)), groupes: ids.filter((id) => groupes.some((g) => g.id === id)) });
+    onToast(navigator.onLine ? `« ${nom} » partagée` : `« ${nom} » partira au retour du réseau 🕓`);
+    onFermer();
+  };
+  return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille bd-partage" onClick={(ev) => ev.stopPropagation()}>
+    <div className="xp-head"><h3>Partager « {nom} »</h3><small className="bd-quand">{(longueur(ligne) / 1000).toFixed(1)} km</small></div>
+    {connecte(compte) ? <>
+      {actives.length > 0 && <><h3 className="bd-section">Dans un Buddy Time <small>les plus actifs</small></h3>
+        <div className="bd-defile">{actives.map((x) => <button key={x.id} className={`bd-tuile${choix.has(x.id) ? ' oui' : ''}`} onClick={() => basculer(x.id)}>
+          <Carre x={x} taille={88} /><small>{x.nom}</small></button>)}</div></>}
+      {groupes.length > 0 && <><h3 className="bd-section">Ou à mes buddies</h3>
+        <div className="bd-defile">{(tous ? groupes : groupes.slice(0, 5)).map((g) => <button key={g.id} className={`bd-tuile rond${choix.has(g.id) ? ' oui' : ''}`} onClick={() => basculer(g.id)}>
+          <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} /><small>{g.nom}</small></button>)}
+          {!tous && groupes.length > 5 && <button className="bd-tuile rond" onClick={() => setTous(true)}><span className="bd-ajout">⋯</span><small>Tous</small></button>}</div></>}
+      {!actives.length && !groupes.length && <p className="hint">Crée un Buddy Group ou un Buddy Time (👥) pour y partager tes traces.</p>}
+      <input value={mot} maxLength={300} placeholder="Un petit mot (facultatif)…" onChange={(ev) => setMot(ev.target.value)} />
+      <button className="primary bd-grand" disabled={!choix.size} onClick={partager}>Partager</button>
+    </> : <p className="hint">Connecte-toi (👤) pour partager tes traces avec tes buddies.</p>}
+    <h3 className="bd-section">Ou ailleurs</h3>
+    <button className="bd-ligne petite" onClick={() => { onFermer(); onAilleurs(); }}><span className="bd-ajout">⋯</span>
+      <span className="bd-texte"><b>WhatsApp, mail, fichier GPX…</b><small>les autres applis du téléphone</small></span></button>
+  </div></div>;
+}

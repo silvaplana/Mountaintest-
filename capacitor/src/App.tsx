@@ -17,8 +17,8 @@ import { ScaleBar } from './map/ScaleBar';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte, useCompte } from './Account';
-import { Buddies, ecouterBuddies, useBuddies } from './buddies/Buddies';
-import { nouveautes } from './buddies/store';
+import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies } from './buddies/Buddies';
+import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
 import { LodgingPanel } from './Lodging';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
@@ -112,6 +112,12 @@ export function App() {
   const compte = useCompte();
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);
+  /** ‹ depuis la carte d'un Buddy Time : on revient sur son Buddy Group. */
+  const [buddiesDepart, setBuddiesDepart] = useState<string | undefined>();
+  /** Un Buddy Time ouvert sur la carte (écran 4). */
+  const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[] } | null>(null);
+  /** Panneau de partage d'une trace (écran 22). */
+  const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void } | null>(null);
   const buddiesEtat = useBuddies();
   const [lodging, setLodging] = useState(false);
   // ⛷ Sorties skitour.fr : zone encadrée, sorties trouvées, celle choisie.
@@ -773,6 +779,27 @@ export function App() {
     return t;
   }
 
+  /**
+   * 👥 Un Buddy Time sur la carte (écran 4) ou une trace partagée dans un groupe : ses traces s'ajoutent à mes
+   * traces affichées (profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne marchent comme pour les miennes).
+   */
+  function montrerBuddies(x: { sortie?: Sortie; traces: TraceBuddy[] }) {
+    setBuddies(false); setBuddiesDepart(undefined); setTraceList(null);
+    setCarteSortie(x.sortie ? { sortie: x.sortie, traces: x.traces } : null);
+    const pts: LonLat[] = [];
+    for (const t of x.traces) {
+      const line = t.ligne.map(([lon, lat]) => ({ lon, lat }));
+      pts.push(...line);
+      const kind = `Partagée par ${t.par.pseudo}`;
+      if (!trails.some((y) => isMine(y.id) && y.name === t.nom && y.kind === kind)) showMine(line, { onPaths: false, name: t.nom, kind });
+    }
+    if (x.sortie) setTraceMenu(false);
+    if (map && pts.length) {
+      const lons = pts.map((p) => p.lon), lats = pts.map((p) => p.lat);
+      map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 70, maxZoom: 15, duration: 600 });
+    }
+  }
+
   /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone : il s'ajoute aux traces affichées. */
   async function openTraceFile() {
     setDrawing(false); setTraceList(null);
@@ -1051,8 +1078,10 @@ export function App() {
         <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
           savedId={selected.savedId ?? null} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)}
-          onShare={() => void shareTrace({ id: 0, name: selected.name, onPaths: false, line: selected.segments.flat().map((p) => [p.lon, p.lat]) })
-            .catch((e) => setToast(`Partage impossible : ${(e as Error).message}`))}
+          onShare={() => {
+            const st = { id: 0, name: selected.name, onPaths: false, line: selected.segments.flat().map((p) => [p.lon, p.lat] as [number, number]) };
+            setPartage({ nom: st.name, ligne: st.line, ailleurs: () => void shareTrace(st).catch((e) => setToast(`Partage impossible : ${(e as Error).message}`)) });
+          }}
           navigating={navId === selected.id} onNavigate={startNav} onStopNav={() => { setNavId(null); setTraceMenu(false); }}
           paused={navPaused} onPause={pauseNav} onResume={resumeNav}
           offline={traceOffline?.id === selected.id ? traceOffline.msg + (downloading && progress ? ` ${progress.done + progress.failed}/${progress.total}` : '') : null}
@@ -1062,7 +1091,7 @@ export function App() {
       )}
       {traceList && !drawing && (
         <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}
-          onShare={(t) => void shareTrace(t).catch((e) => setToast(`Partage impossible : ${(e as Error).message}`))}
+          onShare={(t) => setPartage({ nom: t.name, ligne: t.line, ailleurs: () => void shareTrace(t).catch((e) => setToast(`Partage impossible : ${(e as Error).message}`)) })}
           onDelete={(t) => {
             if (!window.confirm(`Effacer « ${t.name} » du téléphone ?`)) return;
             void removeTraceFile(t);
@@ -1133,8 +1162,12 @@ export function App() {
       {topoSheet && <TopoTextPanel key={topoSheet.id} onShowOnMap={(t) => { setTopoSheet(null); showTopoOnMap(t); }} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={topoSheet}
         onMode={(m) => { if (m === 'carteTopos') setTopoSheet(null); else skiMode(m); }} onClose={() => setTopoSheet(null)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
-      {buddies && <Buddies onToast={setToast} onClose={() => setBuddies(false)} onAccount={() => setAccount(true)}
-        onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} />}
+      {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
+        onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
+        onCarte={montrerBuddies} />}
+      {carteSortie && !buddies && !drawing && <BandeauSortie x={carteSortie.sortie} traces={carteSortie.traces}
+        onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }} />}
+      {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
       {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
