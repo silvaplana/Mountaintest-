@@ -106,9 +106,9 @@ class LodgingPanel(
                 add.setText("")
             } })
         })
-        btn.apply { text = "Chercher (IA)"; isEnabled = password.isNotEmpty(); setOnClickListener { search() } }
+        btn.apply { text = "🔍 Chercher"; isEnabled = password.isNotEmpty(); setOnClickListener { search() } }
         col.addView(btn)
-        if (password.isEmpty()) col.addView(text("Mot de passe IA manquant (onglet Randos)."))
+        if (password.isEmpty()) col.addView(text("Mot de passe de recherche manquant (onglet Randos)."))
         col.addView(error); col.addView(result)
         view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
             val maxH = (a.resources.displayMetrics.heightPixels * 0.62).toInt()
@@ -126,9 +126,9 @@ class LodgingPanel(
         prefs.edit().putString("hebVille", v).putString("hebPersonnes", p.toString()).putString("hebPrix", max.text.toString())
             .putString("hebDate", day).putString("hebNuits", n.toString()).apply()
         btn.isEnabled = false; error.text = ""; result.removeAllViews()
-        result.addView(text("Claude compare plusieurs sites : 30 s à 2 min."))
+        result.addView(text("Je compare plusieurs sites : 30 s à 2 min."))
         val t0 = System.currentTimeMillis()
-        val tick = a.lifecycleScope.launch { while (true) { btn.text = "Claude cherche les meilleurs prix… ${(System.currentTimeMillis() - t0) / 1000} s"; delay(1000) } }
+        val tick = a.lifecycleScope.launch { while (true) { btn.text = "Je cherche les meilleurs prix… ${(System.currentTimeMillis() - t0) / 1000} s"; delay(1000) } }
         view.post { view.fullScroll(View.FOCUS_DOWN) }
         a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) {
@@ -136,7 +136,7 @@ class LodgingPanel(
                     .put("sites", org.json.JSONArray(checked.filter { it in sites })), password)
             } }.onSuccess { o -> show(o) }
                 .onFailure { result.removeAllViews(); error.text = "Recherche impossible : ${if (it is java.io.IOException) "pas de réseau" else it.message}" }
-            tick.cancel(); btn.text = "Chercher (IA)"; btn.isEnabled = true
+            tick.cancel(); btn.text = "🔍 Chercher"; btn.isEnabled = true
             view.post { view.fullScroll(View.FOCUS_DOWN) }
         }
     }

@@ -213,9 +213,9 @@ class TravelPanel(
         formBox.addView(btnRoutes, lp(10))
         col.addView(summary); col.addView(formBox)
         col.addView(routeHint); col.addView(routeList)
-        btnCost.apply { text = "Calculer le coût (IA)"; visibility = View.GONE; setOnClickListener { computeCost() } }
+        btnCost.apply { text = "Calculer le coût"; visibility = View.GONE; setOnClickListener { computeCost() } }
         col.addView(btnCost, lp())
-        if (password.isEmpty()) col.addView(text("Mot de passe IA manquant (onglet Randos) : la recherche de voiture et le coût sont indisponibles."))
+        if (password.isEmpty()) col.addView(text("Mot de passe de recherche manquant (onglet Randos) : la recherche de voiture et le coût sont indisponibles."))
         col.addView(error); col.addView(result)
         // Le panneau ne prend jamais plus de 58 % de l'écran : la carte reste visible au-dessus.
         view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
@@ -319,9 +319,9 @@ class TravelPanel(
         // Claude cherche les prix sur le web (30 s à 2 min) : temps écoulé sur le bouton.
         val t0 = System.currentTimeMillis()
         val tick = a.lifecycleScope.launch {
-            while (true) { btnCost.text = "Claude calcule le coût… ${(System.currentTimeMillis() - t0) / 1000} s"; delay(1000) }
+            while (true) { btnCost.text = "Je calcule le coût… ${(System.currentTimeMillis() - t0) / 1000} s"; delay(1000) }
         }
-        result.addView(text("Claude cherche le prix du carburant et des péages sur le web : 30 s à 2 min."))
+        result.addView(text("Je cherche le prix du carburant et des péages sur le web : 30 s à 2 min."))
         (view as ScrollView).post { view.fullScroll(View.FOCUS_DOWN) }
         a.lifecycleScope.launch {
             runCatching { withContext(Dispatchers.IO) {
@@ -343,7 +343,7 @@ class TravelPanel(
                 }
                 .onFailure { result.removeAllViews(); error.text = "Calcul impossible : ${it.message ?: it}"; (view as ScrollView).post { view.fullScroll(View.FOCUS_DOWN) } }
             tick.cancel()
-            btnCost.text = "Calculer le coût (IA)"; setBusy(false)
+            btnCost.text = "Calculer le coût"; setBusy(false)
         }
     }
 }

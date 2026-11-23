@@ -866,3 +866,33 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .lodging-proposer { margin-top: 6px; width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--accent); background: #fff; color: var(--accent);
   font-weight: 700; font-size: 16px; }
 .bd-heberg-bas .bd-lien, .bd-heberg .bd-carte-qui small { white-space: nowrap; }
+/* 💬 Messagerie (écrans 6 et 24) */
+.bd-carte-msg { max-height: 68vh; }
+.bd-conv { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+.bd-corps-conv { padding-bottom: calc(env(safe-area-inset-bottom) + 10px); }
+.bd-corps-conv .bd-conv { overflow: hidden; }
+.bd-fil { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 0; }
+.bd-conv.court .bd-fil { max-height: 30vh; }
+.bd-bulle { align-self: flex-start; max-width: 82%; background: var(--card); border-radius: 16px; padding: 8px 14px; display: flex; flex-direction: column;
+  gap: 2px; font-size: 17px; overflow-wrap: anywhere; }
+.bd-bulle.mien { align-self: flex-end; background: color-mix(in srgb, var(--accent) 16%, var(--bg)); }
+.bd-bulle.attente { opacity: .75; }
+.bd-bulle.photo { padding: 6px; }
+.bd-qui-ecrit { font-size: 15px; }
+.bd-heure { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.bd-bulle .bd-heure { align-self: flex-end; }
+.bd-bulle-de { display: flex; flex-direction: column; align-items: flex-start; }
+.bd-bulle-de.mien { align-items: flex-end; }
+.bd-bulle-carte { display: flex; align-items: center; gap: 12px; max-width: 90%; align-self: flex-start; text-align: left; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 16px; padding: 8px 14px; min-height: 56px; font-size: 17px; color: var(--fg); }
+.bd-bulle-de.mien .bd-bulle-carte { align-self: flex-end; }
+.bd-bulle-carte .bd-texte small { white-space: normal; }
+.bd-bulle-photo { border: 0; padding: 0; background: none; border-radius: 12px; overflow: hidden; }
+.bd-bulle-img { display: block; width: 200px; height: 150px; object-fit: cover; border-radius: 12px; }
+.bd-saisie { display: flex; align-items: center; gap: 8px; }
+.bd-saisie > button { width: 48px; height: 48px; flex: none; border-radius: 50%; border: 0; background: var(--card); font-size: 22px; padding: 0; }
+.bd-saisie > button.bd-envoyer { background: var(--accent); color: #fff; }
+.bd-saisie > button.bd-ecoute { background: #d0464f; }
+.bd-saisie input { flex: 1; min-width: 0; height: 48px; border-radius: 24px; border: 1px solid var(--line); padding: 0 16px; font-size: 17px; background: var(--bg); color: var(--fg); }
+.bd-nonlu { background: var(--accent); color: #fff; border-radius: 12px; min-width: 24px; padding: 2px 8px; font-size: 14px; font-weight: 700; text-align: center; }
+.bd-point-carte { background: #fff; color: #1d2421; border-radius: 14px 14px 14px 2px; padding: 6px 10px; font-size: 15px; font-weight: 700; box-shadow: 0 2px 6px #0005; white-space: nowrap; }

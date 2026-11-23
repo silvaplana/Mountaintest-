@@ -11,6 +11,8 @@ import { detail, etiquette, opacite, reperes } from '../src/buddies/positions';
 import { enfoncerEpingle, envoyerPosition, finEpingle, monEpingle, positions, releverEpingle } from '../src/buddies/store';
 import { mettreCoeur, proposerHebergement, retenirHebergement, retirerHebergement } from '../src/buddies/store';
 import { iconeHebergement, prixHebergement } from '../src/buddies/Hebergements';
+import { envoyerMessage, marquerLu, nonLus, retirerMessage, type MessageBuddy } from '../src/buddies/store';
+import { apercu, fil, heureMessage, longueurTrace } from '../src/buddies/messages';
 import { chiffres, choixPhotos, fiches, joursDe, lireDuree, lireKm, lireMetres, texteCarnet, tracesDuCarnet, type Relief } from '../src/buddies/carnet';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
@@ -431,6 +433,57 @@ describe('Hébergement partagé (bloc 8)', () => {
   it('image et prix', () => {
     expect(['Refuge CAF', 'Camping', 'Hôtel du Col', 'Chalet', 'Gîte'].map(iconeHebergement)).toEqual(['🏔', '⛺', '🏨', '🛖', '🏠']);
     expect([prixHebergement({ prix_nuit: 60 }), prixHebergement({ prix_nuit: null })]).toEqual(['60 € / nuit', 'prix à voir']);
+  });
+});
+
+describe('Messagerie (bloc 9)', () => {
+  const m = (id: string, par: string, cree_le: string, o: Partial<MessageBuddy> = {}): MessageBuddy => ({ id, groupe: null, sortie: 's1', par,
+    nature: 'texte', texte: id, lon: null, lat: null, photo: null, cree_le, ...o });
+
+  it('sans réseau : texte, point, retrait ; les vides ne partent pas', () => {
+    localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [], traces: [], plannings: [], photos: [], attente: [] }));
+    _reinitialiser();
+    reseau(() => 'coupure');
+    envoyerMessage({ sortie: 's1' }, { texte: '  Top ! RDV 7 h 30 au parking ?  ' });
+    envoyerMessage({ groupe: 'a' }, { texte: '   ' });
+    envoyerMessage({ sortie: 's1' }, { nature: 'point', lon: 6.712345678, lat: 44.6 });
+    const ms = vue(lire()).messages;
+    expect(ms.map((x) => [x.nature, x.texte, x.sortie, x.par, x.attente])).toEqual([
+      ['texte', 'Top ! RDV 7 h 30 au parking ?', 's1', 'u-seb', true], ['point', '', 's1', 'u-seb', true]]);
+    expect(ms[1].lon).toBe(6.712346);
+    retirerMessage(ms[0].id);
+    expect(vue(lire()).messages.map((x) => x.nature)).toEqual(['point']);
+  });
+
+  it('reçus du serveur, non lus', async () => {
+    const recus = [m('m1', 'u-julie', '2026-11-23T08:00:00Z'), m('m2', 'u-seb', '2026-11-23T08:05:00Z'), m('m3', 'u-luc', '2026-11-23T08:10:00Z')];
+    reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [], ids_sorties: [], sorties: [], ids_traces: [], traces: [],
+      ids_plannings: [], plannings: [], ids_photos: [], photos: [], ids_depenses: [], depenses: [], ids_messages: ['m1', 'm2', 'm3'], messages: recus }));
+    await synchroniser();
+    expect(vue(lire()).messages.map((x) => x.id)).toEqual(['m1', 'm2', 'm3']);
+    expect(nonLus(lire(), 's1', vue(lire()).messages)).toBe(2);
+    marquerLu('s1', Date.parse('2026-11-23T08:07:00Z'));
+    expect(nonLus(lire(), 's1', vue(lire()).messages)).toBe(1);
+  });
+
+  it('le fil mêle messages, traces et hébergements ; aperçu et heure', () => {
+    const t: TraceBuddy = { id: 't1', sortie: 's1', groupe: null, nom: 'Col Girardin', ligne: [[6.7, 44.6], [6.7, 44.7]], mot: '',
+      par: { id: 'u-julie', pseudo: 'Julie', photo: null }, cree_le: '2026-11-23T08:02:00Z' };
+    const h = { id: 'h1', sortie: 's1', nom: 'Gîte Les Baladins', nature: 'gîte', prix_nuit: 60, adresse: '', url: '', resume: '', lon: null, lat: null,
+      retenu: false, par: 'u-seb', coeurs: [], cree_le: '2026-11-23T08:20:00Z', modifie_le: '2026-11-23T09:00:00Z' };
+    const autre = { ...t, id: 't2', sortie: null, groupe: 'a' };
+    const ms = [m('m1', 'u-julie', '2026-11-23T08:00:00Z'), m('m2', 'u-seb', '2026-11-23T08:10:00Z', { nature: 'point', texte: '' }),
+      m('m3', 'u-luc', '2026-11-23T08:00:00Z', { sortie: null, groupe: 'a' })];
+    const f = fil({ sortie: 's1' }, ms, [t, autre], [h]);
+    expect(f.map((b) => b.genre)).toEqual(['message', 'trace', 'message', 'hebergement']);
+    expect(fil({ groupe: 'a' }, ms, [t, autre], [h]).map((b) => b.genre)).toEqual(['message', 'trace']);
+    const nom = (id: string) => ({ 'u-julie': 'Julie', 'u-luc': 'Luc' })[id] ?? '?';
+    expect(f.map((b) => apercu(b, nom, 'u-seb'))).toEqual(['Julie : m1', '〰 Julie : Col Girardin', 'Toi : 📍 je suis ici', '🏨 Toi : Gîte Les Baladins']);
+    const now = new Date(2026, 10, 23, 12, 0);
+    expect(heureMessage(new Date(2026, 10, 23, 9, 5).toISOString(), now)).toBe('9 h 05');
+    expect(heureMessage(new Date(2026, 10, 22, 18, 30).toISOString(), now)).toBe('hier 18 h 30');
+    expect(heureMessage(new Date(2026, 10, 12, 18, 30).toISOString(), now)).toBe('12 nov.');
+    expect(longueurTrace(t.ligne)).toBe('11 km');
   });
 });
 

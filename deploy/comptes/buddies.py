@@ -19,7 +19,7 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, Groupe, Hebergement, Invitation, Membre, Participant, Photo, Planning, Position, Recit, Sortie,
+from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, Groupe, Hebergement, Invitation, Membre, MessageBuddy, Participant, Photo, Planning, Position, Recit, Sortie,
                      TracePartagee, Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
@@ -467,6 +467,7 @@ TAILLES = {"petite": 300_000, "grande": 4_000_000}  # octets au plus
 JOUR_MS = 24 * 3600 * 1000
 MARGE_MS = 60_000
 GARDE_POSITIONS = timedelta(hours=48)
+GARDE_MESSAGES = timedelta(days=90)
 
 
 def ms(v: Any) -> int:
@@ -569,6 +570,47 @@ def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
+NATURES_MESSAGE = {"texte", "point", "photo"}
+
+
+def message(s: Session, u: Utilisateur, op: dict) -> None:
+    """Messagerie (§5.6, écran 6) : un message dans la conversation d'un Buddy Group ou d'un Buddy Time.
+    Texte, « je suis ici » (point) ou une photo de l'album du Buddy Time."""
+    mid = uuid.UUID(str(op["message"]))
+    if s.get(MessageBuddy, mid) is not None:
+        return  # renvoyé : déjà là
+    so = sortie_de(s, u, op["sortie"]) if op.get("sortie") else None
+    g = None if so else groupe_de(s, u, op["groupe"])
+    nature = str(op.get("nature") or "texte")
+    if nature not in NATURES_MESSAGE:
+        raise ValueError("nature")
+    texte = str(op.get("texte") or "").strip()[:2000]
+    lon = lat = photo = None
+    if nature == "texte" and not texte:
+        raise Refus("Message vide")
+    if nature == "point":
+        lat, lon = float(op["lat"]), float(op["lon"])
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError("position")
+        lat, lon = round(lat, 6), round(lon, 6)
+    if nature == "photo":
+        p = s.get(Photo, uuid.UUID(str(op["photo"])))
+        if p is None or so is None or p.sortie_id != so.id:
+            raise Refus("Photo inconnue")
+        photo = p.id
+    s.add(MessageBuddy(id=mid, groupe_id=g.id if g else None, sortie_id=so.id if so else None, par=u.id, nature=nature,
+                       texte=texte, lon=lon, lat=lat, photo_id=photo))
+
+
+def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
+    m = s.get(MessageBuddy, uuid.UUID(str(op["message"])))
+    if m is None:
+        return
+    if m.par != u.id:
+        raise Refus("On ne retire que ses messages")
+    s.delete(m)
+
+
 def fichier_photo(pid: uuid.UUID, taille: str) -> str:
     return os.path.join(DOSSIER_PHOTOS, f"{pid}-{taille}.jpg")
 
@@ -581,6 +623,7 @@ OPERATIONS = {
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
+    "message": message, "retirer_message": retirer_message,
 }
 
 
@@ -632,6 +675,10 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     photos = s.scalars(select(Photo).where(Photo.sortie_id.in_(sids)).order_by(Photo.prise_le)).all()
     depenses = s.scalars(select(Depense).where(Depense.sortie_id.in_(sids)).order_by(Depense.jour, Depense.cree_le)).all()
     hebergements = s.scalars(select(Hebergement).where(Hebergement.sortie_id.in_(sids)).order_by(Hebergement.cree_le)).all()
+    # Messages : ceux des 90 derniers jours seulement.
+    messages = s.scalars(select(MessageBuddy).where(or_(MessageBuddy.groupe_id.in_(gids), MessageBuddy.sortie_id.in_(sids)),
+                                                    MessageBuddy.cree_le > debut - GARDE_MESSAGES)
+                         .order_by(MessageBuddy.cree_le)).all()
     # Positions : toujours toutes (peu nombreuses), seulement des participants, et oubliées après 48 h.
     positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
                                                 & (Participant.utilisateur_id == Position.utilisateur_id))
@@ -646,6 +693,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
             "ids_hebergements": [str(h.id) for h in hebergements],
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
+            "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m) for m in messages if neuf(m.modifie_le)],
             "positions": [vue_position(x) for x in positions], "refus": refus}
 
 
@@ -704,7 +752,13 @@ def vue_hebergement(s: Session, h: Hebergement) -> dict[str, Any]:
     coeurs = s.scalars(select(Coeur.utilisateur_id).where(Coeur.hebergement_id == h.id)).all()
     return {"id": str(h.id), "sortie": str(h.sortie_id), "nom": h.nom, "nature": h.nature, "prix_nuit": h.prix_nuit,
             "adresse": h.adresse, "url": h.url, "resume": h.resume, "lon": h.lon, "lat": h.lat, "retenu": h.retenu,
-            "par": str(h.par), "coeurs": sorted(str(c) for c in coeurs), "modifie_le": iso(h.modifie_le)}
+            "par": str(h.par), "coeurs": sorted(str(c) for c in coeurs), "cree_le": iso(h.cree_le), "modifie_le": iso(h.modifie_le)}
+
+
+def vue_message(m: MessageBuddy) -> dict[str, Any]:
+    return {"id": str(m.id), "groupe": str(m.groupe_id) if m.groupe_id else None, "sortie": str(m.sortie_id) if m.sortie_id else None,
+            "par": str(m.par), "nature": m.nature, "texte": m.texte, "lon": m.lon, "lat": m.lat,
+            "photo": str(m.photo_id) if m.photo_id else None, "cree_le": iso(m.cree_le)}
 
 
 def vue_position(x: Position) -> dict[str, Any]:

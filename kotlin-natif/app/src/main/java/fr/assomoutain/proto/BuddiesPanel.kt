@@ -73,6 +73,12 @@ class BuddiesPanel(
     departCount: String? = null,
     /** Ou « Où on dort ? » (🏨 depuis la carte). */
     departDodo: String? = null,
+    /** 💬 Ouvrir la conversation d'un Buddy Time sur sa carte (écran 6). */
+    private val onParler: (Buddies.Sortie) -> Unit = {},
+    /** 📍 Montrer sur la carte le point d'un message (« Julie est ici »). */
+    private val onPoint: (Double, Double, String) -> Unit = { _, _, _ -> },
+    /** Ma position du moment, pour « je suis ici » (null : introuvable). */
+    private val localiser: ((Spot?) -> Unit) -> Unit = { it(null) },
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -97,10 +103,12 @@ class BuddiesPanel(
         data class UneDepense(val id: String, val depense: String?, val groupe: String?) : Vue()
         // Hébergement (§5.11).
         data class Dodo(val id: String, val groupe: String?) : Vue()
+        // Messagerie (§5.6) : toutes mes conversations, celle d'un Buddy Group.
+        data class Conversations(val groupe: String?) : Vue(); data class Conv(val id: String) : Vue()
     }
     private var vue: Vue = departDodo?.let { Vue.Dodo(it, depart) } ?: departCount?.let { Vue.Count(it, depart) } ?: departCarnet?.let { Vue.LeCarnet(it, depart) } ?: departAlbum?.let { Vue.UnAlbum(it, depart) }
         ?: depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
-    private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || vue is Vue.Ecrire || vue is Vue.UneDepense || motOuvert != null
+    private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || vue is Vue.Ecrire || vue is Vue.UneDepense || vue is Vue.Conv || motOuvert != null
 
     private val tete = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val col = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(16)) }
@@ -123,7 +131,7 @@ class BuddiesPanel(
     }
     fun insets(top: Int, bottom: Int) = ligne.setPadding(0, top + dp(10), 0, bottom + dp(16))
 
-    fun fermer() { desabonner(); desabonnerCompte(); minuteur.cancel(); buddies.marquerVu() }
+    fun fermer() { conv?.fermer(); conv = null; desabonner(); desabonnerCompte(); minuteur.cancel(); buddies.marquerVu() }
 
     /** Retour arrière : sous-écran → liste ; liste → fermé. */
     fun retour(): Boolean { if (vue == Vue.Liste) return false; vue = Vue.Liste; afficher(); return true }
@@ -222,7 +230,18 @@ class BuddiesPanel(
             if (!compte.connecte) toast("Connecte-toi (👤) pour les albums")
             else { vue = Vue.Albums(groupeCourant()); afficher() }
         }
-        listOf("📞" to bientot("appeler toute la bande"), "📅" to planning, "💬" to bientot("la messagerie de la bande"),
+        // 💬 : la conversation du Buddy Time ouvert (sur sa carte), sinon celle du Buddy Group ouvert, sinon toutes.
+        val messages = {
+            val sc = sortieCourante()?.let { id -> buddies.sorties().firstOrNull { it.id == id } }
+            val v = vue
+            when {
+                !compte.connecte -> toast("Connecte-toi (👤) pour écrire à tes buddies")
+                sc != null -> onParler(sc)
+                v is Vue.UnGroupe && buddies.groupes().any { it.id == v.id && !it.meTime } -> { vue = Vue.Conv(v.id); afficher() }
+                else -> { vue = Vue.Conversations(groupeCourant()); afficher() }
+            }
+        }
+        listOf("📞" to bientot("appeler toute la bande"), "📅" to planning, "💬" to messages,
             "📸" to albums, "💶" to {
                 // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
                 if (!compte.connecte) onExpenses()
@@ -252,6 +271,7 @@ class BuddiesPanel(
     // ---------- écrans ----------
     private fun afficher() {
         col.removeAllViews(); pied.removeAllViews()
+        if (vue !is Vue.Conv) { conv?.fermer(); conv = null }
         if (!compte.connecte) {
             buddies.oublierSiDeconnecte()
             entete("Buddies", retour = false)
@@ -277,6 +297,8 @@ class BuddiesPanel(
             is Vue.Comptes -> comptes(v.groupe)
             is Vue.Count -> buddies.sorties().firstOrNull { it.id == v.id }?.let { count(it, v.groupe) } ?: run { vue = Vue.Comptes(v.groupe); afficher() }
             is Vue.Dodo -> buddies.sorties().firstOrNull { it.id == v.id }?.let { dodo(it, v.groupe) } ?: run { vue = Vue.Liste; afficher() }
+            is Vue.Conversations -> conversations(v.groupe, gs)
+            is Vue.Conv -> gs.firstOrNull { it.id == v.id }?.let { conversation(it) } ?: run { vue = Vue.Liste; afficher() }
             is Vue.UneDepense -> buddies.sorties().firstOrNull { it.id == v.id }
                 ?.let { uneDepense(it, v.depense?.let { d -> buddies.depenses().firstOrNull { it.id == d } }, v.groupe) } ?: run { vue = Vue.Comptes(v.groupe); afficher() }
         }
@@ -680,9 +702,53 @@ class BuddiesPanel(
     private fun ligneCourte(dt: Pair<String, String>) = if (dt.first == dt.second) "${jourSemaine(dt.first)} ${jourN(dt.first)} ${moisAbr[mois(dt.first)]}"
         else "${jourN(dt.first)}–${jourN(dt.second)} ${moisAbr[mois(dt.second)]}"
     private val moiId get() = buddies.moi ?: "moi"
+    // ---------- 💬 Messagerie (§5.6) ----------
+    private var conv: ConversationVue? = null
+
+    /** La conversation d'un Buddy Group, dans le panneau (celle d'un Buddy Time s'ouvre sur sa carte). */
+    private fun conversation(g: Buddies.Groupe) {
+        entete(g.nom, "💬 ${g.membres.size} buddies", retour = true) { vue = Vue.UnGroupe(g.id); afficher() }
+        val c = conv?.takeIf { it.groupe == g.id } ?: ConversationVue(a, buddies, album, g.id, null, g.membres, col,
+            defiler = { (col.parent as? ScrollView)?.fullScroll(View.FOCUS_DOWN) }, localiser = localiser, dicter = dicter, deposer = null,
+            onPoint = onPoint, onTrace = { onCarte(null, listOf(it)) }).also { conv = it }
+        c.rafraichir()
+        (c.saisie.parent as? android.view.ViewGroup)?.removeView(c.saisie)
+        pied.addView(c.saisie)
+    }
+
+    /** Toutes mes conversations (💬 depuis la liste) : les plus récentes en haut, avec les non lus. */
+    private fun conversations(groupe: String?, gs: List<Buddies.Groupe>) {
+        entete("💬 Messages", retour = true) { vue = groupe?.let { Vue.UnGroupe(it) } ?: Vue.Liste; afficher() }
+        val ms = buddies.messages(); val ts = buddies.traces(); val hs = buddies.hebergements()
+        class C(val id: String, val nom: String, val photo: String?, val membres: List<Buddies.Buddy>, val dernier: Messages.Bulle?, val ouvrir: () -> Unit)
+        val l = (gs.filter { !it.meTime }.map { g -> C(g.id, g.nom, g.photo, g.membres, Messages.fil(g.id, null, ms, ts, hs).lastOrNull()) { vue = Vue.Conv(g.id); afficher() } } +
+            buddies.sorties().filter { it.participants.size > 1 }.map { x -> C(x.id, x.nom, x.photo, x.participants, Messages.fil(null, x.id, ms, ts, hs).lastOrNull()) { onParler(x) } }
+                .filter { it.dernier != null })
+            .sortedByDescending { it.dernier?.quand ?: 0L }
+        if (l.isEmpty()) col.addView(text("Crée un Buddy Group ou un Buddy Time avec des copains : vous pourrez vous écrire ici.", 17f, muted), lp(12))
+        for (c in l) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64); isClickable = true
+            setOnClickListener { c.ouvrir() }
+            addView(visage(c.id, c.nom, c.photo, 48))
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(6), 0)
+                addView(text(c.nom, 17f, bold = true).apply { isSingleLine = true })
+                addView(text(c.dernier?.let { b -> Messages.apercu(b, { id -> c.membres.firstOrNull { it.id == id }?.pseudo ?: "?" }, buddies.moi) }
+                    ?: "${c.membres.size} buddies", 15f, muted).apply { isSingleLine = true })
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            c.dernier?.let { addView(text(Messages.heure(it.quand), 14f, muted)) }
+            val n = buddies.nonLus(c.id, ms)
+            if (n > 0) addView(text("$n", 14f, Color.WHITE, bold = true).apply {
+                gravity = Gravity.CENTER; minWidth = dp(24); setPadding(dp(8), dp(2), dp(8), dp(2))
+                background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(accent) }
+            }, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(6) })
+        }, lp(4))
+    }
+
     private fun groupeCourant(): String? = when (val v = vue) {
         is Vue.UnGroupe -> v.id; is Vue.Albums -> v.groupe; is Vue.UnAlbum -> v.groupe; is Vue.LeCarnet -> v.groupe; is Vue.Ecrire -> v.groupe
         is Vue.Comptes -> v.groupe; is Vue.Count -> v.groupe; is Vue.UneDepense -> v.groupe; is Vue.Dodo -> v.groupe
+        is Vue.Conv -> v.id; is Vue.Conversations -> v.groupe
         else -> bandeCourante()
     }
     private fun bandeCourante(): String? {

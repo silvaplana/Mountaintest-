@@ -170,6 +170,19 @@ class MainActivity : AppCompatActivity() {
     }
     /** 📍 Épingle : localisation (et notification du service) demandées, puis l'épingle s'enfonce. */
     private var epingleApres: Buddies.Sortie? = null
+    /** 💬 « Je suis ici » : la permission demandée, puis la position. */
+    private var positionMessageCb: ((Spot?) -> Unit)? = null
+    private val askPositionMessage = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+        val cb = positionMessageCb; positionMessageCb = null
+        cb?.let { locateOnce(it) }
+    }
+    private fun localiser(cb: (Spot?) -> Unit) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            positionMessageCb = cb
+            askPositionMessage.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        } else locateOnce(cb)
+    }
     private val askEpinglePermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         val x = epingleApres; epingleApres = null
         if (x != null && granted[Manifest.permission.ACCESS_FINE_LOCATION] == true) enfoncerEpingle(x)
@@ -235,6 +248,7 @@ class MainActivity : AppCompatActivity() {
     private val photosLauncher = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { uris ->
         val x = albumSortie ?: return@registerForActivityResult
         albumSortie = null
+        val enMessage = albumMessage; albumMessage = false
         if (uris.isEmpty()) return@registerForActivityResult
         toast("Préparation de ${uris.size} photo${if (uris.size > 1) "s" else ""}…")
         lifecycleScope.launch {
@@ -249,13 +263,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             buddies.deposerPhotos(x.id, l)
+            // 📷 depuis la conversation : chaque photo part aussi en message.
+            if (enMessage) l.forEach { buddies.envoyerMessage(null, x.id, "photo", photo = it.first) }
             if (l.size < uris.size) toast("${uris.size - l.size} photo(s) illisible(s)")
             if (l.isNotEmpty()) toast("${l.size} photo${if (l.size > 1) "s déposées" else " déposée"} : elles partent dès qu'il y a du réseau")
             syncBuddies()
         }
     }
-    private fun deposerPhotos(x: Buddies.Sortie) {
-        albumSortie = x
+    private var albumMessage = false
+    private fun deposerPhotos(x: Buddies.Sortie, message: Boolean = false) {
+        albumSortie = x; albumMessage = message
         photosLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
     private val album by lazy { Album(this, compte).also { buddies.album = it } }
@@ -1321,10 +1338,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<ProfileView>(R.id.trailProfile).onCursor = { showSlopeCursor() }
         findViewById<TextView>(R.id.trailsAttribution).text =
             "Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés (${Trails.OSM_ATTRIBUTION}), " +
-            "et celles que Claude trouve sur le web en points orange, avec le lien de leur page."
+            "et celles trouvées sur le web en points orange, avec le lien de leur page."
         // Mot de passe intégré par la CI : le champ ne sert plus, on le cache.
         if (BuildConfig.IA_MOT_DE_PASSE.isNotEmpty())
-            findViewById<TextView>(R.id.hintIaPassword).text = "Mot de passe IA de secours (vide : celui intégré à l'appli)"
+            findViewById<TextView>(R.id.hintIaPassword).text = "Mot de passe de recherche de secours (vide : celui intégré à l'appli)"
         findViewById<EditText>(R.id.editIaPassword).apply {
             setText(prefs.getString("iaPassword", ""))
             addTextChangedListener(object : TextWatcher {
@@ -1949,10 +1966,10 @@ class MainActivity : AppCompatActivity() {
         webHikes = emptyList(); hikeSel = null; drawWebHikes()
         val password = BuildConfig.IA_MOT_DE_PASSE.ifEmpty { prefs.getString("iaPassword", "").orEmpty() }
         if (password.isEmpty()) {
-            webMessage = "Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous."
+            webMessage = "Pour ajouter les randos trouvées sur le web, saisis le mot de passe de recherche ci-dessous."
             refreshTrails(); return
         }
-        webMessage = "Claude cherche des randos sur le web (1 à 2 minutes)…"
+        webMessage = "Je cherche des randos sur le web (1 à 2 minutes)…"
         refreshTrails()
         webJob = lifecycleScope.launch {
             val t0 = SystemClock.elapsedRealtime()
@@ -1962,7 +1979,7 @@ class MainActivity : AppCompatActivity() {
                 webHikes = res.hikes
                 val n = res.hikes.size; val s = if (n > 1) "s" else ""
                 webMessage = (if (n > 0) "$n rando$s trouvée$s sur le web (points orange). Touche un point pour ouvrir sa page."
-                    else "Claude n'a trouvé aucune page de rando sur cette zone.") + " " + WebHikes.costLine(res.cost, res.cache)
+                    else "Aucune page de rando trouvée sur cette zone.") + " " + WebHikes.costLine(res.cost, res.cache)
             }.onFailure { e ->
                 if (e is kotlinx.coroutines.CancellationException) return@launch
                 webMessage = "Recherche web impossible : ${e.message}"
@@ -3085,7 +3102,10 @@ class MainActivity : AppCompatActivity() {
                     .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Raconte, je t'écoute")) }
                     .onFailure { dicteeCb = null; cb(null) }
             },
-            depart = depart, departAlbum = departAlbum, departCarnet = departCarnet, departCount = departCount, departDodo = departDodo)
+            depart = depart, departAlbum = departAlbum, departCarnet = departCarnet, departCount = departCount, departDodo = departDodo,
+            onParler = { montrerBuddies(it, buddies.traces().filter { t -> t.sortie == it.id }, parler = true) },
+            onPoint = { lon, lat, nom -> closeBuddies(); montrerPoint(lon, lat, nom) },
+            localiser = { cb -> localiser(cb) })
         buddiesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)
@@ -3103,8 +3123,8 @@ class MainActivity : AppCompatActivity() {
      * traces affichées (profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne marchent comme pour les miennes).
      */
     private var carteSortie: View? = null
-    private fun montrerBuddies(sortie: Buddies.Sortie?, traces: List<Buddies.TraceBuddy>) {
-        closeBuddies(); showTraceList(null)
+    private fun montrerBuddies(sortie: Buddies.Sortie?, traces: List<Buddies.TraceBuddy>, parler: Boolean = false) {
+        closeBuddies(); showTraceList(null); montrerPoint(null)
         for (t in traces) {
             val kind = "Partagée par ${t.par.pseudo}"
             if (trails.none { Trails.isMine(it.id) && it.name == t.nom && it.kind == kind }) showMine(t.ligne, false, t.nom, null, kind)
@@ -3120,7 +3140,8 @@ class MainActivity : AppCompatActivity() {
         fermerCarteSortie()
         BandeauSortie.replie = false
         carteSortieId = sortie.id
-        rafraichirCarteSortie()
+        if (parler) ouvrirConversation(sortie)
+        rafraichirCarteSortie(force = true)
         // Pas de trace : la carte se cadre sur les photos.
         val pos = buddies.photos().filter { it.sortie == sortie.id && it.lon != null && it.lat != null }
         if (pts.size < 2 && pos.size >= 2) {
@@ -3130,16 +3151,77 @@ class MainActivity : AppCompatActivity() {
         } else if (pts.size < 2 && pos.size == 1) map?.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos[0].lat!!, pos[0].lon!!), 14.0), 600)
     }
     private var carteSortieId: String? = null
+    // ---------- 💬 Messagerie d'un Buddy Time sur sa carte (écrans 6 et 24) ----------
+    private var conv: ConversationVue? = null
+    private val convFil by lazy { LinearLayout(this).apply { orientation = LinearLayout.VERTICAL } }
+    private val convDefile by lazy { android.widget.ScrollView(this).apply { addView(convFil) } }
+    private fun ouvrirConversation(x: Buddies.Sortie) {
+        if (conv?.sortie?.id == x.id) return
+        conv?.fermer()
+        conv = ConversationVue(this, buddies, album, null, x, x.participants, convFil, defiler = { convDefile.fullScroll(View.FOCUS_DOWN) },
+            localiser = { cb -> localiser(cb) }, dicter = { cb -> dicter(cb) }, deposer = { deposerPhotos(x, message = true) },
+            onPoint = { lon, lat, nom -> BandeauSortie.replie = true; rafraichirCarteSortie(force = true); montrerPoint(lon, lat, nom) },
+            onTrace = { t ->
+                BandeauSortie.replie = true; rafraichirCarteSortie(force = true)
+                val b = LatLngBounds.Builder(); t.ligne.forEach { b.include(LatLng(it.lat, it.lon)) }
+                if (t.ligne.size >= 2) map?.easeCamera(CameraUpdateFactory.newLatLngBounds(b.build(), 90), 600)
+            },
+            onHebergement = { h ->
+                if (h.lon != null && h.lat != null) { BandeauSortie.replie = true; rafraichirCarteSortie(force = true); montrerPoint(h.lon, h.lat, h.nom) }
+                else { fermerCarteSortie(); openBuddies(x.groupe, departDodo = x.id) }
+            },
+            onPhoto = { fermerCarteSortie(); openBuddies(x.groupe, departAlbum = x.id) })
+    }
+    private fun fermerConversation() { conv?.fermer(); conv = null; montrerPoint(null) }
+    /** Dictée d'Android : rend le texte transcrit, ou null (annulée, indisponible). */
+    private fun dicter(cb: (String?) -> Unit) {
+        dicteeCb = cb
+        runCatching { dicteeLauncher.launch(Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)) }
+            .onFailure { dicteeCb = null; cb(null) }
+    }
+    /** 📍 Le point d'un message (« Julie est ici ») ou un hébergement, montré sur la carte ; null l'enlève. */
+    private fun montrerPoint(lon: Double?, lat: Double? = null, nom: String = "") {
+        val style = map?.style ?: return
+        if (style.getSource(SRC_BD_POINT) == null) {
+            style.addSource(GeoJsonSource(SRC_BD_POINT))
+            style.addLayer(org.maplibre.android.style.layers.SymbolLayer(SRC_BD_POINT, SRC_BD_POINT).withProperties(
+                org.maplibre.android.style.layers.PropertyFactory.iconImage("bd-point"),
+                org.maplibre.android.style.layers.PropertyFactory.iconAnchor("bottom"),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)))
+        }
+        if (lon == null || lat == null) { style.getSourceAs<GeoJsonSource>(SRC_BD_POINT)?.setGeoJson(FeatureCollection.fromFeatures(emptyList())); return }
+        val dd = resources.displayMetrics.density
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textSize = 15 * dd; typeface = android.graphics.Typeface.DEFAULT_BOLD }
+        val t = "📍 $nom"
+        val w = p.measureText(t) + 20 * dd; val h = 34 * dd
+        style.addImage("bd-point", android.graphics.Bitmap.createBitmap(w.toInt(), (h + 6 * dd).toInt(), android.graphics.Bitmap.Config.ARGB_8888).also { b ->
+            val c = android.graphics.Canvas(b)
+            val f = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; setShadowLayer(3 * dd, 0f, 1 * dd, 0x55000000) }
+            c.drawRoundRect(android.graphics.RectF(2 * dd, 2 * dd, w - 2 * dd, h), 12 * dd, 12 * dd, f)
+            p.color = Color.parseColor("#1D2421")
+            c.drawText(t, 10 * dd, h / 2 + 2 * dd - (p.ascent() + p.descent()) / 2, p)
+        })
+        style.getSourceAs<GeoJsonSource>(SRC_BD_POINT)?.setGeoJson(Feature.fromGeometry(Point.fromLngLat(lon, lat)))
+        map?.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), maxOf(map?.cameraPosition?.zoom ?: 14.0, 14.0)), 600)
+    }
+
     /** Bandeau et photos du Buddy Time sur la carte, redessinés quand l'album change. */
-    private fun rafraichirCarteSortie() {
+    private fun rafraichirCarteSortie(force: Boolean = false) {
         val id = carteSortieId ?: return
         val sortie = buddies.sorties().firstOrNull { it.id == id } ?: run { fermerCarteSortie(); return }
         val traces = buddies.traces().filter { it.sortie == id }
         val photos = buddies.photos().filter { it.sortie == id }
         val racine = findViewById<android.widget.FrameLayout>(R.id.root)
-        carteSortie?.let { racine.removeView(it) }
         val reperes = Positions.reperes(sortie, buddies.positions(), buddies.moi)
         val hebergements = buddies.hebergements().filter { it.sortie == id }
+        // Conversation ouverte : le bandeau reste le même (on ne perd pas ce qu'on tape), seule la carte se redessine.
+        if (conv != null && carteSortie != null && !force) { dessinerPhotos(photos); dessinerPositions(reperes); dessinerHebergements(hebergements); return }
+        carteSortie?.let { racine.removeView(it) }
+        val ms = buddies.messages()
         val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom, photos, album,
             depense = buddies.depenses().filter { it.sortie == id }.sumOf { it.montant },
             reperes = reperes, epingle = buddies.monEpingle(),
@@ -3150,6 +3232,11 @@ class MainActivity : AppCompatActivity() {
             onAlbum = { fermerCarteSortie(); openBuddies(sortie.groupe, departAlbum = sortie.id) },
             onCarnet = { fermerCarteSortie(); openBuddies(sortie.groupe, departCarnet = sortie.id) },
             onCount = { fermerCarteSortie(); openBuddies(sortie.groupe, departCount = sortie.id) },
+            conversation = conv, filConv = convDefile, nonLus = buddies.nonLus(id, ms),
+            apercu = Messages.apercu(Messages.fil(null, id, ms, traces, hebergements).lastOrNull(),
+                { q -> sortie.participants.firstOrNull { it.id == q }?.pseudo ?: "?" }, buddies.moi),
+            onParler = { ouvrirConversation(sortie); rafraichirCarteSortie(force = true) },
+            onFinParler = { fermerConversation(); rafraichirCarteSortie(force = true) },
             onAjouter = { deposerPhotos(sortie) }) { fermerCarteSortie(); openBuddies(sortie.groupe) }
         carteSortie = v
         racine.addView(v)
@@ -3158,6 +3245,7 @@ class MainActivity : AppCompatActivity() {
         dessinerHebergements(hebergements)
     }
     private fun fermerCarteSortie() {
+        fermerConversation()
         carteSortie?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
         carteSortie = null; carteSortieId = null
         dessinerPhotos(emptyList())
@@ -3444,7 +3532,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnQuickForests to "Forêts", R.id.btnSkiText to (when (activity) { "vtt" -> "Itinéraires VTT"; "rando" -> "Randos"; else -> "Sorties ski" } + " · appui long : " + activityIcon(nextActivity(activity))),
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
-            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Buddies", R.id.btnMoi to "Moi · mon compte",
+            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Buddies", R.id.btnMoi to "Moi · mon compte",
         )
         val d = resources.displayMetrics.density
         val overlay = android.widget.FrameLayout(this).apply {
@@ -3575,6 +3663,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_BD_PHOTOS = "bd-photos"
         private const val SRC_BD_POSITIONS = "bd-positions"
         private const val SRC_BD_HEBERG = "bd-hebergements"
+        private const val SRC_BD_POINT = "bd-point"
         private const val SRC_TOPOS = "topos-src"
         private const val SRC_TOPO_LINE = "topo-line-src"
         private const val LAYER_TOPOS = "topos"

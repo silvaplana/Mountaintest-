@@ -365,7 +365,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         onClick={() => { if (wx.current.long) { wx.current.long = false; return; } onWeather(!weather); }}>🌦</button>
       <button aria-label="Météo montagne" data-help="Météo montagne" {...lp('weatherMountain')} onClick={() => openWeather(true)}>🏔</button>
       <button aria-label="Préparer un voyage en voiture" data-help="Voyage en voiture (km, coût, péages)" {...lp('travel')} onClick={onTravel}>🚗</button>
-      <button aria-label="Trouver un hébergement" data-help="Hébergement (meilleurs prix, IA)" {...lp('lodging')} onClick={onLodging}>🏨</button>
+      <button aria-label="Trouver un hébergement" data-help="Hébergement (meilleurs prix)" {...lp('lodging')} onClick={onLodging}>🏨</button>
       <button aria-label="Partage des frais" data-help="Partage des frais (façon Tricount)" {...lp('expenses')} onClick={onExpenses}><ShareIcon /></button>
       </>}
     </div>

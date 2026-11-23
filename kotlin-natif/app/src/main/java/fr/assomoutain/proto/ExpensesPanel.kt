@@ -292,7 +292,7 @@ class ExpensesPanel(
         photo.setOnClickListener {
             takePhoto { bytes ->
                 if (bytes == null) return@takePhoto
-                photo.isEnabled = false; photo.text = "Claude lit la facture…"
+                photo.isEnabled = false; photo.text = "Je lis la facture…"
                 a.lifecycleScope.launch {
                     runCatching { withContext(Dispatchers.IO) {
                         Travel.post("facture", JSONObject().put("image", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)).put("type", "image/jpeg"), password)

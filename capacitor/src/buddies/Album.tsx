@@ -14,7 +14,7 @@ const JOURS = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric
 const jourLong = (j: string) => JOURS.format(new Date(`${j}T12:00:00`));
 
 /** Choisir des photos du téléphone, les réduire, les garder et les annoncer (elles partent au retour du réseau). */
-export async function deposer(x: Sortie, files: FileList | File[], onToast: (m: string) => void) {
+export async function deposer(x: Sortie, files: FileList | File[], onToast: (m: string) => void): Promise<string[]> {
   const l: { photo: string; prise_le: string; lon: number | null; lat: number | null }[] = [];
   for (const f of [...files]) {
     if (!f.type.startsWith('image/')) continue;
@@ -27,6 +27,7 @@ export async function deposer(x: Sortie, files: FileList | File[], onToast: (m: 
   }
   deposerPhotos(x.id, l);
   if (l.length) onToast(navigator.onLine ? `${l.length} photo${l.length > 1 ? 's' : ''} déposée${l.length > 1 ? 's' : ''}` : `${l.length} photo${l.length > 1 ? 's partiront' : ' partira'} au retour du réseau 🕓`);
+  return l.map((y) => y.photo);
 }
 
 /** Bouton « 📷 … » qui ouvre le choix de photos du téléphone. */

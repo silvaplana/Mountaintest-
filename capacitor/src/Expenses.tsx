@@ -187,7 +187,7 @@ function ExpenseForm({ g, initial, onSave, onCancel, onDelete, password }: {
     <div className="expenses">
       <div className="xp-head"><button onClick={onCancel}>Annuler</button><b>{initial ? 'Modifier la dépense' : 'Nouvelle dépense'}</b><span /></div>
       <input ref={file} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void readBill(f); }} />
-      <button disabled={reading || !password} onClick={() => file.current?.click()}>{reading ? 'Claude lit la facture…' : '📷 Photo de la facture (remplit titre et montant)'}</button>
+      <button disabled={reading || !password} onClick={() => file.current?.click()}>{reading ? 'Je lis la facture…' : '📷 Photo de la facture (remplit titre et montant)'}</button>
       <label className="field">Titre<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ex. Courses, essence, gîte…" /></label>
       <label className="field">Montant (€)<input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></label>
       <label className="field">Payé par<select value={by} onChange={(e) => setBy(e.target.value)}>

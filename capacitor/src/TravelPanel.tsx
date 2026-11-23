@@ -159,10 +159,10 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
           ))}
         </ul>
         <button className="primary" disabled={!!busy || !password} onClick={() => void computeCost()}>
-          {busy === 'cout' ? `Claude calcule le coût… ${elapsed} s` : 'Calculer le coût (IA)'}</button>
-        {busy === 'cout' && <p className="hint">Claude cherche le prix du carburant et des péages sur le web : 30 s à 2 min.</p>}
+          {busy === 'cout' ? `Je calcule le coût… ${elapsed} s` : 'Calculer le coût'}</button>
+        {busy === 'cout' && <p className="hint">Je cherche le prix du carburant et des péages sur le web : 30 s à 2 min.</p>}
       </>}
-      {!password && <p className="hint">Mot de passe IA manquant (onglet Randos) : la recherche de voiture et le coût sont indisponibles.</p>}
+      {!password && <p className="hint">Mot de passe de recherche manquant (onglet Randos) : la recherche de voiture et le coût sont indisponibles.</p>}
       {error && <p className="error">{error}</p>}
       {cost && <div className="cost">
         <p className="total">{euros(cost.total)}</p>

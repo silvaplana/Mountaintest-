@@ -18,7 +18,8 @@ import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte, useCompte } from './Account';
 import { connecte } from './compte/auth';
-import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type DepartBuddies } from './buddies/Buddies';
+import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
+import { PointSurCarte } from './buddies/Messages';
 import { useEpingle } from './buddies/Positions';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
 import { LodgingPanel, type Lodging } from './Lodging';
@@ -118,7 +119,9 @@ export function App() {
   /** ‹ depuis la carte d'un Buddy Time : on revient sur son Buddy Group. */
   const [buddiesDepart, setBuddiesDepart] = useState<DepartBuddies | undefined>();
   /** Un Buddy Time ouvert sur la carte (écran 4). */
-  const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[] } | null>(null);
+  const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[]; parler?: boolean } | null>(null);
+  // 📍 Le point d'un message d'un Buddy Group (« Julie est ici »), montré sur la carte.
+  const [pointBuddy, setPointBuddy] = useState<CarteBuddies['point'] | null>(null);
   /** Panneau de partage d'une trace (écran 22). */
   const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void; hebergement?: Lodging } | null>(null);
   const buddiesEtat = useBuddies();
@@ -642,17 +645,17 @@ export function App() {
     webAbort.current?.abort();
     setWebHikes([]); setHikeSel(null);
     const pwd = IA_MOT_DE_PASSE_INTEGRE || iaPassword;
-    if (!pwd) { setWebMsg('Pour ajouter les randos trouvées sur le web par Claude, saisis le mot de passe IA ci-dessous.'); return; }
+    if (!pwd) { setWebMsg('Pour ajouter les randos trouvées sur le web, saisis le mot de passe de recherche ci-dessous.'); return; }
     const ctrl = new AbortController();
     webAbort.current = ctrl;
-    setWebMsg('Claude cherche des randos sur le web (1 à 2 minutes)…');
+    setWebMsg('Je cherche des randos sur le web (1 à 2 minutes)…');
     const t0 = performance.now();
     try {
       const r = await fetchWebHikes(b, pwd, ctrl.signal);
       bench('web-hikes', { found: r.hikes.length, cache: r.cache, ms: Math.round(performance.now() - t0) });
       setWebHikes(r.hikes);
       setWebMsg((r.hikes.length ? `${r.hikes.length} rando${r.hikes.length > 1 ? 's' : ''} trouvée${r.hikes.length > 1 ? 's' : ''} sur le web (points orange). Touche un point pour ouvrir sa page.`
-        : 'Claude n’a trouvé aucune page de rando sur cette zone.') + ' ' + costLine(r.cost, r.cache));
+        : 'Aucune page de rando trouvée sur cette zone.') + ' ' + costLine(r.cost, r.cache));
     } catch (e) {
       if (!ctrl.signal.aborted) setWebMsg(`Recherche web impossible : ${(e as Error).message}`);
     }
@@ -788,9 +791,10 @@ export function App() {
    * 👥 Un Buddy Time sur la carte (écran 4) ou une trace partagée dans un groupe : ses traces s'ajoutent à mes
    * traces affichées (profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne marchent comme pour les miennes).
    */
-  function montrerBuddies(x: { sortie?: Sortie; traces: TraceBuddy[] }) {
+  function montrerBuddies(x: CarteBuddies) {
     setBuddies(false); setBuddiesDepart(undefined); setTraceList(null);
-    setCarteSortie(x.sortie ? { sortie: x.sortie, traces: x.traces } : null);
+    setCarteSortie(x.sortie ? { sortie: x.sortie, traces: x.traces, parler: x.parler } : null);
+    setPointBuddy(x.point ?? null);
     const pts: LonLat[] = [];
     for (const t of x.traces) {
       const line = t.ligne.map(([lon, lat]) => ({ lon, lat }));
@@ -1172,7 +1176,8 @@ export function App() {
       {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onCarte={montrerBuddies} />}
-      {carteSortie && !buddies && !drawing && <BandeauSortie x={carteSortie.sortie} traces={carteSortie.traces}
+      {pointBuddy && !buddies && <PointSurCarte map={map} p={pointBuddy} />}
+      {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}
         onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }}
         onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
@@ -1268,7 +1273,7 @@ export function App() {
 
         {open && tab === 'randos' && (
           <div className="pane">
-            <p className="hint">Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés ({OSM_ATTRIBUTION}), et celles que Claude trouve sur le web en points orange, avec le lien de leur page.</p>
+            <p className="hint">Encadre une zone : les randos balisées d'OpenStreetMap s'affichent en tracés ({OSM_ATTRIBUTION}), et celles trouvées sur le web en points orange, avec le lien de leur page.</p>
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('randos'); setFraming(true); setOpen(false); }}>Encadrer une zone</button>
               <button disabled={!map} onClick={startDrawing}>✏ Tracer au doigt</button>
@@ -1339,7 +1344,7 @@ export function App() {
               webAbort.current?.abort();
               setTrails([]); setFrame(null); void selectTrail(null); setTrailsMsg(''); setWebHikes([]); setHikeSel(null); setWebMsg('');
             }}>Effacer les randos de la carte</button>}
-            {<label className="field">{IA_MOT_DE_PASSE_INTEGRE ? 'Mot de passe IA de secours (vide : celui intégré à l’appli)' : 'Mot de passe IA (recherche des randos sur le web par Claude)'}
+            {<label className="field">{IA_MOT_DE_PASSE_INTEGRE ? 'Mot de passe de recherche de secours (vide : celui intégré à l’appli)' : 'Mot de passe de recherche (randos sur le web, prix, hébergements)'}
               <input type="password" value={iaPassword} onChange={(e) => void saveIaPassword(e.target.value)} autoCapitalize="off" autoCorrect="off" />
             </label>}
           </div>

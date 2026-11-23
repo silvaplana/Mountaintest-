@@ -28,6 +28,9 @@ object BandeauSortie {
             photos: List<Buddies.PhotoBuddy>, album: Album, depense: Int, reperes: List<Positions.Repere>, epingle: Buddies.Position?,
             hebergements: List<Buddies.Hebergement>, onDodo: () -> Unit,
             onEnfoncer: () -> Unit, onRelever: () -> Unit, onRedessiner: () -> Unit, onAlbum: () -> Unit, onCarnet: () -> Unit, onCount: () -> Unit,
+            /** 💬 Écrans 6 et 24 : la conversation ouverte (son fil défile dans `filConv`), à la place du bandeau. */
+            conversation: ConversationVue? = null, filConv: View? = null, nonLus: Int = 0, apercu: String = "",
+            onParler: () -> Unit = {}, onFinParler: () -> Unit = {},
             onAjouter: () -> Unit, onRetour: () -> Unit): View {
         val d = a.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
@@ -62,7 +65,8 @@ object BandeauSortie {
             addView(LinearLayout(a).apply {
                 orientation = LinearLayout.VERTICAL; setPadding(dp(8), 0, 0, 0)
                 addView(text(x.nom, 17f, bold = true).apply { isSingleLine = true })
-                addView(text(if (positions) "📍 ${if (visibles == 0) "aucun" else "$visibles"} ${if (visibles > 1) "buddies visibles" else "buddy visible"}"
+                addView(text(if (conversation != null) "💬 ${x.participants.size} ${if (x.participants.size > 1) "buddies" else "buddy"}"
+                    else if (positions) "📍 ${if (visibles == 0) "aucun" else "$visibles"} ${if (visibles > 1) "buddies visibles" else "buddy visible"}"
                     else dates + if (x.lieu.isNotEmpty()) " · ${x.lieu}" else "", 14f, muted).apply { isSingleLine = true })
             })
         }, FrameLayout.LayoutParams(-1, -2, Gravity.TOP).apply { setMargins(dp(10), haut + dp(10), dp(72), 0) })
@@ -86,6 +90,18 @@ object BandeauSortie {
                 addView(chiffre("💶 " + if (depense > 0) BuddyCount.euros(depense) else "＋", if (depense > 0) "à ${x.participants.size}" else "Buddy count").apply {
                     isClickable = true; setOnClickListener { onCount() }; (getChildAt(0) as TextView).apply { textSize = 18f; isSingleLine = true }
                 }, LinearLayout.LayoutParams(0, -2, 1.2f))
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+            // 💬 La conversation du Buddy Time (écran 6).
+            if (x.participants.size > 1) addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL; isClickable = true; minimumHeight = dp(56)
+                setOnClickListener { onParler() }
+                addView(text("💬", 28f), LinearLayout.LayoutParams(dp(44), -2))
+                addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(text("Messagerie" + if (nonLus > 0) " · $nonLus nouveau${if (nonLus > 1) "x" else ""}" else "", 17f, bold = true))
+                    addView(text(apercu.ifEmpty { "écrire aux buddies" }, 15f, muted).apply { maxLines = 2 })
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text("›", 26f, muted))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
             // 🏨 Où on dort ? (écran 9) : avant et pendant le Buddy Time.
             if (x.fin >= auj) addView(LinearLayout(a).apply {
@@ -203,9 +219,34 @@ object BandeauSortie {
                 else "Ta position part toutes les 5 minutes, jusqu'à ce soir, seulement vers les buddies de ce Buddy Time.", 14f, muted).apply {
                 setPadding(0, dp(8), 0, 0) })
         }
+        // 💬 Écran 6 (déplié) et 24 (replié : les derniers mots, la carte au-dessus).
+        val parler = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            if (conversation != null && filConv != null) {
+                addView(LinearLayout(a).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(text("💬 Messagerie", 22f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(text("Retour", 16f, accent, bold = true).apply {
+                        gravity = Gravity.CENTER; minHeight = dp(48); setPadding(dp(8), 0, dp(4), 0)
+                        setOnClickListener { onFinParler() }
+                    })
+                })
+                (filConv.parent as? android.view.ViewGroup)?.removeView(filConv)
+                addView(filConv, LinearLayout.LayoutParams(-1, (a.resources.displayMetrics.heightPixels * 0.42).toInt()))
+                (conversation.saisie.parent as? android.view.ViewGroup)?.removeView(conversation.saisie)
+                addView(conversation.saisie)
+            }
+        }
         fun montrer() {
-            contenu.visibility = if (replie || positions) View.GONE else View.VISIBLE
-            bande.visibility = if (!replie && positions) View.VISIBLE else View.GONE
+            val msg = conversation != null
+            contenu.visibility = if (replie || positions || msg) View.GONE else View.VISIBLE
+            bande.visibility = if (!replie && positions && !msg) View.VISIBLE else View.GONE
+            parler.visibility = if (msg) View.VISIBLE else View.GONE
+            if (msg) {
+                conversation!!.court = replie
+                parler.getChildAt(0)?.visibility = if (replie) View.GONE else View.VISIBLE
+                filConv?.layoutParams = LinearLayout.LayoutParams(-1, if (replie) -2 else (a.resources.displayMetrics.heightPixels * 0.42).toInt())
+            }
         }
         montrer()
         racine.addView(LinearLayout(a).apply {
@@ -219,6 +260,7 @@ object BandeauSortie {
             setOnClickListener { replie = !replie; montrer() }
             addView(contenu)
             addView(bande)
+            addView(parler)
         }, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         return racine
     }
