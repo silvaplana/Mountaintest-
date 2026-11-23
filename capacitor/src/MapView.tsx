@@ -39,6 +39,10 @@ export interface MapViewProps {
   slopeTags?: { lon: number; lat: number; deg: number; text: string }[];
   /** 🚵 Type de chemin le long de la trace choisie (mode VTT) : un bout de trait par portion, de sa couleur. */
   wayLines?: { type: WayType; gr: boolean; coords: [number, number][] }[];
+  /** 🥾 / 🚵 Itinéraires Camptocamp : un point au départ de chacun, et le tracé des plus proches (façon Komoot). */
+  c2cPoints?: { id: number; lon: number; lat: number }[];
+  c2cLines?: { id: number; line: { lon: number; lat: number }[] }[];
+  onC2cClick?: (id: number) => void;
   /** Randos trouvées sur le web par Claude : un point par rando, celle choisie en surbrillance. */
   webHikes: WebHike[];
   selectedHike: number | null;
@@ -94,6 +98,8 @@ export function MapView(props: MapViewProps) {
   onTrailClick.current = props.onTrailClick;
   const onHikeClick = useRef(props.onHikeClick);
   onHikeClick.current = props.onHikeClick;
+  const onC2cClick = useRef(props.onC2cClick);
+  onC2cClick.current = props.onC2cClick;
   const onForestClick = useRef(props.onForestClick);
   onForestClick.current = props.onForestClick;
   const onSkiClick = useRef(props.onSkiClick);
@@ -123,7 +129,7 @@ export function MapView(props: MapViewProps) {
         version: 8,
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
-          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
+          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
         layers: [
@@ -139,6 +145,10 @@ export function MapView(props: MapViewProps) {
           { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': 0.75 } },
           // Couche invisible plus large : le doigt n'a pas besoin de tomber pile sur le trait.
           { id: 'trails-hit', type: 'line', source: 'trails', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
+          { id: 'c2c-lines-casing', type: 'line', source: 'c2cLines', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 5 } },
+          { id: 'c2c-lines', type: 'line', source: 'c2cLines', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00897b', 'line-width': 3 } },
+          { id: 'c2c-lines-hit', type: 'line', source: 'c2cLines', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
+          { id: 'c2c', type: 'circle', source: 'c2c', paint: { 'circle-radius': 6, 'circle-color': '#00897b', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } },
           { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8 } },
           { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
           { id: 'way-types', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
@@ -188,6 +198,10 @@ export function MapView(props: MapViewProps) {
     m.once('idle', () => {
       metrics.firstMapRenderMs = Math.round(performance.now() - metrics.appStart);
       bench('startup', { startup: 'map_idle', ms: metrics.firstMapRenderMs });
+    });
+    for (const l of ['c2c', 'c2c-lines-hit']) m.on('click', l, (e) => {
+      const id = e.features?.[0]?.properties?.id;
+      if (id != null) onC2cClick.current?.(Number(id));
     });
     m.on('click', 'web-hikes', (e) => {
       const i = e.features?.[0]?.properties?.i;
@@ -287,6 +301,15 @@ export function MapView(props: MapViewProps) {
       ['case', ['==', ['get', 'i'], props.selectedHike ?? -1], '#7b3fe4', '#f28c28']);
     m.setPaintProperty('web-hikes', 'circle-radius', ['case', ['==', ['get', 'i'], props.selectedHike ?? -1], 11, 8]);
   }, [props.webHikes, props.selectedHike, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!;
+    (m.getSource('c2c') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.c2cPoints ?? []).map((p) => ({
+      type: 'Feature', properties: { id: p.id }, geometry: { type: 'Point', coordinates: [p.lon, p.lat] } })) });
+    (m.getSource('c2cLines') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.c2cLines ?? []).map((l) => ({
+      type: 'Feature', properties: { id: l.id }, geometry: { type: 'LineString', coordinates: l.line.map((p) => [p.lon, p.lat]) } })) });
+  }, [props.c2cPoints, props.c2cLines, ready]);
 
   useEffect(() => {
     if (!ready) return;

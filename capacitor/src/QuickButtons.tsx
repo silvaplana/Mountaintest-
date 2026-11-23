@@ -1,3 +1,4 @@
+import { ACTIVITY_ICON, NEXT_ACTIVITY, type Activity } from './activity';
 import { useEffect, useRef, useState } from 'react';
 import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
@@ -39,8 +40,8 @@ export interface QuickProps {
   compte: 'ok' | 'reconnecter' | 'aucun';
   /** ⛷ 💬 : question en texte sur les sorties skitour. */
   onSkiText: () => void;
-  /** ⛷ ski de rando / 🚵 VTT : appui long sur le bouton pour basculer ; en 🚵, toucher cherche les circuits VTT de l'écran. */
-  activity: 'ski' | 'vtt'; onActivity: (a: 'ski' | 'vtt') => void; onVtt: () => void;
+  /** ⛷ ski de rando / 🚵 VTT / 🥾 rando : appui long sur le bouton pour passer au suivant ; en 🚵 et 🥾, toucher ouvre les itinéraires de l'écran. */
+  activity: Activity; onActivity: (a: Activity) => void; onTopos: () => void;
   /** Météo posée sur la carte (icône 🌦) ; appui long : ouvre l'appli Météo-France. */
   weather: boolean; onWeather: (on: boolean) => void;
   /** ⑂ Écran rallumé avant les carrefours pendant le suivi d'une trace (à gauche de 👖). */
@@ -50,6 +51,8 @@ export interface QuickProps {
   /** Trace commencée : pastille sur ✏ (maquette B), verte ▶ en cours, orange ⏸ en pause. */
   traceState: 'none' | 'run' | 'pause';
 }
+
+const ACTIVITY_LABEL: Record<Activity, string> = { ski: 'Sorties ski', vtt: 'Itinéraires VTT', rando: 'Randos' };
 
 /** Icône « double tap pour allumer l'écran » (maquette B) : un doigt qui tape, deux ondes, « ×2 » en rouge. Même dessin côté Kotlin : ic_double_tap.xml. */
 export const DoubleTapIcon = ({ size = 34 }: { size?: number }) => (
@@ -101,7 +104,7 @@ const MODE_KEY = 'iconesMode';
 /** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
 type IconsMode = 0 | 1 | 2 | 3;
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onAccount, compte, onSkiText, activity, onActivity, onVtt, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, onTravel, onExpenses, onLodging, onAccount, compte, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
   const [mode, setModeState] = useState<IconsMode>(() => {
     try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
@@ -242,7 +245,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
     };
   };
   /** Appui long qui bascule ⛷ / 🚵 au lieu d'ouvrir la bulle d'aide. */
-  const lpSwitch = (to: 'ski' | 'vtt') => ({
+  const lpSwitch = (to: Activity) => ({
     ...lp('skiText'),
     onPointerDown: () => {
       if (tipPress.current.timer) clearTimeout(tipPress.current.timer);
@@ -337,12 +340,10 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       </div>
       {/* ⛷ : la liste « Sorties ski » ; sa carte s'ouvre avec 🗺 à droite du titre. */}
-      {/* Appui long : bascule ⛷ ski de rando ↔ 🚵 VTT (demande de Seb), au lieu de la bulle d'aide. */}
-      {activity === 'vtt'
-        ? <button aria-label="Circuits VTT de l'écran (appui long : ski de rando)" data-help="Circuits VTT · appui long : ⛷ ski" {...lpSwitch('ski')}
-            onClick={() => { setPairOpen(null); onVtt(); }}>🚵</button>
-        : <button aria-label="Sorties ski (skitour.fr) (appui long : VTT)" data-help="Sorties ski · appui long : 🚵 VTT" {...lpSwitch('vtt')}
-            onClick={() => { setPairOpen(null); onSkiText(); }}>⛷</button>}
+      {/* Appui long : ⛷ ski de rando → 🚵 VTT → 🥾 rando → ⛷ (demande de Seb), au lieu de la bulle d'aide. */}
+      <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : ${ACTIVITY_LABEL[NEXT_ACTIVITY[activity]]})`}
+        data-help={`${ACTIVITY_LABEL[activity]} · appui long : ${ACTIVITY_ICON[NEXT_ACTIVITY[activity]]}`} {...lpSwitch(NEXT_ACTIVITY[activity])}
+        onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
       </>}
       {(show === 2 || help) && <>
       {/* 👥 Groupes et compte : bouton important, en haut de la seconde barre (demande de Seb). */}
