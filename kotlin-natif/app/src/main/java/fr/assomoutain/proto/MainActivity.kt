@@ -3012,10 +3012,10 @@ class MainActivity : AppCompatActivity() {
         closeTravel(); sheetOpen = false; refreshTabs()
         val password = listOf(BuildConfig.IA_MOT_DE_PASSE, prefs.getString("iaPassword", "").orEmpty()).filter { it.isNotEmpty() }.joinToString("\n")
         val p = LodgingPanel(this, prefs, password, onProposer = { h ->
-            SharePanel.montrer(this, compte, buddies, h.nom, emptyList(), { syncBuddies() }, {
+            SharePanel.montrer(this, compte, buddies, h.nom, emptyList(), { syncBuddies() }, hebergement = h) {
                 startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                     .putExtra(Intent.EXTRA_TEXT, listOf(h.nom, h.adresse, h.url).filter { it.isNotEmpty() }.joinToString("\n")), h.nom))
-            }, hebergement = h)
+            }
         }) { closeLodging() }
         lodgingPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)

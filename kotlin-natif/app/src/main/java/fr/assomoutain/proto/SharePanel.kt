@@ -23,8 +23,8 @@ import androidx.appcompat.app.AppCompatActivity
  */
 object SharePanel {
     /** hebergement : un hébergement trouvé (écran 23), proposé dans les Buddy Times choisis où je pars (pas de groupe). */
-    fun montrer(a: AppCompatActivity, compte: Compte, buddies: Buddies, nom: String, ligne: List<LonLat>, apres: () -> Unit, ailleurs: () -> Unit,
-                hebergement: Lodging? = null) {
+    fun montrer(a: AppCompatActivity, compte: Compte, buddies: Buddies, nom: String, ligne: List<LonLat>, apres: () -> Unit,
+                hebergement: Lodging? = null, ailleurs: () -> Unit) {
         val d = a.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
         val accent = Color.parseColor("#2F6F4F")
