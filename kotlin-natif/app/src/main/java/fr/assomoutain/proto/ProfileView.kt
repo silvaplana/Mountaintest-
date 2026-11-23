@@ -61,6 +61,16 @@ class ProfileView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? =
         pathEffect = DashPathEffect(floatArrayOf(4 * density, 3 * density), 0f)
     }
 
+    fun setData(segments: List<List<Pair<LonLat, Double?>>>?) {
+        if (segments === source) return // même rando : on garde le curseur
+        source = segments
+        profile = segments?.let { ProfileData.build(it) }?.takeIf { it.size >= 2 && it.total > 0 }
+        cursor = null
+        offset = 0f
+        requestLayout()
+        invalidate()
+    }
+
     /** Échelle en dp (comme le px CSS côté Capacitor), puis convertie en pixels. */
     private fun scaleFor(w: Int): ProfileScale? {
         val p = profile ?: return null
