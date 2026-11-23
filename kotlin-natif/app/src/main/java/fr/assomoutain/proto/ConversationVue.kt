@@ -125,7 +125,13 @@ class ConversationVue(
             val r = withContext(Dispatchers.IO) { runCatching { Bud.demander(Bud.motDePasse(), question, ctx) } }
             budPense = false
             r.onSuccess { x ->
-                if (x.texte.isNotBlank()) buddies.envoyerMessage(groupe, sortie?.id, texte = x.texte, bud = true)
+                // Ce que je lui ai demandé de faire (dépense, Buddy Time, ma dispo) : fait en mon nom, « Annuler » sous sa bulle.
+                val g = buddies.groupes().firstOrNull { it.id == (sortie?.groupe ?: groupe) }
+                val auj = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+                val (faites, refus) = Bud.agir(buddies, x.actions, g, sortie, moi, auj)
+                val id = buddies.envoyerMessage(groupe, sortie?.id, texte = x.texte.ifBlank { "C’est fait." }, bud = true)
+                if (faites.isNotEmpty() && id.isNotEmpty()) buddies.noterActionsBud(id, faites)
+                if (refus.isNotEmpty()) Toast.makeText(a, "Bud n’a pas pu : ${refus.joinToString(" ; ")}", Toast.LENGTH_LONG).show()
                 x.point?.let { buddies.envoyerMessage(groupe, sortie?.id, "point", texte = it.nom, lon = it.lon, lat = it.lat, bud = true) }
                 if (sortie != null) for (h in x.hebergements) buddies.proposerHebergement(listOf(sortie.id), h.lodging, h.lon, h.lat)
                 synchroniser()
@@ -179,11 +185,22 @@ class ConversationVue(
     }
 
     /** 🐻 La bulle de Bud : à part, sombre, à gauche chez tout le monde. */
-    private fun budBulle(t: String, pied: String = "") = LinearLayout(a).apply {
+    private fun budBulle(t: String, pied: String = "", message: String? = null) = LinearLayout(a).apply {
         orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(14), dp(8))
         background = GradientDrawable().apply { cornerRadius = 16 * d; setColor(ink) }
         addView(text("🐻 Bud", 15f, Color.parseColor("#F2C14E"), bold = true))
         addView(text(t, 17f, Color.WHITE))
+        // Ce qu'il a fait à ma demande : la liste et « Annuler » (sur mon téléphone seulement : c'est fait en mon nom).
+        if (message != null) buddies.actionsBud(message)?.let { (faites, annule) ->
+            for (x in faites) addView(text(if (annule) x.texte else "✓ ${x.texte}", 15f, Color.parseColor("#D0FFFFFF")).apply {
+                if (annule) paintFlags = paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+            })
+            if (annule) addView(text("Annulé", 15f, Color.parseColor("#D0FFFFFF")))
+            else addView(text("Annuler", 17f, Color.parseColor("#F2C14E"), bold = true).apply {
+                minHeight = dp(48); gravity = Gravity.CENTER_VERTICAL; isClickable = true
+                setOnClickListener { Bud.annuler(buddies, faites); buddies.noterActionsBud(message, faites, true); synchroniser() }
+            })
+        }
         if (pied.isNotEmpty()) addView(text(pied, 13f, Color.parseColor("#A0FFFFFF")).apply { gravity = Gravity.END }, LinearLayout.LayoutParams(-1, -2))
     }
 
@@ -191,7 +208,7 @@ class ConversationVue(
         if (m.bud) {
             val n = m.texte.ifEmpty { "Bud montre ici" }
             return cote(if (m.nature == "point") carte("📍", n, "🐻 Bud · voir sur la carte") { if (m.lon != null && m.lat != null) onPoint(m.lon, m.lat, n) }
-                else budBulle(m.texte, Messages.heure(m.cree) + if (m.attente) " · 🕓" else ""), false)
+                else budBulle(m.texte, Messages.heure(m.cree) + if (m.attente) " · 🕓" else "", m.id), false)
         }
         val mien = m.par == buddies.moi || m.par == "moi"
         val pied = Messages.heure(m.cree) + if (m.attente) " · 🕓 partira au retour du réseau" else ""

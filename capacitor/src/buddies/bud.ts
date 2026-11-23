@@ -7,7 +7,10 @@ import { Preferences } from '@capacitor/preferences';
 import { IA_MOT_DE_PASSE_INTEGRE, RELAIS_URL } from '../trails/webHikes';
 import { compte, euros } from './count';
 import { longueurTrace, type Dest } from './messages';
-import type { Buddy, Depense, Hebergement, MessageBuddy, Planning, Sortie, TraceBuddy } from './store';
+import {
+  aujourdhui, creerSortie, enregistrerDepense, repondre, retirerDepense, retirerSortie,
+  type ActionBud, type Buddy, type Depense, type Hebergement, type MessageBuddy, type Planning, type Sortie, type TraceBuddy,
+} from './store';
 
 /** « Bud, … », « bud : … », « Les Baladins 👍 Bud, la pente ? » : Bud est appelé. */
 export const pourBud = (texte: string) => /(^|[\s.!?👍])bud\s*[,:]/iu.test(texte) || /^\s*bud\b/i.test(texte);
@@ -71,7 +74,67 @@ export type ReponseBud = {
   texte: string;
   hebergements: { nom: string; type: string; prix_nuit: number | null; adresse: string; url: string; resume: string; lat: number | null; lon: number | null }[];
   point: { nom: string; lat: number; lon: number } | null;
+  actions: ActionDemandee[];
 };
+/** Ce que Bud propose de faire (§7.12) : une dépense, un Buddy Time, ma dispo à un planning. */
+export type ActionDemandee = {
+  type: 'depense' | 'buddy_time' | 'dispo'; titre: string | null; montant_euros: number | null; paye_par: string | null; pour: string[];
+  nom: string | null; debut: string | null; fin: string | null; lieu: string | null; etat: 'oui' | 'peut' | 'non' | null;
+};
+
+const JOUR = /^\d{4}-\d{2}-\d{2}$/;
+const meme = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * 🐻 Fait ce que Bud propose, en mon nom (choix de Seb, 23 novembre) : seulement une dépense du Buddy count de ce
+ * Buddy Time, un Buddy Time dans cette bande, ou ma propre dispo à un planning de la bande. Le reste est écarté.
+ * Rend ce qui est fait (pour « Annuler ») et ce qui ne l'est pas (à dire).
+ */
+export function agir(actions: ActionDemandee[], d: Dest, x: Donnees & { groupe?: { id: string; nature: string; membres: Buddy[] } }) {
+  const faites: ActionBud[] = [];
+  const refus: string[] = [];
+  const id = (noms: string[], parmi: Buddy[]) => noms.map((n) => parmi.find((b) => meme(b.pseudo, n))?.id);
+  for (const a of actions.slice(0, 3)) {
+    try {
+      if (a.type === 'depense') {
+        const so = x.sortie;
+        if (!so) throw new Error('une dépense va dans un Buddy Time');
+        const montant = Math.round((a.montant_euros ?? 0) * 100);
+        const paye = a.paye_par ? id([a.paye_par], so.participants)[0] : x.moi;
+        const pour = a.pour.length ? id(a.pour, so.participants) : so.participants.map((p) => p.id);
+        if (!paye || pour.some((p) => !p)) throw new Error('seuls les buddies du Buddy Time partagent ses frais');
+        const titre = (a.titre ?? 'Dépense').slice(0, 80);
+        const dep = enregistrerDepense({ sortie: so.id, titre, montant, paye_par: paye, pour: pour as string[], jour: aujourdhui() });
+        faites.push({ genre: 'depense', id: dep, texte: `💶 ${titre} · ${euros(montant)}` });
+      } else if (a.type === 'buddy_time') {
+        const g = x.groupe;
+        if (!g || !a.nom || !a.debut || !JOUR.test(a.debut)) throw new Error('il faut une bande, un nom et une date');
+        const qui = g.nature === 'me_time' ? [] : (a.pour.length ? id(a.pour, g.membres) : g.membres.map((b) => b.id)).filter((p): p is string => !!p);
+        const fin = a.fin && JOUR.test(a.fin) && a.fin >= a.debut ? a.fin : a.debut;
+        const sid = creerSortie({ groupe: g.id, nom: a.nom, photo: null, debut: a.debut, fin, lieu: (a.lieu ?? '').slice(0, 120), participants: qui });
+        faites.push({ genre: 'sortie', id: sid, texte: `📅 Buddy Time « ${a.nom} » · ${a.debut}` });
+      } else if (a.type === 'dispo') {
+        const groupe = x.sortie?.groupe ?? d.groupe;
+        const p = x.plannings.find((y) => y.groupe === groupe && (!a.nom || meme(y.nom, a.nom))) ;
+        if (!p || !a.debut || !p.dates.some(([deb]) => deb === a.debut) || !a.etat) throw new Error('date hors du planning');
+        const avant = p.dispos.find((y) => y.qui === x.moi && y.debut === a.debut);
+        repondre(p.id, a.debut, a.etat, avant?.mot ?? '');
+        faites.push({ genre: 'dispo', planning: p.id, debut: a.debut, avant: { etat: avant?.etat ?? '', mot: avant?.mot ?? '' },
+          texte: `🗓 ${p.nom} · ${a.debut} : ${{ oui: 'oui', peut: 'peut-être', non: 'non' }[a.etat]}` });
+      }
+    } catch (e) { refus.push((e as Error).message); }
+  }
+  return { faites, refus };
+}
+
+/** « Annuler » sous la réponse de Bud : défait ce qu'il a fait, dans l'ordre inverse. */
+export function annuler(faites: ActionBud[]) {
+  for (const a of [...faites].reverse()) {
+    if (a.genre === 'depense') retirerDepense(a.id);
+    else if (a.genre === 'sortie') retirerSortie(a.id);
+    else repondre(a.planning, a.debut, a.avant.etat, a.avant.mot);
+  }
+}
 
 /** Pose la question à Bud (réseau). Lève une erreur lisible (pas de réseau, quota, mot de passe). */
 export async function demander(question: string, ctx: string): Promise<ReponseBud> {
@@ -84,5 +147,5 @@ export async function demander(question: string, ctx: string): Promise<ReponseBu
   } catch { throw new Error('Pas de réseau : redemande à Bud quand tu en auras'); }
   const r = (await res.json().catch(() => ({}))) as Partial<ReponseBud> & { erreur?: string };
   if (!res.ok) throw new Error(res.status === 401 ? 'Bud ne te reconnaît pas (mot de passe des recherches)' : r.erreur ?? 'Bud ne répond pas');
-  return { texte: r.texte ?? '', hebergements: r.hebergements ?? [], point: r.point ?? null };
+  return { texte: r.texte ?? '', hebergements: r.hebergements ?? [], point: r.point ?? null, actions: r.actions ?? [] };
 }

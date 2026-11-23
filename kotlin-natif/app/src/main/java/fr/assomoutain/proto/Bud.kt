@@ -79,7 +79,65 @@ object Bud {
 
     data class Hebergement(val lodging: Lodging, val lon: Double?, val lat: Double?)
     data class Point(val nom: String, val lon: Double, val lat: Double)
-    data class Reponse(val texte: String, val hebergements: List<Hebergement>, val point: Point?)
+    /** Ce que Bud propose de faire (§7.12) : depense, buddy_time ou dispo. */
+    data class Action(val type: String, val titre: String?, val montantEuros: Double?, val payePar: String?, val pour: List<String>,
+                      val nom: String?, val debut: String?, val fin: String?, val lieu: String?, val etat: String?)
+    data class Reponse(val texte: String, val hebergements: List<Hebergement>, val point: Point?, val actions: List<Action> = emptyList())
+
+    private val JOUR = Regex("\\d{4}-\\d{2}-\\d{2}")
+    private fun meme(a: String, b: String) = a.trim().equals(b.trim(), ignoreCase = true)
+
+    /**
+     * 🐻 Fait ce que Bud propose, en mon nom (choix de Seb, 23 novembre) : seulement une dépense du Buddy count de ce
+     * Buddy Time, un Buddy Time dans cette bande, ou ma propre dispo à un planning de la bande. Le reste est écarté.
+     * Rend ce qui est fait (pour « Annuler ») et ce qui ne l'est pas (à dire). Même règle côté React (bud.ts, agir).
+     */
+    fun agir(b: Buddies, actions: List<Action>, groupe: Buddies.Groupe?, sortie: Buddies.Sortie?, moi: String, auj: String):
+        Pair<List<Buddies.ActionBud>, List<String>> {
+        val faites = mutableListOf<Buddies.ActionBud>(); val refus = mutableListOf<String>()
+        fun ids(noms: List<String>, parmi: List<Buddies.Buddy>) = noms.map { n -> parmi.firstOrNull { meme(it.pseudo, n) }?.id }
+        for (a in actions.take(3)) try {
+            when (a.type) {
+                "depense" -> {
+                    val so = sortie ?: throw IllegalArgumentException("une dépense va dans un Buddy Time")
+                    val montant = Math.round((a.montantEuros ?: 0.0) * 100).toInt()
+                    val paye = if (a.payePar != null) ids(listOf(a.payePar), so.participants)[0] else moi
+                    val pour = if (a.pour.isNotEmpty()) ids(a.pour, so.participants) else so.participants.map { it.id }
+                    if (paye == null || pour.any { it == null }) throw IllegalArgumentException("seuls les buddies du Buddy Time partagent ses frais")
+                    val titre = (a.titre ?: "Dépense").take(80)
+                    val id = b.enregistrerDepense(null, so.id, titre, montant, paye, pour.filterNotNull(), auj)
+                    faites += Buddies.ActionBud("depense", id, "💶 $titre · ${BuddyCount.euros(montant)}")
+                }
+                "buddy_time" -> {
+                    val g = groupe
+                    if (g == null || a.nom.isNullOrBlank() || a.debut == null || !JOUR.matches(a.debut)) throw IllegalArgumentException("il faut une bande, un nom et une date")
+                    val qui = if (g.meTime) emptyList() else (if (a.pour.isNotEmpty()) ids(a.pour, g.membres) else g.membres.map { it.id }).filterNotNull()
+                    val fin = if (a.fin != null && JOUR.matches(a.fin) && a.fin >= a.debut) a.fin else a.debut
+                    val id = b.creerSortie(g.id, a.nom, null, a.debut, fin, (a.lieu ?: "").take(120), qui)
+                    faites += Buddies.ActionBud("sortie", id, "📅 Buddy Time « ${a.nom} » · ${a.debut}")
+                }
+                "dispo" -> {
+                    val gid = sortie?.groupe ?: groupe?.id
+                    val p = b.plannings().firstOrNull { it.groupe == gid && (a.nom == null || meme(it.nom, a.nom)) }
+                    if (p == null || a.debut == null || p.dates.none { it.first == a.debut } || a.etat == null) throw IllegalArgumentException("date hors du planning")
+                    val avant = p.dispos.firstOrNull { it.qui == moi && it.debut == a.debut }
+                    b.repondre(p.id, a.debut, a.etat, avant?.mot ?: "")
+                    faites += Buddies.ActionBud("dispo", "", "🗓 ${p.nom} · ${a.debut} : ${mapOf("oui" to "oui", "peut" to "peut-être", "non" to "non")[a.etat]}",
+                        p.id, a.debut, avant?.etat ?: "", avant?.mot ?: "")
+                }
+            }
+        } catch (e: Exception) { refus += e.message ?: "action impossible" }
+        return faites to refus
+    }
+
+    /** « Annuler » sous la réponse de Bud : défait ce qu'il a fait, dans l'ordre inverse. */
+    fun annuler(b: Buddies, faites: List<Buddies.ActionBud>) {
+        for (a in faites.reversed()) when (a.genre) {
+            "depense" -> b.retirerDepense(a.id)
+            "sortie" -> b.retirerSortie(a.id)
+            else -> b.repondre(a.planning, a.debut, a.avantEtat, a.avantMot)
+        }
+    }
 
     /** Pose la question à Bud (réseau ; bloquant : hors du fil principal). Lève une erreur lisible. */
     fun demander(motDePasse: String, question: String, contexte: String): Reponse {
@@ -99,6 +157,12 @@ object Bud {
                 it.optString("resume")), nombre(it, "lon"), nombre(it, "lat"))
         }
         val p = r.optJSONObject("point")?.let { o -> nombre(o, "lon")?.let { lon -> nombre(o, "lat")?.let { lat -> Point(o.optString("nom"), lon, lat) } } }
-        return Reponse(r.optString("texte"), hs, p)
+        fun texte(o: JSONObject, k: String) = if (o.isNull(k)) null else o.optString(k)
+        val actions = r.optJSONArray("actions")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty().map { o ->
+            val pour = o.optJSONArray("pour")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
+            Action(o.optString("type"), texte(o, "titre"), nombre(o, "montant_euros"), texte(o, "paye_par"), pour, texte(o, "nom"),
+                texte(o, "debut"), texte(o, "fin"), texte(o, "lieu"), texte(o, "etat"))
+        }
+        return Reponse(r.optString("texte"), hs, p, actions)
     }
 }

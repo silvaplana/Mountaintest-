@@ -230,6 +230,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
                     op.optString("debut"), op.optString("fin"), op.optString("lieu"), op.optLong("t"),
                     listOf(moiBuddy()) + g.membres.filter { it.id in qui && !estMoi(it) }, emptyList(), true)
             }
+            "retirer_sortie" -> l.removeAll { it.id == op.optString("sortie") }
             "inviter" -> if (op.has("sortie")) {
                 val k = l.indexOfFirst { it.id == op.optString("sortie") }
                 if (k >= 0 && l[k].invitations.none { it.id == op.optString("invitation") })
@@ -524,15 +525,38 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     }
     /** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
     fun envoyerMessage(groupe: String?, sortie: String?, nature: String = "texte", texte: String = "", lon: Double? = null, lat: Double? = null, photo: String? = null,
-                       bud: Boolean = false) {
+                       bud: Boolean = false): String {
         val t = texte.trim().take(2000)
-        if (nature == "texte" && t.isEmpty()) return
-        val op = JSONObject().put("type", "message").put("message", UUID.randomUUID().toString()).put("nature", nature).put("texte", t)
+        if (nature == "texte" && t.isEmpty()) return ""
+        val message = UUID.randomUUID().toString()
+        val op = JSONObject().put("type", "message").put("message", message).put("nature", nature).put("texte", t)
         if (sortie != null) op.put("sortie", sortie) else op.put("groupe", groupe)
         if (lon != null && lat != null) op.put("lon", Math.round(lon * 1e6) / 1e6).put("lat", Math.round(lat * 1e6) / 1e6)
         if (photo != null) op.put("photo", photo)
         if (bud) op.put("bud", true)
         ajouter(op)
+        return message
+    }
+    /** Annuler un Buddy Time qu'on vient de créer (le serveur refuse s'il a déjà servi). */
+    fun retirerSortie(sortie: String) = ajouter(JSONObject().put("type", "retirer_sortie").put("sortie", sortie))
+
+    /** 🐻 Une action faite par Bud à ma demande (genre : depense, sortie, dispo), et de quoi l'annuler. */
+    data class ActionBud(val genre: String, val id: String, val texte: String, val planning: String = "", val debut: String = "",
+                         val avantEtat: String = "", val avantMot: String = "")
+    /** Ce que Bud a fait pour ce message, et s'il est annulé (gardé sur ce téléphone seulement). */
+    fun actionsBud(message: String): Pair<List<ActionBud>, Boolean>? = etat.optJSONObject("actionsBud")?.optJSONObject(message)?.let { o ->
+        o.optJSONArray("faites").objets().map {
+            ActionBud(it.optString("genre"), it.optString("id"), it.optString("texte"), it.optString("planning"), it.optString("debut"),
+                it.optString("avantEtat"), it.optString("avantMot"))
+        } to o.optBoolean("annule")
+    }
+    fun noterActionsBud(message: String, faites: List<ActionBud>, annule: Boolean = false) = modifier {
+        val a = optJSONObject("actionsBud") ?: JSONObject()
+        a.put(message, JSONObject().put("annule", annule).put("faites", JSONArray(faites.map {
+            JSONObject().put("genre", it.genre).put("id", it.id).put("texte", it.texte).put("planning", it.planning).put("debut", it.debut)
+                .put("avantEtat", it.avantEtat).put("avantMot", it.avantMot)
+        })))
+        put("actionsBud", a)
     }
     fun retirerMessage(message: String) = ajouter(JSONObject().put("type", "retirer_message").put("message", message))
     /** Conversation lue jusqu'à maintenant. */

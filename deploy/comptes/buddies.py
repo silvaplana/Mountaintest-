@@ -246,6 +246,28 @@ def creer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(g)
 
 
+def retirer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
+    """Annuler un Buddy Time qu'on vient de créer (« Annuler » sous la réponse de Bud, §7.12) : seulement celui qui l'a
+    créé, et seulement tant que rien n'y est encore attaché (traces, photos, dépenses, messages, hébergements)."""
+    so = s.get(Sortie, uuid.UUID(str(op["sortie"])))
+    if so is None:
+        return  # déjà retiré
+    if so.cree_par != u.id:
+        raise Refus("Seul celui qui a créé le Buddy Time peut l'annuler")
+    for t, c in ((TracePartagee, TracePartagee.sortie_id), (Photo, Photo.sortie_id), (Depense, Depense.sortie_id),
+                 (MessageBuddy, MessageBuddy.sortie_id), (Hebergement, Hebergement.sortie_id)):
+        if s.scalar(select(t).where(c == so.id).limit(1)) is not None:
+            raise Refus("Ce Buddy Time a déjà servi : il reste")
+    g = s.get(Groupe, so.groupe_id)
+    for t in (Participant, Invitation):
+        for x in s.scalars(select(t).where(t.sortie_id == so.id)).all():
+            s.delete(x)
+    s.flush()
+    s.delete(so)
+    if g is not None:
+        toucher(g)
+
+
 def partager_trace(s: Session, u: Utilisateur, op: dict) -> None:
     tid = uuid.UUID(str(op["trace"]))
     if s.get(TracePartagee, tid) is not None:
@@ -618,7 +640,7 @@ def fichier_photo(pid: uuid.UUID, taille: str) -> str:
 OPERATIONS = {
     "creer_groupe": creer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
-    "creer_sortie": creer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
+    "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,

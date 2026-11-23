@@ -74,6 +74,12 @@ export type Position = {
 };
 export type Op = { id: string; type: string; t: number; [k: string]: unknown };
 
+/** 🐻 Une action faite par Bud à ma demande, et de quoi l'annuler. */
+export type ActionBud =
+  | { genre: 'depense'; id: string; texte: string }
+  | { genre: 'sortie'; id: string; texte: string }
+  | { genre: 'dispo'; planning: string; debut: string; avant: { etat: Etat3 | ''; mot: string }; texte: string };
+
 export type AppelBuddy = { id: string; groupe: string | null; sortie: string | null; par: string; en_ligne: string[]; debut: string; fini: boolean };
 
 export type Etat = {
@@ -89,6 +95,8 @@ export type Etat = {
   messages?: MessageBuddy[];
   /** 📞 Appels en cours dans mes Buddy Groups et Buddy Times (d'après la dernière synchro). */
   appels?: AppelBuddy[];
+  /** 🐻 Ce que Bud a fait à ma demande, par message de Bud (pour « Annuler » sur ce téléphone). */
+  actionsBud?: Record<string, { faites: ActionBud[]; annule?: boolean }>;
   /** 💬 Dernière lecture de chaque conversation (ms), par identifiant de Buddy Group ou de Buddy Time. */
   lus?: Record<string, number>;
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
@@ -220,6 +228,9 @@ export function vue(e: Etat): {
       messages.push({ id: String(op.message), groupe: (op.groupe as string) ?? null, sortie: (op.sortie as string) ?? null, par: moi,
         nature: op.nature as MessageBuddy['nature'], texte: String(op.texte ?? ''), lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null,
         photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true, ...(op.bud ? { bud: true } : {}) });
+    } else if (op.type === 'retirer_sortie') {
+      const i = sorties.findIndex((x) => x.id === op.sortie);
+      if (i >= 0) sorties.splice(i, 1);
     } else if (op.type === 'retirer_message') {
       messages = messages.filter((m) => m.id !== op.message);
     } else if (op.type === 'recit' || op.type === 'fiche' || op.type === 'carnet') {
@@ -499,10 +510,18 @@ export function proposerHebergement(sorties: string[], h: { nom: string; nature:
 export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string; bud?: boolean }) {
   const texte = (m.texte ?? '').trim().slice(0, 2000);
   const nature = m.nature ?? 'texte';
-  if (nature === 'texte' && !texte) return;
-  ajouter({ type: 'message', message: uuid(), ...(dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe }), nature, texte,
+  if (nature === 'texte' && !texte) return '';
+  const message = uuid();
+  ajouter({ type: 'message', message, ...(dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe }), nature, texte,
     ...(m.lon != null && m.lat != null ? { lon: Math.round(m.lon * 1e6) / 1e6, lat: Math.round(m.lat * 1e6) / 1e6 } : {}),
     ...(m.photo ? { photo: m.photo } : {}), ...(m.bud ? { bud: true } : {}) });
+  return message;
+}
+/** Annuler un Buddy Time qu'on vient de créer (le serveur refuse s'il a déjà servi). */
+export const retirerSortie = (sortie: string) => ajouter({ type: 'retirer_sortie', sortie });
+/** 🐻 Garder ce que Bud a fait (message de Bud → actions), ou le marquer annulé. */
+export function noterActionsBud(message: string, faites: ActionBud[], annule = false) {
+  ecrire({ ...lire(), actionsBud: { ...lire().actionsBud, [message]: { faites, annule } } });
 }
 export const retirerMessage = (message: string) => ajouter({ type: 'retirer_message', message });
 /** Conversation lue jusqu'à maintenant. */

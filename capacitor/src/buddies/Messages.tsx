@@ -8,9 +8,9 @@ import { couleur, useBuddies, Visage } from './Buddies';
 import { useDictee } from './Carnet';
 import { iconeHebergement, prixHebergement } from './Hebergements';
 import { apercu, cle, fil, heureMessage, longueurTrace, type Bulle, type Dest } from './messages';
-import { contexte, demander, pourBud } from './bud';
+import { agir, annuler, contexte, demander, pourBud } from './bud';
 import {
-  appliquer, envoyerMessage, marquerLu, nonLus, proposerHebergement, retirerMessage, synchroniser, vue, type Buddy, type Groupe, type Hebergement,
+  appliquer, envoyerMessage, lire, marquerLu, noterActionsBud, nonLus, proposerHebergement, retirerMessage, synchroniser, vue, type Buddy, type Groupe, type Hebergement,
   type Sortie, type TraceBuddy,
 } from './store';
 
@@ -69,10 +69,14 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const bud = async (question: string) => {
     setBudPense(true);
     try {
-      const ctx = contexte(dest, { nom: appliquer(e).find((g) => g.id === dest.groupe)?.nom ?? '', sortie, membres, moi, traces: v.traces,
-        hebergements: v.hebergements, depenses: v.depenses, plannings: v.plannings, messages: v.messages });
-      const r = await demander(question, ctx);
-      if (r.texte) envoyerMessage(dest, { texte: r.texte, bud: true });
+      const donnees = { nom: appliquer(e).find((g) => g.id === dest.groupe)?.nom ?? '', sortie, membres, moi, traces: v.traces,
+        hebergements: v.hebergements, depenses: v.depenses, plannings: v.plannings, messages: v.messages };
+      const r = await demander(question, contexte(dest, donnees));
+      // Ce que je lui ai demandé de faire (dépense, Buddy Time, ma dispo) : fait en mon nom, « Annuler » sous sa bulle.
+      const { faites, refus } = agir(r.actions, dest, { ...donnees, groupe: appliquer(e).find((g) => g.id === (sortie?.groupe ?? dest.groupe)) });
+      const id = envoyerMessage(dest, { texte: r.texte || 'C’est fait.', bud: true });
+      if (faites.length && id) noterActionsBud(id, faites);
+      if (refus.length) onToast(`Bud n’a pas pu : ${refus.join(' ; ')}`);
       if (r.point) envoyerMessage(dest, { nature: 'point', texte: r.point.nom, lon: r.point.lon, lat: r.point.lat, bud: true });
       if (sortie) for (const h of r.hebergements) proposerHebergement([sortie.id], { ...h, nature: h.type });
       void synchroniser().catch(() => undefined);
@@ -139,7 +143,13 @@ function UneBulle({ b, moi, nom, photos, choisi, onChoisir, onPoint, onTrace, on
     if (m.nature === 'point') return <button className="bd-bulle-carte" onClick={() => m.lon != null && m.lat != null && onPoint({ lon: m.lon, lat: m.lat, nom: m.texte || 'Bud montre ici' })}>
       <span className="bd-icone">📍</span><span className="bd-texte"><b>{m.texte || 'Bud montre ici'}</b><small>🐻 Bud · voir sur la carte</small></span>
     </button>;
-    return <div className="bd-bulle bud"><b className="bd-qui-ecrit">🐻 Bud</b><span>{m.texte}</span>{heure}</div>;
+    // Ce qu'il a fait à ma demande : la liste et « Annuler » (sur mon téléphone seulement : c'est fait en mon nom).
+    const fait = lire().actionsBud?.[m.id];
+    return <div className="bd-bulle bud"><b className="bd-qui-ecrit">🐻 Bud</b><span>{m.texte}</span>
+      {fait && <>{fait.faites.map((a, i) => <small key={i} className="bd-bud-fait">{fait.annule ? <s>{a.texte}</s> : `✓ ${a.texte}`}</small>)}
+        {fait.annule ? <small className="bd-bud-fait">Annulé</small>
+          : <button className="bd-lien bd-bud-annuler" onClick={() => { annuler(fait.faites); noterActionsBud(m.id, fait.faites, true); void synchroniser().catch(() => undefined); }}>Annuler</button>}</>}
+      {heure}</div>;
   }
   const mien = m.par === moi || m.par === 'moi';
   const qui = !mien && <b className="bd-qui-ecrit" style={{ color: couleur(m.par) }}>{nom(m.par)}</b>;
