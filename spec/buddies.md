@@ -501,6 +501,30 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   2 000 caractères au plus, position, photo de l'album du même Buddy Time) ; opérations `message` et
   `retirer_message` (seulement les siens) ; la synchro rend les messages des 90 derniers jours.
 
+### 7.10 Bloc 10 : ce qui est construit (23 novembre 2026)
+
+- **Choix de Seb (23 novembre)** : le son passe par LiveKit installé sur le VPS (`appels.silvaplana.cloud`), et le
+  téléphone **sonne même appli fermée** grâce à Firebase (projet « Mountain Buddies », un message prioritaire par
+  téléphone). Sans Firebase, les appels marchent quand même, ils ne sonnent que l'appli ouverte.
+- **📞 de la colonne** : appelle tout le Buddy Time ouvert, sinon tout le Buddy Group ouvert (pas d'appel dans Me
+  Time). Si un appel est déjà en cours dans la bande, on le rejoint sans refaire sonner. Ligne « 📞 Appel en cours ·
+  rejoindre » dans le Buddy Group et sur la carte du Buddy Time, pour qui n'a pas sonné (iPhone, appli fermée sans
+  Firebase).
+- **Écran 10** : plein écran « Mountain Buddies · appel de groupe », le nom du Buddy Time, « Julie t'appelle… »,
+  les visages (cercle vert : déjà en ligne), ✕ Refuser et 📞 Répondre. Appli fermée : notification d'appel plein
+  écran (par-dessus l'écran verrouillé) avec Refuser / Répondre, sonnerie du téléphone 45 s au plus ; elle s'arrête
+  si l'appelant raccroche.
+- **Écran 24** : la carte reste à l'écran, barre verte en haut « En ligne · 3:12 / Julie parle… · Luc », 🎙/🔇 et
+  ✕ raccrocher. Celui qui appelle et que personne ne rejoint raccroche seul au bout d'une minute.
+- **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
+  allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
+- **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
+  « Appel en cours ».
+- **Serveur** : tables `appareils` (jeton Firebase de chaque téléphone) et `appels` (Buddy Group ou Buddy Time, qui
+  a appelé, qui est en ligne, début, fin) ; routes `POST /appareils`, `POST /appels` (appeler ou rejoindre l'appel
+  en cours), `POST /appels/{id}/rejoindre`, `POST /appels/{id}/presence`. Un appel finit quand plus personne n'est en
+  ligne (ou au bout de 4 h) ; la synchro rend les appels en cours. Installation : `deploy/comptes/installer-appels.sh`.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

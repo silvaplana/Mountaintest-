@@ -54,7 +54,7 @@ export async function appeler(dest: Dest, nom: string) {
   changer({ id: '', nom, dest, phase: 'connexion', voix: [], parle: [], muet: false });
   try {
     const r = await api<Reponse>('POST', '/appels', dest);
-    await entrer(r, nom);
+    if (appelEnCours()?.phase === 'connexion') await entrer(r, nom); // sinon : raccroché pendant la connexion
   } catch (e) { changer(null); throw e; }
 }
 
@@ -75,7 +75,8 @@ export async function decrocher() {
   if (!e || e.phase !== 'sonne') return;
   changer({ ...e, phase: 'connexion' });
   try {
-    await entrer(await api<Reponse>('POST', `/appels/${e.id}/rejoindre`), e.nom);
+    const r = await api<Reponse>('POST', `/appels/${e.id}/rejoindre`);
+    if (appelEnCours()?.phase === 'connexion') await entrer(r, e.nom);
   } catch (err) { changer(null); throw err; }
 }
 

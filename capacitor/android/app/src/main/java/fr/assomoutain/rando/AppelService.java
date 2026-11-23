@@ -49,8 +49,28 @@ public class AppelService extends FirebaseMessagingService {
             for (String k : new String[] { "appel", "de", "nom", "groupe", "sortie" }) s.put(k, d.containsKey(k) ? d.get(k) : "");
         } catch (Exception ignored) { }
         Ecouteur e = ecouteur;
-        if (premierPlan && e != null) { e.appel(s); return; }
+        if (premierPlan && e != null) { e.appel(s); sonnerieAppli(this); return; }
         sonner(this, s);
+    }
+
+    private static android.media.Ringtone sonnerie;
+    private static final android.os.Handler principal = new android.os.Handler(android.os.Looper.getMainLooper());
+
+    /** Appli à l'écran : la sonnerie du téléphone pendant l'écran 10, 45 s au plus (arrêtée par arreterSonnerie). */
+    static void sonnerieAppli(Context c) {
+        principal.post(() -> {
+            if (sonnerie != null) return;
+            try {
+                sonnerie = RingtoneManager.getRingtone(c.getApplicationContext(), RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE));
+                if (Build.VERSION.SDK_INT >= 28) sonnerie.setLooping(true);
+                sonnerie.play();
+            } catch (Exception ignored) { sonnerie = null; }
+            principal.postDelayed(AppelService::arreterSonnerie, 45_000);
+        });
+    }
+
+    static void arreterSonnerie() {
+        principal.post(() -> { if (sonnerie != null) { sonnerie.stop(); sonnerie = null; } });
     }
 
     static void sonner(Context c, JSONObject s) {
@@ -92,6 +112,7 @@ public class AppelService extends FirebaseMessagingService {
 
     /** L'appel ne sonne plus : notification retirée, l'écran 10 de l'appli se ferme. */
     static void arreter(Context c, String appel) {
+        arreterSonnerie();
         android.content.SharedPreferences sp = c.getSharedPreferences(EpingleService.PREFS, Context.MODE_PRIVATE);
         String s = sp.getString("appel", null);
         if (appel == null || s == null || s.contains(appel)) {

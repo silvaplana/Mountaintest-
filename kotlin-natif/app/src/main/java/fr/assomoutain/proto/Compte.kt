@@ -167,6 +167,8 @@ class Compte(private val prefs: SharedPreferences) {
     fun api(methode: String, chemin: String, corps: JSONObject? = null): JSONObject {
         val r = requete("$API_URL$chemin", methode, corps?.toString(), null, jetonAcces())
         if (r.code == 401) { modifier { remove("access") }; throw Refuse("Jeton refusé") }
+        // Refus du serveur (409) : sa raison, à montrer telle quelle (ex. « L'appel est terminé »).
+        if (r.code == 409) throw Refuse(runCatching { JSONObject(r.corps).getString("detail") }.getOrDefault("Refusé"))
         if (r.code != 200) throw IOException("Serveur : erreur ${r.code}")
         return JSONObject(r.corps)
     }

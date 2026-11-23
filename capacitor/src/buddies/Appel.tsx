@@ -45,7 +45,9 @@ export function useSonnerie(onToast: (m: string) => void) {
       const b = await Natif.addListener('finAppel', (x: { appel: string }) => finSonnerie(x.appel));
       if (fini) { void a.remove(); void b.remove(); } else hs.push(a, b);
     })().catch(() => undefined);
-    return () => { fini = true; hs.forEach((h) => void h.remove()); };
+    // L'écran 10 se ferme (réponse, refus, fin) : la sonnerie du téléphone s'arrête.
+    const stop = suivreAppel((e) => { if (e?.phase !== 'sonne') void Natif.arreterSonnerie().catch(() => undefined); });
+    return () => { fini = true; stop(); hs.forEach((h) => void h.remove()); };
   }, [compte, onToast]);
 }
 

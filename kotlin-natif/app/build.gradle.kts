@@ -63,4 +63,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     // 👥 QR code d'invitation dans un Buddy Group (fabriqué sur le téléphone, même sans réseau).
     implementation("com.google.zxing:core:3.5.3")
+    // 📞 Appels de groupe : le son (LiveKit) et la sonnerie appli fermée (Firebase, AppelService).
+    implementation("io.livekit:livekit-android:2.29.2")
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
 }
+
+// 📞 Firebase (sonnerie des appels) : seulement avec le fichier du projet Firebase ; sans lui, l'appli marche sans sonnerie.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")

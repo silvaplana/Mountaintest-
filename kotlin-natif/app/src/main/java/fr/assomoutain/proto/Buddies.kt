@@ -140,6 +140,14 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     private fun serveur() = etat.optJSONArray("serveur") ?: JSONArray()
     private fun attente() = etat.optJSONArray("attente") ?: JSONArray()
     val moi: String? get() = etat.optString("moi").ifEmpty { null }
+
+    /** 📞 Appel en cours dans un de mes Buddy Groups ou Buddy Times (d'après la dernière synchro). */
+    data class AppelBuddy(val id: String, val groupe: String?, val sortie: String?, val enLigne: List<String>)
+    fun appels(): List<AppelBuddy> = etat.optJSONArray("appels").objets().filter { !it.optBoolean("fini") }.map { o ->
+        fun cle(k: String) = o.optString(k).takeIf { it.isNotEmpty() && it != "null" }
+        val l = o.optJSONArray("en_ligne")
+        AppelBuddy(o.getString("id"), cle("groupe"), cle("sortie"), if (l == null) emptyList() else (0 until l.length()).map { l.getString(it) })
+    }
     val synchro: Long get() = etat.optLong("synchro")
     val nbAttente: Int get() = attente().length()
     val rejointsEnAttente: Int get() = (0 until attente().length()).count { attente().getJSONObject(it).optString("type") == "rejoindre" }
@@ -579,6 +587,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             fusion("hebergements", "hebergements", "ids_hebergements")
             fusion("messages", "messages", "ids_messages")
             r.optJSONArray("positions")?.let { put("positions", it) }
+            put("appels", r.optJSONArray("appels") ?: JSONArray())
             put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("id") !in envoyees }))
             put("moi", r.getString("moi")); put("synchro", System.currentTimeMillis())
             if (manque) remove("curseur") else put("curseur", r.getString("curseur"))

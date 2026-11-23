@@ -79,6 +79,8 @@ class BuddiesPanel(
     private val onPoint: (Double, Double, String) -> Unit = { _, _, _ -> },
     /** Ma position du moment, pour « je suis ici » (null : introuvable). */
     private val localiser: ((Spot?) -> Unit) -> Unit = { it(null) },
+    /** 📞 Appeler toute la bande (groupe ou sortie, nom affiché), ou rejoindre l'appel en cours. */
+    private val onAppeler: (String?, String?, String) -> Unit = { _, _, _ -> },
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -220,7 +222,18 @@ class BuddiesPanel(
 
     // ---------- colonne d'icônes (spec §3.3) : ce qui n'est pas encore construit le dit simplement ----------
     private fun remplirColonne() {
-        fun bientot(m: String) = { toast("Bientôt : $m") }
+        // 📞 : toute la bande du Buddy Time ouvert, sinon du Buddy Group ouvert (spec §5.7).
+        val appel = {
+            val sc = sortieCourante()?.let { id -> buddies.sorties().firstOrNull { it.id == id } }
+            val v = vue
+            val g = when (v) { is Vue.UnGroupe -> v.id; is Vue.Conv -> v.id; else -> null }?.let { id -> buddies.groupes().firstOrNull { it.id == id && !it.meTime } }
+            when {
+                !compte.connecte -> toast("Connecte-toi (👤) pour appeler tes buddies")
+                sc != null -> onAppeler(null, sc.id, sc.nom)
+                g != null -> onAppeler(g.id, null, g.nom)
+                else -> toast("Ouvre un Buddy Group ou un Buddy Time pour appeler toute la bande")
+            }
+        }
         // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes.
         val planning = {
             if (!compte.connecte) toast("Connecte-toi (👤) pour les plannings de saison")
@@ -241,7 +254,7 @@ class BuddiesPanel(
                 else -> { vue = Vue.Conversations(groupeCourant()); afficher() }
             }
         }
-        listOf("📞" to bientot("appeler toute la bande"), "📅" to planning, "💬" to messages,
+        listOf("📞" to appel, "📅" to planning, "💬" to messages,
             "📸" to albums, "💶" to {
                 // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
                 if (!compte.connecte) onExpenses()
@@ -353,6 +366,19 @@ class BuddiesPanel(
             for (i in g.invitations.filter { it.canal != "qr" }) addView(visage(i.id, i.nom, null, pale = true).apply { (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(-6) })
             addView(rond("＋", 40) { membres(g) }.apply { setTextColor(accent); (layoutParams as LinearLayout.LayoutParams).leftMargin = dp(16) })
         }, lp(4))
+        // 📞 Appel en cours dans la bande : on le rejoint (sur un téléphone qui n'a pas sonné).
+        val ap = if (g.meTime || Appel.etat != null) null else buddies.appels().firstOrNull { it.groupe == g.id && buddies.moi !in it.enLigne }
+        if (ap != null) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; isClickable = true; minimumHeight = dp(56); setPadding(dp(10), 0, dp(10), 0)
+            background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(Color.parseColor("#E3F6EA")) }
+            setOnClickListener { onAppeler(g.id, null, g.nom) }
+            addView(text("📞", 26f), LinearLayout.LayoutParams(dp(44), -2))
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(text("Appel en cours · rejoindre", 17f, bold = true)); addView(text("${ap.enLigne.size} en ligne", 15f, muted))
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text("›", 26f, muted))
+        }, lp(6))
         for (p in buddies.plannings().filter { it.groupe == g.id }) bandeauRemplir(p, avecNom = true) { vue = Vue.Dispos(p.id, g.id); afficher() }
         val auj = aujourdhui()
         val sorties = buddies.sorties().filter { it.groupe == g.id }

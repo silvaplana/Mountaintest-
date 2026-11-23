@@ -42,6 +42,7 @@ export const Natif = registerPlugin<{
   addListener(e: 'position', f: (p: PositionNative) => void): Promise<{ remove: () => Promise<void> }>;
   /** 📞 Sonnerie appli fermée (AppelService.java, Firebase) : le jeton de ce téléphone, l'appel qui a ouvert l'appli. */
   jetonPush(): Promise<{ jeton: string }>;
+  arreterSonnerie(): Promise<void>;
   appelEnAttente(): Promise<{ appel?: Sonnerie & { action?: string } }>;
   addListener(e: 'appel', f: (s: Sonnerie & { action?: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'finAppel', f: (x: { appel: string }) => void): Promise<{ remove: () => Promise<void> }>;

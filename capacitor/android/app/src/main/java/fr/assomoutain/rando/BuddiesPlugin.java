@@ -83,6 +83,13 @@ public class BuddiesPlugin extends Plugin {
         call.resolve(r);
     }
 
+    /** L'écran 10 est fermé (réponse, refus) : la sonnerie s'arrête. */
+    @PluginMethod
+    public void arreterSonnerie(PluginCall call) {
+        AppelService.arreterSonnerie();
+        call.resolve();
+    }
+
     @PluginMethod
     public void jetonPush(PluginCall call) {
         JSObject r = new JSObject();
