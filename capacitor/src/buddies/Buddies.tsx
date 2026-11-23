@@ -9,6 +9,8 @@ import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } f
 import { BuddyCount, Comptes, UneDepense } from './BuddyCount';
 import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
+import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
+import type { Lodging } from '../Lodging';
 import { BandePositions, nombreVisibles, PositionsSurCarte, useReperes } from './Positions';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
@@ -254,9 +256,10 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string } | { ecran: 'dispos'; id: string; groupe?: string }
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
-  | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string };
+  | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
+  | { ecran: 'dodo'; id: string; groupe?: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
-export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count'; sortie: string; groupe: string };
+export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void;
@@ -287,7 +290,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }
 
   const groupes = appliquer(e);
-  const { sorties, traces, plannings, photos, depenses } = vueSorties(e);
+  const { sorties, traces, plannings, photos, depenses, hebergements } = vueSorties(e);
   const ouvrir = (x: Sortie) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id) });
   // Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
@@ -296,8 +299,9 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
   const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' ? vue.id : undefined;
   // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
-  const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense'].includes(vue.ecran) ? vue.id : undefined;
-  const colonne = <Colonne onToast={onToast} onLodging={onLodging}
+  const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) ? vue.id : undefined;
+  // 🏨 : « Où on dort ? » du Buddy Time ouvert, sinon la recherche d'hébergement.
+  const colonne = <Colonne onToast={onToast} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })} />;
@@ -313,6 +317,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'comptes' ? <Comptes sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} depenses={depenses} onClose={onClose}
         onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })} onAnciens={onExpenses}
         onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'dodo' && album ? <OuOnDort x={album} hebergements={hebergements} onToast={onToast} onClose={onClose} onChercher={onLodging}
+        onRetour={() => (album.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: album.id, groupe: vue.groupe }) : ouvrir(album))} />
       : vue.ecran === 'count' && album ? <BuddyCount x={album} depenses={depenses} onClose={onClose}
         onDepense={(d) => setVue({ ecran: 'depense', id: album.id, depense: d, groupe: vue.groupe })}
         onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe })} />
@@ -564,8 +570,8 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
 /** Haut et bas de la carte d'un Buddy Time : ‹ nom et dates en haut, bandeau rabattable en bas. */
-export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount, onToast, map }: {
-  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void;
+export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount, onDodo, onToast, map }: {
+  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void; onDodo: () => void;
   onToast: (m: string) => void; map: MlMap | null;
 }) {
   const [replie, setReplie] = useState(false);
@@ -576,6 +582,8 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
   const v = vueSorties(useBuddies());
   const photos = v.photos.filter((p) => p.sortie === x.id);
   const depense = v.depenses.filter((d) => d.sortie === x.id).reduce((n, d) => n + d.montant, 0);
+  const hebergements = v.hebergements.filter((h) => h.sortie === x.id);
+  const retenu = hebergements.find((h) => h.retenu);
   const auteurs = new Set(photos.map((p) => p.par.id)).size;
   const km = traces.reduce((n, t) => n + longueur(t.ligne), 0) / 1000;
   const venir = x.fin >= aujourdhui();
@@ -602,6 +610,12 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
           <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'souvenir'}</small></span>
           <button className="bd-chiffre-count" onClick={onCount}><b>💶 {depense ? euros(depense) : '＋'}</b><small>{depense ? `à ${x.participants.length}` : 'Buddy count'}</small></button>
         </div>
+        {venir && <button className="bd-ligne bd-pos-acces" onClick={onDodo}>
+          <span className="bd-icone">🏨</span>
+          <span className="bd-texte"><b>{retenu ? `${retenu.nom} ✅` : 'Où on dort ?'}</b>
+            <small>{retenu ? prixHebergement(retenu) : hebergements.length ? `${hebergements.length} idée${hebergements.length > 1 ? 's' : ''} · mettez vos ♥` : 'proposer un hébergement'}</small></span>
+          <span className="bd-fleche">›</span>
+        </button>}
         {pendant(x, aujourdhui()) && <button className="bd-ligne bd-pos-acces" onClick={() => setPos(true)}>
           <span className="bd-icone">📍</span>
           <span className="bd-texte"><b>Position des buddies</b><small>{visibles ? `${visibles} visible${visibles > 1 ? 's' : ''}` : 'qui veut se montrer enfonce son épingle'}
@@ -623,6 +637,7 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount,
     </div>
     <PhotosSurCarte map={map} photos={photos} />
     <PositionsSurCarte map={map} x={x} />
+    <HebergementsSurCarte map={map} hebergements={hebergements} />
   </>;
 }
 
@@ -643,8 +658,10 @@ function longueur(l: [number, number][]) {
  * un petit mot, un seul bouton Partager, puis « Ou ailleurs » (les autres applis du téléphone).
  * Les copains un par un arriveront avec la messagerie : aujourd'hui une trace se range dans un Buddy Time ou un groupe.
  */
-export function PartagePanel({ nom, ligne, onAilleurs, onFermer, onToast }: {
+export function PartagePanel({ nom, ligne, hebergement, onAilleurs, onFermer, onToast }: {
   nom: string; ligne: [number, number][]; onAilleurs: () => void; onFermer: () => void; onToast: (m: string) => void;
+  /** Un hébergement trouvé (écran 23) : il se range dans les Buddy Times choisis, où je pars. */
+  hebergement?: Lodging;
 }) {
   const e = useBuddies();
   const compte = useCompte();
@@ -654,17 +671,26 @@ export function PartagePanel({ nom, ligne, onAilleurs, onFermer, onToast }: {
   const auj = aujourdhui();
   const { sorties } = vueSorties(e);
   // À venir ou en cours d'abord, puis les plus récemment actives.
-  const actives = [...sorties].sort((a, b) => Number(b.fin >= auj) - Number(a.fin >= auj) || b.modifie_le.localeCompare(a.modifie_le)).slice(0, 6);
-  const groupes = appliquer(e).filter((g) => g.nature === 'bande');
+  const moi = e.moi ?? 'moi';
+  const actives = [...sorties].filter((x) => !hebergement || (x.fin >= auj && x.participants.some((p) => p.id === moi || p.id === 'moi')))
+    .sort((a, b) => Number(b.fin >= auj) - Number(a.fin >= auj) || b.modifie_le.localeCompare(a.modifie_le)).slice(0, 6);
+  const groupes = hebergement ? [] : appliquer(e).filter((g) => g.nature === 'bande');
   const basculer = (id: string) => setChoix((c) => { const n = new Set(c); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const partager = () => {
     const ids = [...choix];
+    if (hebergement) {
+      void proposer(ids, hebergement);
+      onToast(navigator.onLine ? `« ${nom} » proposé à tes buddies` : `« ${nom} » partira au retour du réseau 🕓`);
+      onFermer();
+      return;
+    }
     partagerTrace(nom, ligne, mot.trim(), { sorties: ids.filter((id) => sorties.some((x) => x.id === id)), groupes: ids.filter((id) => groupes.some((g) => g.id === id)) });
     onToast(navigator.onLine ? `« ${nom} » partagée` : `« ${nom} » partira au retour du réseau 🕓`);
     onFermer();
   };
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille bd-partage" onClick={(ev) => ev.stopPropagation()}>
-    <div className="xp-head"><h3>Partager « {nom} »</h3><small className="bd-quand">{(longueur(ligne) / 1000).toFixed(1)} km</small></div>
+    <div className="xp-head"><h3>Partager « {nom} »</h3><small className="bd-quand">{hebergement ? prixHebergement(hebergement)
+      : `${(longueur(ligne) / 1000).toFixed(1)} km`}</small></div>
     {connecte(compte) ? <>
       {actives.length > 0 && <><h3 className="bd-section">Dans un Buddy Time <small>les plus actifs</small></h3>
         <div className="bd-defile">{actives.map((x) => <button key={x.id} className={`bd-tuile${choix.has(x.id) ? ' oui' : ''}`} onClick={() => basculer(x.id)}>
@@ -673,12 +699,13 @@ export function PartagePanel({ nom, ligne, onAilleurs, onFermer, onToast }: {
         <div className="bd-defile">{(tous ? groupes : groupes.slice(0, 5)).map((g) => <button key={g.id} className={`bd-tuile rond${choix.has(g.id) ? ' oui' : ''}`} onClick={() => basculer(g.id)}>
           <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} /><small>{g.nom}</small></button>)}
           {!tous && groupes.length > 5 && <button className="bd-tuile rond" onClick={() => setTous(true)}><span className="bd-ajout">⋯</span><small>Tous</small></button>}</div></>}
-      {!actives.length && !groupes.length && <p className="hint">Crée un Buddy Group ou un Buddy Time (👥) pour y partager tes traces.</p>}
+      {!actives.length && !groupes.length && <p className="hint">{hebergement ? 'Crée un Buddy Time (👥) pour y proposer un hébergement à tes buddies.'
+        : 'Crée un Buddy Group ou un Buddy Time (👥) pour y partager tes traces.'}</p>}
       <input value={mot} maxLength={300} placeholder="Un petit mot (facultatif)…" onChange={(ev) => setMot(ev.target.value)} />
       <button className="primary bd-grand" disabled={!choix.size} onClick={partager}>Partager</button>
     </> : <p className="hint">Connecte-toi (👤) pour partager tes traces avec tes buddies.</p>}
     <h3 className="bd-section">Ou ailleurs</h3>
     <button className="bd-ligne petite" onClick={() => { onFermer(); onAilleurs(); }}><span className="bd-ajout">⋯</span>
-      <span className="bd-texte"><b>WhatsApp, mail, fichier GPX…</b><small>les autres applis du téléphone</small></span></button>
+      <span className="bd-texte"><b>{hebergement ? 'WhatsApp, mail, SMS…' : 'WhatsApp, mail, fichier GPX…'}</b><small>les autres applis du téléphone</small></span></button>
   </div></div>;
 }

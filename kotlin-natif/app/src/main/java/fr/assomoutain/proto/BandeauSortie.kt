@@ -26,6 +26,7 @@ object BandeauSortie {
 
     fun vue(a: androidx.appcompat.app.AppCompatActivity, x: Buddies.Sortie, traces: List<Buddies.TraceBuddy>, haut: Int, bas: Int,
             photos: List<Buddies.PhotoBuddy>, album: Album, depense: Int, reperes: List<Positions.Repere>, epingle: Buddies.Position?,
+            hebergements: List<Buddies.Hebergement>, onDodo: () -> Unit,
             onEnfoncer: () -> Unit, onRelever: () -> Unit, onRedessiner: () -> Unit, onAlbum: () -> Unit, onCarnet: () -> Unit, onCount: () -> Unit,
             onAjouter: () -> Unit, onRetour: () -> Unit): View {
         val d = a.resources.displayMetrics.density
@@ -85,6 +86,20 @@ object BandeauSortie {
                 addView(chiffre("💶 " + if (depense > 0) BuddyCount.euros(depense) else "＋", if (depense > 0) "à ${x.participants.size}" else "Buddy count").apply {
                     isClickable = true; setOnClickListener { onCount() }; (getChildAt(0) as TextView).apply { textSize = 18f; isSingleLine = true }
                 }, LinearLayout.LayoutParams(0, -2, 1.2f))
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
+            // 🏨 Où on dort ? (écran 9) : avant et pendant le Buddy Time.
+            if (x.fin >= auj) addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL; isClickable = true; minimumHeight = dp(56)
+                setOnClickListener { onDodo() }
+                val retenu = hebergements.firstOrNull { it.retenu }
+                addView(text("🏨", 28f), LinearLayout.LayoutParams(dp(44), -2))
+                addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(text(retenu?.let { "${it.nom} ✅" } ?: "Où on dort ?", 17f, bold = true))
+                    addView(text(retenu?.let { Hebergements.prix(it.prixNuit) }
+                        ?: if (hebergements.isNotEmpty()) "${hebergements.size} idée${if (hebergements.size > 1) "s" else ""} · mettez vos ♥" else "proposer un hébergement", 15f, muted))
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(text("›", 26f, muted))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
             // 📍 Position des buddies (écran 15) : pendant le Buddy Time.
             if (pendant) addView(LinearLayout(a).apply {

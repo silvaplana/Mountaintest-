@@ -257,3 +257,34 @@ class Position(Base):
     alt: Mapped[float | None] = mapped_column(Float)
     prise_le: Mapped[int | None] = mapped_column(BigInteger)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Hebergement(Base):
+    """Hébergement proposé dans un Buddy Time (spec/buddies.md §5.11, écrans 9 et 23) : chacun met un ♥, on en
+    retient un (✅). N'importe quel participant propose, retient ou retire."""
+
+    __tablename__ = "hebergements"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), nullable=False, index=True)
+    nom: Mapped[str] = mapped_column(String(80), nullable=False)
+    nature: Mapped[str] = mapped_column(String(40), default="", nullable=False)  # gîte, refuge, hôtel…
+    prix_nuit: Mapped[int | None] = mapped_column(Integer)  # euros
+    adresse: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    url: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    resume: Mapped[str] = mapped_column(String(300), default="", nullable=False)
+    lon: Mapped[float | None] = mapped_column(Float)
+    lat: Mapped[float | None] = mapped_column(Float)
+    retenu: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Coeur(Base):
+    """Un ♥ d'un buddy sur un hébergement proposé."""
+
+    __tablename__ = "coeurs"
+
+    hebergement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("hebergements.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)

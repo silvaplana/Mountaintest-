@@ -55,6 +55,11 @@ export type Depense = {
   id: string; sortie: string; titre: string; montant: number; paye_par: string; pour: string[]; jour: string; par: string; modifie_le: string;
   attente?: boolean;
 };
+/** 🏨 Hébergement proposé dans un Buddy Time (§5.11) : ♥ de chacun (identifiants), ✅ retenu. Prix par nuit, en euros. */
+export type Hebergement = {
+  id: string; sortie: string; nom: string; nature: string; prix_nuit: number | null; adresse: string; url: string; resume: string;
+  lon: number | null; lat: number | null; retenu: boolean; par: string; coeurs: string[]; modifie_le: string; attente?: boolean;
+};
 /** 📍 Position d'un buddy dans un Buddy Time (§5.9) : son épingle (ms) et sa dernière position. */
 export type Position = {
   sortie: string; qui: string; depuis: number; jusqu: number; lon: number | null; lat: number | null; alt: number | null; prise_le: number | null;
@@ -71,6 +76,7 @@ export type Etat = {
   photos: PhotoBuddy[];
   depenses?: Depense[];
   positions?: Position[];
+  hebergements?: Hebergement[];
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
   envois?: string[];
   curseur?: string;
@@ -126,7 +132,9 @@ function moiBuddy(e: Etat): Buddy {
 }
 
 /** Buddy Times et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
-export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[]; photos: PhotoBuddy[]; depenses: Depense[] } {
+export function vue(e: Etat): {
+  sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[]; photos: PhotoBuddy[]; depenses: Depense[]; hebergements: Hebergement[];
+} {
   const groupes = appliquer(e);
   const meTime = groupes.find((g) => g.nature === 'me_time')!;
   const sorties: Sortie[] = e.sorties.map((x) => ({ ...x, invitations: [...x.invitations] }));
@@ -135,6 +143,7 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
   const moi = e.moi ?? 'moi';
   let photos: PhotoBuddy[] = (e.photos ?? []).map((x) => ({ ...x }));
   let depenses: Depense[] = [...(e.depenses ?? [])];
+  let hebergements: Hebergement[] = (e.hebergements ?? []).map((h) => ({ ...h, coeurs: [...h.coeurs] }));
   const quand = (op: Op) => new Date(op.t).toISOString();
   for (const op of e.attente) {
     if (op.type === 'creer_sortie' && !sorties.some((x) => x.id === op.sortie)) {
@@ -177,6 +186,20 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
       depenses = [...depenses.filter((x) => x.id !== d.id), d];
     } else if (op.type === 'retirer_depense') {
       depenses = depenses.filter((x) => x.id !== op.depense);
+    } else if (op.type === 'proposer_hebergement' && !hebergements.some((h) => h.id === op.hebergement)) {
+      hebergements.push({ id: String(op.hebergement), sortie: String(op.sortie), nom: String(op.nom), nature: String(op.nature ?? ''),
+        prix_nuit: op.prix_nuit == null ? null : Math.round(Number(op.prix_nuit)), adresse: String(op.adresse ?? ''), url: String(op.url ?? ''),
+        resume: String(op.resume ?? ''), lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null, retenu: false, par: moi, coeurs: [],
+        modifie_le: quand(op), attente: true });
+    } else if (op.type === 'coeur') {
+      hebergements = hebergements.map((h) => h.id !== op.hebergement ? h
+        : { ...h, coeurs: [...h.coeurs.filter((c) => c !== moi), ...(op.coeur ? [moi] : [])], attente: true });
+    } else if (op.type === 'retenir_hebergement') {
+      const h = hebergements.find((x) => x.id === op.hebergement);
+      if (h) hebergements = hebergements.map((x) => x.id === h.id ? { ...x, retenu: !!op.retenu, attente: true }
+        : x.sortie === h.sortie && op.retenu ? { ...x, retenu: false } : x);
+    } else if (op.type === 'retirer_hebergement') {
+      hebergements = hebergements.filter((h) => h.id !== op.hebergement);
     } else if (op.type === 'recit' || op.type === 'fiche' || op.type === 'carnet') {
       const k = sorties.findIndex((y) => y.id === op.sortie);
       if (k < 0) continue;
@@ -200,7 +223,10 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
   // Le plus récemment actif en haut.
   return { sorties: sorties.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), traces,
     plannings: plannings.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), photos,
-    depenses: depenses.sort((a, b) => b.jour.localeCompare(a.jour) || b.modifie_le.localeCompare(a.modifie_le)) };
+    depenses: depenses.sort((a, b) => b.jour.localeCompare(a.jour) || b.modifie_le.localeCompare(a.modifie_le)),
+    // Le retenu en haut, puis les plus aimés, puis les moins chers.
+    hebergements: hebergements.sort((a, b) => Number(b.retenu) - Number(a.retenu) || b.coeurs.length - a.coeurs.length
+      || (a.prix_nuit ?? Infinity) - (b.prix_nuit ?? Infinity)) };
 }
 
 /** 📍 Positions telles qu'affichées : celles du serveur, avec mon épingle et ma dernière position en attente. */
@@ -439,6 +465,16 @@ export function envoyerPosition(f: { lat: number; lon: number; alt?: number | nu
   ecrire({ ...lire(), attente: [...lire().attente.filter((o) => o.type !== 'position'), op] });
   void synchroniser().catch(() => undefined);
 }
+/** 🏨 Proposer un hébergement (trouvé par la recherche) dans un ou plusieurs Buddy Times. */
+export function proposerHebergement(sorties: string[], h: { nom: string; nature: string; prix_nuit: number | null; adresse: string; url: string;
+  resume: string; lon: number | null; lat: number | null }) {
+  if (sorties.length) ajouter(...sorties.map((sortie) => ({ type: 'proposer_hebergement', hebergement: uuid(), sortie, ...h,
+    nom: h.nom.trim().slice(0, 80), nature: h.nature.slice(0, 40), adresse: h.adresse.slice(0, 160), resume: h.resume.slice(0, 300),
+    url: /^https?:\/\//.test(h.url) ? h.url.slice(0, 500) : '' })));
+}
+export const mettreCoeur = (hebergement: string, coeur: boolean) => ajouter({ type: 'coeur', hebergement, coeur });
+export const retenirHebergement = (hebergement: string, retenu: boolean) => ajouter({ type: 'retenir_hebergement', hebergement, retenu });
+export const retirerHebergement = (hebergement: string) => ajouter({ type: 'retirer_hebergement', hebergement });
 export const retirerDepense = (depense: string) => ajouter({ type: 'retirer_depense', depense });
 export const annulerInvitation = (invitation: string) => ajouter({ type: 'annuler_invitation', invitation });
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
@@ -457,6 +493,7 @@ type Reponse = {
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
   positions?: Position[];
+  ids_hebergements?: string[]; hebergements?: Hebergement[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -484,13 +521,14 @@ export function synchroniser(): Promise<string[]> {
       const pl = fusion(e.plannings ?? [], r.plannings ?? [], r.ids_plannings ?? []);
       const ph = fusion(e.photos ?? [], r.photos ?? [], r.ids_photos ?? []);
       const dp = fusion(e.depenses ?? [], r.depenses ?? [], r.ids_depenses ?? []);
+      const hb = fusion(e.hebergements ?? [], r.hebergements ?? [], r.ids_hebergements ?? []);
       const envoyees = new Set(ops.map((o) => o.id));
       // Un objet connu du serveur mais jamais reçu : on redemandera tout à la prochaine synchro.
-      const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque || dp.manque;
+      const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque || dp.manque || hb.manque;
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
-        positions: r.positions ?? e.positions,
+        positions: r.positions ?? e.positions, hebergements: hb.liste,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour

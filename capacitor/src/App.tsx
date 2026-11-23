@@ -21,7 +21,7 @@ import { connecte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type DepartBuddies } from './buddies/Buddies';
 import { useEpingle } from './buddies/Positions';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
-import { LodgingPanel } from './Lodging';
+import { LodgingPanel, type Lodging } from './Lodging';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
 import { rowOf, topoBounds, topoRowOf, type Outing, type OutingRow, type TopoRow, type TopoSheet } from './ski/skitour';
@@ -120,7 +120,7 @@ export function App() {
   /** Un Buddy Time ouvert sur la carte (écran 4). */
   const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[] } | null>(null);
   /** Panneau de partage d'une trace (écran 22). */
-  const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void } | null>(null);
+  const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void; hebergement?: Lodging } | null>(null);
   const buddiesEtat = useBuddies();
   const [lodging, setLodging] = useState(false);
   // ⛷ Sorties skitour.fr : zone encadrée, sorties trouvées, celle choisie.
@@ -1166,7 +1166,9 @@ export function App() {
         onOpen={setTopoSheet} onMode={skiMode} pinned={topoPin} onClose={() => { setTopoMapOn(false); setTopos([]); setTopoSel(null); }} />}
       {topoSheet && <TopoTextPanel key={topoSheet.id} onShowOnMap={(t) => { setTopoSheet(null); showTopoOnMap(t); }} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={topoSheet}
         onMode={(m) => { if (m === 'carteTopos') setTopoSheet(null); else skiMode(m); }} onClose={() => setTopoSheet(null)} />}
-      {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)} />}
+      {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)}
+        onProposer={(h) => setPartage({ nom: h.nom, ligne: [], hebergement: h,
+          ailleurs: () => void (navigator.share?.({ title: h.nom, text: [h.nom, h.adresse, h.url].filter(Boolean).join('\n') }) ?? Promise.resolve()).catch(() => undefined) })} />}
       {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onCarte={montrerBuddies} />}
@@ -1175,8 +1177,9 @@ export function App() {
         onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCount={() => { setBuddiesDepart({ ecran: 'count', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
+        onDodo={() => { setBuddiesDepart({ ecran: 'dodo', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onToast={setToast} map={map} />}
-      {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
+      {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} hebergement={partage.hebergement} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
       {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}

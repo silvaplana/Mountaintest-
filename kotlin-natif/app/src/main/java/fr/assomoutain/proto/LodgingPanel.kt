@@ -32,6 +32,8 @@ class LodgingPanel(
     private val a: AppCompatActivity,
     private val prefs: SharedPreferences,
     private val password: String,
+    /** 👥 Proposer un hébergement trouvé à mes buddies (panneau de partage, écran 23). */
+    private val onProposer: ((Lodging) -> Unit)? = null,
     private val onClose: () -> Unit,
 ) {
     private val d = a.resources.displayMetrics.density
@@ -158,6 +160,11 @@ class LodgingPanel(
                 addView(text(h.type + if (h.adresse.isNotEmpty()) " · ${h.adresse}" else ""))
                 addView(text(h.resume))
                 setOnClickListener { runCatching { a.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(h.url))) } }
+                onProposer?.let { f -> addView(Button(a).apply {
+                    text = "👥 Proposer à mes buddies"; isAllCaps = false; textSize = 16f; minHeight = dp(48); setTextColor(Color.parseColor("#2F6F4F"))
+                    background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(Color.WHITE); setStroke(dp(1), Color.parseColor("#2F6F4F")) }
+                    setOnClickListener { f(h) }
+                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) }) }
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
         }
         o.optString("conseil").takeIf { it.isNotEmpty() }?.let { result.addView(text(it)) }

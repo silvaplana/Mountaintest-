@@ -14,7 +14,7 @@ export const SITES = ['gites-refuges.com', 'capverb.org'];
 export const cleanSite = (s: string) => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
-export function LodgingPanel({ password, onClose }: { password: string; onClose: () => void }) {
+export function LodgingPanel({ password, onClose, onProposer }: { password: string; onClose: () => void; onProposer?: (h: Lodging) => void }) {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, string>; } catch { return {}; } })();
   const [city, setCity] = useState(saved.city ?? '');
   const [people, setPeople] = useState(saved.people ?? '2');
@@ -82,7 +82,8 @@ export function LodgingPanel({ password, onClose }: { password: string; onClose:
           {(answer.hebergements ?? []).map((h, i) => (
             <li key={i}><button onClick={() => window.open(h.url, '_system')}>
               <b>{h.nom}</b><em>{h.prix_nuit != null ? `${Math.round(h.prix_nuit)} €` : 'prix ?'}</em>
-              <span>{h.type}{h.adresse ? ` · ${h.adresse}` : ''}</span><span>{h.resume}</span></button></li>
+              <span>{h.type}{h.adresse ? ` · ${h.adresse}` : ''}</span><span>{h.resume}</span></button>
+              {onProposer && <button className="lodging-proposer" onClick={() => onProposer(h)}>👥 Proposer à mes buddies</button>}</li>
           ))}
         </ul>
         {answer.conseil && <p className="hint">{answer.conseil}</p>}

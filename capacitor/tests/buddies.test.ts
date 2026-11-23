@@ -9,6 +9,8 @@ import { exif } from '../src/buddies/album';
 import { compte, euros, icone, lireEuros } from '../src/buddies/count';
 import { detail, etiquette, opacite, reperes } from '../src/buddies/positions';
 import { enfoncerEpingle, envoyerPosition, finEpingle, monEpingle, positions, releverEpingle } from '../src/buddies/store';
+import { mettreCoeur, proposerHebergement, retenirHebergement, retirerHebergement } from '../src/buddies/store';
+import { iconeHebergement, prixHebergement } from '../src/buddies/Hebergements';
 import { chiffres, choixPhotos, fiches, joursDe, lireDuree, lireKm, lireMetres, texteCarnet, tracesDuCarnet, type Relief } from '../src/buddies/carnet';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
@@ -397,6 +399,38 @@ describe('Position des buddies (bloc 7)', () => {
     enfoncerEpingle('s2', T);
     expect(monEpingle(lire(), T + 1000)?.sortie).toBe('s2');
     expect(positions(lire()).find((p) => p.qui === 'u-seb' && p.sortie === 's1')?.jusqu).toBe(T);
+  });
+});
+
+describe('Hébergement partagé (bloc 8)', () => {
+  const x: Sortie = { id: 's1', groupe: 'a', nom: 'Queyras', photo: null, debut: '2026-12-12', fin: '2026-12-13', lieu: '', modifie_le: '',
+    participants: [{ id: 'u-seb', pseudo: 'Seb', photo: null }, { id: 'u-julie', pseudo: 'Julie', photo: null }], invitations: [] };
+  const h = (nom: string, prix: number | null) => ({ nom, nature: 'gîte', prix_nuit: prix, adresse: 'Ceillac', url: 'https://x.fr', resume: '', lon: null, lat: null });
+
+  it('sans réseau : proposer, ♥, retenir (un seul), retirer ; le retenu en haut', () => {
+    localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [] }));
+    _reinitialiser();
+    reseau(() => 'coupure');
+    proposerHebergement(['s1'], h('Gîte Les Baladins', 60));
+    proposerHebergement(['s1'], { ...h('Refuge de la Cime', 48), url: 'javascript:alert(1)' });
+    proposerHebergement(['s1'], h('Chalet Le Mélezin', 72));
+    let hs = vue(lire()).hebergements;
+    expect(hs.map((y) => y.nom)).toEqual(['Refuge de la Cime', 'Gîte Les Baladins', 'Chalet Le Mélezin']); // moins chers d'abord
+    expect(hs[0].url).toBe('');
+    const [refuge, gite, chalet] = hs;
+    mettreCoeur(gite.id, true);
+    retenirHebergement(refuge.id, true);
+    retenirHebergement(gite.id, true);
+    retirerHebergement(chalet.id);
+    hs = vue(lire()).hebergements;
+    expect(hs.map((y) => [y.nom, y.retenu, y.coeurs])).toEqual([['Gîte Les Baladins', true, ['u-seb']], ['Refuge de la Cime', false, []]]);
+    mettreCoeur(gite.id, false);
+    expect(vue(lire()).hebergements[0].coeurs).toEqual([]);
+  });
+
+  it('image et prix', () => {
+    expect(['Refuge CAF', 'Camping', 'Hôtel du Col', 'Chalet', 'Gîte'].map(iconeHebergement)).toEqual(['🏔', '⛺', '🏨', '🛖', '🏠']);
+    expect([prixHebergement({ prix_nuit: 60 }), prixHebergement({ prix_nuit: null })]).toEqual(['60 € / nuit', 'prix à voir']);
   });
 });
 
