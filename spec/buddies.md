@@ -472,12 +472,39 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   position, retenu) et `coeurs` ; opérations `proposer_hebergement`, `coeur`, `retenir_hebergement` (un seul retenu),
   `retirer_hebergement` ; réservées aux participants du Buddy Time.
 
+### 7.9 Bloc 9 : ce qui est construit (23 novembre 2026)
+
+- **Une conversation par Buddy Group et par Buddy Time** (§5.6), reprise en léger de la messagerie d'AppBase : chaque
+  message porte un identifiant choisi par le téléphone, il part dans la même file d'attente que le reste (§3.1) et
+  n'arrive qu'une fois même s'il est renvoyé. Sans réseau : « 🕓 partira au retour du réseau » sous le message.
+- **Écran 6** : la conversation d'un Buddy Time s'ouvre sur sa carte, dans le bandeau du bas (ligne « 💬 Messagerie ·
+  2 nouveaux » du bandeau, ou 💬 de la colonne depuis le carnet, l'album, le Buddy count…). Mes messages à droite en
+  vert, ceux des autres à gauche avec leur prénom en couleur. En bas : [📷] [📍] [Message] [🎤], 🎤 devient ➤ dès
+  qu'on écrit. Ouverte, elle regarde les nouveaux messages toutes les 10 s.
+- **Écran 24** : on replie le bandeau (poignée) ou on touche « voir sur la carte » : il ne reste que les deux derniers
+  mots et la saisie, la carte au-dessus.
+- **Dans le fil**, en plus des messages et en cartes cliquables : les traces partagées dans ce Buddy Time ou ce Buddy
+  Group (« Col Girardin · Julie · 14 km · voir sur la carte ») et les hébergements proposés (« Gîte Les Baladins ·
+  Seb · 60 € / nuit »). On les retrouve donc plus tard dans la conversation.
+- **Envoyer d'un geste** : 📍 envoie ma position du moment (« Nico est ici · voir sur la carte » : un toucher centre
+  la carte sur le point) ; 📷 (dans un Buddy Time) dépose les photos dans l'album et les envoie aussi en message ;
+  🎤 dicte le texte dans le champ (on relit avant d'envoyer). Appui long (ou toucher) sur un de mes messages :
+  « Retirer ce message ».
+- **💬 de la colonne** : dans un Buddy Time, sa conversation ; dans un Buddy Group, la sienne (dans le panneau) ;
+  ailleurs, la liste de mes conversations, la plus récente en haut, avec le dernier mot et le nombre de non lus.
+- **Pas encore** : le vrai message vocal (🎤 dicte pour l'instant), « Julie te montre… » en direct sur la carte de
+  l'autre pendant un appel (avec le bloc 10), le partage à un buddy seul (une conversation à deux) et les
+  notifications.
+- **Serveur** : table `messages_buddies` (Buddy Group ou Buddy Time, auteur, nature texte, point ou photo, texte de
+  2 000 caractères au plus, position, photo de l'album du même Buddy Time) ; opérations `message` et
+  `retirer_message` (seulement les siens) ; la synchro rend les messages des 90 derniers jours.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**
 - Le vote de dates. **(Seb)**
 - Un annuaire des utilisateurs. **(Seb)**
-- Le détail de la messagerie. **(Seb)**
+- Le détail de la messagerie. **(Seb)** Une version légère est faite au bloc 9 (§7.9).
 
 ## 9. Points ouverts
 

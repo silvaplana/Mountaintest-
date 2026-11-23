@@ -111,6 +111,12 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     data class Hebergement(
         val id: String, val sortie: String, val nom: String, val nature: String, val prixNuit: Int?, val adresse: String, val url: String,
         val resume: String, val lon: Double?, val lat: Double?, val retenu: Boolean, val coeurs: List<String>, val attente: Boolean = false,
+        val par: String = "", val cree: Long = 0,
+    )
+    /** 💬 Message d'un Buddy Group ou d'un Buddy Time (spec §5.6) : nature texte, point (« je suis ici ») ou photo de l'album. */
+    data class MessageBuddy(
+        val id: String, val groupe: String?, val sortie: String?, val par: String, val nature: String, val texte: String,
+        val lon: Double?, val lat: Double?, val photo: String?, val cree: Long, val attente: Boolean = false,
     )
     /** 📍 Position d'un buddy dans un Buddy Time (spec §5.9) : son épingle (ms) et sa dernière position. */
     data class Position(
@@ -313,7 +319,22 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
 
     private fun lireHebergement(o: JSONObject) = Hebergement(o.getString("id"), o.optString("sortie"), o.optString("nom"), o.optString("nature"),
         nombre(o, "prix_nuit")?.let { Math.round(it).toInt() }, o.optString("adresse"), o.optString("url"), o.optString("resume"),
-        nombre(o, "lon"), nombre(o, "lat"), o.optBoolean("retenu"), chaines(o.optJSONArray("coeurs")))
+        nombre(o, "lon"), nombre(o, "lat"), o.optBoolean("retenu"), chaines(o.optJSONArray("coeurs")), par = o.optString("par"),
+        cree = o.optString("cree_le").takeIf { it.isNotEmpty() && it != "null" }?.let { ms(it) } ?: ms(o.optString("modifie_le")))
+    private fun texteOuNul(o: JSONObject, k: String) = o.optString(k).takeIf { it.isNotEmpty() && it != "null" }
+    private fun lireMessage(o: JSONObject) = MessageBuddy(o.getString("id"), texteOuNul(o, "groupe"), texteOuNul(o, "sortie"), o.optString("par"),
+        o.optString("nature", "texte"), o.optString("texte"), nombre(o, "lon"), nombre(o, "lat"), texteOuNul(o, "photo"), ms(o.optString("cree_le")))
+    /** 💬 Messages tels qu'affichés (version du serveur + mes envois en attente), du plus ancien au plus récent. */
+    fun messages(): List<MessageBuddy> {
+        val me = moi ?: "moi"
+        val l = etat.optJSONArray("messages").objets().map(::lireMessage).toMutableList()
+        for (op in attente().objets()) when (op.optString("type")) {
+            "message" -> if (l.none { it.id == op.optString("message") })
+                l += lireMessage(JSONObject(op.toString()).put("id", op.optString("message")).put("par", me)).copy(cree = op.optLong("t"), attente = true)
+            "retirer_message" -> l.removeAll { it.id == op.optString("message") }
+        }
+        return l.sortedBy { it.cree }
+    }
     /** 🏨 Hébergements tels qu'affichés : le retenu en haut, puis les plus aimés, puis les moins chers. */
     fun hebergements(): List<Hebergement> {
         val me = moi ?: "moi"
@@ -321,7 +342,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         for (op in attente().objets()) {
             val h = op.optString("hebergement")
             when (op.optString("type")) {
-                "proposer_hebergement" -> if (l.none { it.id == h }) l = l + lireHebergement(JSONObject(op.toString()).put("id", h)).copy(attente = true)
+                "proposer_hebergement" -> if (l.none { it.id == h }) l = l + lireHebergement(JSONObject(op.toString()).put("id", h)).copy(attente = true, par = me, cree = op.optLong("t"))
                 "coeur" -> l = l.map { if (it.id != h) it else it.copy(coeurs = it.coeurs.filter { c -> c != me } + if (op.optBoolean("coeur")) listOf(me) else emptyList(), attente = true) }
                 "retenir_hebergement" -> l.firstOrNull { it.id == h }?.let { x ->
                     l = l.map { if (it.id == h) it.copy(retenu = op.optBoolean("retenu"), attente = true) else if (it.sortie == x.sortie && op.optBoolean("retenu")) it.copy(retenu = false) else it }
@@ -490,6 +511,25 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
                 .put("resume", l.resume.take(300)).put("lon", lon ?: JSONObject.NULL).put("lat", lat ?: JSONObject.NULL)
         }.toTypedArray())
     }
+    /** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
+    fun envoyerMessage(groupe: String?, sortie: String?, nature: String = "texte", texte: String = "", lon: Double? = null, lat: Double? = null, photo: String? = null) {
+        val t = texte.trim().take(2000)
+        if (nature == "texte" && t.isEmpty()) return
+        val op = JSONObject().put("type", "message").put("message", UUID.randomUUID().toString()).put("nature", nature).put("texte", t)
+        if (sortie != null) op.put("sortie", sortie) else op.put("groupe", groupe)
+        if (lon != null && lat != null) op.put("lon", Math.round(lon * 1e6) / 1e6).put("lat", Math.round(lat * 1e6) / 1e6)
+        if (photo != null) op.put("photo", photo)
+        ajouter(op)
+    }
+    fun retirerMessage(message: String) = ajouter(JSONObject().put("type", "retirer_message").put("message", message))
+    /** Conversation lue jusqu'à maintenant. */
+    fun marquerLu(cle: String, t: Long = System.currentTimeMillis()) = modifier { put("lus", (optJSONObject("lus") ?: JSONObject()).put(cle, t)) }
+    /** Messages des autres arrivés depuis ma dernière lecture de cette conversation. */
+    fun nonLus(cle: String, l: List<MessageBuddy> = messages()): Int {
+        val me = moi ?: "moi"
+        val lu = etat.optJSONObject("lus")?.optLong(cle) ?: 0L
+        return l.count { (it.groupe == cle || it.sortie == cle) && it.par != me && it.cree > lu }
+    }
     fun mettreCoeur(h: String, coeur: Boolean) = ajouter(JSONObject().put("type", "coeur").put("hebergement", h).put("coeur", coeur))
     fun retenirHebergement(h: String, retenu: Boolean) = ajouter(JSONObject().put("type", "retenir_hebergement").put("hebergement", h).put("retenu", retenu))
     fun retirerHebergement(h: String) = ajouter(JSONObject().put("type", "retirer_hebergement").put("hebergement", h))
@@ -537,6 +577,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             fusion("photos", "photos", "ids_photos")
             fusion("depenses", "depenses", "ids_depenses")
             fusion("hebergements", "hebergements", "ids_hebergements")
+            fusion("messages", "messages", "ids_messages")
             r.optJSONArray("positions")?.let { put("positions", it) }
             put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("id") !in envoyees }))
             put("moi", r.getString("moi")); put("synchro", System.currentTimeMillis())
