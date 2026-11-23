@@ -4,10 +4,11 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
+import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin,
   nouveauCode, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, vue as vueSorties,
-  type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Sortie, type TraceBuddy,
+  type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
 /**
@@ -61,7 +62,7 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: () => voi
 const COULEURS = ['#2f6f4f', '#3f6fb5', '#8a4fb0', '#c9862b', '#2c8c8c', '#b5534a'];
 const couleur = (id: string) => COULEURS[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % COULEURS.length];
 
-function Visage({ b, taille = 34 }: { b: { id: string; pseudo?: string; nom?: string; photo: string | null }; taille?: number }) {
+export function Visage({ b, taille = 34 }: { b: { id: string; pseudo?: string; nom?: string; photo: string | null }; taille?: number }) {
   const nom = b.pseudo ?? b.nom ?? '?';
   return <span className="bd-visage" style={{ width: taille, height: taille, fontSize: taille * 0.45, background: couleur(b.id) }}>
     {b.photo ? <img src={b.photo} alt="" /> : nom.slice(0, 1).toUpperCase()}</span>;
@@ -107,11 +108,13 @@ function reduire(f: File): Promise<string> {
 }
 
 /** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging }: { onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void }) {
+function Colonne({ onToast, onExpenses, onLodging, onPlanning }: {
+  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onPlanning?: () => void;
+}) {
   const bientot = (m: string) => () => onToast(`Bientôt : ${m}`);
   return <div className="bd-colonne">
     <button aria-label="Appel" onClick={bientot('appeler toute la bande')}>📞</button>
-    <button aria-label="Planning" onClick={bientot('le planning de saison')}>📅</button>
+    <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Messagerie" onClick={bientot('la messagerie de la bande')}>💬</button>
     <button aria-label="Album photo" onClick={bientot('l’album photo')}>📸</button>
     <button aria-label="Buddy count" onClick={onExpenses}>💶</button>
@@ -232,7 +235,9 @@ function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; 
   </button>;
 }
 
-type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string };
+type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }
+  | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string } | { ecran: 'dispos'; id: string; groupe?: string }
+  | { ecran: 'nvPlanning'; groupe?: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void;
@@ -252,8 +257,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     return () => { clearInterval(t); marquerVu(); };
   }, [onToast]);
 
-  const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} />;
   if (!connecte(compte)) {
+    const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} />;
     return <div className="buddies">{colonne}<div className="bd-corps">
       <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
       <p className="bd-vide">Connecte-toi pour retrouver tes copains, créer tes Buddy Groups et partager vos sorties.</p>
@@ -263,26 +268,42 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }
 
   const groupes = appliquer(e);
-  const { sorties, traces } = vueSorties(e);
+  const { sorties, traces, plannings } = vueSorties(e);
   const ouvrir = (x: Sortie) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id) });
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
   const meTime = groupes.find((x) => x.nature === 'me_time')!;
+  // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
+  const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' ? vue.id : undefined;
+  const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging}
+    onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })} />;
+  const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
+  const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
+  const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
   return <div className="buddies">
     {colonne}
-    {vue.ecran === 'nouveau' ? <Nouveau onToast={onToast} onFini={(id) => setVue({ ecran: 'groupe', id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
+    {vue.ecran === 'plannings' ? <Plannings plannings={plannings.filter((x) => !vue.groupe || x.groupe === vue.groupe)} groupes={groupes}
+      onOuvrir={(id) => setVue({ ecran: 'planning', id, groupe: vue.groupe })} onRemplir={(id) => setVue({ ecran: 'dispos', id, groupe: vue.groupe })}
+      onNouveau={() => setVue({ ecran: 'nvPlanning', groupe: vue.groupe })} onClose={onClose}
+      onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'nvPlanning' ? <NouveauPlanning groupes={groupes} groupe={vue.groupe} onToast={onToast} onClose={onClose}
+        onFini={(id) => setVue({ ecran: 'planning', id, groupe: vue.groupe })} onRetour={() => retourPlannings(vue.groupe)} />
+      : vue.ecran === 'planning' && pl ? <UnPlanning p={pl} g={groupes.find((x) => x.id === pl.groupe)} sorties={sorties} onToast={onToast} onClose={onClose}
+        onSortie={ouvrir} onRemplir={() => setVue({ ecran: 'dispos', id: pl.id, groupe: vue.groupe })} onRetour={() => retourPlannings(vue.groupe)} />
+      : vue.ecran === 'dispos' && pl ? <MesDispos p={pl} onClose={onClose} onRetour={() => setVue({ ecran: 'planning', id: pl.id, groupe: vue.groupe })} />
+      : vue.ecran === 'nouveau' ? <Nouveau onToast={onToast} onFini={(id) => setVue({ ecran: 'groupe', id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
       : vue.ecran === 'sortie' ? <NouvelleSortie g={groupes.find((x) => x.id === vue.groupe) ?? meTime} onToast={onToast} onClose={onClose}
         onRetour={() => setVue(vue.groupe === meTime.id ? { ecran: 'liste' } : { ecran: 'groupe', id: vue.groupe })}
         onFini={(id) => { const x = vueSorties(lire()).sorties.find((y) => y.id === id); if (x) ouvrir(x); }} />
-      : g ? <UnGroupe g={g} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
+      : g ? <UnGroupe g={g} plannings={plannings.filter((x) => x.groupe === g.id)} onRemplir={remplir} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
         onToast={onToast} onOuvrir={ouvrir} onTrace={(t) => onCarte({ traces: [t] })}
         onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-        : <Liste e={e} groupes={groupes} sorties={sorties} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={ouvrir}
+        : <Liste e={e} groupes={groupes} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={ouvrir}
           onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: meTime.id })} onClose={onClose} />}
   </div>;
 }
 
-function Liste({ e, groupes, sorties, onOuvrir, onSortie, onNouveau, onNouvelle, onClose }: {
-  e: Etat; groupes: Groupe[]; sorties: Sortie[]; onOuvrir: (id: string) => void; onSortie: (x: Sortie) => void;
+function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, onNouveau, onNouvelle, onClose }: {
+  e: Etat; groupes: Groupe[]; sorties: Sortie[]; plannings: Planning[]; onRemplir: (p: Planning) => void; onOuvrir: (id: string) => void; onSortie: (x: Sortie) => void;
   onNouveau: () => void; onNouvelle: () => void; onClose: () => void;
 }) {
   const enAttente = e.attente.length;
@@ -292,6 +313,7 @@ function Liste({ e, groupes, sorties, onOuvrir, onSortie, onNouveau, onNouvelle,
     <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
     <p className="hint">{enAttente ? `🕓 ${enAttente} changement${enAttente > 1 ? 's' : ''} partira au retour du réseau · ` : ''}{heure(e.synchro)}</p>
     {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
+    {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     {haut && <Affiche x={haut} onClick={() => onSortie(haut)} />}
     <h3 className="bd-section">Buddy Groups</h3>
     {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
@@ -318,9 +340,9 @@ function Liste({ e, groupes, sorties, onOuvrir, onSortie, onNouveau, onNouvelle,
   </div>;
 }
 
-function UnGroupe({ g, sorties, traces, onToast, onOuvrir, onTrace, onNouvelle, onRetour, onClose }: {
-  g: Groupe; sorties: Sortie[]; traces: TraceBuddy[]; onToast: (m: string) => void; onOuvrir: (x: Sortie) => void;
-  onTrace: (t: TraceBuddy) => void; onNouvelle: () => void; onRetour: () => void; onClose: () => void;
+function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir, onTrace, onNouvelle, onRetour, onClose }: {
+  g: Groupe; plannings: Planning[]; onRemplir: (p: Planning) => void; sorties: Sortie[]; traces: TraceBuddy[];
+  onToast: (m: string) => void; onOuvrir: (x: Sortie) => void; onTrace: (t: TraceBuddy) => void; onNouvelle: () => void; onRetour: () => void; onClose: () => void;
 }) {
   const [membres, setMembres] = useState(false);
   const me = g.nature === 'me_time';
@@ -339,6 +361,7 @@ function UnGroupe({ g, sorties, traces, onToast, onOuvrir, onTrace, onNouvelle, 
       {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <span key={i.id} className="bd-invite-visage"><Visage b={{ id: i.id, nom: i.nom, photo: null }} taille={34} /></span>)}
       <span className="bd-ajout">＋</span>
     </button>}
+    {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     <h3 className="bd-section">À venir</h3>
     {avenir.length ? avenir.map((x) => <Affiche key={x.id} x={x} onClick={() => onOuvrir(x)} />)
       : <p className="bd-vide">{me ? 'Tes sorties à toi, seul ou avec un ou deux copains invités.' : 'Rien de prévu pour l’instant : ＋ Buddy Time quand vous êtes sûrs de partir.'}</p>}

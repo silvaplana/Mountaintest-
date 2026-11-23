@@ -1,5 +1,5 @@
-"""Buddies (spec/buddies.md §3.1, §5.2 à §5.4) : Buddy Groups, Me Time, invitations, Buddy Times, traces
-partagées, synchro.
+"""Buddies (spec/buddies.md §3.1, §5.2 à §5.5) : Buddy Groups, Me Time, invitations, Buddy Times, traces
+partagées, plannings de saison, synchro.
 
 Synchro « envoyer / nouveautés depuis » : le téléphone envoie d'un coup tout ce qu'il a fait (hors ligne ou
 pas), puis reçoit les Buddy Groups qui ont changé depuis sa dernière synchro. Chaque opération est rejouable
@@ -18,7 +18,7 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import Groupe, Invitation, Membre, Participant, Sortie, TracePartagee, Utilisateur, maintenant
+from modeles import Dispo, Groupe, Invitation, Membre, Participant, Planning, Sortie, TracePartagee, Utilisateur, maintenant
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -28,6 +28,8 @@ ESPACE_ME_TIME = uuid.UUID("6f0c2f7e-5b8f-4a43-9a2e-0c1f6d2b7d11")
 # un groupe ne coûte rien, le téléphone le remplace).
 MARGE = timedelta(seconds=5)
 MAX_POINTS = 20_000
+MAX_DATES = 200
+ETATS = {"oui", "peut", "non"}
 
 
 class Refus(Exception):
@@ -258,10 +260,54 @@ def partager_trace(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so or g)
 
 
+def creer_planning(s: Session, u: Utilisateur, op: dict) -> None:
+    """Planning de saison (§5.5) : des dates proposées à toute la bande, une date limite pour répondre."""
+    pid = uuid.UUID(str(op["planning"]))
+    if s.get(Planning, pid) is not None:
+        return
+    g = groupe_de(s, u, op["groupe"])
+    if g.nature == "me_time":
+        raise Refus("Un planning se fait avec une bande")
+    nom = propre(op.get("nom"), 80)
+    if not nom:
+        raise Refus("Il faut un nom")
+    dates = sorted({(jour(d[0]), jour(d[1] or d[0])) for d in op.get("dates") or []})
+    if not 1 <= len(dates) <= MAX_DATES or any(f < d for d, f in dates):
+        raise Refus("Choisis entre 1 et 200 dates")
+    s.add(Planning(id=pid, groupe_id=g.id, nom=nom, dates=json.dumps(dates), limite=jour(op.get("limite")), cree_par=u.id))
+
+
+def planning_de(s: Session, u: Utilisateur, pid: Any) -> Planning:
+    p = s.get(Planning, uuid.UUID(str(pid)))
+    if p is None or membre(s, p.groupe_id, u.id) is None:
+        raise Refus("Planning inconnu")
+    return p
+
+
+def dispo(s: Session, u: Utilisateur, op: dict) -> None:
+    """Ma réponse pour une date : oui, peut, non, ou rien (etat vide) ; rejouer la même opération ne change rien."""
+    p = planning_de(s, u, op["planning"])
+    debut = jour(op.get("debut"))
+    if debut not in {d for d, _ in json.loads(p.dates)}:
+        raise Refus("Date hors du planning")
+    etat = str(op.get("etat") or "")
+    if etat and etat not in ETATS:
+        raise Refus("Réponse inconnue")
+    d = s.get(Dispo, (p.id, u.id, debut))
+    if not etat:
+        if d is not None:
+            s.delete(d)
+    elif d is None:
+        s.add(Dispo(planning_id=p.id, utilisateur_id=u.id, debut=debut, etat=etat, mot=propre(op.get("mot"), 200)))
+    else:
+        d.etat, d.mot = etat, propre(op.get("mot"), 200)
+    p.modifie_le = maintenant()
+
+
 OPERATIONS = {
     "creer_groupe": creer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
-    "creer_sortie": creer_sortie, "partager_trace": partager_trace,
+    "creer_sortie": creer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
 }
 
 
@@ -309,10 +355,13 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     sids = [so.id for so in sorties]
     traces = s.scalars(select(TracePartagee).where(or_(TracePartagee.groupe_id.in_(gids), TracePartagee.sortie_id.in_(sids)))
                        .order_by(TracePartagee.cree_le)).all()
+    plannings = s.scalars(select(Planning).where(Planning.groupe_id.in_(gids)).order_by(Planning.cree_le)).all()
     return {"curseur": iso(debut), "moi": str(u.id), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
             "ids_traces": [str(t.id) for t in traces], "traces": [vue_trace(s, t) for t in traces if neuf(t.cree_le)],
+            "ids_plannings": [str(p.id) for p in plannings],
+            "plannings": [vue_planning(s, p) for p in plannings if neuf(p.modifie_le)],
             "refus": refus}
 
 
@@ -334,6 +383,13 @@ def vue_trace(s: Session, t: TracePartagee) -> dict[str, Any]:
     return {"id": str(t.id), "sortie": str(t.sortie_id) if t.sortie_id else None,
             "groupe": str(t.groupe_id) if t.groupe_id else None, "nom": t.nom, "ligne": json.loads(t.ligne),
             "mot": t.mot, "par": personne(par), "cree_le": iso(t.cree_le)}
+
+
+def vue_planning(s: Session, p: Planning) -> dict[str, Any]:
+    dispos = s.scalars(select(Dispo).where(Dispo.planning_id == p.id)).all()
+    return {"id": str(p.id), "groupe": str(p.groupe_id), "nom": p.nom, "par": personne(s.get(Utilisateur, p.cree_par)),
+            "dates": json.loads(p.dates), "limite": p.limite, "modifie_le": iso(p.modifie_le),
+            "dispos": [{"qui": str(d.utilisateur_id), "debut": d.debut, "etat": d.etat, "mot": d.mot} for d in dispos]}
 
 
 def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:

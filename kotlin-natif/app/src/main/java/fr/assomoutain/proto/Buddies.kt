@@ -39,6 +39,27 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         /** Date ISO du serveur (avec fuseau) → ms ; 0 si illisible. */
         fun ms(iso: String): Long = runCatching { java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli() }
             .recoverCatching { java.time.Instant.parse(iso).toEpochMilli() }.getOrDefault(0L)
+
+        /**
+         * Planning de saison : dates proposées d'un mois à l'autre (« 2026-12 » à « 2027-03 »), les week-ends
+         * (samedi-dimanche) ou tous les jours (« à la carte » part de tous les jours, aucun coché). Comme store.ts.
+         */
+        fun datesPlanning(de: String, a: String, weekends: Boolean): List<Pair<String, String>> {
+            val debut = java.time.YearMonth.parse(de).atDay(1)
+            val fin = java.time.YearMonth.parse(a).atEndOfMonth()
+            val out = mutableListOf<Pair<String, String>>()
+            var d = debut
+            while (!d.isAfter(fin)) {
+                if (!weekends) out += d.toString() to d.toString()
+                else if (d.dayOfWeek == java.time.DayOfWeek.SATURDAY) out += d.toString() to d.plusDays(1).toString()
+                d = d.plusDays(1)
+            }
+            return out
+        }
+        /** Mes dates encore à remplir (pas passées). */
+        fun aRemplir(p: Planning, moi: String, auj: String) = p.dates.count { (d, f) -> f >= auj && p.dispos.none { it.qui == moi && it.debut == d } }
+        /** Une ligne du planning devenue Buddy Time : le Buddy Time du groupe qui part ce jour-là. */
+        fun sortieDeLigne(sorties: List<Sortie>, p: Planning, debut: String) = sorties.firstOrNull { it.groupe == p.groupe && it.debut == debut }
     }
 
     /** Un Buddy Group tel qu'affiché (version du serveur + opérations en attente). */
@@ -58,6 +79,13 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     data class TraceBuddy(
         val id: String, val sortie: String?, val groupe: String?, val nom: String, val ligne: List<LonLat>, val mot: String,
         val par: Buddy, val cree: Long, val attente: Boolean,
+    )
+
+    /** Planning de saison (spec §5.5) : etat = oui, peut (peut-être) ou non. */
+    data class Dispo(val qui: String, val debut: String, val etat: String, val mot: String)
+    data class Planning(
+        val id: String, val groupe: String, val nom: String, val par: Buddy, val dates: List<Pair<String, String>>, val limite: String,
+        val modifie: Long, val dispos: List<Dispo>, val attente: Boolean,
     )
 
     /** État gardé sur le téléphone (JSON dans les préférences, mêmes champs que store.ts). */
@@ -120,7 +148,8 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
     fun nouveautes(): Int {
         val vu = etat.optLong("vu")
         return serveur().objets().count { it.optString("nature") == "bande" && ms(it.optString("modifie_le")) > vu } +
-            etat.optJSONArray("sorties").objets().count { ms(it.optString("modifie_le")) > vu }
+            etat.optJSONArray("sorties").objets().count { ms(it.optString("modifie_le")) > vu } +
+            etat.optJSONArray("plannings").objets().count { ms(it.optString("modifie_le")) > vu }
     }
 
     private fun lireBuddy(b: JSONObject) = Buddy(b.getString("id"), b.optString("pseudo"), b.optString("photo").takeIf { it.isNotEmpty() && it != "null" }, b.optString("role", "membre"))
@@ -167,6 +196,30 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             l += TraceBuddy(op.getString("trace"), op.optString("sortie").takeIf { it.isNotEmpty() }, op.optString("groupe").takeIf { it.isNotEmpty() },
                 op.optString("nom"), lireLigne(op.optJSONArray("ligne")), op.optString("mot"), moiBuddy(), op.optLong("t"), true)
         return l
+    }
+    private fun lireDates(a: JSONArray?) = a.let { l -> if (l == null) emptyList() else (0 until l.length()).map { l.getJSONArray(it).let { p -> p.getString(0) to p.getString(1) } } }
+    private fun lirePlanning(p: JSONObject) = Planning(p.getString("id"), p.optString("groupe"), p.optString("nom"),
+        lireBuddy(p.optJSONObject("par") ?: JSONObject().put("id", "?")), lireDates(p.optJSONArray("dates")), p.optString("limite"),
+        ms(p.optString("modifie_le")), p.optJSONArray("dispos").objets().map { Dispo(it.optString("qui"), it.optString("debut"), it.optString("etat"), it.optString("mot")) }, false)
+
+    /** Plannings de saison tels qu'affichés (version du serveur + mes réponses en attente). */
+    fun plannings(): List<Planning> {
+        val l = etat.optJSONArray("plannings").objets().map(::lirePlanning).toMutableList()
+        val m = moi ?: "moi"
+        for (op in attente().objets()) when (op.optString("type")) {
+            "creer_planning" -> if (l.none { it.id == op.optString("planning") }) l += Planning(op.getString("planning"), op.optString("groupe"),
+                op.optString("nom"), moiBuddy(), lireDates(op.optJSONArray("dates")), op.optString("limite"), op.optLong("t"), emptyList(), true)
+            "dispo" -> {
+                val k = l.indexOfFirst { it.id == op.optString("planning") }
+                if (k >= 0) {
+                    val debut = op.optString("debut")
+                    val autres = l[k].dispos.filter { !(it.qui == m && it.debut == debut) }
+                    val e = op.optString("etat")
+                    l[k] = l[k].copy(dispos = if (e.isEmpty()) autres else autres + Dispo(m, debut, e, op.optString("mot")), attente = true)
+                }
+            }
+        }
+        return l.sortedByDescending { it.modifie }
     }
     fun marquerVu() = modifier { put("vu", System.currentTimeMillis()) }
 
@@ -220,6 +273,19 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             groupes.map { JSONObject().put("type", "partager_trace").put("trace", UUID.randomUUID().toString()).put("groupe", it) })
             .map { it.put("nom", nom).put("ligne", pts()).put("mot", mot) }.toTypedArray())
     }
+    /** Publier un planning de saison pour une bande. */
+    fun creerPlanning(groupe: String, nom: String, dates: List<Pair<String, String>>, limite: String): String {
+        val n = nom.replace(Regex("\\s+"), " ").trim().take(80)
+        require(n.isNotEmpty()) { "Donne un nom au planning" }
+        require(dates.isNotEmpty()) { "Coche au moins une date" }
+        val planning = UUID.randomUUID().toString()
+        ajouter(JSONObject().put("type", "creer_planning").put("planning", planning).put("groupe", groupe).put("nom", n)
+            .put("dates", JSONArray(dates.sortedBy { it.first }.map { JSONArray().put(it.first).put(it.second) })).put("limite", limite))
+        return planning
+    }
+    /** Ma réponse pour une date (etat vide : j'efface). */
+    fun repondre(planning: String, debut: String, etat: String, mot: String = "") = ajouter(JSONObject().put("type", "dispo")
+        .put("planning", planning).put("debut", debut).put("etat", etat).put("mot", mot.trim().take(200)))
     fun annulerInvitation(invitation: String) = ajouter(JSONObject().put("type", "annuler_invitation").put("invitation", invitation))
     fun quitter(groupe: String) = ajouter(JSONObject().put("type", "quitter").put("groupe", groupe))
     fun retirer(groupe: String, buddy: String) = ajouter(JSONObject().put("type", "retirer").put("groupe", groupe).put("buddy", buddy))
@@ -259,6 +325,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
                 put(cle, JSONArray(ids.mapNotNull { parId[it] }))
             }
             fusion("serveur", "groupes", "ids"); fusion("sorties", "sorties", "ids_sorties"); fusion("traces", "traces", "ids_traces")
+            fusion("plannings", "plannings", "ids_plannings")
             put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("id") !in envoyees }))
             put("moi", r.getString("moi")); put("synchro", System.currentTimeMillis())
             if (manque) remove("curseur") else put("curseur", r.getString("curseur"))

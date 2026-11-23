@@ -132,3 +132,31 @@ class TracePartagee(Base):
     mot: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Planning(Base):
+    """Planning de saison (spec/buddies.md §5.5) : des dates proposées à un Buddy Group, chacun dit s'il est dispo."""
+
+    __tablename__ = "plannings"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    groupe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), nullable=False, index=True)
+    nom: Mapped[str] = mapped_column(String(80), nullable=False)
+    # [[début, fin], …] en JSON, dates AAAA-MM-JJ : un week-end ou un jour par ligne.
+    dates: Mapped[str] = mapped_column(Text, nullable=False)
+    limite: Mapped[str] = mapped_column(String(10), nullable=False)
+    cree_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Dispo(Base):
+    """La réponse d'un buddy pour une date du planning : oui, peut (peut-être) ou non, avec un petit mot."""
+
+    __tablename__ = "dispos"
+
+    planning_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plannings.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    debut: Mapped[str] = mapped_column(String(10), primary_key=True)
+    etat: Mapped[str] = mapped_column(String(4), nullable=False)
+    mot: Mapped[str] = mapped_column(String(200), nullable=False, default="")
