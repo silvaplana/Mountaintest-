@@ -69,6 +69,8 @@ class BuddiesPanel(
     departAlbum: String? = null,
     /** Ou son carnet (📖 Carnet depuis la carte). */
     departCarnet: String? = null,
+    /** Ou son Buddy Count (💶 depuis la carte). */
+    departCount: String? = null,
 ) {
     private val d = a.resources.displayMetrics.density
     private fun dp(v: Int) = (v * d).toInt()
@@ -88,10 +90,13 @@ class BuddiesPanel(
         data class UnAlbum(val id: String, val groupe: String?, val carnet: Boolean = false, val retourCarnet: Boolean = false) : Vue()
         // Carnet (§5.8).
         data class LeCarnet(val id: String, val groupe: String?) : Vue(); data class Ecrire(val id: String, val groupe: String?) : Vue()
+        // Buddy count (§5.10).
+        data class Comptes(val groupe: String?) : Vue(); data class Count(val id: String, val groupe: String?) : Vue()
+        data class UneDepense(val id: String, val depense: String?, val groupe: String?) : Vue()
     }
-    private var vue: Vue = departCarnet?.let { Vue.LeCarnet(it, depart) } ?: departAlbum?.let { Vue.UnAlbum(it, depart) }
+    private var vue: Vue = departCount?.let { Vue.Count(it, depart) } ?: departCarnet?.let { Vue.LeCarnet(it, depart) } ?: departAlbum?.let { Vue.UnAlbum(it, depart) }
         ?: depart?.let { Vue.UnGroupe(it) } ?: Vue.Liste
-    private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || vue is Vue.Ecrire || motOuvert != null
+    private val saisie get() = vue == Vue.Nouveau || vue is Vue.NouvelleSortie || vue is Vue.NvPlanning || vue is Vue.Ecrire || vue is Vue.UneDepense || motOuvert != null
 
     private val tete = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val col = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(16)) }
@@ -214,7 +219,11 @@ class BuddiesPanel(
             else { vue = Vue.Albums(groupeCourant()); afficher() }
         }
         listOf("📞" to bientot("appeler toute la bande"), "📅" to planning, "💬" to bientot("la messagerie de la bande"),
-            "📸" to albums, "💶" to onExpenses, "🏨" to onLodging,
+            "📸" to albums, "💶" to {
+                // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
+                if (!compte.connecte) onExpenses()
+                else { depenseCount(); afficher() }
+            }, "🏨" to onLodging,
         ).forEach { (t, f) -> colonne.addView(rond(t, 52) { f() }.apply { (layoutParams as LinearLayout.LayoutParams).bottomMargin = dp(12) }) }
     }
 
@@ -257,6 +266,10 @@ class BuddiesPanel(
             is Vue.UnAlbum -> buddies.sorties().firstOrNull { it.id == v.id }?.let { unAlbum(it, v) } ?: run { vue = Vue.Albums(v.groupe); afficher() }
             is Vue.LeCarnet -> buddies.sorties().firstOrNull { it.id == v.id }?.let { carnet(it, v.groupe) } ?: run { vue = Vue.Liste; afficher() }
             is Vue.Ecrire -> buddies.sorties().firstOrNull { it.id == v.id }?.let { ecrire(it, v.groupe) } ?: run { vue = Vue.Liste; afficher() }
+            is Vue.Comptes -> comptes(v.groupe)
+            is Vue.Count -> buddies.sorties().firstOrNull { it.id == v.id }?.let { count(it, v.groupe) } ?: run { vue = Vue.Comptes(v.groupe); afficher() }
+            is Vue.UneDepense -> buddies.sorties().firstOrNull { it.id == v.id }
+                ?.let { uneDepense(it, v.depense?.let { d -> buddies.depenses().firstOrNull { it.id == d } }, v.groupe) } ?: run { vue = Vue.Comptes(v.groupe); afficher() }
         }
     }
 
@@ -660,6 +673,7 @@ class BuddiesPanel(
     private val moiId get() = buddies.moi ?: "moi"
     private fun groupeCourant(): String? = when (val v = vue) {
         is Vue.UnGroupe -> v.id; is Vue.Albums -> v.groupe; is Vue.UnAlbum -> v.groupe; is Vue.LeCarnet -> v.groupe; is Vue.Ecrire -> v.groupe
+        is Vue.Comptes -> v.groupe; is Vue.Count -> v.groupe; is Vue.UneDepense -> v.groupe
         else -> bandeCourante()
     }
     private fun bandeCourante(): String? {
@@ -1197,15 +1211,19 @@ class BuddiesPanel(
         col.addView(LinearLayout(a).apply {
             gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(56); setPadding(dp(14), 0, dp(14), 0); isClickable = true
             background = GradientDrawable().apply { cornerRadius = 14 * d; setColor(card) }
-            addView(text("📍 👥 〰", 17f)); addView(text("Le pratique", 17f, muted).apply { setPadding(dp(10), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text("📍 💶 〰", 17f)); addView(text("Le pratique", 17f, muted).apply { setPadding(dp(10), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
             addView(text(if (pratiqueOuvert) "▾" else "▸", 17f, muted))
             setOnClickListener { pratiqueOuvert = !pratiqueOuvert; afficher() }
         }, lp(12))
         if (pratiqueOuvert) {
             if (x.lieu.isNotEmpty()) col.addView(text("📍 ${x.lieu}"), lp(4))
             col.addView(text("👥 ${x.participants.joinToString(", ") { it.pseudo }}"), lp(4))
+            val dsc = buddies.depenses().filter { it.sortie == x.id }
+            col.addView(text("💶 " + (if (dsc.isEmpty()) "Buddy count ›" else "${BuddyCount.euros(dsc.sumOf { it.montant })} à ${x.participants.size} · les comptes ›"),
+                17f, accent, bold = true).apply { minHeight = dp(48); gravity = Gravity.CENTER_VERTICAL; isClickable = true
+                setOnClickListener { vue = Vue.Count(x.id, groupe); afficher() } }, lp(4))
             for (t in traces) col.addView(text("〰 ${t.nom} · par ${t.par.pseudo}"), lp(2))
-            col.addView(text("L’hébergement, les comptes et les messages s’ajouteront ici.", 15f, muted), lp(4))
+            col.addView(text("L’hébergement et les messages s’ajouteront ici.", 15f, muted), lp(4))
         }
         pied.addView(LinearLayout(a).apply {
             addView(bouton("✏️ Modifier") { ecrireReset(x); vue = Vue.Ecrire(x.id, groupe); afficher() }, LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
@@ -1308,6 +1326,164 @@ class BuddiesPanel(
             toast(if (enLigne()) "Carnet enregistré" else "Carnet enregistré : il partira au retour du réseau 🕓")
             vue = Vue.LeCarnet(x.id, groupe); afficher(); synchroniser()
         }, lp(8))
+    }
+
+    // ---------- Buddy count (spec §5.10, écran 8) ----------
+    private fun depenseCount() { vue = sortieCourante()?.let { Vue.Count(it, groupeCourant()) } ?: Vue.Comptes(groupeCourant()) }
+    private fun sortieCourante(): String? = when (val v = vue) {
+        is Vue.LeCarnet -> v.id; is Vue.Ecrire -> v.id; is Vue.UnAlbum -> v.id; is Vue.Count -> v.id; is Vue.UneDepense -> v.id; else -> null
+    }
+
+    /** Tous les Buddy counts : un par Buddy Time (le plus récent en haut), et l'ancien partage des frais. */
+    private fun comptes(groupe: String?) {
+        entete("Buddy count", retour = true) { vue = groupe?.let { Vue.UnGroupe(it) } ?: Vue.Liste; afficher() }
+        val ds = buddies.depenses()
+        val l = buddies.sorties().filter { groupe == null || it.groupe == groupe }.sortedByDescending { it.debut }
+        for (x in l) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(64); isClickable = true
+            setOnClickListener { vue = Vue.Count(x.id, groupe); afficher() }
+            addView(text("💶", 28f).apply { gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(56), dp(56)) })
+            val t = ds.filter { it.sortie == x.id }.sumOf { it.montant }
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, 0, 0)
+                addView(text(x.nom, 17f, bold = true).apply { isSingleLine = true })
+                addView(text(if (t > 0) "${BuddyCount.euros(t)} à ${x.participants.size}" else "pas encore de dépense", 15f, muted))
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+        }, lp(6))
+        if (l.isEmpty()) col.addView(text("Chaque Buddy Time a son Buddy count : les dépenses de la sortie, partagées entre vous.", 17f, muted), lp(12))
+        pied.addView(bouton("💰 Mes partages de frais hors Buddy Time") { onExpenses() }, lp(8))
+    }
+
+    /** Un Buddy count (écran 8) : équilibres en barres, « qui doit à qui », dépenses, « ＋ Dépense ». */
+    private fun count(x: Buddies.Sortie, groupe: String?) {
+        val ds = buddies.depenses().filter { it.sortie == x.id }
+        val c = BuddyCount.compte(x, ds, buddies.moi ?: "moi")
+        entete(x.nom, "💶 ${BuddyCount.euros(c.total)} à ${x.participants.size}", retour = true) { vue = Vue.Comptes(groupe); afficher() }
+        fun qui(id: String) = x.participants.firstOrNull { it.id == id } ?: Buddies.Buddy(id, "?", null, "membre")
+        col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(text("Équilibres", 22f, bold = true), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text("${BuddyCount.euros(c.chacun)} chacun", 15f, muted))
+        }, lp(8))
+        val max = maxOf(0.01, c.soldes.values.maxOfOrNull { Math.abs(it) } ?: 0.01)
+        val vert = Color.parseColor("#2F9E64"); val rouge = Color.parseColor("#E4572E")
+        for (p in x.participants) {
+            val v = c.soldes[p.id] ?: 0.0
+            val l = (Math.abs(v) / max * 50).toFloat().coerceAtLeast(2f)
+            col.addView(LinearLayout(a).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(visage(p.id, p.pseudo, p.photo, 44))
+                addView(LinearLayout(a).apply {
+                    background = GradientDrawable().apply { cornerRadius = 7 * d; setColor(card) }
+                    fun vide(w: Float) = View(a).apply { layoutParams = LinearLayout.LayoutParams(0, -1, w) }
+                    val barre = View(a).apply {
+                        background = GradientDrawable().apply { cornerRadius = 7 * d; setColor(if (v >= 0) vert else rouge) }
+                        layoutParams = LinearLayout.LayoutParams(0, -1, l)
+                    }
+                    if (v >= 0) { addView(vide(50f)); addView(barre); addView(vide(50f - l)) } else { addView(vide(50f - l)); addView(barre); addView(vide(50f)) }
+                }, LinearLayout.LayoutParams(0, dp(14), 1f).apply { setMargins(dp(10), 0, dp(10), 0) })
+                val cs = Math.round(v * 100).toInt()
+                addView(text((if (cs > 0) "+" else "") + BuddyCount.euros(cs), 19f, if (cs > 0) Color.parseColor("#2F7D4F") else if (cs < 0) Color.parseColor("#C2410C") else ink, bold = true)
+                    .apply { gravity = Gravity.END; minWidth = dp(84) })
+            }, lp(6))
+        }
+        for (s in c.virements) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = GradientDrawable().apply { cornerRadius = 16 * d; setColor(card) }
+            val de = qui(s.from); val vers = qui(s.to)
+            addView(visage(de.id, de.pseudo, de.photo, 40))
+            addView(text(" → ", 17f, muted))
+            addView(visage(vers.id, vers.pseudo, vers.photo, 40))
+            addView(text("${de.pseudo} doit à ${vers.pseudo}", 17f).apply { setPadding(dp(10), 0, dp(6), 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text(BuddyCount.euros(Math.round(s.amount * 100).toInt()), 19f, bold = true))
+        }, lp(8))
+        if (ds.isNotEmpty() && c.virements.isEmpty()) col.addView(text("Tout est équilibré.", 15f, muted), lp(6))
+        col.addView(section("Dépenses"), lp(14))
+        for (dp0 in ds) col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(60); isClickable = true
+            setOnClickListener { depenseReset(x, dp0); vue = Vue.UneDepense(x.id, dp0.id, groupe); afficher() }
+            addView(text(BuddyCount.icone(dp0.titre), 28f).apply { gravity = Gravity.CENTER; layoutParams = LinearLayout.LayoutParams(dp(44), -2) })
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL; setPadding(dp(10), 0, dp(6), 0)
+                addView(text(dp0.titre, 17f).apply { isSingleLine = true })
+                addView(text("payé par ${qui(dp0.payePar).pseudo}" + (if (dp0.pour.size < x.participants.size) " · pour ${dp0.pour.size}" else "") +
+                    if (dp0.attente) " · 🕓" else "", 15f, muted).apply { isSingleLine = true })
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(text(BuddyCount.euros(dp0.montant), 18f, bold = true))
+        }, lp(4))
+        if (ds.isEmpty()) col.addView(text("Pas encore de dépense : le gîte, l'essence, les courses… chacun ajoute ce qu'il a payé.", 17f, muted), lp(8))
+        pied.addView(bouton("＋ Dépense", primaire = true) { depenseReset(x, null); vue = Vue.UneDepense(x.id, null, groupe); afficher() }, lp(8))
+    }
+
+    // Une dépense : ce qui est tapé reste là pendant la synchro.
+    private var dpTitre = ""
+    private var dpMontant = ""
+    private var dpPaye = ""
+    private var dpPour = mutableSetOf<String>()
+    private var dpJour = ""
+    private fun depenseReset(x: Buddies.Sortie, dep: Buddies.Depense?) {
+        val moi = buddies.moi ?: "moi"
+        dpTitre = dep?.titre ?: ""
+        dpMontant = dep?.let { BuddyCount.euros(it.montant).removeSuffix(" €") } ?: ""
+        dpPaye = dep?.payePar ?: (if (x.participants.any { it.id == moi }) moi else x.participants.firstOrNull()?.id ?: moi)
+        dpPour = (dep?.pour ?: x.participants.map { it.id }).toMutableSet()
+        val auj = aujourdhui()
+        dpJour = dep?.jour ?: if (auj < x.debut) x.debut else if (auj > x.fin) x.fin else auj
+    }
+
+    /** Ajouter ou corriger une dépense : quoi, combien, qui a payé, pour qui, le jour. */
+    private fun uneDepense(x: Buddies.Sortie, dep: Buddies.Depense?, groupe: String?) {
+        if (dpJour.isEmpty()) depenseReset(x, dep)
+        val retour = { dpJour = ""; vue = Vue.Count(x.id, groupe); afficher() }
+        entete(if (dep != null) "La dépense" else "Nouvelle dépense", x.nom, retour = true) { retour() }
+        col.addView(text("Quoi", 14f, muted), lp(8))
+        val icone = text(BuddyCount.icone(dpTitre), 28f)
+        col.addView(LinearLayout(a).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(icone)
+            addView(champ(dpTitre, "Gîte, essence, courses…") { dpTitre = it; icone.text = BuddyCount.icone(it) }, LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(8) })
+        })
+        col.addView(text("Combien (€)", 14f, muted), lp(8))
+        val chacun = text("", 14f, muted)
+        fun majChacun() { chacun.text = BuddyCount.lireEuros(dpMontant)?.takeIf { dpPour.isNotEmpty() }?.let { " · ${BuddyCount.euros(Math.round(it.toDouble() / dpPour.size).toInt())} chacun" } ?: "" }
+        col.addView(champ(dpMontant, "0") { dpMontant = it; majChacun() }.apply {
+            textSize = 28f; setTypeface(typeface, Typeface.BOLD); inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            keyListener = android.text.method.DigitsKeyListener.getInstance("0123456789,.")
+        })
+        fun visages(choisi: (String) -> Boolean, f: (String) -> Unit) = android.widget.HorizontalScrollView(a).apply {
+            addView(LinearLayout(a).apply {
+                for (p in x.participants) addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(6), dp(4), dp(6), dp(4)); isClickable = true
+                    val oui = choisi(p.id)
+                    addView(FrameLayout(a).apply {
+                        setPadding(dp(3), dp(3), dp(3), dp(3))
+                        if (oui) background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(accent) }
+                        addView(visage(p.id, p.pseudo, p.photo, 48, pale = !oui))
+                    })
+                    addView(text((if (oui) "✓ " else "") + p.pseudo, 14f))
+                    setOnClickListener { f(p.id) }
+                })
+            })
+        }
+        col.addView(section("Payé par"), lp(12))
+        col.addView(visages({ it == dpPaye }) { dpPaye = it; afficher() }, lp(4))
+        col.addView(LinearLayout(a).apply { addView(section("Pour qui")); addView(chacun) }, lp(12))
+        col.addView(visages({ it in dpPour }) { if (!dpPour.remove(it)) dpPour.add(it); afficher() }, lp(4))
+        majChacun()
+        col.addView(text("Le jour  ${dateCourte(dpJour)}", 17f, bold = true).apply {
+            setPadding(dp(12), dp(12), dp(12), dp(12)); background = GradientDrawable().apply { cornerRadius = 12 * d; setColor(card) }
+            setOnClickListener {
+                val cal = Calendar.getInstance().apply { timeInMillis = jourMs(dpJour) }
+                android.app.DatePickerDialog(a, { _, y, m, j -> dpJour = String.format(Locale.US, "%04d-%02d-%02d", y, m + 1, j); afficher() },
+                    cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+            }
+        }, lp(12))
+        pied.addView(bouton("Enregistrer", primaire = true) {
+            val c = BuddyCount.lireEuros(dpMontant) ?: run { toast("Indique le montant, par exemple 24,50"); return@bouton }
+            runCatching { buddies.enregistrerDepense(dep?.id, x.id, dpTitre, c, dpPaye, x.participants.map { it.id }.filter { it in dpPour }, dpJour) }
+                .onSuccess { retour(); synchroniser() }.onFailure { toast(it.message ?: "Dépense refusée") }
+        }, lp(8))
+        if (dep != null) pied.addView(bouton("Retirer la dépense") { buddies.retirerDepense(dep.id); toast("« ${dep.titre} » retirée"); retour(); synchroniser() }, lp(8))
     }
 
     // En dernier : tout ce qui précède est prêt. Pendant la saisie d'un nouveau groupe, la synchro ne redessine pas l'écran.

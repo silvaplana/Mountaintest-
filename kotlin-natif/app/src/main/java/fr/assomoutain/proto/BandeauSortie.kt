@@ -23,7 +23,8 @@ object BandeauSortie {
     var replie = false
 
     fun vue(a: androidx.appcompat.app.AppCompatActivity, x: Buddies.Sortie, traces: List<Buddies.TraceBuddy>, haut: Int, bas: Int,
-            photos: List<Buddies.PhotoBuddy>, album: Album, onAlbum: () -> Unit, onCarnet: () -> Unit, onAjouter: () -> Unit, onRetour: () -> Unit): View {
+            photos: List<Buddies.PhotoBuddy>, album: Album, depense: Int, onAlbum: () -> Unit, onCarnet: () -> Unit, onCount: () -> Unit,
+            onAjouter: () -> Unit, onRetour: () -> Unit): View {
         val d = a.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
         val ink = Color.parseColor("#1D2421"); val muted = Color.parseColor("#5F6B66"); val card = Color.parseColor("#F2F4F1")
@@ -71,7 +72,11 @@ object BandeauSortie {
                 }
                 addView(chiffre(if (traces.isEmpty()) "—" else "%.1f km".format(km), if (traces.size > 1) "${traces.size} traces" else "parcours"),
                     LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
-                addView(chiffre(if (x.fin >= auj) "${maxOf(0, n)}" else "✓", if (x.fin >= auj) "jours avant" else "souvenir"), LinearLayout.LayoutParams(0, -2, 1f))
+                addView(chiffre(if (x.fin >= auj) "${maxOf(0, n)}" else "✓", if (x.fin >= auj) "jours avant" else "souvenir"), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(8) })
+                // 💶 Buddy count (écran 8) : le total, un toucher ouvre les comptes.
+                addView(chiffre("💶 " + if (depense > 0) BuddyCount.euros(depense) else "＋", if (depense > 0) "à ${x.participants.size}" else "Buddy count").apply {
+                    isClickable = true; setOnClickListener { onCount() }; (getChildAt(0) as TextView).apply { textSize = 18f; isSingleLine = true }
+                }, LinearLayout.LayoutParams(0, -2, 1.2f))
             }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
             if (traces.isEmpty()) addView(text("Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.", 15f, muted))
             // 📸 Les photos de l'album (écran 7), puis « Ajouter », « Album » et « Carnet » une fois parti.

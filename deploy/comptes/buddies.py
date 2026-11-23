@@ -19,7 +19,7 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import (Carnet, Dispo, FicheJour, Groupe, Invitation, Membre, Participant, Photo, Planning, Recit, Sortie, TracePartagee,
+from modeles import (Carnet, Depense, Dispo, FicheJour, Groupe, Invitation, Membre, Participant, Photo, Planning, Recit, Sortie, TracePartagee,
                      Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
@@ -422,6 +422,43 @@ def carnet(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
+def participants(s: Session, so: Sortie) -> set[uuid.UUID]:
+    return set(s.scalars(select(Participant.utilisateur_id).where(Participant.sortie_id == so.id)))
+
+
+def depense(s: Session, u: Utilisateur, op: dict) -> None:
+    """Buddy count (§5.10) : ajoute ou corrige une dépense. Qui paie et pour qui : des participants du Buddy Time."""
+    did = uuid.UUID(str(op["depense"]))
+    d = s.get(Depense, did)
+    so = sortie_de(s, u, d.sortie_id if d else op["sortie"])
+    titre = propre(op.get("titre"), 80) or "Dépense"
+    montant = int(op.get("montant"))
+    if not 1 <= montant <= 10_000_000:
+        raise Refus("Montant hors limites")
+    qui = participants(s, so)
+    paye_par = uuid.UUID(str(op["paye_par"]))
+    pour = sorted({str(uuid.UUID(str(x))) for x in op.get("pour") or []})
+    if paye_par not in qui or not pour or any(uuid.UUID(x) not in qui for x in pour):
+        raise Refus("Seuls les buddies du Buddy Time partagent ses frais")
+    champs = {"titre": titre, "montant": montant, "paye_par": paye_par, "pour": json.dumps(pour), "jour": jour(op.get("jour"))}
+    if d is None:
+        s.add(Depense(id=did, sortie_id=so.id, par=u.id, **champs))
+    else:
+        for k, v in champs.items():
+            setattr(d, k, v)
+        d.modifie_le = maintenant()
+    toucher(so)
+
+
+def retirer_depense(s: Session, u: Utilisateur, op: dict) -> None:
+    d = s.get(Depense, uuid.UUID(str(op["depense"])))
+    if d is None:
+        return  # déjà retirée
+    so = sortie_de(s, u, d.sortie_id)
+    s.delete(d)
+    toucher(so)
+
+
 # Fichiers des photos : COMPTES_DOSSIER/photos/<id>-petite.jpg et -grande.jpg.
 DOSSIER_PHOTOS = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "photos")
 TAILLES = {"petite": 300_000, "grande": 4_000_000}  # octets au plus
@@ -436,7 +473,7 @@ OPERATIONS = {
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "retirer_photo": retirer_photo,
-    "recit": recit, "fiche": fiche, "carnet": carnet,
+    "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
 }
 
 
@@ -486,6 +523,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
                        .order_by(TracePartagee.cree_le)).all()
     plannings = s.scalars(select(Planning).where(Planning.groupe_id.in_(gids)).order_by(Planning.cree_le)).all()
     photos = s.scalars(select(Photo).where(Photo.sortie_id.in_(sids)).order_by(Photo.prise_le)).all()
+    depenses = s.scalars(select(Depense).where(Depense.sortie_id.in_(sids)).order_by(Depense.jour, Depense.cree_le)).all()
     return {"curseur": iso(debut), "moi": str(u.id), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
@@ -493,6 +531,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_plannings": [str(p.id) for p in plannings],
             "plannings": [vue_planning(s, p) for p in plannings if neuf(p.modifie_le)],
             "ids_photos": [str(p.id) for p in photos], "photos": [vue_photo(s, p) for p in photos if neuf(p.modifie_le)],
+            "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
             "refus": refus}
 
 
@@ -540,6 +579,11 @@ def vue_planning(s: Session, p: Planning) -> dict[str, Any]:
 def vue_photo(s: Session, p: Photo) -> dict[str, Any]:
     return {"id": str(p.id), "sortie": str(p.sortie_id), "par": personne(s.get(Utilisateur, p.par)), "prise_le": p.prise_le,
             "lon": p.lon, "lat": p.lat, "etoile": p.etoile, "envoyee": p.envoyee, "modifie_le": iso(p.modifie_le)}
+
+
+def vue_depense(x: Depense) -> dict[str, Any]:
+    return {"id": str(x.id), "sortie": str(x.sortie_id), "titre": x.titre, "montant": x.montant, "paye_par": str(x.paye_par),
+            "pour": json.loads(x.pour), "jour": x.jour, "par": str(x.par), "modifie_le": iso(x.modifie_le)}
 
 
 def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:

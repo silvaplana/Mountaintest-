@@ -102,6 +102,11 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         val id: String, val sortie: String, val par: Buddy, val priseLe: String, val lon: Double?, val lat: Double?,
         val etoile: Boolean, val envoyee: Boolean, val modifie: Long, val attente: Boolean,
     )
+    /** Buddy count (spec §5.10) : une dépense d'un Buddy Time ; montant en centimes, pour = identifiants des buddies. */
+    data class Depense(
+        val id: String, val sortie: String, val titre: String, val montant: Int, val payePar: String, val pour: List<String>, val jour: String,
+        val modifie: Long, val attente: Boolean,
+    )
     /** Fichiers des photos (posé par MainActivity) : envoyés après chaque synchro. */
     var album: Album? = null
 
@@ -274,6 +279,24 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
         val e = envois().toSet()
         return l.map { if (it.id in e) it.copy(attente = true) else it }.sortedBy { it.priseLe }
     }
+    private fun chaines(a: JSONArray?) = if (a == null) emptyList() else (0 until a.length()).map { a.getString(it) }
+    private fun lireDepense(x: JSONObject, attente: Boolean = false, t: Long? = null) = Depense(x.optString("depense").ifEmpty { x.getString("id") },
+        x.optString("sortie"), x.optString("titre"), x.optInt("montant"), x.optString("paye_par"), chaines(x.optJSONArray("pour")), x.optString("jour"),
+        t ?: ms(x.optString("modifie_le")), attente)
+
+    /** Dépenses telles qu'affichées (version du serveur + mes ajouts, corrections et retraits en attente), le dernier jour en haut. */
+    fun depenses(): List<Depense> {
+        val l = etat.optJSONArray("depenses").objets().map { lireDepense(it) }.toMutableList()
+        for (op in attente().objets()) when (op.optString("type")) {
+            "depense" -> {
+                val avant = l.firstOrNull { it.id == op.optString("depense") }
+                l.removeAll { it.id == op.optString("depense") }
+                l += lireDepense(op, true, op.optLong("t")).let { if (avant != null) it.copy(sortie = avant.sortie) else it }
+            }
+            "retirer_depense" -> l.removeAll { it.id == op.optString("depense") }
+        }
+        return l.sortedWith(compareByDescending<Depense> { it.jour }.thenByDescending { it.modifie })
+    }
     fun marquerVu() = modifier { put("vu", System.currentTimeMillis()) }
 
     fun estAdmin(g: Groupe) = g.membres.any { (it.id == moi || it.id == "moi") && it.role == "admin" }
@@ -366,6 +389,17 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             .put("meteo", autres.second.trim()).put("conditions", autres.third.trim())
         if (ops.isNotEmpty()) ajouter(*ops.toTypedArray())
     }
+    /** Buddy count : ajouter (depense = null) ou corriger une dépense ; montant en centimes. Rend son identifiant. */
+    fun enregistrerDepense(depense: String?, sortie: String, titre: String, montant: Int, payePar: String, pour: List<String>, jour: String): String {
+        require(montant > 0) { "Indique le montant" }
+        require(pour.isNotEmpty()) { "Coche au moins un buddy" }
+        val id = depense ?: UUID.randomUUID().toString()
+        ajouter(JSONObject().put("type", "depense").put("depense", id).put("sortie", sortie)
+            .put("titre", titre.replace(Regex("\\s+"), " ").trim().take(80).ifEmpty { "Dépense" }).put("montant", montant)
+            .put("paye_par", payePar).put("pour", JSONArray(pour)).put("jour", jour))
+        return id
+    }
+    fun retirerDepense(depense: String) = ajouter(JSONObject().put("type", "retirer_depense").put("depense", depense))
     fun annulerInvitation(invitation: String) = ajouter(JSONObject().put("type", "annuler_invitation").put("invitation", invitation))
     fun quitter(groupe: String) = ajouter(JSONObject().put("type", "quitter").put("groupe", groupe))
     fun retirer(groupe: String, buddy: String) = ajouter(JSONObject().put("type", "retirer").put("groupe", groupe).put("buddy", buddy))
@@ -407,6 +441,7 @@ class Buddies(private val prefs: SharedPreferences, private val compte: Compte) 
             fusion("serveur", "groupes", "ids"); fusion("sorties", "sorties", "ids_sorties"); fusion("traces", "traces", "ids_traces")
             fusion("plannings", "plannings", "ids_plannings")
             fusion("photos", "photos", "ids_photos")
+            fusion("depenses", "depenses", "ids_depenses")
             put("attente", JSONArray((optJSONArray("attente") ?: JSONArray()).objets().filter { it.optString("id") !in envoyees }))
             put("moi", r.getString("moi")); put("synchro", System.currentTimeMillis())
             if (manque) remove("curseur") else put("curseur", r.getString("curseur"))

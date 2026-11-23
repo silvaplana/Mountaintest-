@@ -1171,6 +1171,7 @@ export function App() {
         onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }}
         onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
+        onCount={() => { setBuddiesDepart({ ecran: 'count', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onToast={setToast} map={map} />}
       {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
       {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}

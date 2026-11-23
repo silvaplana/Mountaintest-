@@ -50,6 +50,11 @@ export type PhotoBuddy = {
   id: string; sortie: string; par: Buddy; prise_le: string; lon: number | null; lat: number | null; etoile: boolean;
   envoyee: boolean; modifie_le: string; attente?: boolean;
 };
+/** Buddy count (spec §5.10) : une dépense d'un Buddy Time ; montant en centimes, pour = identifiants des buddies. */
+export type Depense = {
+  id: string; sortie: string; titre: string; montant: number; paye_par: string; pour: string[]; jour: string; par: string; modifie_le: string;
+  attente?: boolean;
+};
 export type Op = { id: string; type: string; t: number; [k: string]: unknown };
 
 export type Etat = {
@@ -59,6 +64,7 @@ export type Etat = {
   traces: TraceBuddy[];
   plannings: Planning[];
   photos: PhotoBuddy[];
+  depenses?: Depense[];
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
   envois?: string[];
   curseur?: string;
@@ -114,7 +120,7 @@ function moiBuddy(e: Etat): Buddy {
 }
 
 /** Buddy Times et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
-export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[]; photos: PhotoBuddy[] } {
+export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[]; photos: PhotoBuddy[]; depenses: Depense[] } {
   const groupes = appliquer(e);
   const meTime = groupes.find((g) => g.nature === 'me_time')!;
   const sorties: Sortie[] = e.sorties.map((x) => ({ ...x, invitations: [...x.invitations] }));
@@ -122,6 +128,7 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
   const plannings: Planning[] = (e.plannings ?? []).map((p) => ({ ...p, dispos: [...p.dispos] }));
   const moi = e.moi ?? 'moi';
   let photos: PhotoBuddy[] = (e.photos ?? []).map((x) => ({ ...x }));
+  let depenses: Depense[] = [...(e.depenses ?? [])];
   const quand = (op: Op) => new Date(op.t).toISOString();
   for (const op of e.attente) {
     if (op.type === 'creer_sortie' && !sorties.some((x) => x.id === op.sortie)) {
@@ -157,6 +164,13 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
       photos = photos.map((x) => x.id === op.photo ? { ...x, etoile: !!op.etoile } : x);
     } else if (op.type === 'retirer_photo') {
       photos = photos.filter((x) => x.id !== op.photo);
+    } else if (op.type === 'depense') {
+      const avant = depenses.find((x) => x.id === op.depense);
+      const d: Depense = { id: String(op.depense), sortie: avant?.sortie ?? String(op.sortie), titre: String(op.titre), montant: Number(op.montant),
+        paye_par: String(op.paye_par), pour: op.pour as string[], jour: String(op.jour), par: avant?.par ?? moi, modifie_le: quand(op), attente: true };
+      depenses = [...depenses.filter((x) => x.id !== d.id), d];
+    } else if (op.type === 'retirer_depense') {
+      depenses = depenses.filter((x) => x.id !== op.depense);
     } else if (op.type === 'recit' || op.type === 'fiche' || op.type === 'carnet') {
       const k = sorties.findIndex((y) => y.id === op.sortie);
       if (k < 0) continue;
@@ -179,7 +193,8 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
   photos = photos.map((x) => envois.has(x.id) ? { ...x, attente: true } : x).sort((a, b) => a.prise_le.localeCompare(b.prise_le));
   // Le plus récemment actif en haut.
   return { sorties: sorties.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), traces,
-    plannings: plannings.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), photos };
+    plannings: plannings.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), photos,
+    depenses: depenses.sort((a, b) => b.jour.localeCompare(a.jour) || b.modifie_le.localeCompare(a.modifie_le)) };
 }
 
 /** Aujourd'hui en AAAA-MM-JJ (heure du téléphone). */
@@ -361,6 +376,15 @@ export function enregistrerCarnet(sortie: string, ch: { recit?: string; fiches?:
   if (ch.carnet) ops.push({ type: 'carnet', sortie, difficulte: ch.carnet.difficulte.trim(), meteo: ch.carnet.meteo.trim(), conditions: ch.carnet.conditions.trim() });
   if (ops.length) ajouter(...ops);
 }
+/** Buddy count : ajouter (sans `depense`) ou corriger une dépense ; montant en centimes. Rend son identifiant. */
+export function enregistrerDepense(d: { depense?: string; sortie: string; titre: string; montant: number; paye_par: string; pour: string[]; jour: string }) {
+  if (!(d.montant > 0)) throw new Error('Indique le montant');
+  if (!d.pour.length) throw new Error('Coche au moins un buddy');
+  const depense = d.depense ?? uuid();
+  ajouter({ type: 'depense', ...d, depense, titre: d.titre.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Dépense', montant: Math.round(d.montant) });
+  return depense;
+}
+export const retirerDepense = (depense: string) => ajouter({ type: 'retirer_depense', depense });
 export const annulerInvitation = (invitation: string) => ajouter({ type: 'annuler_invitation', invitation });
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
 export const retirer = (groupe: string, buddy: string) => ajouter({ type: 'retirer', groupe, buddy });
@@ -376,7 +400,7 @@ export function rejoindre(code: string) {
 type Reponse = {
   curseur: string; moi: string; ids: string[]; groupes: Groupe[]; refus: { id: string; raison: string }[];
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
-  ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[];
+  ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -403,12 +427,13 @@ export function synchroniser(): Promise<string[]> {
       const tr = fusion(e.traces ?? [], r.traces ?? [], r.ids_traces ?? []);
       const pl = fusion(e.plannings ?? [], r.plannings ?? [], r.ids_plannings ?? []);
       const ph = fusion(e.photos ?? [], r.photos ?? [], r.ids_photos ?? []);
+      const dp = fusion(e.depenses ?? [], r.depenses ?? [], r.ids_depenses ?? []);
       const envoyees = new Set(ops.map((o) => o.id));
       // Un objet connu du serveur mais jamais reçu : on redemandera tout à la prochaine synchro.
-      const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque;
+      const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque || dp.manque;
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
-        serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste,
+        serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
