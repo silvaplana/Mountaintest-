@@ -589,8 +589,8 @@ class MainActivity : AppCompatActivity() {
             // 🚵 Type de chemin le long de la trace choisie (mode VTT), portions sur GR en tireté rouge comme sur le SCAN 25.
             style.addSource(GeoJsonSource(SRC_WAY_TYPES))
             // Liseré sombre : le jaune (chemin) et le gris (hors chemin) restent lisibles sur le SCAN 25.
-            style.addLayer(LineLayer("way-types-casing", SRC_WAY_TYPES).withProperties(lineColor("#222222"), lineWidth(7f), lineJoin(Property.LINE_JOIN_ROUND)))
-            style.addLayer(LineLayer("way-types", SRC_WAY_TYPES).withProperties(lineColor(Expression.get("color")), lineWidth(5f), lineJoin(Property.LINE_JOIN_ROUND)))
+            style.addLayer(LineLayer("way-types-casing", SRC_WAY_TYPES).withProperties(lineColor("#222222"), lineWidth(Expression.sum(Expression.get("w"), Expression.literal(2f))), lineJoin(Property.LINE_JOIN_ROUND)))
+            style.addLayer(LineLayer("way-types", SRC_WAY_TYPES).withProperties(lineColor(Expression.get("color")), lineWidth(Expression.get("w")), lineJoin(Property.LINE_JOIN_ROUND)))
             style.addLayer(LineLayer("way-gr", SRC_WAY_TYPES).withProperties(lineColor(WayTypes.GR_COLOR), lineWidth(2f), lineDasharray(arrayOf(2f, 2f)))
                 .withFilter(Expression.eq(Expression.get("gr"), true)))
             // Étiquettes de pente le long des tracés.
@@ -2122,7 +2122,7 @@ class MainActivity : AppCompatActivity() {
         map?.style?.takeIf { it.isFullyLoaded }?.getSourceAs<GeoJsonSource>(SRC_WAY_TYPES)?.setGeoJson(FeatureCollection.fromFeatures(
             if (sel == null || runs == null) emptyList() else WayTypes.lines(sel.segments.flatten(), runs).map { (r, pts) ->
                 Feature.fromGeometry(LineString.fromLngLats(pts.map { Point.fromLngLat(it.lon, it.lat) })).apply {
-                    addStringProperty("color", WayTypes.color(r.type)); addBooleanProperty("gr", r.gr)
+                    addStringProperty("color", WayTypes.color(r.type)); addNumberProperty("w", if (WayTypes.isWide(r.type)) 7f else 3.5f); addBooleanProperty("gr", r.gr)
                 }
             }))
         findViewById<ProfileView>(R.id.traceProfile).runs = runs
@@ -2142,12 +2142,12 @@ class MainActivity : AppCompatActivity() {
         // Bilan : part de chaque type en % et en km, puis la part sur GR.
         val t = WayTypes.totals(runs)
         val d = resources.displayMetrics.density
-        fun row(color: String, label: String, m: Double, dashed: Boolean) {
+        fun row(color: String, label: String, m: Double, dashed: Boolean, wide: Boolean = false) {
             val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL; alpha = if (m > 0) 1f else 0.45f }
             r.addView(View(this).apply {
                 background = if (dashed) android.graphics.drawable.GradientDrawable().apply { setStroke((3 * d).toInt(), Color.parseColor(color), 5 * d, 3 * d) }
                     else android.graphics.drawable.GradientDrawable().apply { setColor(Color.parseColor(color)); cornerRadius = 2 * d }
-            }, LinearLayout.LayoutParams((14 * d).toInt(), ((if (dashed) 3 else 6) * d).toInt()).apply { marginEnd = (6 * d).toInt() })
+            }, LinearLayout.LayoutParams((14 * d).toInt(), ((if (dashed) 3 else if (wide) 8 else 4) * d).toInt()).apply { marginEnd = (6 * d).toInt() })
             r.addView(TextView(this).apply { text = label; textSize = 15f; setTextColor(Color.parseColor("#1D2421")); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END },
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             r.addView(TextView(this).apply {
@@ -2157,7 +2157,7 @@ class MainActivity : AppCompatActivity() {
             legend.addView(r)
         }
         WayTypes.TYPES.filter { (t.byType[it.key] ?: 0.0) > 0 } // toujours le même ordre, des plus grandes voies aux plus petites
-            .forEach { row(it.color, it.label, t.byType[it.key] ?: 0.0, false) }
+            .forEach { row(it.color, it.label, t.byType[it.key] ?: 0.0, false, WayTypes.isWide(it.key)) }
         if (t.gr > 0) row(WayTypes.GR_COLOR, "Sur GR (balisage rouge et blanc)", t.gr, true)
     }
 

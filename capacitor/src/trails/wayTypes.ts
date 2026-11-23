@@ -23,6 +23,8 @@ export const WAY_TYPES: { key: WayType; label: string; color: string }[] = [
 ];
 /** Portions sur un GR ou un GR de Pays : tireté rouge par-dessus, comme sur le SCAN 25. */
 export const GR_COLOR = '#e53935';
+/** Deux largeurs de trait (demande de Seb) : les routes et pistes en large, les chemins et sentiers en fin. */
+export const isWide = (t: WayType) => t === 'route' || t === 'velo' || t === 'empierree';
 export const WAY_COLOR = Object.fromEntries(WAY_TYPES.map((t) => [t.key, t.color])) as Record<WayType, string>;
 
 const ROADS = /^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)(_link)?$/;

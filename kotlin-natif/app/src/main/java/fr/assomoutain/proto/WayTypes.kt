@@ -28,6 +28,8 @@ object WayTypes {
         Type("technique", "Sentier difficile", "#d6007e"),
         Type("inconnu", "Hors chemin connu", "#c4c4c4"),
     )
+    /** Deux largeurs de trait (demande de Seb) : les routes et pistes en large, les chemins et sentiers en fin. */
+    fun isWide(key: String) = key == "route" || key == "velo" || key == "empierree"
     fun color(key: String) = TYPES.firstOrNull { it.key == key }?.color ?: "#c4c4c4"
     /** Portions sur un GR ou un GR de Pays : tireté rouge, comme sur le SCAN 25. */
     const val GR_COLOR = "#e53935"

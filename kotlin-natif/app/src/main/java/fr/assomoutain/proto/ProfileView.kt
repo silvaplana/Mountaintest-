@@ -153,7 +153,8 @@ class ProfileView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? =
             val k = total / (rs.last().to.takeIf { it > 0 } ?: total)
             for (r in rs) {
                 runPaint.color = Color.parseColor(WayTypes.color(r.type))
-                canvas.drawRect(x(r.from * k), base + 2 * density, maxOf(x(r.to * k), x(r.from * k) + 1), base + band - density, runPaint)
+                val (t0, t1) = if (WayTypes.isWide(r.type)) (base + 2 * density) to (base + band - density) else (base + 3.5f * density) to (base + 6.5f * density)
+                canvas.drawRect(x(r.from * k), t0, maxOf(x(r.to * k), x(r.from * k) + 1), t1, runPaint)
             }
             for (r in rs) if (r.gr) canvas.drawLine(x(r.from * k), base + density, x(r.to * k), base + density, grPaint)
         }
