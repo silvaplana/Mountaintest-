@@ -13,9 +13,9 @@ done
 echo "Configuration mail reprise de $SRC"
 umask 077
 grep -v '^SMTP_' "$M/ia.env" > "$M/ia.env.tmp" || true
-grep -E '^SMTP_(HOST|PORT|USER|PASSWORD|REPLY_TO)=' "$SRC" | tr -d '"'"'" >> "$M/ia.env.tmp"
+grep -E '^SMTP_(HOST|PORT|USER|PASSWORD|REPLY_TO)=' "$SRC" | tr -d "\"'" >> "$M/ia.env.tmp"
 # Adresse d'expédition sur le domaine authentifié chez Brevo (comme contretemps@silvaplana.cloud).
-DOM=$(grep -hs '^SMTP_FROM_EMAIL=' "$SRC" | head -1 | cut -d@ -f2 | tr -d '"'"'" ')
+DOM=$(grep -hs '^SMTP_FROM_EMAIL=' "$SRC" | head -1 | cut -d@ -f2 | tr -d "\"' ")
 echo "SMTP_FROM_EMAIL=assomoutain@${DOM:-silvaplana.cloud}" >> "$M/ia.env.tmp"
 mv "$M/ia.env.tmp" "$M/ia.env"; chmod 600 "$M/ia.env"
 # Relance du conteneur avec le nouveau fichier (même commande que installer-ia.sh).

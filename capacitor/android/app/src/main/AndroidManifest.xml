@@ -21,6 +21,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 👥 Retour de la page de connexion Logto (compte/auth.ts : REDIRECT). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="fr.assomoutain.rando" android:host="callback" />
+            </intent-filter>
             <!-- 📥 « Ouvrir avec » / « Partager » un fichier de trace (GPX, KML, GeoJSON), depuis Gmail, Fichiers… -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

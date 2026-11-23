@@ -197,8 +197,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        // 👥 Relancée par le retour de la page de connexion Logto : finie une fois l'écran prêt.
+        val retourConnexion = intent?.data?.takeIf { savedInstanceState == null && it.scheme == Compte.SCHEMA }
+        retourConnexion?.let { u -> window.decorView.post { finConnexion(u) } }
         // 📥 Lancée par « Ouvrir avec » ou « Partager » un fichier de trace : chargé quand la carte est prête.
-        if (savedInstanceState == null) pendingTraceUri = TraceFile.sharedUri(intent)
+        if (savedInstanceState == null && retourConnexion == null) pendingTraceUri = TraceFile.sharedUri(intent)
         apiKey = prefs.getString("apiKey", null) ?: Scenario.DEFAULT_SCAN_KEY
         mapMode = runCatching { MapMode.valueOf(prefs.getString("mapMode", null) ?: "") }.getOrDefault(MapMode.AUTO)
         applyInsets()
@@ -359,7 +362,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickClose to "close", R.id.btnLocate to "locate", R.id.btnQuickSearch to "search", R.id.btnQuickPhoto to "photo",
             R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnReglages to "reglages", R.id.btnCarrefour to "carrefours", R.id.btnVibre to "vibre", R.id.btnDoubleTap to "doubletap", R.id.btnQuickDraw to "draw",
             R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnSkiText to "skiText",
-            R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses",
+            R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses", R.id.btnGroups to "groups",
         ).forEach { (id, key) -> findViewById<View>(id).setOnLongClickListener { v -> showIconTip(v, key); true } }
         findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
             if (helpOverlay != null) { hideIconHelp(); return@setOnClickListener }
@@ -376,6 +379,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnWeatherMountain).setOnClickListener { if (!Weather.open(this, true)) toast("Impossible d'ouvrir Météo-France") }
         findViewById<Button>(R.id.btnTravel).setOnClickListener { openTravel() }
         findViewById<ImageButton>(R.id.btnExpenses).setOnClickListener { openExpenses() }
+        findViewById<Button>(R.id.btnGroups).setOnClickListener { openAccount() }
         findViewById<Button>(R.id.btnLodging).setOnClickListener { openLodging() }
         findViewById<Button>(R.id.btnQuickSearch).setOnClickListener {
             setNature(false)
@@ -1818,6 +1822,7 @@ class MainActivity : AppCompatActivity() {
     /** Fichier de trace ouvert depuis une autre appli pendant que l'appli tourne déjà. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        intent.data?.takeIf { it.scheme == Compte.SCHEMA }?.let { finConnexion(it); return }
         val uri = TraceFile.sharedUri(intent) ?: return
         setIntent(intent)
         if (map?.style?.isFullyLoaded == true) openTraceFrom(uri, remember = false) else pendingTraceUri = uri
@@ -2645,7 +2650,7 @@ class MainActivity : AppCompatActivity() {
 
     // Le panneau du bas est toujours fermé quand on ouvre l'appli, même en revenant de l'arrière-plan (demande de Seb).
     override fun onStart() { super.onStart(); mapView.onStart(); if (sheetOpen) { sheetOpen = false; refreshTabs() } }
-    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons(); mapView.postDelayed({ recenter() }, 500) }
+    override fun onResume() { super.onResume(); mapView.onResume(); refreshQuickButtons(); syncCompte(); mapView.postDelayed({ recenter() }, 500) }
 
     /** Android interdit à une appli de basculer le mode avion : on lit son état et on ouvre le réglage. */
     private fun airplaneOn() =
@@ -2686,6 +2691,41 @@ class MainActivity : AppCompatActivity() {
     private fun closeLodging() {
         lodgingPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
         lodgingPanel = null
+    }
+
+    // ---------- 👥 Mon compte (connexion Logto, marche hors ligne une fois connecté) ----------
+    private val compte by lazy { Compte(prefs) }
+    private var accountPanel: AccountPanel? = null
+    private var accountBack: androidx.activity.OnBackPressedCallback? = null
+    private fun openAccount() {
+        if (accountPanel != null) return
+        sheetOpen = false; refreshTabs()
+        val p = AccountPanel(this, compte) { closeAccount() }
+        accountPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.insets(navTop, navBottom)
+        accountBack = object : androidx.activity.OnBackPressedCallback(true) { override fun handleOnBackPressed() { closeAccount() } }
+            .also { onBackPressedDispatcher.addCallback(this, it) }
+    }
+    private fun closeAccount() {
+        accountPanel?.let { it.fermer(); findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        accountPanel = null
+        accountBack?.remove(); accountBack = null
+    }
+    /** Retour de la page de connexion Logto (fr.assomoutain.proto.kotlin://callback). */
+    private fun finConnexion(uri: Uri) {
+        openAccount()
+        lifecycleScope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { compte.finConnexion(uri) } }
+            r.onSuccess { toast("Connecté : ${compte.nomAffiche()}") }
+                .onFailure { toast(if (it is Compte.HorsLigne) "Pas de réseau pour finir la connexion : réessaie" else it.message ?: "Connexion impossible") }
+            refreshQuickButtons()
+        }
+    }
+    /** Synchro du compte en arrière-plan (ouverture de l'appli) : jamais bloquante, rien sans réseau. */
+    private fun syncCompte() {
+        if (!compte.connecte) return
+        lifecycleScope.launch { withContext(Dispatchers.IO) { runCatching { compte.synchroniser() } }; refreshQuickButtons() }
     }
 
     // ---------- Partage des frais ----------
@@ -2853,7 +2893,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
             R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to "Sorties ski (🗺 : sur la carte)",
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
-            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)",
+            R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Groupes · mon compte",
         )
         val d = resources.displayMetrics.density
         val overlay = android.widget.FrameLayout(this).apply {
@@ -2912,7 +2952,7 @@ class MainActivity : AppCompatActivity() {
         val mode = prefs.getInt("iconesMode", 0)
         val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
         icons.visibility = if (mode == 3) View.GONE else View.VISIBLE
-        val voyage = setOf(R.id.btnWeather, R.id.btnWeatherMountain, R.id.btnTravel, R.id.btnLodging, R.id.btnExpenses)
+        val voyage = setOf(R.id.btnGroups, R.id.btnWeather, R.id.btnWeatherMountain, R.id.btnTravel, R.id.btnLodging, R.id.btnExpenses)
         for (i in 0 until icons.childCount) {
             val v = icons.getChildAt(i)
             v.visibility = if (when (mode) { 0 -> v.id !in voyage; 1 -> v.id == R.id.btnQuickPhoto; else -> v.id in voyage }) View.VISIBLE else View.GONE
@@ -2926,6 +2966,9 @@ class MainActivity : AppCompatActivity() {
         }
         paint(R.id.btnPoche, PocketMode.isEnabled(this))
         // ✏ pendant une trace commencée (maquette B) : pastille verte ▶ en cours, orange ⏸ en pause.
+        // 👥 : pastille verte = connecté (même hors ligne), orange = à reconnecter.
+        findViewById<View>(R.id.btnGroups).foreground =
+            if (compte.connecte) AccountDot(compte.aReconnecter, resources.displayMetrics.density) else null
         findViewById<View>(R.id.btnQuickDraw).foreground =
             if (navId != null || freeRec) PencilBadge(navPaused, resources.displayMetrics.density) else null
         // ⚙ visible avec 👖, anneau bleu s'il est déplié ou qu'un réglage est allumé ; ⑂, vibration et double tap quand ⚙ est déplié.
