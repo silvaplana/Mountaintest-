@@ -296,3 +296,56 @@ def test_dispo_refusee(client):
     sync(client, ops=[op])
     assert sync(client, ops=[dispo(op["planning"], "2026-12-19", "oui")])["refus"]  # date hors planning
     assert sync(client, ops=[dispo(op["planning"], "2026-12-05", "bof")])["refus"]
+
+
+# ------------------------------------------------------------------ bloc 4 : album
+
+JPEG = b"\xff\xd8\xff\xe0" + b"x" * 100
+
+
+def nouvelle_photo(sid, prise_le="2026-12-12T09:30:00", lon=6.7, lat=44.6):
+    return {"id": str(uuid.uuid4()), "type": "ajouter_photo", "photo": str(uuid.uuid4()), "sortie": sid,
+            "prise_le": prise_le, "lon": lon, "lat": lat}
+
+
+@pytest.fixture()
+def photos(tmp_path, monkeypatch):
+    import buddies
+    monkeypatch.setattr(buddies, "DOSSIER_PHOTOS", str(tmp_path / "photos"))
+    return tmp_path / "photos"
+
+
+def test_album_deposer_voir_etoile_retirer(client, photos):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    ph = nouvelle_photo(so["sortie"])
+    r = sync(client, ops=[so, ph, ph])
+    assert r["refus"] == [] and r["ids_photos"] == [ph["photo"]]
+    p = r["photos"][0]
+    assert p["par"]["pseudo"] == "seb" and p["lon"] == 6.7 and p["envoyee"] is False and p["etoile"] is False
+    url = f"/buddies/photos/{ph['photo']}"
+    # Le fichier : Julie ne peut pas l'envoyer à la place de Seb ; Seb l'envoie, Julie le lit.
+    assert client.put(url + "/grande", content=JPEG, headers=entete(sub="julie")).status_code == 403
+    assert client.get(url + "/petite", headers=entete(sub="julie")).status_code == 404  # pas encore arrivée
+    assert client.put(url + "/petite", content=b"pas un jpeg", headers=entete(sub="seb")).status_code == 422
+    assert client.put(url + "/petite", content=JPEG, headers=entete(sub="seb")).status_code == 200
+    assert client.put(url + "/grande", content=JPEG, headers=entete(sub="seb")).status_code == 200
+    lu = client.get(url + "/grande", headers=entete(sub="julie"))
+    assert lu.status_code == 200 and lu.content == JPEG
+    assert client.get(url + "/grande", headers=entete(sub="luc")).status_code == 404  # hors du Buddy Time
+    # Julie met une ⭐ ; elle ne peut pas retirer la photo de Seb.
+    r = sync(client, sub="julie", ops=[{"id": "e", "type": "etoile", "photo": ph["photo"], "etoile": True},
+                                       {"id": "x", "type": "retirer_photo", "photo": ph["photo"]}])
+    assert len(r["refus"]) == 1 and r["photos"][0]["etoile"] is True and r["photos"][0]["envoyee"] is True
+    # Seb la retire : fichiers effacés, plus dans l'album.
+    r = sync(client, ops=[{"id": "y", "type": "retirer_photo", "photo": ph["photo"]}])
+    assert r["ids_photos"] == [] and list(photos.iterdir()) == []
+
+
+def test_photo_refusee(client, photos):
+    so = nouvelle_sortie("me-time")
+    sync(client, ops=[so])
+    assert sync(client, ops=[nouvelle_photo(so["sortie"], prise_le="hier")])["refus"]
+    assert sync(client, sub="luc", ops=[nouvelle_photo(so["sortie"])])["refus"]  # Buddy Time d'un autre
+    # Sans position (photo sans GPS) : acceptée.
+    assert sync(client, ops=[nouvelle_photo(so["sortie"], lon=None, lat=None)])["photos"][0]["lon"] is None

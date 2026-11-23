@@ -355,6 +355,27 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   et un mot) ; opérations `creer_planning` et `dispo` (rejouable : la dernière réponse compte, une
   réponse vide efface). Seuls les membres de la bande voient et remplissent le planning. 200 dates au plus.
 
+### 7.4 Bloc 4 : ce qui est construit (23 novembre 2026)
+
+- **Accès** : 📸 de la colonne ouvre les albums (un par Buddy Time commencé, du groupe ouvert ou de
+  tous) ; sur la carte d'un Buddy Time, le bandeau montre les 4 premières photos (« +38 »),
+  « 📷 Ajouter » et « 📸 Album ».
+- **Écran 11** : photos rangées par jour (« Jour 1 · sam. 18 oct. »), 3 par rangée, visage de
+  l'auteur, ⭐ ; vues Toutes, Sur la carte, ⭐ Carnet (les photos choisies pour le carnet, bloc 5).
+  « 📷 Déposer mes photos » : plusieurs d'un coup, depuis la galerie. Toucher une photo : en grand,
+  ‹ ›, « ☆ Pour le carnet » (n'importe quel participant), « Retirer » (l'auteur seulement).
+- **Écran 7** : sur la carte, chaque photo là où elle a été prise (vignette bordée de blanc) ; un
+  toucher l'ouvre en grand. Sans trace partagée, la carte se cadre sur les photos.
+- **Hors ligne** : la photo est réduite sur le téléphone (400 px pour la grille, 1600 px pour la voir,
+  JPEG), gardée et montrée tout de suite avec 🕓 ; elle part au retour du réseau. Les photos des
+  autres, une fois vues, restent sur le téléphone : l'album s'ouvre sans réseau.
+- **Heure et lieu** : lus dans la photo (EXIF). Sans heure, celle du fichier ; sans lieu (le choix de
+  photos d'Android retire parfois la position), la photo n'est pas sur la carte. Vidéos : plus tard.
+- **Serveur** : table `photos` (Buddy Time, auteur, heure, lieu, ⭐, arrivée) et opérations
+  `ajouter_photo`, `etoile`, `retirer_photo` dans la synchro ; les fichiers passent à part,
+  `PUT`/`GET /buddies/photos/<id>/<petite|grande>` (auteur seul pour envoyer, participants pour lire),
+  rangés dans `COMPTES_DOSSIER/photos` (le volume `comptes-data` du VPS). 300 ko et 4 Mo au plus.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Map as MlMap } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
+import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin,
@@ -108,15 +110,15 @@ function reduire(f: File): Promise<string> {
 }
 
 /** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging, onPlanning }: {
-  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onPlanning?: () => void;
+function Colonne({ onToast, onExpenses, onLodging, onPlanning, onAlbum }: {
+  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onPlanning?: () => void; onAlbum?: () => void;
 }) {
   const bientot = (m: string) => () => onToast(`Bientôt : ${m}`);
   return <div className="bd-colonne">
     <button aria-label="Appel" onClick={bientot('appeler toute la bande')}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Messagerie" onClick={bientot('la messagerie de la bande')}>💬</button>
-    <button aria-label="Album photo" onClick={bientot('l’album photo')}>📸</button>
+    <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
     <button aria-label="Buddy count" onClick={onExpenses}>💶</button>
     <button aria-label="Hébergement" onClick={onLodging}>🏨</button>
   </div>;
@@ -237,18 +239,19 @@ function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; 
 
 type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }
   | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string } | { ecran: 'dispos'; id: string; groupe?: string }
-  | { ecran: 'nvPlanning'; groupe?: string };
+  | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void;
   /** Ouvrir un Buddy Time sur la carte (écran 4), ou une trace partagée dans un groupe. */
   onCarte: (x: { sortie?: Sortie; traces: TraceBuddy[] }) => void;
-  /** Revenir sur un Buddy Group (‹ depuis la carte d'un Buddy Time). */
-  depart?: string;
+  /** Revenir sur un Buddy Group (‹ depuis la carte d'un Buddy Time), ou ouvrir l'album d'un Buddy Time. */
+  depart?: string | { album: string; groupe: string };
 }) {
   const e = useBuddies();
   const compte = useCompte();
-  const [vue, setVue] = useState<Vue>(depart ? { ecran: 'groupe', id: depart } : { ecran: 'liste' });
+  const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
+    : depart ? { ecran: 'album', id: depart.album, groupe: depart.groupe } : { ecran: 'liste' });
   // Ouvert : on regarde les nouveautés toutes les minutes ; fermé, la pastille de 👥 repart de maintenant.
   useEffect(() => {
     const sync = () => { void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };
@@ -268,20 +271,27 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }
 
   const groupes = appliquer(e);
-  const { sorties, traces, plannings } = vueSorties(e);
+  const { sorties, traces, plannings, photos } = vueSorties(e);
   const ouvrir = (x: Sortie) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id) });
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
   const meTime = groupes.find((x) => x.nature === 'me_time')!;
   // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
   const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' ? vue.id : undefined;
   const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging}
-    onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })} />;
+    onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
+    onAlbum={() => setVue({ ecran: 'albums', groupe: ici })} />;
+  const album = vue.ecran === 'album' ? sorties.find((x) => x.id === vue.id) : undefined;
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
   const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
   return <div className="buddies">
     {colonne}
-    {vue.ecran === 'plannings' ? <Plannings plannings={plannings.filter((x) => !vue.groupe || x.groupe === vue.groupe)} groupes={groupes}
+    {vue.ecran === 'albums' ? <Albums sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} photos={photos} onClose={onClose}
+      onOuvrir={(x) => setVue({ ecran: 'album', id: x.id, groupe: vue.groupe })}
+      onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'album' && album ? <UnAlbum x={album} photos={photos.filter((p) => p.sortie === album.id)} onToast={onToast} onClose={onClose}
+        onCarte={() => ouvrir(album)} onRetour={() => setVue({ ecran: 'albums', groupe: vue.groupe })} />
+      : vue.ecran === 'plannings' ? <Plannings plannings={plannings.filter((x) => !vue.groupe || x.groupe === vue.groupe)} groupes={groupes}
       onOuvrir={(id) => setVue({ ecran: 'planning', id, groupe: vue.groupe })} onRemplir={(id) => setVue({ ecran: 'dispos', id, groupe: vue.groupe })}
       onNouveau={() => setVue({ ecran: 'nvPlanning', groupe: vue.groupe })} onClose={onClose}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
@@ -517,8 +527,12 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
 /** Haut et bas de la carte d'un Buddy Time : ‹ nom et dates en haut, bandeau rabattable en bas. */
-export function BandeauSortie({ x, traces, onRetour }: { x: Sortie; traces: TraceBuddy[]; onRetour: () => void }) {
+export function BandeauSortie({ x, traces, onRetour, onAlbum, onToast, map }: {
+  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onToast: (m: string) => void; map: MlMap | null;
+}) {
   const [replie, setReplie] = useState(false);
+  const photos = vueSorties(useBuddies()).photos.filter((p) => p.sortie === x.id);
+  const auteurs = new Set(photos.map((p) => p.par.id)).size;
   const km = traces.reduce((n, t) => n + longueur(t.ligne), 0) / 1000;
   const venir = x.fin >= aujourdhui();
   return <>
@@ -539,8 +553,18 @@ export function BandeauSortie({ x, traces, onRetour }: { x: Sortie; traces: Trac
           <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'souvenir'}</small></span>
         </div>
         {!traces.length && <p className="hint">Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.</p>}
+        {photos.length > 0 && <button className="bd-bande-photos" onClick={onAlbum}>
+          <span className="bd-section"><b>📸 {photos.length} photo{photos.length > 1 ? 's' : ''}</b><small>de {auteurs} {auteurs > 1 ? 'buddies' : 'buddy'}</small></span>
+          <span className="bd-bande-images">{photos.slice(0, 4).map((p, i) => <span key={p.id} className="bd-bande-image"><PhotoImage p={p} />
+            {i === 3 && photos.length > 4 && <b>+{photos.length - 3}</b>}</span>)}</span>
+        </button>}
+        {x.debut <= aujourdhui() && <div className="bd-plus">
+          <BoutonDeposer x={x} onToast={onToast} texte="📷 Ajouter" className="primary" />
+          <button onClick={onAlbum}>📸 Album</button>
+        </div>}
       </>}
     </div>
+    <PhotosSurCarte map={map} photos={photos} />
   </>;
 }
 

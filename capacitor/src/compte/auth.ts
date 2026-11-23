@@ -189,6 +189,18 @@ export async function api<T>(methode: string, chemin: string, corps?: unknown): 
   return await r.json() as T;
 }
 
+/** Fichier envoyé ou lu (photos de l'album) : même jeton que `api`. */
+export async function apiFichier(methode: 'GET' | 'PUT', chemin: string, corps?: Blob): Promise<Blob> {
+  const t = await jetonAcces();
+  const r = await requete(`${API_URL}${chemin}`, {
+    method: methode, body: corps,
+    headers: { Authorization: `Bearer ${t}`, ...(corps ? { 'Content-Type': 'image/jpeg' } : {}) },
+  });
+  if (r.status === 401) { ecrire({ ...lire(), access: undefined }); throw new Refuse('Jeton refusé'); }
+  if (!r.ok) throw new Error(`Serveur : erreur ${r.status}`);
+  return await r.blob();
+}
+
 /** Envoie ce qui attend, puis récupère le profil. Sans réseau : HorsLigne, rien n'est perdu. */
 export async function synchroniser(): Promise<Etat> {
   if (!connecte()) return lire();

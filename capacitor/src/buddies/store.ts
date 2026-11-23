@@ -9,6 +9,7 @@
  * - Identifiants et codes d'invitation choisis par le téléphone : on peut inviter par SMS sans réseau,
  *   et renvoyer une opération ne fait jamais de doublon.
  */
+import { envoyer as envoyerFichier, oublier as oublierFichier } from './album';
 import { api, connecte, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
 
 export const LIEN_INVITATION = 'https://silvaplana.cloud/mountaintest/rejoindre.html?c=';
@@ -38,6 +39,11 @@ export type Planning = {
   id: string; groupe: string; nom: string; par: Buddy; dates: [string, string][]; limite: string; modifie_le: string;
   dispos: Dispo[]; attente?: boolean;
 };
+/** Photo de l'album d'un Buddy Time (spec §5.8). prise_le : heure locale AAAA-MM-JJTHH:MM:SS. */
+export type PhotoBuddy = {
+  id: string; sortie: string; par: Buddy; prise_le: string; lon: number | null; lat: number | null; etoile: boolean;
+  envoyee: boolean; modifie_le: string; attente?: boolean;
+};
 export type Op = { id: string; type: string; t: number; [k: string]: unknown };
 
 export type Etat = {
@@ -46,6 +52,9 @@ export type Etat = {
   sorties: Sortie[];
   traces: TraceBuddy[];
   plannings: Planning[];
+  photos: PhotoBuddy[];
+  /** Mes photos annoncées dont le fichier n'est pas encore parti. */
+  envois?: string[];
   curseur?: string;
   /** Mon identifiant côté serveur. */
   moi?: string;
@@ -60,7 +69,7 @@ export type Etat = {
 // ------------------------------------------------------------------ stockage
 
 let memoire: Etat | null = null;
-const vide = (): Etat => ({ serveur: [], sorties: [], traces: [], plannings: [], attente: [] });
+const vide = (): Etat => ({ serveur: [], sorties: [], traces: [], plannings: [], photos: [], attente: [] });
 export function lire(): Etat {
   if (memoire) return memoire;
   try { memoire = { ...vide(), ...JSON.parse(localStorage.getItem(CLE) ?? '{}') as Etat }; } catch { memoire = vide(); }
@@ -99,13 +108,14 @@ function moiBuddy(e: Etat): Buddy {
 }
 
 /** Buddy Times et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
-export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[] } {
+export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[]; photos: PhotoBuddy[] } {
   const groupes = appliquer(e);
   const meTime = groupes.find((g) => g.nature === 'me_time')!;
   const sorties: Sortie[] = e.sorties.map((x) => ({ ...x, invitations: [...x.invitations] }));
   const traces: TraceBuddy[] = [...e.traces];
   const plannings: Planning[] = (e.plannings ?? []).map((p) => ({ ...p, dispos: [...p.dispos] }));
   const moi = e.moi ?? 'moi';
+  let photos: PhotoBuddy[] = (e.photos ?? []).map((x) => ({ ...x }));
   const quand = (op: Op) => new Date(op.t).toISOString();
   for (const op of e.attente) {
     if (op.type === 'creer_sortie' && !sorties.some((x) => x.id === op.sortie)) {
@@ -132,11 +142,23 @@ export function vue(e: Etat): { sorties: Sortie[]; traces: TraceBuddy[]; plannin
       p.dispos = p.dispos.filter((d) => !(d.qui === moi && d.debut === op.debut));
       if (op.etat) p.dispos.push({ qui: moi, debut: String(op.debut), etat: op.etat as Etat3, mot: String(op.mot ?? '') });
       p.attente = true;
+    } else if (op.type === 'ajouter_photo' && !photos.some((x) => x.id === op.photo)) {
+      photos.push({ id: String(op.photo), sortie: String(op.sortie), par: moiBuddy(e), prise_le: String(op.prise_le),
+        lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null, etoile: false, envoyee: false, modifie_le: quand(op), attente: true });
+      const x = sorties.find((y) => y.id === op.sortie);
+      if (x) x.modifie_le = quand(op);
+    } else if (op.type === 'etoile') {
+      photos = photos.map((x) => x.id === op.photo ? { ...x, etoile: !!op.etoile } : x);
+    } else if (op.type === 'retirer_photo') {
+      photos = photos.filter((x) => x.id !== op.photo);
     }
   }
+  // Mes fichiers pas encore partis : 🕓 sur la photo.
+  const envois = new Set(e.envois ?? []);
+  photos = photos.map((x) => envois.has(x.id) ? { ...x, attente: true } : x).sort((a, b) => a.prise_le.localeCompare(b.prise_le));
   // Le plus récemment actif en haut.
   return { sorties: sorties.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), traces,
-    plannings: plannings.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)) };
+    plannings: plannings.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le)), photos };
 }
 
 /** Aujourd'hui en AAAA-MM-JJ (heure du téléphone). */
@@ -174,6 +196,16 @@ export function aRemplir(p: Planning, moi: string, auj = aujourdhui()) {
 }
 /** Une ligne du planning devenue Buddy Time : le Buddy Time du groupe qui part ce jour-là. */
 export const sortieDeLigne = (sorties: Sortie[], p: Planning, debut: string) => sorties.find((x) => x.groupe === p.groupe && x.debut === debut);
+
+// ------------------------------------------------------------------ album (§5.8)
+
+/** Photos rangées par jour du Buddy Time : « Jour 1 », « Jour 2 »… (avant ou après : jour 0 ou au-delà). */
+export function parJour(photos: PhotoBuddy[], x: Sortie) {
+  const jours = new Map<string, PhotoBuddy[]>();
+  for (const p of photos) { const j = p.prise_le.slice(0, 10); jours.set(j, [...(jours.get(j) ?? []), p]); }
+  return [...jours.entries()].sort(([a], [b]) => a.localeCompare(b))
+    .map(([jour, l]) => ({ jour, n: Math.round((Date.parse(jour) - Date.parse(x.debut)) / 86400e3) + 1, photos: l }));
+}
 
 /** Applique les opérations en attente à la version du serveur : ce que montre l'écran. */
 export function appliquer(e: Etat): Groupe[] {
@@ -281,6 +313,18 @@ export function creerPlanning(n: { groupe: string; nom: string; dates: [string, 
 /** Ma réponse pour une date (etat vide : j'efface). */
 export const repondre = (planning: string, debut: string, etat: Etat3 | '', mot = '') =>
   ajouter({ type: 'dispo', planning, debut, etat, mot: mot.trim().slice(0, 200) });
+/** Déposer des photos déjà réduites et gardées sur le téléphone (album.ts) : elles partent au retour du réseau. */
+export function deposerPhotos(sortie: string, l: { photo: string; prise_le: string; lon: number | null; lat: number | null }[]) {
+  if (!l.length) return;
+  ecrire({ ...lire(), envois: [...(lire().envois ?? []), ...l.map((x) => x.photo)] });
+  ajouter(...l.map((x) => ({ type: 'ajouter_photo', sortie, ...x })));
+}
+export const mettreEtoile = (photo: string, etoile: boolean) => ajouter({ type: 'etoile', photo, etoile });
+export function retirerPhoto(photo: string) {
+  ecrire({ ...lire(), envois: (lire().envois ?? []).filter((x) => x !== photo) });
+  ajouter({ type: 'retirer_photo', photo });
+  void oublierFichier(photo);
+}
 export const annulerInvitation = (invitation: string) => ajouter({ type: 'annuler_invitation', invitation });
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
 export const retirer = (groupe: string, buddy: string) => ajouter({ type: 'retirer', groupe, buddy });
@@ -296,7 +340,7 @@ export function rejoindre(code: string) {
 type Reponse = {
   curseur: string; moi: string; ids: string[]; groupes: Groupe[]; refus: { id: string; raison: string }[];
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
-  ids_plannings: string[]; plannings: Planning[];
+  ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -322,18 +366,30 @@ export function synchroniser(): Promise<string[]> {
       const so = fusion(e.sorties ?? [], r.sorties ?? [], r.ids_sorties ?? []);
       const tr = fusion(e.traces ?? [], r.traces ?? [], r.ids_traces ?? []);
       const pl = fusion(e.plannings ?? [], r.plannings ?? [], r.ids_plannings ?? []);
+      const ph = fusion(e.photos ?? [], r.photos ?? [], r.ids_photos ?? []);
       const envoyees = new Set(ops.map((o) => o.id));
       // Un objet connu du serveur mais jamais reçu : on redemandera tout à la prochaine synchro.
-      const manque = g.manque || so.manque || tr.manque || pl.manque;
+      const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque;
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
-        serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste,
+        serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
+      await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
       return r.refus.map((x) => x.raison);
     } finally { enCours = null; }
   })();
   return enCours;
+}
+
+/** Fichiers de mes photos annoncées et acceptées par le serveur ; une photo refusée est oubliée. */
+async function envoyerPhotos(connues: Set<string>) {
+  for (const id of lire().envois ?? []) {
+    const annoncee = lire().attente.some((o) => o.type === 'ajouter_photo' && o.photo === id);
+    if (connues.has(id)) await envoyerFichier(id);
+    else if (annoncee) continue;
+    ecrire({ ...lire(), envois: (lire().envois ?? []).filter((x) => x !== id) });
+  }
 }
 
 /** Pour les tests. */

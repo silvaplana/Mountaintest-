@@ -2,9 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _reinitialiser as reinitCompte, ecrire as ecrireCompte, HorsLigne } from '../src/compte/auth';
 import {
-  _reinitialiser, aRemplir, appliquer, creerGroupe, creerPlanning, creerSortie, datesPlanning, inviter, joursAvant, lire, nouveauCode,
+  _reinitialiser, aRemplir, appliquer, deposerPhotos, mettreEtoile, parJour, retirerPhoto, creerGroupe, creerPlanning, creerSortie, datesPlanning, inviter, joursAvant, lire, nouveauCode,
   nouveautes, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type Planning, type Sortie,
 } from '../src/buddies/store';
+import { exif } from '../src/buddies/album';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
 let appels: Appel[] = [];
@@ -208,3 +209,55 @@ describe('Planning de saison (bloc 3)', () => {
     expect(sortieDeLigne([{ ...s, groupe: 'b' }], p, '2026-12-12')).toBeUndefined();
   });
 });
+
+describe('Album (bloc 4)', () => {
+  const x: Sortie = { id: 's1', groupe: 'a', nom: 'Viso', photo: null, debut: '2026-10-18', fin: '2026-10-19', lieu: '', modifie_le: '', participants: [], invitations: [] };
+
+  it('déposer sans réseau : les photos sont là tout de suite avec 🕓, rangées par jour', () => {
+    reseau(() => 'coupure');
+    deposerPhotos('s1', [
+      { photo: 'p2', prise_le: '2026-10-19T08:00:00', lon: null, lat: null },
+      { photo: 'p1', prise_le: '2026-10-18T10:00:00', lon: 6.7, lat: 44.6 },
+    ]);
+    const l = vue(lire()).photos;
+    expect(l.map((p) => [p.id, p.attente])).toEqual([['p1', true], ['p2', true]]);
+    expect(lire().envois).toEqual(['p2', 'p1']);
+    expect(parJour(l, x).map((j) => [j.n, j.jour, j.photos.length])).toEqual([[1, '2026-10-18', 1], [2, '2026-10-19', 1]]);
+    mettreEtoile('p1', true);
+    retirerPhoto('p2');
+    expect(vue(lire()).photos.map((p) => [p.id, p.etoile])).toEqual([['p1', true]]);
+    expect(lire().envois).toEqual(['p1']);
+  });
+
+  it('une photo refusée par le serveur est oubliée de la file d’envoi', async () => {
+    reseau(() => 'coupure');
+    deposerPhotos('s-inconnu', [{ photo: 'p1', prise_le: '2026-10-18T10:00:00', lon: null, lat: null }]);
+    await synchroniser().catch(() => undefined);
+    reseau((a) => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [{ id: a.corps.ops[0].id, raison: 'Buddy Time inconnu' }], ids_photos: [], photos: [] }));
+    expect(await synchroniser()).toEqual(['Buddy Time inconnu']);
+    expect(lire().envois).toEqual([]);
+    expect(vue(lire()).photos).toEqual([]);
+  });
+
+  it('lit l’heure et le lieu dans l’EXIF d’une photo', () => {
+    expect(exif(exifDeTest())).toEqual({ prise_le: '2026-10-18T09:41:07', lat: 44.5, lon: -6.75 });
+    expect(exif(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer)).toEqual({ prise_le: null, lon: null, lat: null });
+  });
+});
+
+/** Petit JPEG avec un bloc EXIF (Motorola) : DateTimeOriginal, GPS 44°30' N, 6°45' W. */
+function exifDeTest(): ArrayBuffer {
+  const t: number[] = [];
+  const u16 = (n: number) => t.push(n >> 8, n & 255);
+  const u32 = (n: number) => t.push((n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255);
+  const ent = (tag: number, type: number, n: number, val: number) => { u16(tag); u16(type); u32(n); u32(val); };
+  t.push(0x4d, 0x4d); u16(42); u32(8);                         // en-tête TIFF, IFD0 en 8
+  u16(2); ent(0x8769, 4, 1, 38); ent(0x8825, 4, 1, 56); u32(0); // IFD0 (8..37) : Exif en 38, GPS en 56
+  u16(1); ent(0x9003, 2, 20, 110); u32(0);                     // Exif IFD (38..55) : date en 110
+  u16(4);                                                      // GPS IFD (56..109)
+  ent(1, 2, 2, 0x4e000000); ent(2, 5, 3, 130); ent(3, 2, 2, 0x57000000); ent(4, 5, 3, 154); u32(0);
+  for (const c of '2026:10:18 09:41:07\0') t.push(c.charCodeAt(0));  // 110..129
+  for (const [a, b] of [[44, 1], [30, 1], [0, 1], [6, 1], [45, 1], [0, 1]]) { u32(a); u32(b); } // 130..177
+  const app1 = [0x45, 0x78, 0x69, 0x66, 0, 0, ...t];
+  return new Uint8Array([0xff, 0xd8, 0xff, 0xe1, (app1.length + 2) >> 8, (app1.length + 2) & 255, ...app1, 0xff, 0xd9]).buffer;
+}

@@ -17,6 +17,8 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   PUT  /moi      changer mon pseudo / ma photo
   POST /buddies/sync          Buddies : envoyer ce que le téléphone a fait, recevoir les nouveautés (buddies.py)
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
+  PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
+  GET  /buddies/photos/{id}/{petite|grande}   la lire (participants du Buddy Time)
 """
 from __future__ import annotations
 
@@ -33,7 +35,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import jwt
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, func, inspect, select, text
@@ -228,6 +230,47 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     except ValueError as e:
         raise HTTPException(422, "depuis : date ISO attendue") from e
     return buddies.synchroniser(s, utilisateur(s, j), corps.ops, corps.depuis)
+
+
+def photo_visible(s: Session, j: dict, pid: str, taille: str):
+    if taille not in buddies.TAILLES:
+        raise HTTPException(404, "Taille inconnue")
+    try:
+        return buddies.photo_de(s, utilisateur(s, j), pid)
+    except (buddies.Refus, ValueError) as e:
+        raise HTTPException(404, "Photo inconnue") from e
+
+
+@app.put("/buddies/photos/{pid}/{taille}")
+async def envoyer_photo(pid: str, taille: str, req: Request, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """Le fichier d'une photo annoncée par la synchro (seul l'auteur l'envoie ; renvoyer remplace)."""
+    p = photo_visible(s, j, pid, taille)
+    if p.par != utilisateur(s, j).id:
+        raise HTTPException(403, "Seul l'auteur envoie sa photo")
+    corps = await req.body()
+    if len(corps) > buddies.TAILLES[taille] or not corps.startswith(b"\xff\xd8"):
+        raise HTTPException(422, "JPEG attendu, trop gros ou illisible")
+    os.makedirs(buddies.DOSSIER_PHOTOS, exist_ok=True)
+    chemin = buddies.fichier_photo(p.id, taille)
+    with open(chemin + ".tmp", "wb") as f:
+        f.write(corps)
+    os.replace(chemin + ".tmp", chemin)
+    if taille == "grande" and not p.envoyee:
+        p.envoyee = True
+        p.modifie_le = maintenant()
+        s.commit()
+    return {"ok": True}
+
+
+@app.get("/buddies/photos/{pid}/{taille}")
+def lire_photo(pid: str, taille: str, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    p = photo_visible(s, j, pid, taille)
+    try:
+        with open(buddies.fichier_photo(p.id, taille), "rb") as f:
+            # Une photo ne change jamais : le téléphone la garde.
+            return Response(f.read(), media_type="image/jpeg", headers={"Cache-Control": "private, max-age=31536000, immutable"})
+    except OSError as e:
+        raise HTTPException(404, "Pas encore arrivée") from e
 
 
 @app.get("/invitations/{code}")

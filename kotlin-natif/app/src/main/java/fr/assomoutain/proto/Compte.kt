@@ -171,6 +171,25 @@ class Compte(private val prefs: SharedPreferences) {
         return JSONObject(r.corps)
     }
 
+    /** Fichier envoyé ou lu (photos de l'album) : même jeton que `api`. Bloquant : hors du fil principal. */
+    fun fichier(methode: String, chemin: String, corps: ByteArray? = null): ByteArray {
+        val jeton = jetonAcces()
+        val (code, octets) = try {
+            val c = URL("$API_URL$chemin").openConnection() as HttpURLConnection
+            c.requestMethod = methode; c.connectTimeout = 10_000; c.readTimeout = 60_000
+            c.setRequestProperty("Authorization", "Bearer $jeton")
+            if (corps != null) {
+                c.doOutput = true; c.setRequestProperty("Content-Type", "image/jpeg"); c.setFixedLengthStreamingMode(corps.size)
+                c.outputStream.use { it.write(corps) }
+            }
+            val code = c.responseCode
+            code to ((if (code < 400) c.inputStream else c.errorStream)?.use { it.readBytes() } ?: ByteArray(0))
+        } catch (e: IOException) { throw HorsLigne() }
+        if (code == 401) { modifier { remove("access") }; throw Refuse("Jeton refusé") }
+        if (code != 200) throw IOException("Serveur : erreur $code")
+        return octets
+    }
+
     /** Envoie ce qui attend, puis récupère le profil. Sans réseau : HorsLigne, rien n'est perdu. */
     fun synchroniser() {
         if (!connecte) return

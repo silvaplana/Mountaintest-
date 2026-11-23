@@ -217,6 +217,35 @@ class MainActivity : AppCompatActivity() {
             cb?.invoke(withContext(Dispatchers.IO) { runCatching { petitePhoto(uri) }.getOrNull() })
         }
     }
+    // 📸 Album : plusieurs photos choisies d'un coup, réduites et gardées, puis annoncées (elles partent au retour du réseau).
+    private var albumSortie: Buddies.Sortie? = null
+    private val photosLauncher = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { uris ->
+        val x = albumSortie ?: return@registerForActivityResult
+        albumSortie = null
+        if (uris.isEmpty()) return@registerForActivityResult
+        toast("Préparation de ${uris.size} photo${if (uris.size > 1) "s" else ""}…")
+        lifecycleScope.launch {
+            val l = withContext(Dispatchers.IO) {
+                uris.mapNotNull { u ->
+                    runCatching {
+                        val p = album.preparer(this@MainActivity, u)
+                        val id = java.util.UUID.randomUUID().toString()
+                        album.garder(id, "petite", p.petite); album.garder(id, "grande", p.grande)
+                        Triple(id, p.priseLe, p.lon to p.lat)
+                    }.getOrNull()
+                }
+            }
+            buddies.deposerPhotos(x.id, l)
+            if (l.size < uris.size) toast("${uris.size - l.size} photo(s) illisible(s)")
+            if (l.isNotEmpty()) toast("${l.size} photo${if (l.size > 1) "s déposées" else " déposée"} : elles partent dès qu'il y a du réseau")
+            syncBuddies()
+        }
+    }
+    private fun deposerPhotos(x: Buddies.Sortie) {
+        albumSortie = x
+        photosLauncher.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+    private val album by lazy { Album(this, compte).also { buddies.album = it } }
     private var contactCb: ((Pair<String, String>?) -> Unit)? = null
     private val contactLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         val cb = contactCb; contactCb = null
@@ -305,6 +334,10 @@ class MainActivity : AppCompatActivity() {
                 val pt = m.projection.toScreenLocation(p)
                 val r = 20 * resources.displayMetrics.density
                 val box = android.graphics.RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r)
+                // 📸 Photo d'un Buddy Time : en grand.
+                if (photosCarte.isNotEmpty()) m.queryRenderedFeatures(box, SRC_BD_PHOTOS).firstOrNull()?.getStringProperty("id")?.let { id ->
+                    AlbumVue.visionneuse(this, buddies, album, photosCarte, photosCarte.indexOfFirst { it.id == id }); return@addOnMapClickListener true
+                }
                 // Icône météo : le détail de la prévision à cet endroit.
                 if (weather.active) m.queryRenderedFeatures(box, WeatherLayer.LAYER)
                     .firstOrNull()?.let { weather.describe(it) }?.let { toast(it); return@addOnMapClickListener true }
@@ -3000,9 +3033,10 @@ class MainActivity : AppCompatActivity() {
     private val buddies by lazy { Buddies(prefs, compte) }
     private var buddiesPanel: BuddiesPanel? = null
     private var buddiesBack: androidx.activity.OnBackPressedCallback? = null
-    private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons() } }
-    private fun openBuddies(depart: String? = null) {
+    private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons(); rafraichirCarteSortie() } }
+    private fun openBuddies(depart: String? = null, departAlbum: String? = null) {
         if (buddiesPanel != null) return
+        album // posé sur buddies avant la première synchro
         fermerCarteSortie()
         sheetOpen = false; refreshTabs()
         val p = BuddiesPanel(this, compte, buddies,
@@ -3014,7 +3048,8 @@ class MainActivity : AppCompatActivity() {
             },
             onAccount = { openAccount() }, onExpenses = { openExpenses() },
             onLodging = { closeBuddies(); openLodging() }, onClose = { closeBuddies() },
-            onCarte = { sortie, traces -> montrerBuddies(sortie, traces) }, depart = depart)
+            onCarte = { sortie, traces -> montrerBuddies(sortie, traces) }, album = album, deposer = { deposerPhotos(it) },
+            depart = depart, departAlbum = departAlbum)
         buddiesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)
@@ -3047,13 +3082,61 @@ class MainActivity : AppCompatActivity() {
         if (sortie == null) return
         traceMenuOpen = false; refreshTraceMenu()
         fermerCarteSortie()
-        val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom) { fermerCarteSortie(); openBuddies(sortie.groupe) }
+        BandeauSortie.replie = false
+        carteSortieId = sortie.id
+        rafraichirCarteSortie()
+        // Pas de trace : la carte se cadre sur les photos.
+        val pos = buddies.photos().filter { it.sortie == sortie.id && it.lon != null && it.lat != null }
+        if (pts.size < 2 && pos.size >= 2) {
+            val b = LatLngBounds.Builder()
+            pos.forEach { b.include(LatLng(it.lat!!, it.lon!!)) }
+            map?.easeCamera(CameraUpdateFactory.newLatLngBounds(b.build(), 90), 600)
+        } else if (pts.size < 2 && pos.size == 1) map?.easeCamera(CameraUpdateFactory.newLatLngZoom(LatLng(pos[0].lat!!, pos[0].lon!!), 14.0), 600)
+    }
+    private var carteSortieId: String? = null
+    /** Bandeau et photos du Buddy Time sur la carte, redessinés quand l'album change. */
+    private fun rafraichirCarteSortie() {
+        val id = carteSortieId ?: return
+        val sortie = buddies.sorties().firstOrNull { it.id == id } ?: run { fermerCarteSortie(); return }
+        val traces = buddies.traces().filter { it.sortie == id }
+        val photos = buddies.photos().filter { it.sortie == id }
+        val racine = findViewById<android.widget.FrameLayout>(R.id.root)
+        carteSortie?.let { racine.removeView(it) }
+        val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom, photos, album,
+            onAlbum = { fermerCarteSortie(); openBuddies(sortie.groupe, departAlbum = sortie.id) },
+            onAjouter = { deposerPhotos(sortie) }) { fermerCarteSortie(); openBuddies(sortie.groupe) }
         carteSortie = v
-        findViewById<android.widget.FrameLayout>(R.id.root).addView(v)
+        racine.addView(v)
+        dessinerPhotos(photos)
     }
     private fun fermerCarteSortie() {
         carteSortie?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
-        carteSortie = null
+        carteSortie = null; carteSortieId = null
+        dessinerPhotos(emptyList())
+    }
+    /** 📸 Sur la carte (écran 7) : chaque photo là où elle a été prise ; un toucher l'ouvre en grand. */
+    private var photosCarte: List<Buddies.PhotoBuddy> = emptyList()
+    private fun dessinerPhotos(photos: List<Buddies.PhotoBuddy>) {
+        val placees = photos.filter { it.lon != null && it.lat != null }
+        photosCarte = placees
+        val style = map?.style ?: return
+        if (style.getSource(SRC_BD_PHOTOS) == null) {
+            style.addSource(GeoJsonSource(SRC_BD_PHOTOS))
+            style.addLayer(org.maplibre.android.style.layers.SymbolLayer(SRC_BD_PHOTOS, SRC_BD_PHOTOS).withProperties(
+                org.maplibre.android.style.layers.PropertyFactory.iconImage(Expression.get("img")),
+                org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap(true),
+                org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement(true)))
+        }
+        fun maj() = style.getSourceAs<GeoJsonSource>(SRC_BD_PHOTOS)?.setGeoJson(FeatureCollection.fromFeatures(
+            placees.filter { style.getImage("bdp-${it.id}") != null }.map { p ->
+                Feature.fromGeometry(Point.fromLngLat(p.lon!!, p.lat!!)).apply { addStringProperty("img", "bdp-${p.id}"); addStringProperty("id", p.id) }
+            }))
+        maj()
+        val d = resources.displayMetrics.density
+        for (p in placees.filter { style.getImage("bdp-${it.id}") == null }) lifecycleScope.launch {
+            val b = withContext(Dispatchers.IO) { runCatching { album.image(p.id, "petite", p.envoyee)?.let { AlbumVue.marqueur(it, d) } }.getOrNull() }
+            if (b != null && photosCarte === placees) { style.addImage("bdp-${p.id}", b); maj() }
+        }
     }
 
     /** Lien d'invitation ouvert (fr.assomoutain.proto.kotlin://rejoindre?c=…). */
@@ -3065,6 +3148,7 @@ class MainActivity : AppCompatActivity() {
     }
     /** Synchro des Buddies en arrière-plan : jamais bloquante, rien sans réseau. */
     private fun syncBuddies() {
+        album // les fichiers des photos partent avec la synchro
         buddies.oublierSiDeconnecte()
         if (!compte.connecte) return
         lifecycleScope.launch {
@@ -3372,6 +3456,7 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_WEB_HIKES = "web-hikes-src"
         private const val SRC_TRAVEL = "travel-src"
         private const val SRC_SKI = "ski-src"
+        private const val SRC_BD_PHOTOS = "bd-photos"
         private const val SRC_TOPOS = "topos-src"
         private const val SRC_TOPO_LINE = "topo-line-src"
         private const val LAYER_TOPOS = "topos"

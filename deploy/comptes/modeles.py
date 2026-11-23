@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, Uuid
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -160,3 +160,24 @@ class Dispo(Base):
     debut: Mapped[str] = mapped_column(String(10), primary_key=True)
     etat: Mapped[str] = mapped_column(String(4), nullable=False)
     mot: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+
+
+class Photo(Base):
+    """Album d'un Buddy Time (spec/buddies.md §5.8) : chacun dépose ses photos. Le fichier JPEG (petite
+    400 px et grande 1600 px) est envoyé à part (PUT /buddies/photos/…) et rangé dans COMPTES_DOSSIER/photos."""
+
+    __tablename__ = "photos"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), nullable=False, index=True)
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    # Heure de prise de vue lue dans la photo (heure locale du téléphone, AAAA-MM-JJTHH:MM:SS), sinon heure du dépôt.
+    prise_le: Mapped[str] = mapped_column(String(19), nullable=False)
+    lon: Mapped[float | None] = mapped_column(Float)
+    lat: Mapped[float | None] = mapped_column(Float)
+    # ⭐ : retenue pour le carnet (n'importe quel participant peut la choisir).
+    etoile: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # La grande image est arrivée (avant : 🕓 chez tout le monde).
+    envoyee: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
