@@ -383,7 +383,7 @@ class MainActivity : AppCompatActivity() {
         mapOf(
             R.id.btnQuickClose to "close", R.id.btnLocate to "locate", R.id.btnQuickSearch to "search", R.id.btnQuickPhoto to "photo",
             R.id.btnQuickLayer to "layer", R.id.btnQuickAvion to "avion", R.id.btnPoche to "poche", R.id.btnReglages to "reglages", R.id.btnCarrefour to "carrefours", R.id.btnVibre to "vibre", R.id.btnDoubleTap to "doubletap", R.id.btnQuickDraw to "draw",
-            R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnSkiText to "skiText",
+            R.id.btnQuickSlopes to "slopes", R.id.btnQuickShade to "shade", R.id.btnQuickForests to "forests", R.id.btnSkiText to "skiText",
             R.id.btnWeatherMountain to "weatherMountain", R.id.btnTravel to "travel", R.id.btnLodging to "lodging", R.id.btnExpenses to "expenses", R.id.btnGroups to "groups",
         ).forEach { (id, key) -> findViewById<View>(id).setOnLongClickListener { v -> showIconTip(v, key); true } }
         findViewById<Button>(R.id.btnQuickToggle).setOnClickListener {
@@ -418,6 +418,14 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnQuickShade).setOnClickListener {
             findViewById<CheckBox>(R.id.chkShade).apply { isChecked = !isChecked }
+        }
+        // 🌲 à gauche de 🌗 : forêts par essence de la zone affichée, sans passer par le menu ; un 2e appui les efface.
+        findViewById<Button>(R.id.btnQuickForests).setOnClickListener {
+            if (forests.isNotEmpty() || forestsJob?.isActive == true) { clearForests(); return@setOnClickListener }
+            map?.projection?.visibleRegion?.latLngBounds?.let {
+                searchForests(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth), quiet = true)
+            }
+            refreshQuickButtons()
         }
         // Boussole juste sous la colonne d'icônes, qu'elle soit ouverte ou repliée.
         findViewById<View>(R.id.quickButtons).addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
@@ -2644,25 +2652,29 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnForestsFrame).setOnClickListener { framingForOffline = false; framingForForests = true; setFraming(true) }
         findViewById<Button>(R.id.btnForestsAll).setOnClickListener { forestFilter.clear(); drawForests(); refreshForests() }
-        findViewById<Button>(R.id.btnForestsClear).setOnClickListener {
-            forestsJob?.cancel()
-            forests = emptyList(); forestFilter.clear(); forestsMessage = ""
-            if (trails.isEmpty()) { frame = null; drawTrails(fit = false) }
-            drawForests(); refreshForests()
-        }
+        findViewById<Button>(R.id.btnForestsClear).setOnClickListener { clearForests() }
         refreshForests()
     }
 
-    private fun searchForests(z: Zone) {
-        setFraming(false)
-        tab = Tab.FORETS; sheetOpen = true; refreshTabs()
+    private fun clearForests() {
+        forestsJob?.cancel()
+        forests = emptyList(); forestFilter.clear(); forestsMessage = ""
+        if (trails.isEmpty()) { frame = null; drawTrails(fit = false) }
+        drawForests(); refreshForests(); refreshQuickButtons()
+    }
+
+    /** [quiet] : lancé par 🌲 sur la carte, le menu reste fermé et les messages passent en bandeau. */
+    private fun searchForests(z: Zone, quiet: Boolean = false) {
+        if (!quiet) { setFraming(false); tab = Tab.FORETS; sheetOpen = true; refreshTabs() }
         if (Forests.zoneTooBig(z)) {
             forestsMessage = "Zone trop grande : zoome ou encadre au plus ${(Forests.MAX_ZONE_DEG * 100).toInt()} km de côté environ."
+            if (quiet) toast("🌲 Zone trop grande : zoome pour voir les forêts (${(Forests.MAX_ZONE_DEG * 100).toInt()} km de côté au plus).")
             refreshForests(); return
         }
-        frame = z; drawTrails(fit = false)
+        if (!quiet) { frame = z; drawTrails(fit = false) }
         forests = emptyList(); forestFilter.clear()
         forestsMessage = "Recherche des forêts dans la carte forestière IGN…"
+        if (quiet) toast("🌲 Recherche des forêts…")
         drawForests(); refreshForests()
         forestsJob?.cancel()
         forestsJob = lifecycleScope.launch {
@@ -2679,7 +2691,8 @@ class MainActivity : AppCompatActivity() {
                 if (e is kotlinx.coroutines.CancellationException) return@launch
                 forestsMessage = "Recherche impossible (pas de réseau ?) : ${e.message}"
             }
-            drawForests(); refreshForests()
+            if (quiet) toast(if (forests.isEmpty()) "🌲 " + forestsMessage else "🌲 ${forests.size} massifs, ${Forests.groupByEssence(forests).size} essences. Touche une forêt pour son essence.")
+            drawForests(); refreshForests(); refreshQuickButtons()
         }
     }
 
@@ -3102,7 +3115,7 @@ class MainActivity : AppCompatActivity() {
         icons.visibility = View.VISIBLE
         for (i in 0 until icons.childCount) icons.getChildAt(i).visibility = View.VISIBLE
         // Les duos ✈ / 👖 et ⛰ / 🌗 : tous visibles, l'un sous l'autre, pour que chaque étiquette ait sa place.
-        for (id in listOf(R.id.btnPoche, R.id.btnReglages, R.id.btnCarrefour, R.id.btnVibre, R.id.btnDoubleTap, R.id.btnQuickShade, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
+        for (id in listOf(R.id.btnPoche, R.id.btnReglages, R.id.btnCarrefour, R.id.btnVibre, R.id.btnDoubleTap, R.id.btnQuickShade, R.id.btnQuickForests, R.id.btnSkiText)) findViewById<View>(id).visibility = View.VISIBLE
         findViewById<View>(R.id.btnSki).visibility = View.GONE
         for (id in listOf(R.id.pairAvion, R.id.pairRelief)) findViewById<android.widget.LinearLayout>(id).orientation = android.widget.LinearLayout.VERTICAL
         val labels = linkedMapOf(
@@ -3111,7 +3124,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
-            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to (when (activity) { "vtt" -> "Itinéraires VTT"; "rando" -> "Randos"; else -> "Sorties ski" } + " · appui long : " + activityIcon(nextActivity(activity))),
+            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnQuickForests to "Forêts", R.id.btnSkiText to (when (activity) { "vtt" -> "Itinéraires VTT"; "rando" -> "Randos"; else -> "Sorties ski" } + " · appui long : " + activityIcon(nextActivity(activity))),
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Groupes · mon compte",
         )
@@ -3168,6 +3181,7 @@ class MainActivity : AppCompatActivity() {
         paint(R.id.btnQuickAvion, airplaneOn())
         paint(R.id.btnQuickSlopes, slopes)
         paint(R.id.btnQuickShade, findViewById<CheckBox>(R.id.chkShade).isChecked)
+        paint(R.id.btnQuickForests, forests.isNotEmpty() || forestsJob?.isActive == true)
         paint(R.id.btnWeather, weather.active)
         val mode = prefs.getInt("iconesMode", 0)
         val icons = findViewById<android.view.ViewGroup>(R.id.quickIcons)
@@ -3181,6 +3195,7 @@ class MainActivity : AppCompatActivity() {
         // Duos ✈ / 👖 et ⛰ / 🌗 : la 2e icône seulement quand son duo est déplié (ou en aide) ; déplié à l'horizontale, en aide à la verticale.
         for ((pairId, second) in listOf(R.id.pairAvion to R.id.btnPoche, R.id.pairRelief to R.id.btnQuickShade)) {
             findViewById<View>(second).visibility = if (pairOpen == pairId || helpOverlay != null) View.VISIBLE else View.GONE
+            if (pairId == R.id.pairRelief) findViewById<View>(R.id.btnQuickForests).visibility = findViewById<View>(second).visibility
             findViewById<android.widget.LinearLayout>(pairId).orientation =
                 if (helpOverlay != null) android.widget.LinearLayout.VERTICAL else android.widget.LinearLayout.HORIZONTAL
         }
