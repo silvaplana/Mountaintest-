@@ -7,7 +7,8 @@ import {
   carnetDe, chiffres, choixPhotos, duree, fiches as fichesDe, joursDe, km, lireDuree, lireKm, lireMetres, metres, relief, reliefGarde,
   texteCarnet, tracesDuCarnet, type FicheAffichee, type Relief, type TraceCarnet,
 } from './carnet';
-import { enregistrerCarnet, ficheVide, lire, type Fiche, type PhotoBuddy, type Sortie, type TraceBuddy } from './store';
+import { euros } from './count';
+import { enregistrerCarnet, ficheVide, lire, type Depense, type Fiche, type PhotoBuddy, type Sortie, type TraceBuddy } from './store';
 
 /**
  * Carnet d'un Buddy Time (spec/buddies.md §5.8) : le souvenir (écrans 12 et 13) et l'écriture (14).
@@ -79,9 +80,9 @@ const chiffresFiche = (f: Pick<Fiche, 'depart' | 'duree' | 'distance' | 'denivel
 ];
 
 /** Le carnet (écrans 12 et 13) : photos choisies, récits signés, trace, profil et chiffres, fiches des jours, « Le pratique ». */
-export function UnCarnet({ x, photos, traces, onRetour, onClose, onEcrire, onChanger, onCarte, onToast }: {
-  x: Sortie; photos: PhotoBuddy[]; traces: TraceBuddy[]; onRetour: () => void; onClose: () => void; onEcrire: () => void;
-  onChanger: () => void; onCarte: () => void; onToast: (m: string) => void;
+export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcrire, onChanger, onCarte, onCount, onToast }: {
+  x: Sortie; photos: PhotoBuddy[]; traces: TraceBuddy[]; depenses: Depense[]; onRetour: () => void; onClose: () => void; onEcrire: () => void;
+  onChanger: () => void; onCarte: () => void; onCount: () => void; onToast: (m: string) => void;
 }) {
   const c = carnetDe(x);
   const jours = joursDe(x);
@@ -131,12 +132,13 @@ export function UnCarnet({ x, photos, traces, onRetour, onClose, onEcrire, onCha
     {c.conditions && <p className="bd-conditions"><b>Conditions</b> {c.conditions}</p>}
     {fs.map((f) => <FicheJour key={f.jour} f={f} photos={(choix.auto ? photos : choix.photos).filter((p) => p.prise_le.startsWith(f.jour))} />)}
     <button className="bd-pratique" onClick={() => setPratique(!pratique)} aria-expanded={pratique}>
-      <span>📍 👥 〰</span><b>Le pratique</b><span>{pratique ? '▾' : '▸'}</span></button>
+      <span>📍 💶 〰</span><b>Le pratique</b><span>{pratique ? '▾' : '▸'}</span></button>
     {pratique && <div className="bd-pratique-corps">
       {x.lieu && <p>📍 {x.lieu}</p>}
       <p>👥 {x.participants.map((p) => p.pseudo).join(', ')}</p>
+      <button className="bd-lien" onClick={onCount}>💶 {depenses.length ? `${euros(depenses.reduce((n, d) => n + d.montant, 0))} à ${x.participants.length} · les comptes ›` : 'Buddy count ›'}</button>
       {traces.map((t) => <p key={t.id}>〰 {t.nom} <small>par {t.par.pseudo}</small></p>)}
-      <p className="hint">L’hébergement, les comptes et les messages s’ajouteront ici.</p>
+      <p className="hint">L’hébergement et les messages s’ajouteront ici.</p>
     </div>}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">

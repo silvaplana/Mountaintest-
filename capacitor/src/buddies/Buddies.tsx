@@ -6,7 +6,9 @@ import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
 import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
+import { BuddyCount, Comptes, UneDepense } from './BuddyCount';
 import { EcrireCarnet, UnCarnet } from './Carnet';
+import { euros } from './count';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin,
@@ -243,9 +245,10 @@ function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; 
 type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }
   | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string } | { ecran: 'dispos'; id: string; groupe?: string }
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
-  | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string };
+  | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
+  | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
-export type DepartBuddies = string | { ecran: 'album' | 'carnet'; sortie: string; groupe: string };
+export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count'; sortie: string; groupe: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void;
@@ -276,7 +279,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }
 
   const groupes = appliquer(e);
-  const { sorties, traces, plannings, photos } = vueSorties(e);
+  const { sorties, traces, plannings, photos, depenses } = vueSorties(e);
   const ouvrir = (x: Sortie) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id) });
   // Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
@@ -284,10 +287,13 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const meTime = groupes.find((x) => x.nature === 'me_time')!;
   // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
   const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' ? vue.id : undefined;
-  const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging}
+  // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
+  const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense'].includes(vue.ecran) ? vue.id : undefined;
+  const colonne = <Colonne onToast={onToast} onLodging={onLodging}
+    onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })} />;
-  const album = vue.ecran === 'album' || vue.ecran === 'carnet' || vue.ecran === 'ecrire' ? sorties.find((x) => x.id === vue.id) : undefined;
+  const album = sortieIci ? sorties.find((x) => x.id === sortieIci) : undefined;
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
   const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
@@ -296,7 +302,16 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     {vue.ecran === 'albums' ? <Albums sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} photos={photos} onClose={onClose}
       onOuvrir={(x) => setVue({ ecran: 'album', id: x.id, groupe: vue.groupe })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
-      : vue.ecran === 'carnet' && album ? <UnCarnet x={album} photos={photos.filter((p) => p.sortie === album.id)}
+      : vue.ecran === 'comptes' ? <Comptes sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} depenses={depenses} onClose={onClose}
+        onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })} onAnciens={onExpenses}
+        onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'count' && album ? <BuddyCount x={album} depenses={depenses} onClose={onClose}
+        onDepense={(d) => setVue({ ecran: 'depense', id: album.id, depense: d, groupe: vue.groupe })}
+        onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe })} />
+      : vue.ecran === 'depense' && album ? <UneDepense key={vue.depense ?? 'nouvelle'} x={album} d={depenses.find((y) => y.id === vue.depense)}
+        onToast={onToast} onClose={onClose} onFini={() => setVue({ ecran: 'count', id: album.id, groupe: vue.groupe })} />
+      : vue.ecran === 'carnet' && album ? <UnCarnet x={album} depenses={depenses.filter((d) => d.sortie === album.id)}
+        onCount={() => setVue({ ecran: 'count', id: album.id, groupe: vue.groupe })} photos={photos.filter((p) => p.sortie === album.id)}
         traces={traces.filter((t) => t.sortie === album.id)} onToast={onToast} onClose={onClose} onCarte={() => ouvrir(album)}
         onEcrire={() => setVue({ ecran: 'ecrire', id: album.id, groupe: vue.groupe })}
         onChanger={() => setVue({ ecran: 'album', id: album.id, groupe: vue.groupe, carnet: true })}
@@ -541,11 +556,14 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
 /** Haut et bas de la carte d'un Buddy Time : ‹ nom et dates en haut, bandeau rabattable en bas. */
-export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onToast, map }: {
-  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onToast: (m: string) => void; map: MlMap | null;
+export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onCount, onToast, map }: {
+  x: Sortie; traces: TraceBuddy[]; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void;
+  onToast: (m: string) => void; map: MlMap | null;
 }) {
   const [replie, setReplie] = useState(false);
-  const photos = vueSorties(useBuddies()).photos.filter((p) => p.sortie === x.id);
+  const v = vueSorties(useBuddies());
+  const photos = v.photos.filter((p) => p.sortie === x.id);
+  const depense = v.depenses.filter((d) => d.sortie === x.id).reduce((n, d) => n + d.montant, 0);
   const auteurs = new Set(photos.map((p) => p.par.id)).size;
   const km = traces.reduce((n, t) => n + longueur(t.ligne), 0) / 1000;
   const venir = x.fin >= aujourdhui();
@@ -565,6 +583,7 @@ export function BandeauSortie({ x, traces, onRetour, onAlbum, onCarnet, onToast,
         <div className="bd-chiffres">
           <span><b>{traces.length ? `${km.toFixed(km < 10 ? 1 : 0)} km` : '—'}</b><small>{traces.length > 1 ? `${traces.length} traces` : 'parcours'}</small></span>
           <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'souvenir'}</small></span>
+          <button className="bd-chiffre-count" onClick={onCount}><b>💶 {depense ? euros(depense) : '＋'}</b><small>{depense ? `à ${x.participants.length}` : 'Buddy count'}</small></button>
         </div>
         {!traces.length && <p className="hint">Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.</p>}
         {photos.length > 0 && <button className="bd-bande-photos" onClick={onAlbum}>

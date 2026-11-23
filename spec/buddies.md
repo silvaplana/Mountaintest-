@@ -408,6 +408,25 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   `carnet` dans la synchro, envoyées avec le Buddy Time (`carnet` dans sa vue). Tout participant du Buddy
   Time peut écrire ; chacun ne touche qu'à son propre récit.
 
+### 7.6 Bloc 6 : ce qui est construit (23 novembre 2026)
+
+- **Accès** : 💶 de la colonne ouvre le Buddy count du Buddy Time ouvert (carnet, album), sinon la liste des
+  Buddy counts (un par Buddy Time, du groupe ouvert ou de tous) ; sur la carte d'un Buddy Time, une case
+  « 💶 412 € · à 4 » à côté des chiffres ; dans le carnet, une ligne dans « Le pratique ». L'ancien partage
+  des frais (menu Voyage, sur le téléphone seulement) reste accessible en bas de la liste : « Mes partages
+  de frais hors Buddy Time ».
+- **Écran 8** : « Équilibres » et la part de chacun ; une barre par buddy (verte : on lui doit, orange : il
+  doit) ; « Nico doit à Seb 106 € » avec les deux visages ; les dépenses (icône devinée depuis le titre :
+  gîte 🏨, essence ⛽, courses 🧀, forfaits 🎿…, payé par qui) ; « ＋ Dépense ».
+- **Une dépense** : quoi, combien (en €), payé par (un visage), pour qui (les visages cochés, tous par
+  défaut), le jour (dans les dates du Buddy Time par défaut). Toucher une dépense la corrige ou la retire :
+  n'importe quel participant peut le faire ; la dernière version envoyée gagne. Sans réseau : 🕓.
+- **Calculs** : ceux du partage des frais existant (centimes restants aux premiers, remboursements en peu
+  de virements).
+- **Serveur** : table `depenses` (Buddy Time, titre, montant en centimes, payé par, pour qui en JSON, jour) ;
+  opérations `depense` (ajoute ou corrige) et `retirer_depense` ; payeur et bénéficiaires doivent être des
+  participants du Buddy Time.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

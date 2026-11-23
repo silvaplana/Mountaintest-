@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _reinitialiser as reinitCompte, ecrire as ecrireCompte, HorsLigne } from '../src/compte/auth';
 import {
   _reinitialiser, aRemplir, appliquer, deposerPhotos, mettreEtoile, parJour, retirerPhoto, creerGroupe, creerPlanning, creerSortie, datesPlanning, inviter, joursAvant, lire, nouveauCode,
-  enregistrerCarnet, nouveautes, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type PhotoBuddy, type Planning, type Sortie, type TraceBuddy,
+  enregistrerCarnet, enregistrerDepense, nouveautes, retirerDepense, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type PhotoBuddy, type Planning, type Sortie, type TraceBuddy,
 } from '../src/buddies/store';
 import { exif } from '../src/buddies/album';
+import { compte, euros, icone, lireEuros } from '../src/buddies/count';
 import { chiffres, choixPhotos, fiches, joursDe, lireDuree, lireKm, lireMetres, texteCarnet, tracesDuCarnet, type Relief } from '../src/buddies/carnet';
 
 type Appel = { url: string; corps: { ops: { type: string; id: string }[]; depuis: string | null } };
@@ -302,6 +303,42 @@ describe('Carnet (bloc 5)', () => {
     expect(['5 h 20', '5h20', '5 h', '320', 'demain'].map(lireDuree)).toEqual([320, 320, 300, 320, null]);
     expect(['11', '11,5', '11.5 km', 'x'].map(lireKm)).toEqual([11000, 11500, 11500, null]);
     expect(['1 240', '+600 m', ''].map(lireMetres)).toEqual([1240, 600, null]);
+  });
+});
+
+describe('Buddy count (bloc 6)', () => {
+  const seb = { id: 'u-seb', pseudo: 'Seb', photo: null };
+  const ppl = ['Julie', 'Luc', 'Nico'].map((n) => ({ id: `u-${n}`, pseudo: n, photo: null }));
+  const x: Sortie = { id: 's1', groupe: 'a', nom: 'Queyras', photo: null, debut: '2026-12-12', fin: '2026-12-13', lieu: '', modifie_le: '',
+    participants: [seb, ...ppl], invitations: [] };
+
+  it('sans réseau : ajouter, corriger, retirer ; équilibres et « qui doit à qui »', () => {
+    localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [] }));
+    _reinitialiser();
+    reseau(() => 'coupure');
+    const tous = x.participants.map((p) => p.id);
+    const gite = enregistrerDepense({ sortie: 's1', titre: ' Gîte  Les Baladins ', montant: 24000, paye_par: 'u-seb', pour: tous, jour: '2026-12-12' });
+    enregistrerDepense({ sortie: 's1', titre: 'Essence + péage', montant: 12500, paye_par: 'u-Julie', pour: tous, jour: '2026-12-12' });
+    const courses = enregistrerDepense({ sortie: 's1', titre: 'Courses', montant: 4700, paye_par: 'u-seb', pour: tous, jour: '2026-12-13' });
+    let ds = vue(lire()).depenses;
+    expect(ds[0].titre).toBe('Courses'); // le dernier jour en haut
+    expect(ds.map((d) => [d.titre, d.attente]).sort()).toEqual([['Courses', true], ['Essence + péage', true], ['Gîte Les Baladins', true]]);
+    const c = compte(x, ds, 'u-seb');
+    expect([euros(c.total), euros(c.chacun)]).toEqual(['412\u00a0€', '103\u00a0€']);
+    expect(c.soldes).toEqual({ 'u-seb': 184, 'u-Julie': 22, 'u-Luc': -103, 'u-Nico': -103 });
+    expect(c.virements.map((v) => [v.from, v.to, v.amount])).toEqual([['u-Luc', 'u-seb', 103], ['u-Nico', 'u-seb', 81], ['u-Nico', 'u-Julie', 22]]);
+    // Corriger (même identifiant) puis retirer.
+    enregistrerDepense({ depense: gite, sortie: 's1', titre: 'Gîte', montant: 20000, paye_par: 'u-seb', pour: tous, jour: '2026-12-12' });
+    retirerDepense(courses);
+    ds = vue(lire()).depenses;
+    expect(ds.map((d) => [d.titre, d.montant]).sort()).toEqual([['Essence + péage', 12500], ['Gîte', 20000]]);
+    expect(() => enregistrerDepense({ sortie: 's1', titre: 'x', montant: 100, paye_par: 'u-seb', pour: [], jour: '2026-12-12' })).toThrow();
+  });
+
+  it('montants tapés et icônes devinées', () => {
+    expect(['24,50', '24.5 €', '1 240', '0', 'douze'].map(lireEuros)).toEqual([2450, 2450, 124000, null, null]);
+    expect([euros(2450), euros(-10600)]).toEqual(['24,50\u00a0€', '−106\u00a0€']);
+    expect(['Gîte Les Baladins', 'Essence + péage', 'Courses', 'Location de skis', 'Bières'].map(icone)).toEqual(['🏨', '⛽', '🧀', '🎿', '🍽']);
   });
 });
 

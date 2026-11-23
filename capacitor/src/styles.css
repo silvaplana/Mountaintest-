@@ -800,3 +800,29 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-champ { display: flex; flex-direction: column; gap: 2px; }
 .bd-champ small { color: var(--muted); font-size: 14px; }
 .bd-champ input { font-size: 17px; border: 0; border-bottom: 1px solid #d9dfdc; padding: 6px 2px; min-height: 40px; }
+
+/* Buddy count (écran 8, spec/buddies.md §5.10) */
+.bd-gros { font-size: 22px !important; }
+.bd-solde { flex: none; display: flex; align-items: center; gap: 10px; }
+.bd-barre { position: relative; flex: 1; height: 14px; border-radius: 7px; background: var(--card); }
+.bd-barre i { position: absolute; top: 0; bottom: 0; border-radius: 7px; min-width: 10px; }
+.bd-barre i.plus { background: #2f9e64; } .bd-barre i.moins { background: #e4572e; }
+.bd-solde > b { min-width: 84px; text-align: right; font-size: 19px; }
+.bd-count b.plus { color: #2f7d4f; } .bd-count b.moins { color: #c2410c; }
+.bd-virement { flex: none; display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 16px; padding: 10px 12px; }
+.bd-virement .bd-texte { flex: 1; min-width: 0; }
+.bd-virement > b { font-size: 19px; }
+.bd-depense > b { font-size: 18px; white-space: nowrap; }
+.bd-icone { font-size: 30px; width: 44px; text-align: center; flex: none; }
+.bd-avec-icone { display: flex; align-items: center; gap: 8px; } .bd-avec-icone span { font-size: 28px; }
+.bd-avec-icone input { flex: 1; }
+.bd-montant { font-size: 28px !important; font-weight: 700; }
+.bd-choix-visages { flex: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.bd-choix-visages button { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: none; padding: 4px; min-width: 64px; }
+.bd-choix-visages button small { font-size: 14px; }
+.bd-choix-visages button.oui .bd-visage { box-shadow: 0 0 0 3px var(--accent); }
+.bd-choix-visages button.non { opacity: .45; }
+.bd-chiffres .bd-chiffre-count { flex: 1; background: var(--card); border: 0; border-radius: 12px; padding: 8px; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+.bd-chiffres .bd-chiffre-count b { font-size: 18px; white-space: nowrap; }
+.bd-chiffres .bd-chiffre-count small { color: var(--muted); font-size: 14px; }
+.bd-virement .bd-texte b { white-space: normal; font-weight: 500; }

@@ -3040,7 +3040,7 @@ class MainActivity : AppCompatActivity() {
     private var buddiesPanel: BuddiesPanel? = null
     private var buddiesBack: androidx.activity.OnBackPressedCallback? = null
     private val desabonnerBuddies = Buddies.suivre { runOnUiThread { refreshQuickButtons(); rafraichirCarteSortie() } }
-    private fun openBuddies(depart: String? = null, departAlbum: String? = null, departCarnet: String? = null) {
+    private fun openBuddies(depart: String? = null, departAlbum: String? = null, departCarnet: String? = null, departCount: String? = null) {
         if (buddiesPanel != null) return
         album // posé sur buddies avant la première synchro
         fermerCarteSortie()
@@ -3064,7 +3064,7 @@ class MainActivity : AppCompatActivity() {
                     .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Raconte, je t'écoute")) }
                     .onFailure { dicteeCb = null; cb(null) }
             },
-            depart = depart, departAlbum = departAlbum, departCarnet = departCarnet)
+            depart = depart, departAlbum = departAlbum, departCarnet = departCarnet, departCount = departCount)
         buddiesPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.insets(navTop, navBottom)
@@ -3118,8 +3118,10 @@ class MainActivity : AppCompatActivity() {
         val racine = findViewById<android.widget.FrameLayout>(R.id.root)
         carteSortie?.let { racine.removeView(it) }
         val v = BandeauSortie.vue(this, sortie, traces, navTop, navBottom, photos, album,
+            depense = buddies.depenses().filter { it.sortie == id }.sumOf { it.montant },
             onAlbum = { fermerCarteSortie(); openBuddies(sortie.groupe, departAlbum = sortie.id) },
             onCarnet = { fermerCarteSortie(); openBuddies(sortie.groupe, departCarnet = sortie.id) },
+            onCount = { fermerCarteSortie(); openBuddies(sortie.groupe, departCount = sortie.id) },
             onAjouter = { deposerPhotos(sortie) }) { fermerCarteSortie(); openBuddies(sortie.groupe) }
         carteSortie = v
         racine.addView(v)

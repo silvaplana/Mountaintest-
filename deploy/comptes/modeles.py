@@ -221,3 +221,22 @@ class Carnet(Base):
     meteo: Mapped[str] = mapped_column(String(40), nullable=False, default="")
     conditions: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class Depense(Base):
+    """Buddy count d'un Buddy Time (spec/buddies.md §5.10) : une dépense, partagée entre téléphones.
+    N'importe quel participant l'ajoute, la corrige ou la retire ; la dernière version envoyée gagne."""
+
+    __tablename__ = "depenses"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), nullable=False, index=True)
+    titre: Mapped[str] = mapped_column(String(80), nullable=False)
+    montant: Mapped[int] = mapped_column(Integer, nullable=False)  # centimes
+    paye_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    # Pour qui : identifiants des buddies en JSON.
+    pour: Mapped[str] = mapped_column(Text, nullable=False)
+    jour: Mapped[str] = mapped_column(String(10), nullable=False)
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)

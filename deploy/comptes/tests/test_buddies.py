@@ -405,3 +405,39 @@ def test_carnet_d_un_autre_refuse(client):
         assert sync(client, sub="luc", ops=[o])["refus"]
     c = sync(client)["sorties"][0]["carnet"]
     assert c["recits"] == [] and c["meteo"] == ""
+
+
+# ------------------------------------------------------------------ bloc 6 : Buddy count partagé
+
+def nouvelle_depense(sid, paye_par, pour, montant=24000, titre="Gîte Les Baladins", jour="2026-12-12", did=None):
+    return op("depense", depense=did or str(uuid.uuid4()), sortie=sid, titre=titre, montant=montant, paye_par=paye_par, pour=list(pour), jour=jour)
+
+
+def test_buddy_count_partage_entre_telephones(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    seb = sync(client, ops=[so])["moi"]
+    gite = nouvelle_depense(so["sortie"], seb, [seb, julie])
+    r = sync(client, ops=[gite, gite])  # renvoyée : une seule dépense
+    assert r["refus"] == [] and r["ids_depenses"] == [gite["depense"]]
+    assert r["depenses"][0]["montant"] == 24000 and sorted(r["depenses"][0]["pour"]) == sorted([seb, julie])
+    # Julie la voit, la corrige (dernière version gagne) et ajoute l'essence qu'elle a payée.
+    essence = nouvelle_depense(so["sortie"], julie, [seb, julie], montant=12500, titre="Essence + péage")
+    r = sync(client, sub="julie", ops=[{**gite, "id": "c", "montant": 25000}, essence])
+    assert r["refus"] == []
+    assert {d["titre"]: d["montant"] for d in r["depenses"]} == {"Gîte Les Baladins": 25000, "Essence + péage": 12500}
+    # Seb retire l'essence ; Luc (hors du Buddy Time) ne voit rien et ne peut rien ajouter.
+    r = sync(client, ops=[op("retirer_depense", depense=essence["depense"])])
+    assert r["ids_depenses"] == [gite["depense"]]
+    assert sync(client, sub="luc")["ids_depenses"] == []
+    assert sync(client, sub="luc", ops=[nouvelle_depense(so["sortie"], seb, [seb])])["refus"]
+
+
+def test_depense_refusee(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid)  # Julie ne part pas
+    seb = sync(client, ops=[so])["moi"]
+    for mauvaise in (nouvelle_depense(so["sortie"], seb, [seb, julie]), nouvelle_depense(so["sortie"], julie, [seb]),
+                     nouvelle_depense(so["sortie"], seb, []), nouvelle_depense(so["sortie"], seb, [seb], montant=0),
+                     nouvelle_depense(so["sortie"], seb, [seb], jour="demain")):
+        assert sync(client, ops=[mauvaise])["refus"], mauvaise
