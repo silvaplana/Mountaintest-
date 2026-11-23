@@ -49,7 +49,9 @@ import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, nextJunctionM, wayRunsFor } from './trails/junctions';
 import { wayRunLines, type WayRun } from './trails/wayTypes';
-import { loadActivity, saveActivity, type Activity } from './activity';
+import { ACTIVITY_ICON, loadActivity, saveActivity, type Activity } from './activity';
+import { C2cPanel } from './C2cPanel';
+import { fetchLines, type C2cActivity, type C2cRoute } from './topos/c2c';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
@@ -203,6 +205,35 @@ export function App() {
   const vtt = activity === 'vtt';
   const setActivity = (a: Activity) => { setActivityState(a); saveActivity(a); };
   const [wayTypesOn, setWayTypesOn] = useState(true);
+  // 🥾 / 🚵 Itinéraires Camptocamp de l'écran : liste ou carte (tracés des plus proches, façon Komoot), fiche touchée.
+  const [c2c, setC2c] = useState<{ act: C2cActivity; bbox: [number, number, number, number]; center: LonLat } | null>(null);
+  const [c2cRoutes, setC2cRoutes] = useState<C2cRoute[]>([]);
+  const [c2cLines, setC2cLines] = useState<{ id: number; line: LonLat[] }[]>([]);
+  const [c2cMap, setC2cMap] = useState(false);
+  const [c2cPick, setC2cPick] = useState<{ id: number } | null>(null);
+  useEffect(() => {
+    if (!c2c || !c2cMap || !c2cRoutes.length) return;
+    const sig = { stop: false };
+    setC2cLines([]);
+    void fetchLines(c2cRoutes, c2c.center, (id, line) => setC2cLines((cur) => [...cur.filter((x) => x.id !== id), { id, line }]), sig);
+    return () => { sig.stop = true; };
+  }, [c2c, c2cMap, c2cRoutes]);
+  // Sur la carte, aussi les itinéraires balisés d'OpenStreetMap (randos, ou circuits VTT en 🚵) : toucher l'un ouvre son profil.
+  useEffect(() => {
+    if (!c2c || !c2cMap || zoneTooBig(c2c.bbox)) return;
+    const ctrl = new AbortController();
+    void fetchTrails(c2c.bbox, ctrl.signal, c2c.act === 'mountain_biking')
+      .then((found) => setTrails((prev) => [...prev.filter((x) => isMine(x.id)), ...found])).catch(() => {});
+    return () => ctrl.abort();
+  }, [c2c, c2cMap]);
+  const openC2c = (act: C2cActivity) => {
+    if (!map) return;
+    const b = map.getBounds(), c = map.getCenter();
+    setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiText(false); setSkiOn(false);
+    setC2cRoutes([]); setC2cLines([]); setC2cMap(false); setC2cPick(null);
+    setC2c({ act, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], center: { lon: c.lng, lat: c.lat } });
+  };
+  const closeC2c = () => { setC2c(null); setC2cRoutes([]); setC2cLines([]); setC2cMap(false); setC2cPick(null); };
   const [wayRunsSel, setWayRunsSel] = useState<{ id: number; v: WayRun[] | 'loading' | 'error' } | null>(null);
   /** 🧭 Navigation sur une de mes traces (identifiant), et dernière position GPS connue. */
   const [navId, setNavIdState] = useState<number | null>(null);
@@ -554,8 +585,7 @@ export function App() {
     setProgress(null);
   }
 
-  /** Randos balisées de la zone ; 🚵 mtb : circuits VTT (sans les randos trouvées sur le web). */
-  async function searchTrails(b: Bbox, mtb = false) {
+  async function searchTrails(b: Bbox) {
     setFraming(false);
     setOpen(true);
     setTab('randos');
@@ -564,21 +594,19 @@ export function App() {
       return;
     }
     setFrame(b);
-    if (mtb) { webAbort.current?.abort(); setWebHikes([]); setHikeSel(null); setWebMsg(''); } else void searchWebHikes(b);
+    void searchWebHikes(b);
     setTrails((prev) => prev.filter((x) => isMine(x.id)));
     if (!selected || !isMine(selected.id)) { setSelected(null); setElevated(null); }
-    setTrailsMsg(mtb ? 'Recherche des circuits VTT dans OpenStreetMap…' : 'Recherche des randos dans OpenStreetMap…');
+    setTrailsMsg('Recherche des randos dans OpenStreetMap…');
     trailsAbort.current?.abort();
     const ctrl = new AbortController();
     trailsAbort.current = ctrl;
     const t0 = performance.now();
     try {
-      const found = await fetchTrails(b, ctrl.signal, mtb);
+      const found = await fetchTrails(b, ctrl.signal);
       bench('trails-search', { found: found.length, ms: Math.round(performance.now() - t0) });
       setTrails((prev) => [...prev.filter((x) => isMine(x.id)), ...found]);
-      if (mtb) setTrailsMsg(found.length ? `🚵 ${found.length} circuit${found.length > 1 ? 's' : ''} VTT trouvé${found.length > 1 ? 's' : ''}. Touche-en un (liste ou carte).`
-        : '🚵 Aucun circuit VTT dans OpenStreetMap sur cette zone.');
-      else setTrailsMsg(found.length ? `${found.length} rando${found.length > 1 ? 's' : ''} balisée${found.length > 1 ? 's' : ''} trouvée${found.length > 1 ? 's' : ''}. Touche-en une (liste ou carte).`
+      setTrailsMsg(found.length ? `${found.length} rando${found.length > 1 ? 's' : ''} balisée${found.length > 1 ? 's' : ''} trouvée${found.length > 1 ? 's' : ''}. Touche-en une (liste ou carte).`
         : 'Aucune rando balisée dans OpenStreetMap sur cette zone.');
     } catch (e) {
       if (!ctrl.signal.aborted) setTrailsMsg(`Recherche impossible (pas de réseau ? serveur saturé ?) : ${(e as Error).message}`);
@@ -965,6 +993,8 @@ export function App() {
           void selectTrail(trails.find((t) => t.id === id) ?? null);
         }}
         slopeTags={slopeTags} wayLines={wayLines}
+        c2cPoints={c2c ? c2cRoutes : []} c2cLines={c2c && c2cMap ? c2cLines : []}
+        onC2cClick={(id) => { setC2cMap(false); setC2cPick({ id }); }}
         cursor={profile && profCursor != null ? pointAt(profile, profCursor) : null}
         webHikes={webHikes} selectedHike={hikeSel} onHikeClick={selectHike}
         forests={forests} forestFilter={forestFilter}
@@ -1025,14 +1055,25 @@ export function App() {
         onAccount={() => { setAccount(true); setOpen(false); setSearching(false); }}
         compte={!compte.refresh ? 'aucun' : compte.aReconnecter ? 'reconnecter' : 'ok'}
         onSkiText={() => skiMode('sorties')}
-        activity={activity} onActivity={(a) => { setActivity(a); setToast(a === 'vtt' ? '🚵 Mode VTT : circuits VTT, durée à vélo, pente en %, type de chemin des traces' : '⛷ Mode ski de rando'); }}
-        onVtt={() => {
-          // 🚵 : circuits VTT de l'écran affiché (comme ⛷🗺 pour les sorties ski).
-          if (!map) return;
-          const b = map.getBounds();
-          void searchTrails([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], true);
+        activity={activity} onActivity={(a) => {
+          setActivity(a); closeC2c();
+          setToast(a === 'vtt' ? '🚵 Mode VTT : itinéraires VTT, durée à vélo, pente en %, type de chemin des traces'
+            : a === 'rando' ? '🥾 Mode rando : toutes les randos de l’écran (Camptocamp)' : '⛷ Mode ski de rando : sorties skitour');
         }}
+        onTopos={() => openC2c(activity === 'vtt' ? 'mountain_biking' : 'hiking')}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
+      {c2c && <C2cPanel act={c2c.act} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} pick={c2cPick}
+        hidden={c2cMap} onMap={() => setC2cMap(true)} onClose={closeC2c}
+        onShowLine={(sh) => {
+          closeC2c();
+          showMine(sh.line, { onPaths: false, name: sh.title, kind: 'Camptocamp' });
+          setToast(`« ${sh.title} » ajoutée à tes traces : profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne`);
+        }} />}
+      {c2c && c2cMap && <div className="c2c-bar">
+        <span>{ACTIVITY_ICON[activity]} {c2cRoutes.length} itinéraire{c2cRoutes.length > 1 ? 's' : ''} · touche un tracé</span>
+        <button onClick={() => setC2cMap(false)}>☰ Liste</button>
+        <button className="close" onClick={closeC2c} aria-label="Fermer les itinéraires">✕</button>
+      </div>}
       {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel} hidden={!!skiSheet}
         onSheet={(o) => setSkiSheet(rowOf(o))} onMode={skiMode}

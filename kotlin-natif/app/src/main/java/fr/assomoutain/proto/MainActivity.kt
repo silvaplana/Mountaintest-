@@ -130,8 +130,17 @@ class MainActivity : AppCompatActivity() {
     private var traceMenuOpen = false
     private var drawnSlopes = false
     private var drawnProfile = false
-    /** ⛷ ski de rando / 🚵 VTT : appui long sur ⛷ pour basculer, choix gardé (préférence « activite »). */
-    private val vtt get() = prefs.getString("activite", "ski") == "vtt"
+    /** ⛷ ski de rando / 🚵 VTT / 🥾 rando : appui long sur le bouton pour passer au suivant, choix gardé (préférence « activite »). */
+    private val activity get() = prefs.getString("activite", "ski").takeIf { it == "vtt" || it == "rando" } ?: "ski"
+    private val vtt get() = activity == "vtt"
+    private fun activityIcon(a: String) = when (a) { "vtt" -> "🚵"; "rando" -> "🥾"; else -> "⛷" }
+    private fun nextActivity(a: String) = when (a) { "ski" -> "vtt"; "vtt" -> "rando"; else -> "ski" }
+    // 🥾 / 🚵 Itinéraires Camptocamp de l'écran : liste, ou carte (tracés des plus proches, façon Komoot).
+    private var c2cPanel: C2cPanel? = null
+    private var c2cBar: View? = null
+    private var c2cRoutes: List<Camptocamp.Route> = emptyList()
+    private val c2cLines = java.util.concurrent.ConcurrentHashMap<Long, List<LonLat>>()
+    private var c2cJob: kotlinx.coroutines.Job? = null
     /** 🚵 Case « Type de chemin » du menu de la trace, et types de chemin de la trace choisie (null : recherche en cours). */
     private var wayTypesOn = true
     private var wayRuns: Pair<Long, Result<List<WayTypes.Run>>?>? = null
@@ -262,6 +271,9 @@ class MainActivity : AppCompatActivity() {
                 // Icône météo : le détail de la prévision à cet endroit.
                 if (weather.active) m.queryRenderedFeatures(box, WeatherLayer.LAYER)
                     .firstOrNull()?.let { weather.describe(it) }?.let { toast(it); return@addOnMapClickListener true }
+                // 🥾 / 🚵 Itinéraire Camptocamp (point ou tracé) : sa fiche.
+                if (c2cPanel != null) m.queryRenderedFeatures(box, "c2c", "c2c-lines-hit")
+                    .firstOrNull()?.getNumberProperty("id")?.toLong()?.let { id -> c2cShowList(); c2cPanel?.openId(id); return@addOnMapClickListener true }
                 // Sorties skitour : l'étiquette ouvre la fiche ; un point la choisit (son étiquette apparaît).
                 if (skiOutings.isNotEmpty()) m.queryRenderedFeatures(box, "ski-park-tags", "ski-tags")
                     .firstOrNull()?.getNumberProperty("i")?.toInt()?.let { openSkiFromTag(it); return@addOnMapClickListener true }
@@ -589,6 +601,13 @@ class MainActivity : AppCompatActivity() {
             style.addSource(GeoJsonSource(SRC_SLOPE_CURSOR))
             style.addLayer(CircleLayer("slope-cursor", SRC_SLOPE_CURSOR).withProperties(
                 circleRadius(7f), circleColor("#e4572e"), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
+            // 🥾 / 🚵 Itinéraires Camptocamp : tracés des plus proches (vert-bleu) et un point au départ de chacun.
+            style.addSource(GeoJsonSource(SRC_C2C_LINES))
+            style.addLayer(LineLayer("c2c-lines-casing", SRC_C2C_LINES).withProperties(lineColor("#ffffff"), lineWidth(5f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND)))
+            style.addLayer(LineLayer("c2c-lines", SRC_C2C_LINES).withProperties(lineColor("#00897b"), lineWidth(3f), lineCap(Property.LINE_CAP_ROUND), lineJoin(Property.LINE_JOIN_ROUND)))
+            style.addLayer(LineLayer("c2c-lines-hit", SRC_C2C_LINES).withProperties(lineColor("#000000"), lineWidth(18f), lineOpacity(0f)))
+            style.addSource(GeoJsonSource(SRC_C2C))
+            style.addLayer(CircleLayer("c2c", SRC_C2C).withProperties(circleRadius(6f), circleColor("#00897b"), circleStrokeColor("#ffffff"), circleStrokeWidth(2f)))
             style.addSource(GeoJsonSource(SRC_WEB_HIKES))
             style.addLayer(CircleLayer(LAYER_WEB_HIKES, SRC_WEB_HIKES).withProperties(
                 circleRadius(8f), circleColor(WebHikes.COLOR), circleStrokeColor("#ffffff"), circleStrokeWidth(3f)))
@@ -1332,18 +1351,22 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSki).visibility = View.GONE
         // ⛷ ↔ 🚵 : appui long pour basculer ski de rando / VTT (demande de Seb), au lieu de la bulle d'aide.
         // En 🚵, toucher cherche les circuits VTT de l'écran affiché.
-        findViewById<Button>(R.id.btnSkiText).text = if (vtt) "🚵" else "⛷"
+        findViewById<Button>(R.id.btnSkiText).text = activityIcon(activity)
         findViewById<Button>(R.id.btnSkiText).setOnClickListener {
             pairOpen = 0; refreshQuickButtons()
-            if (vtt) map?.projection?.visibleRegion?.latLngBounds?.let {
-                searchTrails(Zone(it.longitudeWest, it.latitudeSouth, it.longitudeEast, it.latitudeNorth), mtb = true)
-            } else skiMode(SkiMode.SORTIES)
+            if (activity == "ski") skiMode(SkiMode.SORTIES) else openC2c(if (vtt) "mountain_biking" else "hiking")
         }
+        // Appui long : ⛷ ski de rando → 🚵 VTT → 🥾 rando → ⛷ (demande de Seb), au lieu de la bulle d'aide.
         findViewById<Button>(R.id.btnSkiText).setOnLongClickListener { b ->
-            val now = if (vtt) "ski" else "vtt"
+            val now = nextActivity(activity)
             prefs.edit().putString("activite", now).apply()
-            (b as Button).text = if (now == "vtt") "🚵" else "⛷"
-            toast(if (now == "vtt") "🚵 Mode VTT : circuits VTT, durée à vélo, pente en %, type de chemin des traces" else "⛷ Mode ski de rando")
+            (b as Button).text = activityIcon(now)
+            closeC2c()
+            toast(when (now) {
+                "vtt" -> "🚵 Mode VTT : itinéraires VTT, durée à vélo, pente en %, type de chemin des traces"
+                "rando" -> "🥾 Mode rando : toutes les randos de l’écran (Camptocamp)"
+                else -> "⛷ Mode ski de rando : sorties skitour"
+            })
             refreshTrails(); refreshTraceMenu(); refreshSlopeTags(); showSlopeCursor()
             true
         }
@@ -1403,7 +1426,7 @@ class MainActivity : AppCompatActivity() {
     /** Ferme les autres écrans ski (et panneaux) puis ouvre celui choisi. */
     private fun skiMode(m: SkiMode, pinnedTopo: TopoRow? = null) {
         pairOpen = 0; refreshQuickButtons()
-        closeTravel(); closeLodging(); closeSkiText(); closeSki(); closeTopoText(); closeTopoMap()
+        closeTravel(); closeLodging(); closeSkiText(); closeSki(); closeTopoText(); closeTopoMap(); closeC2c()
         when (m) {
             SkiMode.SORTIES -> openSkiText()
             SkiMode.CARTE -> openSki()
@@ -1504,6 +1527,96 @@ class MainActivity : AppCompatActivity() {
             map?.let { m -> m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), maxOf(m.cameraPosition.zoom, 14.0))) }
         }, 700)
     }
+    // ---------- 🥾 / 🚵 Itinéraires Camptocamp ----------
+
+    /** Liste des itinéraires de l'écran affiché (act : « hiking » ou « mountain_biking »). */
+    private fun openC2c(act: String) {
+        val b = map?.projection?.visibleRegion?.latLngBounds ?: return
+        val c = map?.cameraPosition?.target ?: return
+        closeTravel(); closeLodging(); closeSkiText(); closeSki(); closeTopoText(); closeTopoMap(); closeC2c()
+        val zone = Zone(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth)
+        val p = C2cPanel(this, act, zone, LonLat(c.longitude, c.latitude),
+            onRoutes = { r -> c2cRoutes = r; drawC2c() },
+            onShowLine = { s ->
+                closeC2c()
+                showMine(s.line, false, name = s.route.title, kind = "Camptocamp")
+                toast("« ${s.route.title} » ajoutée à tes traces : profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne")
+            },
+            onMap = { c2cShowMap(act, zone, LonLat(c.longitude, c.latitude)) },
+            onClose = { closeC2c() })
+        c2cPanel = p
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
+        p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
+    }
+
+    /** 🗺 : le panneau se cache ; tracés des itinéraires les plus proches (4 fiches à la fois) et balisés d'OpenStreetMap. */
+    private fun c2cShowMap(act: String, zone: Zone, center: LonLat) {
+        c2cPanel?.view?.visibility = View.GONE
+        val dn = resources.displayMetrics.density
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding((12 * dn).toInt(), (4 * dn).toInt(), (6 * dn).toInt(), (4 * dn).toInt()); elevation = 8 * dn
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(Color.WHITE); cornerRadius = 12 * dn }
+            addView(TextView(this@MainActivity).apply {
+                text = "${activityIcon(activity)} ${c2cRoutes.size} itinéraire${if (c2cRoutes.size > 1) "s" else ""} · touche un tracé"
+                textSize = 15f; setTextColor(Color.parseColor("#1D2421"))
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(Button(this@MainActivity).apply { text = "☰ Liste"; setOnClickListener { c2cShowList() } })
+            addView(Button(this@MainActivity).apply { text = "✕"; contentDescription = "Fermer les itinéraires"; setOnClickListener { closeC2c() } })
+        }
+        c2cBar?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
+        c2cBar = bar
+        findViewById<android.widget.FrameLayout>(R.id.root).addView(bar, android.widget.FrameLayout.LayoutParams(-1, -2).apply {
+            topMargin = navTop + (56 * dn).toInt(); leftMargin = (10 * dn).toInt(); rightMargin = (70 * dn).toInt()
+        })
+        c2cJob?.cancel()
+        c2cJob = lifecycleScope.launch {
+            val todo = java.util.concurrent.ConcurrentLinkedQueue(Camptocamp.byDistance(c2cRoutes, center).take(Camptocamp.MAP_LINES).map { it.first })
+            val workers = (1..4).map {
+                launch {
+                    while (true) {
+                        val r = todo.poll() ?: break
+                        val s = withContext(Dispatchers.IO) { Camptocamp.savedSheet(this@MainActivity, r.id) ?: runCatching { Camptocamp.fetchSheet(this@MainActivity, r.id) }.getOrNull() }
+                        if (s != null && s.line.isNotEmpty()) { c2cLines[r.id] = s.line; drawC2c() }
+                    }
+                }
+            }
+            // Aussi les itinéraires balisés d'OpenStreetMap (randos, ou circuits VTT en 🚵) : toucher l'un ouvre son profil.
+            if (!Trails.zoneTooBig(zone)) {
+                val osm = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(zone, act == "mountain_biking") }.getOrNull() }
+                if (osm != null) { trails = trails.filter { Trails.isMine(it.id) } + osm; drawTrails(fit = false) }
+            }
+            workers.forEach { it.join() }
+        }
+    }
+
+    private fun c2cShowList() {
+        c2cJob?.cancel()
+        c2cBar?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
+        c2cBar = null
+        c2cLines.clear(); drawC2c()
+        c2cPanel?.view?.visibility = View.VISIBLE
+    }
+
+    private fun closeC2c() {
+        c2cJob?.cancel()
+        c2cPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
+        c2cPanel = null
+        c2cBar?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it) }
+        c2cBar = null
+        c2cRoutes = emptyList(); c2cLines.clear(); drawC2c()
+    }
+
+    private fun drawC2c() {
+        val style = map?.style?.takeIf { it.isFullyLoaded } ?: return
+        style.getSourceAs<GeoJsonSource>(SRC_C2C)?.setGeoJson(FeatureCollection.fromFeatures(c2cRoutes.map {
+            Feature.fromGeometry(Point.fromLngLat(it.lon, it.lat)).apply { addNumberProperty("id", it.id) }
+        }))
+        style.getSourceAs<GeoJsonSource>(SRC_C2C_LINES)?.setGeoJson(FeatureCollection.fromFeatures(c2cLines.map { (id, line) ->
+            Feature.fromGeometry(LineString.fromLngLats(line.map { Point.fromLngLat(it.lon, it.lat) })).apply { addNumberProperty("id", id) }
+        }))
+    }
+
     private fun closeSkiText() {
         skiTextPanel?.let { findViewById<android.widget.FrameLayout>(R.id.root).removeView(it.view) }
         skiTextPanel = null
@@ -1690,8 +1803,7 @@ class MainActivity : AppCompatActivity() {
         if (on) { sheetOpen = false; refreshTabs() }
     }
 
-    /** Randos balisées de la zone ; 🚵 mtb : circuits VTT (sans les randos trouvées sur le web). */
-    private fun searchTrails(z: Zone, mtb: Boolean = false) {
+    private fun searchTrails(z: Zone) {
         setFraming(false)
         tab = Tab.RANDOS; sheetOpen = true; refreshTabs()
         if (Trails.zoneTooBig(z)) {
@@ -1699,21 +1811,20 @@ class MainActivity : AppCompatActivity() {
             refreshTrails(); return
         }
         frame = z
-        if (!mtb) searchWebHikes(z)
+        searchWebHikes(z)
         trails = trails.filter { Trails.isMine(it.id) }
         if (!Trails.isMine(selectedTrail?.id)) { selectedTrail = null; elevated = null; elevJob?.cancel() }
-        trailsMessage = if (mtb) "Recherche des circuits VTT dans OpenStreetMap…" else "Recherche des randos dans OpenStreetMap…"
+        trailsMessage = "Recherche des randos dans OpenStreetMap…"
         drawTrails(fit = false); refreshTrails()
         trailsJob?.cancel()
         trailsJob = lifecycleScope.launch {
             val t0 = SystemClock.elapsedRealtime()
-            val r = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(z, mtb) } }
+            val r = withContext(Dispatchers.IO) { runCatching { Trails.fetchTrails(z) } }
             r.onSuccess { found ->
                 Log.i(Scenario.BENCH_TAG, "{\"event\":\"trails-search\",\"found\":${found.size},\"ms\":${SystemClock.elapsedRealtime() - t0}}")
                 trails = trails.filter { Trails.isMine(it.id) } + found
                 val n = found.size; val s = if (n > 1) "s" else ""
-                trailsMessage = if (mtb) { if (n > 0) "🚵 $n circuit$s VTT trouvé$s. Touche-en un (liste ou carte)." else "🚵 Aucun circuit VTT dans OpenStreetMap sur cette zone." }
-                    else if (n > 0) "$n rando$s balisée$s trouvée$s. Touche-en une (liste ou carte)."
+                trailsMessage = if (n > 0) "$n rando$s balisée$s trouvée$s. Touche-en une (liste ou carte)."
                     else "Aucune rando balisée dans OpenStreetMap sur cette zone."
             }.onFailure { e ->
                 if (e is kotlinx.coroutines.CancellationException) return@launch
@@ -2980,7 +3091,7 @@ class MainActivity : AppCompatActivity() {
             R.id.btnLocate to "Me localiser", R.id.btnQuickSearch to "Chercher un lieu",
             R.id.btnQuickPhoto to "Appareil photo", R.id.btnQuickLayer to "Fond de carte",
             R.id.btnQuickAvion to "Mode avion · appui : montre aussi le mode poche", R.id.btnPoche to "Mode poche (écran noir)", R.id.btnReglages to "Réglages du suivi · appui : ⑂, vibration, double tap", R.id.btnCarrefour to "Écran aux carrefours", R.id.btnVibre to "Vibration hors trace", R.id.btnDoubleTap to "Double tap pour allumer l'écran",
-            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to (if (vtt) "Circuits VTT · appui long : ⛷ ski" else "Sorties ski · appui long : 🚵 VTT"),
+            R.id.btnQuickDraw to "Tracer au doigt", R.id.btnQuickSlopes to "Pentes · appui : montre aussi les ombres", R.id.btnQuickShade to "Ombres", R.id.btnSkiText to (when (activity) { "vtt" -> "Itinéraires VTT"; "rando" -> "Randos"; else -> "Sorties ski" } + " · appui long : " + activityIcon(nextActivity(activity))),
             R.id.btnWeather to "Météo sur la carte · appui long : appli Météo-France", R.id.btnWeatherMountain to "Météo montagne",
             R.id.btnTravel to "Voyage en voiture (km, coût, péages)", R.id.btnLodging to "Hébergement (meilleurs prix, IA)", R.id.btnExpenses to "Partage des frais (façon Tricount)", R.id.btnGroups to "Groupes · mon compte",
         )
@@ -3095,6 +3206,8 @@ class MainActivity : AppCompatActivity() {
         private const val SRC_TRAILS = "trails-src"
         private const val SRC_TRAIL_SEL = "trail-sel-src"
         private const val SRC_WAY_TYPES = "way-types-src"
+        private const val SRC_C2C = "c2c-src"
+        private const val SRC_C2C_LINES = "c2c-lines-src"
         private const val SRC_SLOPE_CURSOR = "slope-cursor-src"
         private const val SRC_SLOPE_TAGS = "slope-tags-src"
         private const val SRC_FRAME = "frame-src"
