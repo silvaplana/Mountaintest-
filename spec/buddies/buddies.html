@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<style>
+:root{--fg:#1d2421;--muted:#5f6b66;--accent:#2f6f4f;--line:#d9dfdc;--card:#f2f4f1;--warm:#e4572e}
+*{box-sizing:border-box}
+body{margin:0;padding:24px;background:#cfd6d2;font-family:Inter,Roboto,system-ui,sans-serif;color:var(--fg);display:flex;flex-wrap:wrap;gap:28px;width:2120px}
+.wrap{display:flex;flex-direction:column;gap:8px;width:390px}
+.cap{font-size:17px;font-weight:700;min-height:92px}
+.cap small{display:block;font-weight:400;font-size:13px;color:#33413a;margin-top:3px;line-height:1.35}
+.phone{position:relative;width:390px;height:800px;background:#fff;overflow:hidden;border-radius:22px;box-shadow:0 4px 18px #0003}
+.phone svg.bg{position:absolute;inset:0}
+/* colonne d'icônes : la même partout */
+.rail{position:absolute;right:8px;top:12px;display:flex;flex-direction:column;gap:9px;align-items:center;z-index:5}
+.rail b{width:48px;height:48px;border-radius:50%;background:#fff;box-shadow:0 1px 6px #0004;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:400;position:relative}
+.rail b.t{height:32px;border-radius:16px;font-size:15px;width:44px}
+.rail b.on{background:var(--accent);box-shadow:0 0 0 3px #2f6f4f44,0 1px 6px #0004}
+.rail b.hi{box-shadow:0 0 0 3px var(--warm),0 1px 6px #0004}
+.rail i{width:26px;border-top:2px solid #0002;margin:1px 0}
+.rail.flat b{background:var(--card);box-shadow:none}.rail.flat b.on{background:var(--accent)}
+.badge{position:absolute;top:-5px;right:-5px;min-width:20px;height:20px;border-radius:10px;background:var(--warm);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;padding:0 4px;font-style:normal}
+.dot{position:absolute;bottom:-1px;right:-1px;width:13px;height:13px;border-radius:50%;border:2px solid #fff;background:#2f9e5f}
+.av{width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;flex:none;position:relative}
+.stack{display:flex}.stack .av{width:28px;height:28px;font-size:12px;border:2px solid #fff;margin-left:-8px}.stack .av:first-child{margin-left:0}
+.left{position:absolute;left:0;top:0;bottom:0;right:64px;display:flex;flex-direction:column}
+.ttl{display:flex;align-items:center;gap:8px;padding:14px 6px 8px 14px}
+.ttl h1{font-size:21px;margin:0;flex:1;line-height:1.1}.ttl h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:2px}
+.back{width:36px;height:36px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#1d2421;flex:none}
+.sec{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;padding:10px 14px 4px}
+.hero{margin:4px 6px 4px 12px;height:150px;border-radius:16px;position:relative;overflow:hidden;flex:none}
+.hero svg{position:absolute;inset:0;width:100%;height:100%}
+.hero .shade{position:absolute;inset:0;background:linear-gradient(#0000 35%,#000a)}
+.hero .tx{position:absolute;left:12px;right:12px;bottom:10px;color:#fff}
+.hero .tx b{display:block;font-size:19px}.hero .tx span{font-size:13px;opacity:.95}
+.chip{position:absolute;left:10px;top:10px;background:#fff;color:var(--fg);font-size:12px;font-weight:700;border-radius:10px;padding:4px 8px}
+.chip.g{background:var(--accent);color:#fff}.chip.w{background:var(--warm);color:#fff}
+.row{display:flex;align-items:center;gap:11px;padding:8px 4px 8px 14px}
+.row .ph{width:56px;height:56px;border-radius:50%;overflow:hidden;flex:none;position:relative}
+.row .ph.sq{border-radius:14px}
+.row .ph svg{width:100%;height:100%}
+.row .t{flex:1;min-width:0}.row .t b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .r{font-size:12px;color:var(--muted);text-align:right;flex:none}
+.row .r em{display:inline-flex;min-width:20px;height:20px;border-radius:10px;background:var(--warm);color:#fff;font-size:11px;font-weight:700;align-items:center;justify-content:center;font-style:normal;margin-top:3px;padding:0 5px}
+.phw{position:relative;flex:none}.phw .day{position:absolute;right:-4px;bottom:-4px;background:#fff;border-radius:7px;font-size:10px;font-weight:800;padding:1px 4px;box-shadow:0 1px 3px #0005;line-height:1.15;text-align:center}
+.phw .day u{display:block;text-decoration:none;font-size:8px;color:var(--warm);font-weight:700}
+.fab{position:absolute;left:14px;bottom:16px;height:52px;border-radius:26px;background:var(--accent);color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;padding:0 20px;box-shadow:0 3px 10px #0005}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 6px 0 12px}
+.tile{height:128px;border-radius:14px;position:relative;overflow:hidden}
+.tile svg{position:absolute;inset:0;width:100%;height:100%}.tile .shade{position:absolute;inset:0;background:linear-gradient(#0000 40%,#000b)}
+.tile .tx{position:absolute;left:9px;right:9px;bottom:7px;color:#fff;font-size:12px}.tile .tx b{display:block;font-size:14px}
+.tile.new{border:2px dashed #9aa8a1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:13px;gap:4px}.tile.new b{font-size:30px;font-weight:300;color:var(--accent)}
+/* panneau sur la carte */
+.pill{position:absolute;left:10px;top:12px;right:72px;background:#fff;border-radius:24px;box-shadow:0 1px 6px #0004;display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;z-index:4}
+.pill b{font-size:15px;display:block;line-height:1.15}.pill span{font-size:12px;color:var(--muted)}
+.panel{position:absolute;left:0;bottom:0;right:64px;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -2px 12px #0003;padding:6px 12px 14px 14px;display:flex;flex-direction:column;gap:9px;z-index:3}
+.panel:before{content:"";width:40px;height:4px;border-radius:2px;background:#c5cdc9;margin:0 auto 2px}
+.panel h2{font-size:17px;margin:0;display:flex;align-items:center;gap:6px}
+.panel h2 small{font-weight:400;font-size:13px;color:var(--muted);margin-left:auto}
+.hint{font-size:13px;color:var(--muted);margin:0;line-height:1.35}
+.btn{border-radius:12px;padding:12px;font-size:15px;text-align:center;background:var(--accent);color:#fff;font-weight:700}
+.btn.o{background:#fff;border:1px solid var(--line);color:var(--fg);font-weight:500}
+.pin{position:absolute;transform:translate(-50%,-100%);font-size:22px;background:#fff;border-radius:50% 50% 50% 4px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 5px #0006;z-index:2}
+.ppin{position:absolute;width:46px;height:46px;border-radius:10px;border:3px solid #fff;overflow:hidden;box-shadow:0 1px 6px #0007;transform:translate(-50%,-50%);z-index:2}.ppin svg{width:100%;height:100%}
+.bpin{position:absolute;transform:translate(-50%,-50%);z-index:2}.bpin .av{width:32px;height:32px;font-size:13px;border:3px solid #fff;box-shadow:0 1px 5px #0006}
+/* planning */
+.dates{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+.dt{border:2px solid var(--line);border-radius:14px;padding:8px 4px 7px;text-align:center;position:relative}
+.dt b{display:block;font-size:20px;line-height:1.1}.dt span{font-size:12px;color:var(--muted);display:block}
+.dt .stack{justify-content:center;margin-top:6px;min-height:24px}.dt .stack .av{width:22px;height:22px;font-size:10px;margin-left:-6px}
+.dt.me{border-color:var(--accent);background:#e9f3ed}.dt.best:after{content:"★ 5/6";position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:var(--warm);color:#fff;font-size:10px;font-weight:800;border-radius:8px;padding:1px 6px;white-space:nowrap}
+.wx{font-size:15px}
+/* messages */
+.msgs{display:flex;flex-direction:column;gap:7px}
+.m{max-width:88%;background:var(--card);border-radius:14px 14px 14px 4px;padding:7px 10px;font-size:14px;line-height:1.3;align-self:flex-start}
+.m u{display:block;text-decoration:none;font-size:11px;font-weight:700;margin-bottom:1px}
+.m.me{align-self:flex-end;background:#dff0e6;border-radius:14px 14px 4px 14px}
+.m.img{padding:3px;width:170px}.m.img svg{display:block;width:100%;height:104px;border-radius:11px}
+.m.obj{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:#fff}.m.obj span{font-size:22px}.m.obj small{display:block;color:var(--muted);font-size:12px}
+.compose{display:flex;gap:6px;align-items:center}.compose div{flex:1;border:1px solid var(--line);border-radius:22px;padding:10px 12px;font-size:14px;color:#98a39e}
+.compose b{width:42px;height:42px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:400;flex:none}
+/* album */
+.strip{display:flex;gap:6px}.strip div{flex:1;height:74px;border-radius:10px;overflow:hidden;position:relative}.strip svg{width:100%;height:100%}
+.strip .more{position:absolute;inset:0;background:#0008;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:17px}
+.facts{display:flex;gap:6px}.facts div{flex:1;background:var(--card);border-radius:12px;padding:7px 4px;text-align:center;font-size:12px;color:var(--muted)}.facts b{display:block;font-size:16px;color:var(--fg)}
+/* count */
+.bal{display:flex;align-items:center;gap:9px;font-size:15px}.bal .bar{flex:1;height:10px;border-radius:5px;background:var(--card);position:relative}
+.bal .bar s{position:absolute;top:0;bottom:0;border-radius:5px}
+.bal em{font-style:normal;font-weight:700;width:62px;text-align:right;font-size:14px}
+.pay{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:12px;padding:8px 10px;font-size:14px}.pay b{margin-left:auto}
+.exp{display:flex;gap:9px;align-items:center;font-size:14px}.exp span{font-size:21px}.exp small{display:block;color:var(--muted);font-size:12px}.exp b{margin-left:auto}
+/* hôtel */
+.lodg{display:flex;gap:10px;align-items:center;border:2px solid var(--line);border-radius:14px;padding:6px}.lodg .ph{width:70px;height:62px;border-radius:10px;overflow:hidden;flex:none}.lodg svg{width:100%;height:100%}
+.lodg .t{flex:1;font-size:13px;color:var(--muted)}.lodg .t b{display:block;font-size:15px;color:var(--fg)}
+.lodg.sel{border-color:var(--accent);background:#e9f3ed}
+/* appel */
+.call{position:absolute;inset:0;color:#fff;display:flex;flex-direction:column;align-items:center;padding:70px 20px 46px;text-align:center}
+.call svg.bg{filter:brightness(.55) saturate(.8)}
+.call>*{position:relative}
+.ring{display:flex;gap:70px;margin-top:auto}.ring div{font-size:13px}.ring b{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:8px}
+.who{display:grid;grid-template-columns:repeat(3,64px);gap:14px;margin-top:26px}.who .av{width:64px;height:64px;font-size:24px}
+.who .av.talk{box-shadow:0 0 0 4px #7ee0a5}
+.seg{display:flex;background:var(--card);border-radius:12px;padding:3px;font-size:14px}.seg span{flex:1;text-align:center;padding:7px 0;border-radius:10px;color:var(--muted)}.seg span.on{background:#fff;color:var(--fg);font-weight:700;box-shadow:0 1px 3px #0003}
+.pg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}.pg div{height:84px;border-radius:8px;overflow:hidden;position:relative}.pg svg{width:100%;height:100%}
+.pg .who{position:absolute;left:3px;bottom:3px;margin:0;display:block}.pg .who .av{width:20px;height:20px;font-size:10px;border:2px solid #fff}
+.pg .st{position:absolute;right:4px;top:3px;font-size:14px;text-shadow:0 0 3px #000}
+.pg .up{position:absolute;inset:0;background:#fff9;display:flex;align-items:center;justify-content:center;font-size:20px}
+.dayh{font-size:13px;font-weight:700;color:var(--muted);display:flex;gap:6px;align-items:center}.dayh small{margin-left:auto;font-weight:400}
+.cover{height:170px;margin:-6px -12px 0 -14px;position:relative;border-radius:18px 18px 0 0;overflow:hidden;flex:none}.cover svg{position:absolute;inset:0;width:100%;height:100%}.cover .shade{position:absolute;inset:0;background:linear-gradient(#0000 40%,#000b)}
+.cover .tx{position:absolute;left:14px;bottom:10px;color:#fff}.cover .tx b{display:block;font-size:22px}.cover .tx span{font-size:13px}
+.story{font-size:15px;line-height:1.45;margin:0}
+.day{border:1px solid var(--line);border-radius:14px;padding:9px 10px;display:flex;flex-direction:column;gap:7px}
+.day h3{margin:0;font-size:15px;display:flex;align-items:center;gap:6px}.day h3 em{font-style:normal;background:var(--accent);color:#fff;border-radius:8px;font-size:12px;padding:2px 7px}
+.fld{display:flex;gap:6px}.fld div{flex:1;background:var(--card);border-radius:10px;padding:5px 4px;text-align:center;font-size:11px;color:var(--muted)}.fld b{display:block;font-size:13px;color:var(--fg);white-space:nowrap}.day h3 em{white-space:nowrap;flex:none}
+.fld div.e{background:#fff;border:1px dashed #9aa8a1}
+.mic{width:84px;height:84px;border-radius:50%;background:var(--warm);color:#fff;font-size:38px;display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 0 0 10px #e4572e2e,0 0 0 22px #e4572e14}
+.wave{display:flex;gap:3px;align-items:center;justify-content:center;height:30px}.wave i{width:4px;border-radius:2px;background:var(--warm)}
+.txt{border:1px solid var(--line);border-radius:12px;padding:10px;font-size:15px;line-height:1.45}.txt u{text-decoration:none;color:#98a39e}
+.bp{position:absolute;transform:translate(-50%,-100%);z-index:2;display:flex;flex-direction:column;align-items:center}
+.bp .av{width:38px;height:38px;font-size:15px;border:3px solid #fff;box-shadow:0 1px 5px #0006}.bp u{text-decoration:none;background:#1d2421;color:#fff;font-size:11px;font-weight:700;border-radius:8px;padding:2px 6px;margin-top:-4px;white-space:nowrap;position:relative}
+.bp.old .av{filter:grayscale(.7);opacity:.85}.bp.old u{background:#7b8580}
+.bp:after{content:"";width:0;height:0;border:6px solid transparent;border-top-color:#1d2421;margin-top:-1px}.bp.old:after{border-top-color:#7b8580}
+.prow{display:flex;align-items:center;gap:10px;font-size:14px}.prow .av{width:32px;height:32px;font-size:13px}.prow small{display:block;color:var(--muted);font-size:12px}.prow b{margin-left:auto;font-size:13px}
+.pl{display:grid;grid-template-columns:74px repeat(6,1fr) 30px;gap:3px;align-items:center;font-size:13px}
+.pl .h{display:flex;justify-content:center}.pl .h .av{width:28px;height:28px;font-size:12px}
+.pl .d{font-weight:700;font-size:13px;line-height:1.1}.pl .d small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.pl .c{height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;position:relative;background:var(--card);color:#b9c2bd}
+.pl .c.y{background:#2f9e5f;color:#fff}.pl .c.m{background:#f3c64e;color:#5b4300}.pl .c.n{background:#eedcd8;color:#b8431f}
+.pl .c.me{box-shadow:0 0 0 2px var(--fg)}.pl .c i{position:absolute;right:-2px;top:-4px;font-size:10px;font-style:normal}
+.pl .n{font-weight:800;text-align:center;font-size:13px}.pl .mo{grid-column:1/-1;font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase;margin-top:4px}
+.pl .bt{grid-column:2/-1;height:34px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;display:flex;align-items:center;padding:0 10px;gap:6px;font-size:13px}
+.ans{display:flex;gap:6px}.ans b{flex:1;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--card);color:#9aa8a1;font-weight:800}
+.ans b.y{background:#2f9e5f;color:#fff}.ans b.m{background:#f3c64e;color:#5b4300}.ans b.n{background:#eedcd8;color:#b8431f}
+.we{display:flex;align-items:center;gap:8px}.we .d{width:92px;font-weight:700;font-size:14px;line-height:1.15}.we .d small{display:block;font-weight:400;color:var(--muted);font-size:12px}.we .ans{flex:1}.we .ans b{height:44px}
+.tags{display:flex;flex-wrap:wrap;gap:6px}.tags span{border:1px solid var(--line);border-radius:16px;padding:6px 10px;font-size:13px}.tags span.on{background:var(--fg);color:#fff;border-color:var(--fg)}
+.note{font-size:12px;color:var(--muted);margin:-4px 0 0 100px}
+.ck{display:flex;flex-wrap:wrap;gap:5px}.ck span{border-radius:10px;padding:7px 8px;font-size:13px;background:#e9f3ed;border:1.5px solid var(--accent);font-weight:600}.ck span.x{background:#fff;border-color:var(--line);color:#b0b9b4;text-decoration:line-through;font-weight:400}
+.adds{position:absolute;left:12px;right:70px;bottom:14px;display:flex;gap:8px}
+.add{flex:1;height:60px;border-radius:18px;background:var(--accent);color:#fff;display:flex;align-items:center;gap:6px;padding:0 8px;box-shadow:0 3px 10px #0005;font-size:13px;font-weight:700;line-height:1.15;white-space:nowrap}.add>i{margin-right:-2px}.add .ibt{width:32px;height:32px}
+.add>i{font-style:normal;font-size:22px;font-weight:400}.add small{display:block;font-weight:400;font-size:11px;opacity:.9}
+.ibg{display:flex;flex:none}.ibg span{width:22px;height:22px;border-radius:50%;border:2px solid #fff;margin-left:-9px}.ibg span:first-child{margin-left:0}
+.ibt{width:38px;height:38px;border-radius:9px;overflow:hidden;position:relative;flex:none;border:2px solid #fff}.ibt svg{width:100%;height:100%}.ibt u{position:absolute;right:0;bottom:0;background:#fff;color:var(--warm);font-size:9px;font-weight:800;text-decoration:none;border-radius:5px 0 0 0;padding:0 3px}
+.bigph{width:96px;height:96px;border-radius:50%;background:var(--card);border:2px dashed #9aa8a1;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto}
+.inv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;font-size:12px;color:var(--muted)}.inv b{display:flex;width:52px;height:52px;margin:0 auto 4px;border-radius:50%;align-items:center;justify-content:center;font-size:24px;background:var(--card);font-weight:400}
+.fav{display:flex;gap:6px;justify-content:space-between}.fav div{text-align:center;font-size:12px;color:var(--fg);width:58px;position:relative}.fav .av{width:52px;height:52px;font-size:20px;margin-bottom:3px}
+.fav .ph{display:block;width:52px;height:52px;border-radius:50%;overflow:hidden;margin:0 auto 3px}.fav .ph svg{width:100%;height:100%}
+.fav .sel .av,.fav .sel .ph{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent)}.fav .sel:after{content:"✓";position:absolute;right:0;top:36px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
+</style></head><body><script>
+const C={S:'#2f6f4f',J:'#3f6fb5',L:'#8a4fb5',N:'#c48a1f',E:'#1f8a7a',P:'#b5524f',M:'#c2553a'};
+const av=(l,x='')=>`<span class="av ${x}" style="background:${C[l]}">${l}</span>`;
+const stack=s=>`<span class="stack">${[...s].map(l=>av(l)).join('')}</span>`;
+// « photos » dessinées
+function sc(k){const S={
+ snow:`<defs><linearGradient id="a${k}" x2="0" y2="1"><stop stop-color="#5fa3d9"/><stop offset="1" stop-color="#d6ecfa"/></linearGradient></defs><rect width="200" height="120" fill="url(#a${k})"/><path d="M0 120L0 80L40 38L70 70L112 18L150 66L175 48L200 74L200 120Z" fill="#8fa9bf"/><path d="M112 18L96 42L110 36L120 46L130 40Z M40 38L30 52L41 48L50 54Z" fill="#fff"/><path d="M0 120L0 98C50 80 90 104 130 92S180 84 200 90L200 120Z" fill="#f4f8fb"/><path d="M30 112C70 98 110 110 160 96" stroke="#b9cbd9" stroke-width="1.5" fill="none"/>`,
+ dusk:`<defs><linearGradient id="a${k}" x2="0" y2="1"><stop stop-color="#3a4a7a"/><stop offset=".6" stop-color="#f09a5c"/><stop offset="1" stop-color="#fbd38a"/></linearGradient></defs><rect width="200" height="120" fill="url(#a${k})"/><circle cx="140" cy="70" r="14" fill="#fff3c4"/><path d="M0 120L0 86L36 60L64 82L100 50L140 88L170 70L200 92L200 120Z" fill="#4b3f5e"/><path d="M0 120L0 104L50 90L96 106L150 94L200 108L200 120Z" fill="#2c2740"/>`,
+ lake:`<defs><linearGradient id="a${k}" x2="0" y2="1"><stop stop-color="#8cc7ea"/><stop offset="1" stop-color="#e3f2f9"/></linearGradient></defs><rect width="200" height="120" fill="url(#a${k})"/><path d="M0 84L30 50L62 74L96 36L134 72L168 52L200 76L200 90L0 90Z" fill="#6f8f7a"/><path d="M96 36L86 50L97 46L106 52Z" fill="#fff"/><rect y="86" width="200" height="34" fill="#3f8fb0"/><path d="M0 120L0 102L26 78L40 102L58 84L70 120Z" fill="#285c40"/><path d="M20 96h60M110 104h70M60 112h50" stroke="#9fd0e2" stroke-width="2"/>`,
+ sea:`<defs><linearGradient id="a${k}" x2="0" y2="1"><stop stop-color="#7cc4ee"/><stop offset="1" stop-color="#d8eefb"/></linearGradient></defs><rect width="200" height="120" fill="url(#a${k})"/><rect y="62" width="200" height="58" fill="#1f8fb5"/><path d="M0 120L0 30L34 24L52 50L60 86L84 120Z" fill="#e9e1cf"/><path d="M200 120L200 40L170 48L156 78L140 120Z" fill="#d9cfb8"/><path d="M0 30L34 24L44 38L20 44Z M200 40L170 48L176 60L200 56Z" fill="#5d8a4f"/><path d="M84 120C100 104 124 104 140 120Z" fill="#f2e6c4"/>`,
+ rock:`<defs><linearGradient id="a${k}" x2="0" y2="1"><stop stop-color="#6fb3e6"/><stop offset="1" stop-color="#cfe8f8"/></linearGradient></defs><rect width="200" height="120" fill="url(#a${k})"/><path d="M0 120L10 70L50 30L120 22L170 50L200 44L200 120Z" fill="#cfc8bb"/><path d="M50 30L70 60L60 120M120 22L112 70L130 120M170 50L160 120" stroke="#a79f90" stroke-width="2" fill="none"/><path d="M0 120L0 100L60 92L120 104L200 94L200 120Z" fill="#6f9159"/>`,
+ hut:`<defs><linearGradient id="a${k}" x2="0" y2="1"><stop stop-color="#9ccbe8"/><stop offset="1" stop-color="#eef6fb"/></linearGradient></defs><rect width="200" height="120" fill="url(#a${k})"/><path d="M0 90L50 40L90 76L130 46L200 92L200 120L0 120Z" fill="#a9bccb"/><path d="M0 120L0 96L200 88L200 120Z" fill="#f4f8fb"/><path d="M70 100L70 74L100 54L130 74L130 100Z" fill="#8a5a3c"/><path d="M62 76L100 48L138 76L130 80L100 58L70 80Z" fill="#5a3a26"/><rect x="92" y="80" width="16" height="20" fill="#f6d27a"/>`}
+ return `<svg viewBox="0 0 200 120" preserveAspectRatio="xMidYMid slice">${S[k]}</svg>`}
+// fond de carte
+function map(t=0){return `<svg class="bg" width="390" height="800"><rect width="390" height="800" fill="#efece4"/>
+<path d="M-20 140C60 90 140 170 230 120S340 60 420 110M-20 200C70 150 150 230 240 180S350 120 420 170M-20 270C80 220 160 300 250 250S360 190 420 240M-20 350C90 300 170 380 260 330S370 270 420 320M-20 440C90 390 170 470 260 420S370 360 420 410M-20 540C90 490 170 570 260 520S370 460 420 510M-20 650C90 600 170 680 260 630S370 570 420 620" stroke="#d9cfb6" stroke-width="1.5" fill="none"/>
+<path d="M-10 420C60 400 110 330 190 320S300 250 400 230" stroke="#9cc7e0" stroke-width="5" fill="none"/>
+<path d="M150 0C120 60 60 90 40 160" stroke="#c9d8b8" stroke-width="26" fill="none" opacity=".6"/>
+<text x="36" y="372" font-size="12" fill="#8a8170">Ceillac</text><text x="212" y="96" font-size="12" fill="#8a8170">Col Girardin</text>
+${t?`<path d="M60 340L90 300L120 285L150 240L190 215L215 170L240 120L262 150L250 200L220 250L180 290L130 330L84 348" fill="none" stroke="#7b3fe4" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>`:''}</svg>`}
+const rail=(on,o={})=>`<div class="rail ${o.flat?'flat':''}"><b class="t">✕</b>${[['📞','call'],['📅','plan'],['💬','chat'],['📸','album'],['💶','count'],['🏨','hotel']].map(([e,k])=>`<b class="${on===k?'on':''}">${e}${o.badge&&o.badge[k]?`<span class="badge">${o.badge[k]}</span>`:''}</b>`).join('')}${o.extra?`<i></i><b class="${on==='pos'?'on':''}">📍</b><b class="${on==='book'?'on':''}">📖</b>`:''}</div>`;
+const pill=(t,s,ph)=>`<div class="pill"><span class="back">‹</span><div><b>${t}</b><span>${s}</span></div></div>`;
+const row=(ph,sq,t,s,r,n,day)=>`<div class="row"><div class="phw"><div class="ph ${sq?'sq':''}">${ph}</div>${day?`<div class="day"><u>${day[1]}</u>${day[0]}</div>`:''}</div><div class="t"><b>${t}</b><span>${s}</span></div><div class="r">${r}${n?`<br><em>${n}</em>`:''}</div></div>`;
+const scr=(n,t,s,h)=>`<div class="wrap"><div class="cap">${n} · ${t}<small>${s}</small></div><div class="phone" id="s${n}">${h}</div></div>`;
+let H='';
+// 1
+H+=scr(1,'Sur la carte : 👥 Buddies et 👤 Moi','Seconde barre. 👥 ouvre les Buddies (pastille = du nouveau). 👤 Moi : profil, compte, réglages, hors ligne. Le reste ne bouge pas.',
+`${map(1)}<div class="rail"><b class="t">✕</b><b style="width:56px;height:56px;font-size:28px">◂</b><b class="hi">👥<span class="badge">3</span></b><b class="hi">👤<span class="dot"></span></b><b>🌦</b><b>🏔</b><b>🚗</b><b>🏨</b><b>💰</b></div>`);
+// 2
+H+=scr(2,'Buddies','Tout en haut, en grand : le Buddy Time en cours ou le prochain. Puis les Buddy Groups (ronds), dont « Me Time », le tien, pour tes sorties à toi. Puis les derniers Buddy Times (carrés, avec le jour). Le plus récent en haut. En bas, les deux « ＋ » en image : des visages = une bande, une photo datée = une sortie.',
+`<div class="left"><div class="ttl"><h1>Buddies</h1><span class="back">🔍</span></div>
+<div class="hero">${sc('snow')}<div class="shade"></div><span class="chip w">Dans 5 jours</span><div class="tx"><b>Week-end Queyras</b><span>sam. 12 – dim. 13 déc. · Ski du dimanche · 4 partants</span></div></div>
+<div class="sec">Buddy Groups</div>
+${row(sc('dusk'),0,'Ski du dimanche','Julie : 📸 3 photos','10:42',3)}
+${row(sc('sea'),0,'Les Calanqueurs','Luc : on part à 7 h ?','hier',0)}
+${row(sc('lake'),0,'Rando asso La Ciotat','📅 Planning d\'hiver à remplir','lun.',1)}
+${row(`<span class="av" style="width:56px;height:56px;font-size:22px;background:${C.S}">S</span>`,0,'Me Time','Mes sorties à moi · 7 souvenirs','nov.',0)}
+<div class="sec">Buddy Times</div>
+${row(sc('rock'),1,'Sainte-Victoire','Me Time · avec Paul et Léa · 💶','mar.',0,['29','NOV'])}
+${row(sc('hut'),1,'Nuit au refuge du Viso','Me Time · avec Nico · souvenir','oct.',0,['18','OCT'])}
+</div>${rail('',{flat:1,badge:{chat:4,plan:1}})}<div class="adds"><div class="add"><i>＋</i><span class="ibg"><span style="background:#3f6fb5"></span><span style="background:#c48a1f"></span><span style="background:#8a4fb5"></span></span><div>Buddy Group<small>une bande</small></div></div><div class="add"><i>＋</i><span class="ibt">${sc('snow')}<u>12</u></span><div>Buddy Time<small>une sortie</small></div></div></div>`);
+// 3
+H+=scr(3,'Un Buddy Group','Ses Buddy Times en images : à venir d\'abord, puis les souvenirs. Toucher les visages = les membres, inviter, gérer. La colonne ne regarde plus que ce groupe (💬 = sa conversation).',
+`<div class="left"><div class="ttl"><span class="back">‹</span><h1>Ski du dimanche<small>Buddy Group · 6 buddies</small></h1></div>
+<div style="padding:0 14px 6px;display:flex;align-items:center;gap:8px">${stack('SJLNEP')}<span class="av" style="width:30px;height:30px;background:var(--card);color:var(--accent);font-size:18px">＋</span></div>
+<div class="sec">À venir</div>
+<div class="hero" style="height:132px">${sc('snow')}<div class="shade"></div><span class="chip w">Dans 5 jours</span><div class="tx"><b>Week-end Queyras</b><span>12 – 13 déc. · 4 partants · 🏨 réservé</span></div></div>
+<div class="sec">Souvenirs</div>
+<div class="grid2"><div class="tile">${sc('hut')}<div class="shade"></div><div class="tx"><b>Refuge du Viso</b>18 oct. · 📸 42</div></div><div class="tile">${sc('lake')}<div class="shade"></div><div class="tx"><b>Lac Sainte-Anne</b>6 sept. · 📸 27</div></div></div>
+</div>${rail('',{flat:1,badge:{chat:3}})}<div class="adds"><div class="add"><i>＋</i><span class="ibt">${sc('snow')}<u>12</u></span><div>Buddy Time<small>une sortie</small></div></div></div>`);
+// 4
+H+=scr(4,'Un Buddy Time : la carte d\'abord','Ouvrir un Buddy Time, c\'est ouvrir sa carte : parcours, rendez-vous, hébergement. Un petit bandeau en bas, qu\'on baisse pour n\'avoir que la carte. Deux icônes en plus ici : 📍 où sont les buddies, 📖 le carnet.',
+`${map(1)}<div class="pin" style="left:60px;top:340px">🅿️</div><div class="pin" style="left:250px;top:200px">🏨</div><div class="pin" style="left:240px;top:120px">⛰</div>
+${pill('Week-end Queyras','sam. 12 – dim. 13 déc.')}${rail('',{extra:1,badge:{chat:3}})}
+<div class="panel"><h2>Dans 5 jours <small>🌤 −4° · ❄ 20 cm</small></h2>
+<div style="display:flex;align-items:center;gap:8px">${stack('SJLN')}<span class="hint"><b style="color:var(--fg)">4 partants</b> · Emma ? · Paul ✗</span></div>
+<div class="facts"><div><b>14 km</b>parcours</div><div><b>+1 150 m</b>dénivelé</div><div><b>7 h 30</b>RDV 🅿️</div></div></div>`);
+// 6
+H+=scr(6,'💬 Messagerie','La conversation du Buddy Time, la carte reste au-dessus. On y envoie d\'un geste une photo, un point sur la carte, une trace, un vocal. Hors ligne : les messages partent au retour du réseau.',
+`${map(1)}<div class="pin" style="left:250px;top:200px">🏨</div>${pill('Week-end Queyras','💬 4 buddies')}${rail('chat',{extra:1})}
+<div class="panel" style="height:540px"><div class="msgs">
+<div class="m"><u style="color:${C.J}">Julie</u>J'ai trouvé la trace de la montée</div>
+<div class="m obj"><span>〰️</span><div><b>Col Girardin par Ceillac</b><small>14 km · +1 150 m · voir sur la carte</small></div></div>
+<div class="m img"><u style="color:${C.L};padding:3px 6px 0">Luc</u>${sc('snow')}</div>
+<div class="m me">Top ! RDV 7 h 30 au parking ?</div>
+<div class="m obj"><span>📍</span><div><b>Parking de Ceillac</b><small>Point de rendez-vous · y aller</small></div></div>
+<div class="m"><u style="color:${C.N}">Nico</u>OK pour moi 👍 je prends les DVA</div>
+<div class="m me" style="opacity:.6">Je réserve le gîte ce soir <small>🕓 partira au retour du réseau</small></div>
+</div><div style="flex:1"></div>
+<div class="compose"><b>📷</b><b>📍</b><div>Message</div><b>🎤</b></div></div>`);
+// 7
+H+=scr(7,'📸 Album : le souvenir sur la carte','Les photos de tous se posent là où elles ont été prises, le long de la trace. C\'est la vue « Sur la carte » de l\'album (écran 11). 📖 Carnet = le compte rendu (écrans 12 et 13).',
+`${map(1)}<div class="ppin" style="left:92px;top:300px">${sc('lake')}</div><div class="ppin" style="left:190px;top:214px">${sc('hut')}</div><div class="ppin" style="left:240px;top:124px">${sc('snow')}</div><div class="ppin" style="left:222px;top:250px">${sc('dusk')}</div>
+${pill('Refuge du Viso','18 – 19 oct. · souvenir')}${rail('album',{extra:1})}
+<div class="panel"><h2>42 photos <small>de 5 buddies</small></h2>
+<div class="strip"><div>${sc('snow')}</div><div>${sc('hut')}</div><div>${sc('dusk')}</div><div>${sc('lake')}<span class="more">+38</span></div></div>
+<div class="facts"><div><b>23 km</b>2 jours</div><div><b>+1 840 m</b>dénivelé</div><div><b>3 841 m</b>sommet</div></div>
+<div style="display:flex;gap:8px"><div class="btn" style="flex:1">📷 Ajouter</div><div class="btn o" style="flex:1">📖 Carnet</div></div></div>`);
+// 8
+H+=scr(8,'💶 Buddy count','Le partage des frais qui existe déjà, rangé dans le Buddy Time. En un coup d\'œil : qui est en avance, qui doit. Photo du ticket = dépense ajoutée.',
+`${map(1)}${pill('Week-end Queyras','💶 412 € à 4')}${rail('count',{extra:1})}
+<div class="panel" style="height:540px"><h2>Équilibres <small>103 € chacun</small></h2>
+${[['S',148,'+148 €'],['J',22,'+22 €'],['L',-64,'−64 €'],['N',-106,'−106 €']].map(([l,v,t])=>`<div class="bal">${av(l,'" style="width:30px;height:30px;font-size:12px;background:'+C[l])}<div class="bar"><s style="${v>0?`left:50%;width:${v/3.2}%;background:#2f9e5f`:`right:50%;width:${-v/3.2}%;background:var(--warm)`}"></s></div><em style="color:${v>0?'#1f7a48':'#b8431f'}">${t}</em></div>`).join('')}
+<div class="pay">${av('N','" style="width:28px;height:28px;font-size:12px;background:'+C.N)} → ${av('S','" style="width:28px;height:28px;font-size:12px;background:'+C.S)} Nico doit à Seb <b>106 €</b></div>
+<div class="pay">${av('L','" style="width:28px;height:28px;font-size:12px;background:'+C.L)} → ${av('S','" style="width:28px;height:28px;font-size:12px;background:'+C.S)} Luc doit à Seb <b>42 €</b></div>
+<div class="sec" style="padding:4px 0 0">Dépenses</div>
+<div class="exp"><span>🏨</span><div>Gîte Les Baladins<small>payé par Seb</small></div><b>240 €</b></div>
+<div class="exp"><span>⛽</span><div>Essence + péage<small>payé par Julie</small></div><b>125 €</b></div>
+<div class="exp"><span>🧀</span><div>Courses<small>payé par Seb</small></div><b>47 €</b></div>
+<div style="flex:1"></div><div class="btn">＋ Dépense</div></div>`);
+// 9
+H+=scr(9,'🏨 Hébergement','La recherche qui existe déjà, mais pour le groupe : les propositions sont sur la carte, chacun met un ♥, on en retient une. Elle devient l\'épingle 🏨 du Buddy Time et une ligne du Buddy count.',
+`${map(1)}<div class="pin" style="left:250px;top:200px;background:var(--accent)">🏨</div><div class="pin" style="left:120px;top:250px">🏨</div><div class="pin" style="left:60px;top:300px">🏨</div>
+${pill('Week-end Queyras','🏨 1 nuit · 4 personnes')}${rail('hotel',{extra:1})}
+<div class="panel" style="height:470px"><h2>Où on dort ? <small>3 idées</small></h2>
+<div class="lodg sel"><div class="ph">${sc('hut')}</div><div class="t"><b>Gîte Les Baladins</b>60 € / pers. · demi-pension<br>♥ ${stack('SJL')}</div><span style="font-size:22px">✅</span></div>
+<div class="lodg"><div class="ph">${sc('lake')}</div><div class="t"><b>Refuge de la Cime</b>48 € / pers. · à 2 km du départ<br>♥ ${stack('N')}</div><span style="font-size:22px;opacity:.35">♥</span></div>
+<div class="lodg"><div class="ph">${sc('rock')}</div><div class="t"><b>Chalet Le Mélezin</b>72 € / pers.<br>♥ —</div><span style="font-size:22px;opacity:.35">♥</span></div>
+<div style="flex:1"></div><div class="btn o">🔍 Chercher d'autres hébergements</div></div>`);
+// 10
+H+=scr(10,'📞 Appel aux buddies','Un toucher sur 📞 fait sonner tout le Buddy Time (ou le Buddy Group), comme un vrai appel. On voit qui a décroché et qui parle. Besoin de réseau.',
+`<div class="call">${sc('snow').replace('<svg','<svg class="bg" style="position:absolute;inset:0;width:100%;height:100%"')}
+<div style="font-size:14px;opacity:.9">Mountain Buddies · appel de groupe</div>
+<div style="font-size:27px;font-weight:700;margin-top:8px">Week-end Queyras</div>
+<div style="font-size:16px;margin-top:4px">Julie t'appelle…</div>
+<div class="who">${av('J','talk')}${av('L')}${av('N','" style="opacity:.45;background:'+C.N)}</div>
+<div style="font-size:13px;margin-top:12px;opacity:.9">Julie et Luc sont déjà en ligne</div>
+<div class="ring"><div><b style="background:#d93025">✕</b>Refuser</div><div><b style="background:#2f9e5f">📞</b>Répondre</div></div></div>`);
+// 11
+const pic=(k,l,st,up)=>`<div>${sc(k)}<span class="who">${av(l)}</span>${st?`<span class="st">${st}</span>`:''}${up?`<span class="up">🕓</span>`:''}</div>`;
+H+=scr(11,'📸 Album : chacun dépose ses photos','Le pot commun : tous les buddies versent leurs photos (et vidéos), rangées par jour, avec le visage de celui qui l\'a prise. « Sur la carte » = l\'écran 7. ⭐ = retenue pour le carnet. Sans réseau, les photos attendent et partent toutes seules.',
+`${map(1)}${pill('Refuge du Viso','📸 42 photos · 5 buddies')}${rail('album',{extra:1})}
+<div class="panel" style="height:640px"><div class="seg"><span class="on">Toutes</span><span>Sur la carte</span><span>⭐ Carnet</span></div>
+<div class="dayh">Jour 1 · sam. 18 oct.<small>23 photos</small></div>
+<div class="pg">${pic('lake','J','⭐')}${pic('rock','S')}${pic('snow','L','⭐')}${pic('hut','N','⭐')}${pic('dusk','S','⭐')}${pic('snow','E')}</div>
+<div class="dayh">Jour 2 · dim. 19 oct.<small>19 photos</small></div>
+<div class="pg">${pic('snow','S','⭐')}${pic('dusk','J')}${pic('rock','L','⭐')}${pic('lake','S','',1)}${pic('hut','S','',1)}${pic('snow','S','',1)}</div>
+<p class="hint">🕓 3 photos à toi partiront au retour du réseau.</p>
+<div style="flex:1"></div><div class="btn">📷 Déposer mes photos</div></div>`);
+// 12
+const prof=`<svg viewBox="0 0 300 70" style="width:100%;height:70px;display:block"><path d="M0 62L20 58L45 50L70 44L95 30L120 22L135 24L150 34L165 30L185 18L205 8L222 14L240 30L262 46L282 56L300 62L300 70L0 70Z" fill="#7b3fe433"/><path d="M0 62L20 58L45 50L70 44L95 30L120 22L135 24L150 34L165 30L185 18L205 8L222 14L240 30L262 46L282 56L300 62" fill="none" stroke="#7b3fe4" stroke-width="2.5"/><path d="M135 0V70" stroke="#9aa8a1" stroke-dasharray="3 3"/><text x="4" y="10" font-size="9" fill="#5f6b66">3 019 m</text><text x="60" y="68" font-size="9" fill="#5f6b66">Jour 1</text><text x="200" y="68" font-size="9" fill="#5f6b66">Jour 2</text><text x="128" y="12" font-size="10">🏨</text></svg>`;
+H+=scr(12,'📖 Carnet : le beau souvenir','Un Buddy Time terminé s\'ouvre directement sur son carnet. D\'abord ce qui fait plaisir : les plus belles photos, choisies automatiquement (✨) dans l\'album pour faire un ensemble cohérent, puis le récit, puis la trace sur la carte (un toucher = plein écran).',
+`${map(0)}${rail('book',{extra:1})}
+<div class="panel" style="height:800px;border-radius:0"><div class="cover" style="height:128px;border-radius:0;margin-top:-12px">${sc('snow')}<div class="shade"></div><span class="back" style="position:absolute;left:10px;top:12px">‹</span><div class="tx"><b>Refuge du Viso</b><span>18 – 19 oct. · ${'Seb, Julie, Luc, Nico, Emma'}</span></div></div>
+<div class="dayh">✨ 12 photos choisies sur 42<small style="color:var(--accent);font-weight:700">Changer</small></div>
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:4px;height:150px;flex:none"><div style="border-radius:10px;overflow:hidden;grid-row:span 2">${sc('snow').replace('<svg','<svg style="width:100%;height:100%"')}</div><div style="border-radius:10px;overflow:hidden">${sc('hut').replace('<svg','<svg style="width:100%;height:100%"')}</div><div style="border-radius:10px;overflow:hidden;position:relative">${sc('dusk').replace('<svg','<svg style="width:100%;height:100%"')}<span style="position:absolute;inset:0;background:#0008;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center">+9</span></div></div>
+<p class="story">Départ à la frontale de Castello, le lac encore gelé sur les bords. Montée au refuge sous un ciel parfait, polenta et génépi le soir. Dimanche, le Viso Mozzo au lever du soleil…</p>
+<div class="dayh">〰️ La trace<small>23 km · +1 840 m</small></div>
+<div style="height:200px;border-radius:14px;overflow:hidden;position:relative;flex:none;border:1px solid var(--line)"><svg viewBox="-10 110 345 245" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%"><rect x="0" y="0" width="390" height="800" fill="#efece4"/><path d="M-20 140C60 90 140 170 230 120S340 60 420 110M-20 200C70 150 150 230 240 180S350 120 420 170M-20 270C80 220 160 300 250 250S360 190 420 240M-20 350C90 300 170 380 260 330S370 270 420 320" stroke="#d9cfb6" stroke-width="1.5" fill="none"/><path d="M-10 420C60 400 110 330 190 320S300 250 400 230" stroke="#9cc7e0" stroke-width="5" fill="none"/><path d="M60 340L90 300L120 285L150 240L190 215L215 170L240 120" fill="none" stroke="#7b3fe4" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><path d="M240 120L262 150L250 200L220 250L180 290L130 330L84 348" fill="none" stroke="#e4572e" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><text x="232" y="112" font-size="16">🏨</text><text x="52" y="356" font-size="14">🅿️</text></svg>
+<span class="chip" style="top:auto;bottom:8px"><span style="color:#7b3fe4">━</span> Jour 1 &nbsp;<span style="color:#e4572e">━</span> Jour 2</span><span class="chip" style="left:auto;right:8px">⤢</span></div>
+</div>`);
+// 13
+H+=scr(13,'📖 Carnet : les chiffres, jour par jour','La suite en faisant défiler : profil et chiffres façon Skitour ou VisuGPX, tirés de la trace, puis une fiche par jour (facultative). Tout en bas, replié : le pratique dont on se fiche après coup (hébergement, comptes, messages).',
+`${map(0)}${rail('book',{extra:1})}
+<div class="panel" style="height:800px;border-radius:0"><div style="height:4px"></div>${prof}
+<div class="fld"><div><b>23 km</b>distance</div><div><b>+1 840 m</b>montée</div><div><b>−1 840 m</b>descente</div></div>
+<div class="fld"><div><b>11 h 25</b>durée</div><div><b>8 h 40</b>en marche</div><div><b>3 019 m</b>point haut</div></div>
+<div class="fld"><div><b>340 m/h</b>montée</div><div><b>2 jours</b>1 nuit</div><div><b>5</b>buddies</div></div>
+<div class="fld"><div><b>T3</b>difficulté</div><div><b>☀️ 4°</b>météo</div><div class="e"><b>＋</b>conditions</div></div>
+<div class="day"><h3><em style="background:#7b3fe4">Jour 1</em> Castello → refuge Quintino Sella</h3>
+<div class="fld"><div><b>7 h 10</b>départ</div><div><b>5 h 20</b>durée</div><div><b>11 km</b>distance</div><div><b>+1 240</b>montée</div></div>
+<div class="strip"><div style="height:56px">${sc('lake')}</div><div style="height:56px">${sc('rock')}</div><div style="height:56px">${sc('hut')}</div></div>
+</div>
+<div class="day"><h3><em style="background:#e4572e">Jour 2</em> Viso Mozzo et descente</h3>
+<div class="fld"><div><b>6 h 30</b>départ</div><div><b>6 h 05</b>durée</div><div><b>12 km</b>distance</div><div><b>+600 m</b>montée</div></div>
+<div class="strip"><div style="height:56px">${sc('snow')}</div><div style="height:56px">${sc('dusk')}</div><div style="height:56px">${sc('lake')}</div></div></div>
+<div class="pay" style="color:var(--muted)">🏨 💶 💬 &nbsp;Le pratique <b>▸</b></div>
+<div style="flex:1"></div><div style="display:flex;gap:8px"><div class="btn o" style="flex:1">✏️ Modifier</div><div class="btn" style="flex:1">Partager</div></div></div>`);
+// 14
+H+=scr(14,'📖 Écrire le carnet : on le raconte','Un gros micro : on raconte la sortie à voix haute, le texte s\'écrit, puis on le corrige au clavier. Les fiches par jour se remplissent toutes seules depuis la trace enregistrée ; tout est modifiable, rien n\'est obligatoire.',
+`${map(1)}${rail('book',{extra:1})}${pill('Refuge du Viso','📖 écrire le carnet')}
+<div class="panel" style="height:640px"><h2>Le récit <small>Seb · 0:42</small></h2>
+<div class="txt">Départ à la frontale de Castello, le lac encore gelé sur les bords. Montée au refuge sous un ciel parfait, <u>polenta et génépi le soir…</u></div>
+<div class="wave">${[8,16,26,12,22,30,14,20,9,24,28,12,18,8,22,14].map(h=>`<i style="height:${h}px"></i>`).join('')}</div>
+<div class="mic">🎤</div><p class="hint" style="text-align:center">Je t'écoute… touche pour arrêter, puis corrige le texte.</p>
+<div class="day"><h3><em>Jour 1</em> Castello → refuge <small style="margin-left:auto;font-weight:400;color:var(--muted);font-size:12px">depuis la trace</small></h3>
+<div class="fld"><div><b>7 h 10</b>départ</div><div><b>5 h 20</b>durée</div><div><b>11 km</b>distance</div><div><b>+1 240</b>dénivelé</div></div></div>
+<div class="day"><h3><em>Jour 2</em> <span style="color:#98a39e;font-weight:400">Nom de la rando</span></h3>
+<div class="fld"><div class="e"><b>—</b>départ</div><div class="e"><b>—</b>durée</div><div class="e"><b>—</b>distance</div><div class="e"><b>—</b>dénivelé</div></div></div>
+<div style="flex:1"></div><div class="btn">Enregistrer le carnet</div></div>`);// 15
+H+=scr(15,'📍 Où sont les buddies','Personne n\'est suivi sans le vouloir. Enfoncer l\'épingle = j\'accepte que mes buddies me voient : ma position part toute seule, régulièrement, jusqu\'à ce que je la relève. Sous chaque visage, l\'heure de la dernière position reçue ; elle grise en vieillissant. Qui n\'a pas enfoncé l\'épingle n\'apparaît pas.',
+`${map(1)}<div class="bp" style="left:190px;top:215px">${av('J')}<u>il y a 4 min</u></div><div class="bp" style="left:240px;top:122px">${av('L')}<u>10 h 42</u></div><div class="bp old" style="left:92px;top:300px">${av('N')}<u>8 h 15</u></div><div class="bp" style="left:150px;top:262px">${av('S')}<u style="background:var(--accent)">toi</u></div>
+${pill('Week-end Queyras','📍 4 buddies visibles')}${rail('pos',{extra:1})}
+<div class="panel"><div class="prow">${av('J')}<div>Julie<small>à 1,2 km de toi · 2 310 m</small></div><b>il y a 4 min</b></div>
+<div class="prow">${av('L')}<div>Luc<small>au col · 2 699 m · plus de réseau ?</small></div><b>10 h 42</b></div>
+<div class="prow" style="opacity:.6">${av('N')}<div>Nico<small>au parking · a relevé l'épingle</small></div><b>8 h 15</b></div>
+<div class="pay" style="background:#e9f3ed;border:2px solid var(--accent);padding:10px"><span style="font-size:24px">📍</span><div><b style="margin:0;display:block;color:var(--accent)">Mes buddies me voient</b><span style="font-size:12px;color:var(--muted)">depuis 9 h 10 · s'arrête seul ce soir</span></div><b style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 12px">Arrêter</b></div>
+<p class="hint" style="text-align:center">Sans réseau, tes positions sont gardées avec leur heure et partent au retour.</p></div>`);
+// 16
+const cell=(v,me,nt)=>`<span class="c ${v} ${me?'me':''}">${{y:'✓',m:'?',n:'✗','':'·'}[v]}${nt?'<i>💬</i>':''}</span>`;
+const prow=(d,sub,vals,n,nts=[])=>`<span class="d">${d}<small>${sub}</small></span>${[...vals].map((v,i)=>cell(v==='-'?'':v,i===0,nts.includes(i))).join('')}<span class="n" style="color:${n>=5?'#1f7a48':n>=4?'#8a6a00':'#9aa8a1'}">${n}</span>`;
+H+=scr(16,'📅 Planning de saison','Dans un Buddy Group : une ligne par week-end, une colonne par buddy. Vert = dispo, jaune = peut-être, rouge = non, gris = pas répondu. À droite, le nombre de dispos. 💬 = un petit mot. Un week-end validé devient un Buddy Time (ligne verte).',
+`<div class="left"><div class="ttl"><span class="back">‹</span><h1>Saison ski 2026-27<small>Ski du dimanche · lancé par Seb</small></h1></div>
+<div style="padding:0 6px 0 12px;display:flex;flex-direction:column;gap:8px">
+<div style="background:#fdf0d5;border-radius:12px;padding:9px 10px;font-size:13px;display:flex;align-items:center;gap:6px"><span style="flex:1">🔔 Il te reste <strong>3 week-ends</strong> à remplir</span><strong style="color:var(--accent)">Remplir ›</strong></div>
+<div class="pl"><span></span>${[...'SJLNEP'].map(l=>`<span class="h">${av(l)}</span>`).join('')}<span></span>
+<span class="mo">Décembre</span>
+${prow('5–6','déc.','yymnyn',3)}
+<span class="d">12–13<small>déc.</small></span><span class="bt">⛷ Week-end Queyras ›</span>
+${prow('19–20','vacances','nnynmn',1,[0])}
+<span class="mo">Janvier</span>
+${prow('9–10','janv.','yymny-',3)}
+${prow('16–17','janv.','yyyyyn',5)}
+${prow('23–24','janv.','mnyy--',2,[0])}
+${prow('30–31','janv.','ynmyy-',3)}
+<span class="mo">Février</span>
+${prow('6–7','févr.','yyyymy',5,[4])}
+${prow('13–14','vacances','-ny-n-',1)}
+${prow('20–21','vacances','-yy-m-',2)}
+${prow('27–28','févr.','-yyyy-',4)}
+</div></div></div>${rail('plan',{flat:1})}<div class="fab">＋ Planning</div>`);
+// 17
+const we=(d,sub,v,note)=>`<div class="we"><span class="d">${d}<small>${sub}</small></span><span class="ans"><b class="${v==='y'?'y':''}">✓</b><b class="${v==='m'?'m':''}">?</b><b class="${v==='n'?'n':''}">✗</b></span></div>${note?`<p class="note">💬 ${note}</p>`:''}`;
+H+=scr(17,'📅 Remplir mes dispos','Fait pour aller vite : un toucher par week-end (oui, peut-être, non). Un appui long ajoute un petit mot : des phrases toutes prêtes ou du texte libre. Tout s\'enregistre tout seul, même sans réseau.',
+`<div class="left"><div class="ttl"><span class="back">‹</span><h1>Mes dispos<small>Saison ski 2026-27 · 8 sur 11 remplis</small></h1></div>
+<div style="padding:2px 6px 0 14px;display:flex;flex-direction:column;gap:9px">
+${we('16–17 janv.','sam. – dim.','y')}
+${we('23–24 janv.','sam. – dim.','m','Samedi seulement')}
+${we('30–31 janv.','sam. – dim.','y')}
+${we('6–7 févr.','sam. – dim.','y')}
+<div style="border:2px solid var(--fg);border-radius:14px;padding:9px;display:flex;flex-direction:column;gap:8px;margin:0 -4px">
+${we('13–14 févr.','vacances','m')}
+<div class="tags"><span>Samedi seulement</span><span>Dimanche seulement</span><span class="on">À confirmer</span><span>Avec les enfants</span><span>Je peux conduire</span></div>
+<div class="compose"><div>ou un petit mot…</div><b>🎤</b></div></div>
+${we('20–21 févr.','vacances','')}
+${we('27–28 févr.','sam. – dim.','')}
+</div></div>${rail('plan',{flat:1})}`);
+// 18
+H+=scr(18,'＋ Nouveau planning','Trois choix et c\'est publié : la période, week-ends ou tous les jours, pour qui. Les dates proposées sont cochées d\'avance, on touche celles qu\'on retire. Publier l\'envoie à tout le groupe, avec une notification.',
+`<div class="left"><div class="ttl"><span class="back">‹</span><h1>Nouveau planning</h1></div>
+<div style="padding:2px 6px 0 14px;display:flex;flex-direction:column;gap:11px">
+<div class="txt" style="font-weight:700">Saison ski 2026-27</div>
+<div class="dayh">Pour qui</div>
+<div class="pay">${stack('SJLNEP')} Ski du dimanche <b>▾</b></div>
+<div class="dayh">Période</div>
+<div style="display:flex;gap:8px"><div class="pay" style="flex:1">de&nbsp;<b style="margin:0">décembre</b></div><div class="pay" style="flex:1">à&nbsp;<b style="margin:0">mars</b></div></div>
+<div class="seg"><span class="on">Week-ends</span><span>Tous les jours</span><span>À la carte</span></div>
+<div class="dayh">Dates proposées<small>15 sur 17</small></div>
+<div class="ck">${['5–6 déc.','12–13 déc.','19–20 déc.','x26–27 déc.','x2–3 janv.','9–10 janv.','16–17 janv.','23–24 janv.','30–31 janv.','6–7 févr.','13–14 févr.','20–21 févr.','27–28 févr.','6–7 mars','13–14 mars'].map(d=>d[0]==='x'?`<span class="x">${d.slice(1)}</span>`:`<span>${d}</span>`).join('')}</div>
+<div class="dayh">Répondre avant le<small style="color:var(--fg);font-weight:700">dim. 30 nov. ▾</small></div>
+</div><div style="flex:1"></div><div style="padding:0 6px 16px 14px"><div class="btn" style="padding:15px;font-size:16px">Publier le planning</div></div></div>${rail('plan',{flat:1})}`);
+// 19
+H+=scr(19,'📅 Valider : le week-end devient un Buddy Time','Toucher une ligne montre qui vient. « Créer le Buddy Time » le fait naître avec ces buddies déjà dedans : il apparaît dans la liste de chacun, avec sa carte, sa messagerie, son Buddy count. Reste à choisir où on va.',
+`<div class="left" style="opacity:.45"><div class="ttl"><span class="back">‹</span><h1>Saison ski 2026-27<small>Ski du dimanche · lancé par Seb</small></h1></div>
+<div style="padding:0 6px 0 12px"><div class="pl"><span></span>${[...'SJLNEP'].map(l=>`<span class="h">${av(l)}</span>`).join('')}<span></span>
+<span class="mo">Janvier</span>${prow('9–10','janv.','yymny-',3)}${prow('16–17','janv.','yyyyyn',5)}${prow('23–24','janv.','mnyy--',2)}${prow('30–31','janv.','ynmyy-',3)}
+<span class="mo">Février</span>${prow('6–7','févr.','yyyymy',5)}</div></div></div>${rail('plan',{flat:1})}
+<div class="panel" style="height:440px;box-shadow:0 -4px 24px #0006"><h2>16–17 janvier <small>☀️ ❄❄ prévu</small></h2>
+<div class="prow">${stack('SJLNE')}<div><b style="margin:0;font-size:15px">5 dispos</b><small>Seb, Julie, Luc, Nico, Emma</small></div></div>
+<div class="prow" style="opacity:.6">${av('P')}<div>Paul<small>pas dispo</small></div></div>
+<div class="dayh">Où ? <small>facultatif, on peut décider plus tard</small></div>
+<div class="tags"><span class="on">Dôme des Écrins</span><span>Queyras</span><span>＋ une idée</span></div>
+<div style="flex:1"></div>
+<div class="btn" style="padding:15px;font-size:16px">Créer le Buddy Time</div>
+<div class="btn o">Pas encore</div></div>`);
+// 20
+const invd=(l,n,sub,tag,c)=>`<div class="prow"><span class="av" style="background:${c||'#b9c2bd'}">${l}</span><div>${n}<small>${sub}</small></div><b style="color:${tag==='invité'?'#8a5a00':'var(--accent)'};font-weight:600">${tag}</b></div>`;
+H+=scr(20,'＋ Buddy Group : inviter ses copains','Une photo, un nom, et on invite des gens qu\'on connaît : depuis ses contacts, par mail, par téléphone (SMS), ou en montrant un QR code. Pas d\'annuaire : on ne cherche pas parmi les utilisateurs de Mountain Buddies.',
+`<div class="left"><div class="ttl"><span class="back">‹</span><h1>Nouveau Buddy Group</h1></div>
+<div style="padding:2px 6px 0 14px;display:flex;flex-direction:column;gap:11px">
+<div class="bigph">📷</div>
+<div class="txt" style="font-weight:700;text-align:center">Ski du dimanche</div>
+<div class="dayh">Inviter mes copains</div>
+<div class="inv"><div><b>📇</b>Contacts</div><div><b>✉️</b>Mail</div><div><b>📱</b>Téléphone</div><div><b>🔳</b>QR code</div></div>
+<div class="dayh">Dans la bande<small>4 buddies</small></div>
+${invd('S','Seb (toi)','crée le groupe','',C.S)}
+${invd('J','Julie Martin','06 12 •• •• 34','invitée par SMS')}
+${invd('L','Luc','luc.b@exemple.fr','invité par mail')}
+${invd('N','Nico','depuis tes contacts','invité par SMS')}
+<p class="hint">Ils reçoivent un lien : il installe l'appli et les fait entrer dans le groupe.</p>
+</div><div style="flex:1"></div><div style="padding:0 6px 16px 14px"><div class="btn" style="padding:15px;font-size:16px">Créer le Buddy Group</div></div></div>${rail('',{flat:1})}`);
+// 21
+H+=scr(21,'＋ Buddy Time : on part','On le crée quand c\'est décidé. Une photo, un nom, les dates, et c\'est tout. Créé dans un Buddy Group, il va dans ce groupe sans rien demander : on décoche juste ceux qui ne viennent pas. Créé depuis l\'écran Buddies, il va dans Me Time, où l\'on peut inviter un copain ou deux.',
+`<div class="left"><div class="ttl"><span class="back">‹</span><h1>Nouveau Buddy Time</h1></div>
+<div style="padding:2px 6px 0 14px;display:flex;flex-direction:column;gap:11px">
+<div class="hero" style="margin:0;height:120px">${sc('snow')}<div class="shade"></div><span class="chip">📷 Changer</span><div class="tx"><b>Week-end Queyras</b></div></div>
+<div class="dayh">Quand</div>
+<div style="display:flex;gap:8px"><div class="pay" style="flex:1">du&nbsp;<b style="margin:0">sam. 12 déc.</b></div><div class="pay" style="flex:1">au&nbsp;<b style="margin:0">dim. 13 déc.</b></div></div>
+<div class="dayh">Avec qui</div>
+<div class="pay"><span class="ibg"><span style="background:#3f6fb5"></span><span style="background:#c48a1f"></span><span style="background:#8a4fb5"></span></span> Ski du dimanche <b style="font-weight:400;color:var(--muted)">4 sur 6</b></div>
+<div style="display:flex;gap:10px;justify-content:space-between">${[['S',1],['J',1],['L',1],['N',1],['E',0],['P',0]].map(([l,on])=>`<span style="text-align:center;font-size:11px;color:var(--muted);opacity:${on?1:.4}">${av(l)}<br>${on?'✓':'—'}</span>`).join('')}</div>
+<div class="dayh">Où<small>facultatif</small></div>
+<div class="pay">📍 Ceillac, Queyras <b style="font-weight:400;color:var(--muted)">sur la carte ›</b></div>
+</div><div style="flex:1"></div><div style="padding:0 6px 16px 14px"><div class="btn" style="padding:15px;font-size:16px">Créer le Buddy Time</div></div></div>${rail('',{flat:1})}`);
+// 22
+H+=scr(22,'Mes traces : partager avec mes buddies','Hors des Buddies : l\'icône de partage d\'une trace. D\'abord les Buddy Times où il y a de l\'activité : la trace s\'y range et apparaît sur leur carte. Puis les visages avec qui tu échanges le plus (copains et Buddy Groups mélangés) : un toucher pour cocher, un bouton pour envoyer. Pas besoin d\'avoir un groupe. En dessous, le partage habituel vers les autres applis.',
+`${map(1)}<div class="rail"><b class="t">✕</b><b style="width:56px;height:56px;font-size:28px">▸</b><b>✏</b><b>⛰</b><b>⛷</b></div>
+<div class="panel" style="right:0;height:560px;z-index:6"><h2>Partager « Col Girardin » <small>14 km · +1 150 m</small></h2>
+<div class="dayh">Dans un Buddy Time<small>les plus actifs</small></div>
+<div style="display:flex;gap:8px">${[['snow','Week-end Queyras','12','DÉC',1],['rock','Sainte-Victoire','29','NOV',0],['hut','Refuge du Viso','18','OCT',0]].map(([k,n,d,m,on])=>`<div style="flex:1;border-radius:12px;overflow:hidden;position:relative;height:84px;${on?'box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent)':''}">${sc(k).replace('<svg','<svg style="width:100%;height:100%"')}<span style="position:absolute;inset:0;background:linear-gradient(#0000 30%,#000b)"></span><span style="position:absolute;left:6px;right:6px;bottom:5px;color:#fff;font-size:11px;font-weight:700;line-height:1.1">${n}</span><span class="day" style="position:absolute;left:5px;top:5px;background:#fff;border-radius:7px;font-size:11px;font-weight:800;padding:1px 5px;line-height:1.15;text-align:center"><u style="display:block;text-decoration:none;font-size:8px;color:var(--warm)">${m}</u>${d}</span>${on?'<span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff">✓</span>':''}</div>`).join('')}</div>
+<div class="dayh">Ou à mes buddies</div>
+<div class="fav"><div class="sel">${av('J')}<br>Julie</div><div><span class="ph">${sc('dusk')}</span>Ski dim.</div><div class="sel">${av('L')}<br>Luc</div><div>${av('N')}<br>Nico</div><div><span class="ph">${sc('sea')}</span>Calanq.</div><div><span class="av" style="background:var(--card);color:var(--muted)">⋯</span><br>Tous</div></div>
+<div class="compose"><div>Un petit mot (facultatif)…</div><b>🎤</b></div>
+<div class="btn" style="padding:14px;font-size:16px">Partager</div>
+<div class="dayh">Ou ailleurs</div>
+<div class="inv"><div><b style="background:#25d366;color:#fff">✆</b>WhatsApp</div><div><b>✉️</b>Mail</div><div><b>📄</b>Fichier GPX</div><div><b>⋯</b>Autres</div></div></div>`);
+// 23
+H+=scr(23,'🏨 Partager un hébergement','Le même panneau partout : depuis la recherche d\'hébergement (ou un point sur la carte, une photo), on range l\'hébergement dans un Buddy Time, ou on l\'envoie à un Buddy Group ou à un buddy. Dans un Buddy Time, il rejoint la liste « Où on dort ? ».',
+`${map(0)}<div class="pin" style="left:250px;top:200px;background:var(--accent)">🏨</div><div class="rail"><b class="t">✕</b><b style="width:56px;height:56px;font-size:28px">◂</b><b>👥</b><b>👤</b><b class="on">🏨</b></div>
+<div class="panel" style="right:0;height:560px;z-index:6"><div class="lodg" style="border:none;padding:0"><div class="ph">${sc('hut')}</div><div class="t"><b>Gîte Les Baladins</b>Ceillac · 60 € / pers. · demi-pension</div></div>
+<div class="dayh">Dans un Buddy Time<small>les plus actifs</small></div>
+<div style="display:flex;gap:8px">${[['snow','Week-end Queyras','12','DÉC',1],['rock','Sainte-Victoire','29','NOV',0],['hut','Refuge du Viso','18','OCT',0]].map(([k,n,d,m,on])=>`<div style="flex:1;border-radius:12px;overflow:hidden;position:relative;height:84px;${on?'box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent)':''}">${sc(k).replace('<svg','<svg style="width:100%;height:100%"')}<span style="position:absolute;inset:0;background:linear-gradient(#0000 30%,#000b)"></span><span style="position:absolute;left:6px;right:6px;bottom:5px;color:#fff;font-size:11px;font-weight:700;line-height:1.1">${n}</span><span class="day" style="position:absolute;left:5px;top:5px;background:#fff;border-radius:7px;font-size:11px;font-weight:800;padding:1px 5px;line-height:1.15;text-align:center"><u style="display:block;text-decoration:none;font-size:8px;color:var(--warm)">${m}</u>${d}</span>${on?'<span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff">✓</span>':''}</div>`).join('')}</div>
+<div class="dayh">Ou à mes buddies</div>
+<div class="fav"><div class="sel">${av('J')}<br>Julie</div><div><span class="ph">${sc('dusk')}</span>Ski dim.</div><div class="sel">${av('L')}<br>Luc</div><div>${av('N')}<br>Nico</div><div><span class="ph">${sc('sea')}</span>Calanq.</div><div><span class="av" style="background:var(--card);color:var(--muted)">⋯</span><br>Tous</div></div>
+<div class="compose"><div>Un petit mot (facultatif)…</div><b>🎤</b></div>
+<div class="btn" style="padding:14px;font-size:16px">Partager</div>
+<div class="dayh">Ou ailleurs</div>
+<div class="inv"><div><b style="background:#25d366;color:#fff">✆</b>WhatsApp</div><div><b>✉️</b>Mail</div><div><b>💬</b>SMS</div><div><b>⋯</b>Autres</div></div></div>`);
+// 24
+H+=scr(24,'💬 📞 Parler ou écrire en regardant la carte','La messagerie se réduit à un bandeau : la carte garde l\'écran pour étudier une trace ensemble, au téléphone ou par écrit. Une trace ou un hébergement partagé apparaît sur la carte de l\'autre ET reste dans la conversation, en carte cliquable, pour la retrouver plus tard.',
+`${map(1)}<div class="pin" style="left:250px;top:200px">🏨</div>
+<div class="pill" style="background:#1f4d36;color:#fff"><span class="back" style="background:#2f9e5f;color:#fff;font-size:17px">📞</span><div style="flex:1"><b>En ligne · 3:12</b><span style="color:#cfe6d9">Julie parle… · Luc</span></div><span style="font-size:18px;margin-right:6px">🔇</span><span class="back" style="background:#d93025;color:#fff;font-size:15px">✕</span></div>
+<div style="position:absolute;left:44px;top:150px;background:#fff;border-radius:12px;box-shadow:0 1px 6px #0005;padding:6px 10px;font-size:13px;z-index:2;display:flex;gap:6px;align-items:center">${av('J','" style="width:22px;height:22px;font-size:10px;background:'+C.J)} <span><b>Julie te montre</b> Col Girardin</span></div>
+${rail('chat',{extra:1})}
+<div class="panel" style="gap:7px"><div class="msgs">
+<div class="m obj" style="max-width:100%"><span>〰️</span><div><b>Col Girardin par Ceillac</b><small>Julie · 14 km · +1 150 m · affichée sur la carte ✓</small></div></div>
+<div class="m obj" style="max-width:100%"><span>🏨</span><div><b>Gîte Les Baladins</b><small>Seb · 60 € / pers. · voir sur la carte</small></div></div>
+<div class="m"><u style="color:${C.L}">Luc</u>La descente côté nord, ça passe ?</div>
+</div>
+<div class="compose"><b>📷</b><b>📍</b><div>Message</div><b>🎤</b></div></div>`);
+document.body.innerHTML=H;
+</script></body></html>
