@@ -56,9 +56,9 @@ import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, lineKey, nextJunctionM, prefetchWays, wayRunsFor } from './trails/junctions';
 import { wayRunLines, type WayRun } from './trails/wayTypes';
-import { ACTIVITY_ICON, loadActivity, saveActivity, type Activity } from './activity';
+import { ACTIVITY_ICON, isBike, loadActivity, saveActivity, type Activity } from './activity';
 import { C2cPanel } from './C2cPanel';
-import { fetchLines, type C2cActivity, type C2cRoute } from './topos/c2c';
+import { fetchLines, type Bike, type C2cActivity, type C2cRoute } from './topos/c2c';
 import { fetchVgpxSheet } from './topos/visugpx';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
@@ -222,12 +222,13 @@ export function App() {
   const [drawnProfile, setDrawnProfile] = useState(false);
   /** ⛷ ski de rando / 🚵 VTT (appui long sur ⛷ pour basculer), et 🚵 type de chemin le long de la trace choisie. */
   const [activity, setActivityState] = useState<Activity>(loadActivity);
-  const vtt = activity === 'vtt';
+  /** Modes vélo (🚵 VTT, 🚴 route, 🚲 gravel) : durée à vélo, pente d'abord en %. */
+  const vtt = isBike(activity);
   const setActivity = (a: Activity) => { setActivityState(a); saveActivity(a); setWayTypesOn(a !== 'ski'); };
   // Coche « Type de chemin » du menu de la trace (Seb) : cochée d'office en 🚵 et 🥾, absente en ⛷.
   const [wayTypesOn, setWayTypesOn] = useState(() => loadActivity() !== 'ski');
   // 🥾 / 🚵 Itinéraires Camptocamp de l'écran : liste ou carte (tracés des plus proches, façon Komoot), fiche touchée.
-  const [c2c, setC2c] = useState<{ act: C2cActivity; bbox: [number, number, number, number]; center: LonLat } | null>(null);
+  const [c2c, setC2c] = useState<{ act: C2cActivity; bike?: Bike; bbox: [number, number, number, number]; center: LonLat } | null>(null);
   const [c2cRoutes, setC2cRoutes] = useState<C2cRoute[]>([]);
   const [c2cLines, setC2cLines] = useState<{ id: number; line: LonLat[] }[]>([]);
   const [c2cMap, setC2cMap] = useState(false);
@@ -248,12 +249,12 @@ export function App() {
       .then((found) => setTrails((prev) => [...prev.filter((x) => isMine(x.id)), ...found])).catch(() => {});
     return () => ctrl.abort();
   }, [c2c, c2cMap]);
-  const openC2c = (act: C2cActivity) => {
+  const openC2c = (act: C2cActivity, bike?: Bike) => {
     if (!map) return;
     const b = map.getBounds(), c = map.getCenter();
     setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiText(false); setSkiOn(false);
     setC2cRoutes([]); setC2cLines([]); setC2cMap(false); setC2cPick(null);
-    setC2c({ act, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], center: { lon: c.lng, lat: c.lat } });
+    setC2c({ act, bike, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], center: { lon: c.lng, lat: c.lat } });
   };
   const closeC2c = () => { setC2c(null); setC2cRoutes([]); setC2cLines([]); setC2cMap(false); setC2cPick(null); };
   /** Types de chemin de la trace choisie, repérée par son empreinte (les numéros des traces sont réutilisés). */
@@ -1149,11 +1150,13 @@ export function App() {
         activity={activity} onActivity={(a) => {
           setActivity(a); closeC2c();
           setToast(a === 'vtt' ? '🚵 Mode VTT : itinéraires VTT, durée à vélo, pente en %, type de chemin des traces'
+            : a === 'route' ? '🚴 Mode vélo de route : circuits VisuGPX, durée à vélo, pente en %'
+            : a === 'gravel' ? '🚲 Mode gravel : circuits VisuGPX, durée à vélo, pente en %, type de chemin des traces'
             : a === 'rando' ? '🥾 Mode rando : toutes les randos de l’écran (Camptocamp, VisuGPX)' : '⛷ Mode ski de rando : sorties skitour');
         }}
-        onTopos={() => openC2c(activity === 'vtt' ? 'mountain_biking' : 'hiking')}
+        onTopos={() => openC2c(isBike(activity) ? 'mountain_biking' : 'hiking', isBike(activity) ? activity as Bike : undefined)}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
-      {c2c && <C2cPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} act={c2c.act} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} pick={c2cPick}
+      {c2c && <C2cPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} act={c2c.act} bike={c2c.bike} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} pick={c2cPick}
         hidden={c2cMap} onMap={() => setC2cMap(true)} onClose={closeC2c}
         onShowLine={(sh) => {
           closeC2c();
@@ -1319,7 +1322,7 @@ export function App() {
                   <div><b>{formatKm(selected.distanceM)}</b><span>distance</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.gainM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D+</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.lossM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D−</span></div>
-                  <div><b>{typeof elevated === 'object' && elevated ? formatHours(vtt ? bikeHours(selected.distanceM, elevated.gainM) : walkingHours(selected.distanceM, elevated.gainM, elevated.lossM)) : elevated === 'loading' ? '…' : '—'}</b><span>{vtt ? 'à VTT' : 'marche'}</span></div>
+                  <div><b>{typeof elevated === 'object' && elevated ? formatHours(vtt ? bikeHours(selected.distanceM, elevated.gainM) : walkingHours(selected.distanceM, elevated.gainM, elevated.lossM)) : elevated === 'loading' ? '…' : '—'}</b><span>{vtt ? 'à vélo' : 'marche'}</span></div>
                 </div>
                 {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} cursor={profCursor} onCursor={setProfCursor} pctFirst={vtt} />}
                 {elevated === 'error' && <p className="hint">Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude.</p>}

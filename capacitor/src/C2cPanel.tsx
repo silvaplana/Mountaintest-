@@ -7,11 +7,6 @@ import { fetchVgpx, fetchVgpxSheet, savedVgpxSheet, VGPX_ATTRIBUTION, vgpxLink }
 const km = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 const LIST_KEY = (act: C2cActivity) => `c2cListe:${act}`;
 const VGPX_KEY = (act: C2cActivity) => `vgpxListe:${act}`;
-/** 🚵 Filtre vélo : les itinéraires Camptocamp VTT comptent comme VTT. */
-const BIKES: { k: Bike | 'tout'; label: string }[] = [
-  { k: 'tout', label: 'Tout' }, { k: 'vtt', label: '🚵 VTT' }, { k: 'route', label: '🚴 Route' }, { k: 'gravel', label: '🚲 Gravel' },
-];
-const BIKE_NAME: Record<Bike, string> = { vtt: 'VTT', route: 'Vélo de route', gravel: 'Gravel' };
 
 /** Ligne d'infos d'un itinéraire : cotation, dénivelé, longueur, altitude max. */
 export function routeInfo(r: C2cRoute) {
@@ -26,9 +21,11 @@ export function routeInfo(r: C2cRoute) {
  * « 🗺 Sur la carte » ajoute le tracé à Mes traces (profil, type de chemin, ▶ Commencer, 📶 Hors ligne).
  * Les circuits VisuGPX (par le relais du VPS, qui garde la clé) s'ajoutent à la même liste, marqués « VisuGPX ».
  */
-export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap, hidden, onClose, password }: {
+export function C2cPanel({ act, bike, bbox, center, onRoutes, pick, onShowLine, onMap, hidden, onClose, password }: {
   /** Mot de passe du relais (circuits VisuGPX). */
   password: string;
+  /** Mode vélo : 🚵 VTT (Camptocamp + VisuGPX), 🚴 route ou 🚲 gravel (VisuGPX seulement). */
+  bike?: Bike;
   act: C2cActivity;
   /** Cadre de l'écran affiché quand le panneau s'ouvre, et son centre (tri par distance). */
   bbox: [number, number, number, number]; center: LonLat;
@@ -40,8 +37,10 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
   /** 🗺 à droite du titre : les itinéraires tracés sur la carte (le panneau se cache). */
   onMap: () => void; hidden: boolean;
 }) {
-  const icon = act === 'hiking' ? '🥾' : '🚵';
-  const what = act === 'hiking' ? 'Randos' : 'Itinéraires VTT';
+  const icon = act === 'hiking' ? '🥾' : bike === 'route' ? '🚴' : bike === 'gravel' ? '🚲' : '🚵';
+  const what = act === 'hiking' ? 'Randos' : bike === 'route' ? 'Vélo de route' : bike === 'gravel' ? 'Gravel' : 'Itinéraires VTT';
+  /** Camptocamp n'a pas de vélo de route ni de gravel : VisuGPX seul dans ces modes. */
+  const withC2c = !bike || bike === 'vtt';
   const [routes, setRoutes] = useState<C2cRoute[] | null>(null);
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(true);
@@ -51,11 +50,11 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
   const [sheetMsg, setSheetMsg] = useState('');
   const [vgpx, setVgpx] = useState<C2cRoute[] | null>(null);
   const [vgpxMsg, setVgpxMsg] = useState('');
-  const [bike, setBike] = useState<Bike | 'tout'>('tout');
 
   useEffect(() => {
     let live = true;
     setBusy(true); setError(''); setOffline(false);
+    if (!withC2c) { setRoutes(null); setBusy(false); return; }
     fetchRoutes(bbox, act).then((r) => {
       if (!live) return;
       setRoutes(r);
@@ -69,7 +68,7 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
       setError(`Camptocamp injoignable (pas de réseau ?) : ${(e as Error).message}`);
     }).finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
-  }, [bbox, act]);
+  }, [bbox, act]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let live = true;
     setVgpx(null); setVgpxMsg('');
@@ -92,9 +91,9 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
     return byDistance((all ?? []).filter((r) => (!t || r.title.toLowerCase().includes(t))
-      && (bike === 'tout' || (r.src ? r.bike : 'vtt') === bike)), center);
+      && (!bike || (r.src ? r.bike : 'vtt') === bike)), center);
   }, [all, q, center, bike]);
-  // Sur la carte, seulement ceux de la puce choisie (🚵 VTT, 🚴 Route, 🚲 Gravel).
+  // Sur la carte, seulement ceux du mode (🚵 VTT, 🚴 route, 🚲 gravel).
   useEffect(() => onRoutes(rows.map((x) => x.r)), [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (r: C2cRoute) => {
@@ -142,8 +141,6 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
       <div className="travel-head"><b className="ski-head-title">{icon} {what}
         <button className="ski-map-btn" onClick={onMap} aria-label="Itinéraires tracés sur la carte">🗺</button></b>
         <button className="close" onClick={onClose} aria-label="Fermer">✕</button></div>
-      {act === 'mountain_biking' && <div className="tabs bike-tabs">{BIKES.map((b) => (
-        <button key={b.k} className={bike === b.k ? 'active' : ''} onClick={() => setBike(b.k)}>{b.label}</button>))}</div>}
       <input type="search" placeholder="Chercher un nom" value={q} onChange={(e) => setQ(e.target.value)} />
       {busy && <p className="hint">Recherche des itinéraires de l'écran…</p>}
       {error && <p className="error">{error}</p>}
@@ -156,7 +153,7 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
           {rows.map(({ r, d }) => (
             <tr key={r.id} onClick={() => open(r)}>
               <td>{km(d)}</td>
-              <td><b>{r.title}</b><br /><small>{[r.src ? 'VisuGPX' : 'Camptocamp', r.bike && act === 'mountain_biking' ? BIKE_NAME[r.bike] : '', routeInfo(r)].filter(Boolean).join(' · ')}</small></td>
+              <td><b>{r.title}</b><br /><small>{[r.src ? 'VisuGPX' : 'Camptocamp', routeInfo(r)].filter(Boolean).join(' · ')}</small></td>
             </tr>
           ))}
         </tbody>
