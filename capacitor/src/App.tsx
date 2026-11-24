@@ -57,7 +57,7 @@ import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, lineKey, nextJunctionM, prefetchWays, wayRunsFor } from './trails/junctions';
 import { wayRunLines, type WayRun } from './trails/wayTypes';
 import { ACTIVITY_ICON, isBike, loadActivity, saveActivity, type Activity } from './activity';
-import { C2cPanel } from './C2cPanel';
+import { C2cPanel, isCovered } from './C2cPanel';
 import { fetchLines, type Bike, type C2cActivity, type C2cRoute } from './topos/c2c';
 import { fetchOtherSheet, srcLabel } from './topos/sources';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
@@ -232,6 +232,9 @@ export function App() {
   const [c2cLines, setC2cLines] = useState<{ id: number; line: LonLat[] }[]>([]);
   const [c2cMap, setC2cMap] = useState(false);
   const [c2cPick, setC2cPick] = useState<{ id: number } | null>(null);
+  /** « 🔍 Rechercher ici » : cadre de la carte affichée, et recherche en cours. */
+  const [c2cView, setC2cView] = useState<[number, number, number, number] | null>(null);
+  const [c2cLoading, setC2cLoading] = useState(false);
   useEffect(() => {
     if (!c2c || !c2cMap || !c2cRoutes.length) return;
     const sig = { stop: false };
@@ -360,6 +363,20 @@ export function App() {
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
   const [map, setMap] = useState<MlMap | null>(null);
+  // Itinéraires sur la carte : on suit les déplacements pour proposer « 🔍 Rechercher ici » hors de la zone cherchée.
+  useEffect(() => {
+    if (!map || !c2c || !c2cMap) { setC2cView(null); return; }
+    const seen = () => { const b = map.getBounds(); setC2cView([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]); };
+    seen();
+    map.on('moveend', seen);
+    return () => { map.off('moveend', seen); };
+  }, [map, c2c, c2cMap]);
+  const searchHere = () => {
+    if (!map || !c2c) return;
+    const b = map.getBounds(), c = map.getCenter();
+    setC2cPick(null);
+    setC2c({ ...c2c, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], center: { lon: c.lng, lat: c.lat } });
+  };
   /** Centre la carte sur un point (départ ou sommet d'une sortie), après le cadrage automatique de la sortie. */
   const flyTo = (at?: [number, number]) => { if (at) window.setTimeout(() => map?.flyTo({ center: at, zoom: Math.max(map.getZoom(), 14) }), 700); };
   const [camBench, setCamBench] = useState<CameraBenchResult | 'running' | null>(null);
@@ -1151,7 +1168,7 @@ export function App() {
             : a === 'rando' ? '🥾 Mode rando : toutes les randos de l’écran (Camptocamp, VisuGPX, Geotrek)' : '⛷ Mode ski de rando : sorties skitour');
         }}
         onTopos={() => openC2c(isBike(activity) ? 'mountain_biking' : 'hiking', isBike(activity) ? activity as Bike : undefined)} />}
-      {c2c && <C2cPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} act={c2c.act} bike={c2c.bike} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} pick={c2cPick}
+      {c2c && <C2cPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} act={c2c.act} bike={c2c.bike} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} onLoading={setC2cLoading} pick={c2cPick}
         hidden={c2cMap} onMap={() => setC2cMap(true)} onClose={closeC2c}
         onShowLine={(sh) => {
           closeC2c();
@@ -1163,6 +1180,11 @@ export function App() {
         <button onClick={() => setC2cMap(false)}>☰ Liste</button>
         <button className="close" onClick={closeC2c} aria-label="Fermer les itinéraires">✕</button>
       </div>}
+      {c2c && c2cMap && (() => {
+        const fresh = !!c2cView && !isCovered(c2c.bbox, c2cView);
+        return <button className={`search-here${c2cLoading ? ' loading' : ''}`} disabled={!fresh || c2cLoading} onClick={searchHere}>
+          {c2cLoading ? '🔍 Recherche…' : '🔍 Rechercher ici'}</button>;
+      })()}
       {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel} hidden={!!skiSheet}
         onSheet={(o) => setSkiSheet(rowOf(o))} onMode={skiMode}

@@ -51,6 +51,17 @@ export function searchArea(b: [number, number, number, number], withC2c: boolean
     .filter(Boolean).join(' · ');
 }
 
+type Box = [number, number, number, number];
+/**
+ * « 🔍 Rechercher ici » (façon Komoot) : la carte montre-t-elle encore la zone déjà cherchée ?
+ * Non dès que le centre sort du rectangle cherché, ou qu'on a assez dézoomé pour voir plus du double de sa surface.
+ */
+export function isCovered(searched: Box, view: Box) {
+  const cx = (view[0] + view[2]) / 2, cy = (view[1] + view[3]) / 2;
+  const area = (b: Box) => (b[2] - b[0]) * (b[3] - b[1]);
+  return cx >= searched[0] && cx <= searched[2] && cy >= searched[1] && cy <= searched[3] && area(view) <= 2 * area(searched);
+}
+
 /** Ligne d'infos d'un itinéraire : cotation, dénivelé, longueur, altitude max. */
 export function routeInfo(r: C2cRoute) {
   return [r.rating, r.heightUpM != null ? `D+ ${r.heightUpM} m` : '', r.lengthM ? km(r.lengthM) : '',
@@ -65,7 +76,9 @@ export function routeInfo(r: C2cRoute) {
  * Les circuits VisuGPX (par le relais du VPS, qui garde la clé) et les itinéraires Geotrek (parcs, départements)
  * s'ajoutent à la même liste, présentés pareil et marqués de leur source (« VisuGPX », « Geotrek · Écrins »).
  */
-export function C2cPanel({ act, bike, bbox, center, onRoutes, pick, onShowLine, onMap, hidden, onClose, password }: {
+export function C2cPanel({ act, bike, bbox, center, onRoutes, onLoading, pick, onShowLine, onMap, hidden, onClose, password }: {
+  /** Recherche en cours (toutes sources) : le bouton « Rechercher ici » de la carte clignote. */
+  onLoading?: (loading: boolean) => void;
   /** Mot de passe du relais (VisuGPX, Geotrek). */
   password: string;
   /** Mode vélo : 🚵 VTT (Camptocamp, VisuGPX, Geotrek), 🚴 route ou 🚲 gravel (VisuGPX, Geotrek). */
@@ -124,6 +137,8 @@ export function C2cPanel({ act, bike, bbox, center, onRoutes, pick, onShowLine, 
     const t = q.trim().toLowerCase();
     return byDistance(ofMode.filter((r) => (!t || r.title.toLowerCase().includes(t)) && !hiddenSrc.includes(srcKey(r))), center);
   }, [ofMode, q, center, hiddenSrc]);
+  const loading = busy || vgpx == null || geotrek == null;
+  useEffect(() => onLoading?.(loading), [loading]); // eslint-disable-line react-hooks/exhaustive-deps
   // Sur la carte, seulement ceux du mode (🚵 VTT, 🚴 route, 🚲 gravel).
   useEffect(() => onRoutes(rows.map((x) => x.r)), [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
