@@ -1,6 +1,5 @@
 /**
  * Aide en ligne des icônes de la carte : un appui long sur une icône affiche sa bulle.
- * Mêmes textes côté Kotlin (kotlin-natif/.../IconHelp.kt) : les garder identiques.
  */
 export type IconKey =
   | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'

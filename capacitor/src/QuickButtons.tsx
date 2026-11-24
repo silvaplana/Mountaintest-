@@ -57,7 +57,7 @@ export interface QuickProps {
   traceState: 'none' | 'run' | 'pause';
 }
 
-const ACTIVITY_LABEL: Record<Activity, string> = { ski: 'Sorties ski', vtt: 'Itinéraires VTT', rando: 'Randos' };
+const ACTIVITY_LABEL: Record<Activity, string> = { ski: 'Sorties ski', vtt: 'Itinéraires VTT', route: 'Circuits vélo de route', gravel: 'Circuits gravel', rando: 'Randos' };
 
 /** Icône « double tap pour allumer l'écran » (maquette B) : un doigt qui tape, deux ondes, « ×2 » en rouge. Même dessin côté Kotlin : ic_double_tap.xml. */
 export const DoubleTapIcon = ({ size = 34 }: { size?: number }) => (

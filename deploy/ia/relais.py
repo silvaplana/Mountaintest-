@@ -1653,7 +1653,8 @@ class Relais(BaseHTTPRequestHandler):
         try:
             d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)) or b"{}")
             if liste:
-                act = {"vtt": "vtt", "rando": "rp"}.get(str(d.get("activite")), "")
+                # 🚵 : VTT, vélo de route (cyclotourisme) et gravel ensemble ; l'appli filtre.
+                act = {"vtt": "vtt,vr,vg", "rando": "rp"}.get(str(d.get("activite")), "")
                 la, lo = float(d["lat"]), float(d["lon"])
                 if not act or not (-90 <= la <= 90 and -180 <= lo <= 180):
                     raise ValueError("demande invalide")

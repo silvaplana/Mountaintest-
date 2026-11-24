@@ -9,6 +9,7 @@ import type { LonLat } from '../trails/osmTrails';
 export const C2C_API = 'https://api.camptocamp.org';
 export const C2C_ATTRIBUTION = '© contributeurs Camptocamp (CC BY-SA)';
 export type C2cActivity = 'hiking' | 'mountain_biking';
+export type Bike = 'vtt' | 'route' | 'gravel';
 
 export interface C2cRoute {
   id: number; title: string; summary: string;
@@ -20,6 +21,8 @@ export interface C2cRoute {
   durations: string[];
   /** Circuit VisuGPX (visugpx.ts) : son identifiant et sa description ; sinon itinéraire Camptocamp. */
   src?: 'visugpx'; vid?: string; vdesc?: string;
+  /** 🚵 Nature du circuit VisuGPX : VTT, vélo de route ou gravel (filtre de la liste). */
+  bike?: Bike;
 }
 
 export interface C2cSheet extends C2cRoute { description: string; line: LonLat[] }
