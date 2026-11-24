@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { nomAffiche } from '../compte/auth';
 import { Image } from './Album';
 import { dates, Natif, Visage } from './Buddies';
+import { Onde, useDictee } from './Dictee';
 import {
   carnetDe, chiffres, choixPhotos, duree, fiches as fichesDe, joursDe, km, lireDuree, lireKm, lireMetres, metres, relief, reliefGarde,
   texteCarnet, tracesDuCarnet, type FicheAffichee, type Relief, type TraceCarnet,
@@ -158,34 +159,6 @@ function FicheJour({ f, photos }: { f: FicheAffichee; photos: PhotoBuddy[] }) {
 
 // ------------------------------------------------------------------ écrire le carnet (écran 14)
 
-type SR = { lang: string; continuous: boolean; interimResults: boolean; start(): void; stop(): void;
-  onresult: ((ev: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null; onend: (() => void) | null };
-const Reconnaissance = (window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR }).SpeechRecognition
-  ?? (window as unknown as { webkitSpeechRecognition?: new () => SR }).webkitSpeechRecognition;
-
-/** Dictée : le texte est transcrit mot pour mot (téléphone : la dictée d'Android ; navigateur : celle du navigateur). */
-export function useDictee(ajouter: (t: string) => void, onToast: (m: string) => void) {
-  const [ecoute, setEcoute] = useState(false);
-  const sr = useRef<SR | null>(null);
-  const basculer = async () => {
-    if (ecoute) { sr.current?.stop(); return; }
-    if (Capacitor.isNativePlatform()) {
-      setEcoute(true);
-      try { const r = await Natif.dicter(); if (r.texte) ajouter(r.texte); } catch { onToast('Dictée indisponible : touche 🎤 sur le clavier'); }
-      setEcoute(false);
-      return;
-    }
-    if (!Reconnaissance) { onToast('Touche 🎤 sur le clavier pour dicter'); return; }
-    const r = new Reconnaissance();
-    r.lang = 'fr-FR'; r.continuous = true; r.interimResults = false;
-    r.onresult = (ev) => { for (let i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) ajouter(ev.results[i][0].transcript); };
-    r.onend = () => setEcoute(false);
-    sr.current = r; r.start(); setEcoute(true);
-  };
-  useEffect(() => () => sr.current?.stop(), []);
-  return { ecoute, basculer };
-}
-
 type Saisie = { nom: string; depart: string; duree: string; distance: string; denivele: string };
 const versSaisie = (f?: Fiche): Saisie => ({ nom: f?.nom ?? '', depart: f?.depart ?? '', duree: f?.duree != null ? duree(f.duree) : '',
   distance: f?.distance != null ? String(f.distance / 1000).replace('.', ',') : '', denivele: f?.denivele != null ? String(f.denivele) : '' });
@@ -236,6 +209,7 @@ export function EcrireCarnet({ x, traces, onRetour, onClose, onToast }: {
     <textarea className="bd-recit-saisie" rows={6} value={texte} onChange={(e) => setTexte(e.target.value)}
       placeholder="Ce que tu veux raconter : le départ, le temps, les rires du soir…" />
     <button className={`bd-micro${dictee.ecoute ? ' ecoute' : ''}`} onClick={() => void dictee.basculer()} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dicter'}>🎤</button>
+    {dictee.ecoute && <Onde niveau={dictee.niveau} partiel={dictee.partiel} />}
     <p className="hint bd-centre">{dictee.ecoute ? 'Je t’écoute… touche pour arrêter, puis corrige le texte.' : 'Touche le micro et raconte : tes mots sont écrits tels quels.'}</p>
     {jours.map((j, i) => {
       const d = derives.find((f) => f.jour === j), v = saisies[i];

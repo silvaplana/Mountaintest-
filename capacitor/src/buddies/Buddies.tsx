@@ -31,7 +31,12 @@ import {
 
 export const Natif = registerPlugin<{
   pickContact(): Promise<{ nom: string; telephone: string }>;
-  dicter(): Promise<{ texte: string }>;
+  /** 🎤 Dictée dans l'appli (SpeechRecognizer d'Android, sans sa fenêtre) : phrases en cours et finies, niveau du son. */
+  ecouter(): Promise<void>;
+  arreterEcoute(): Promise<void>;
+  addListener(e: 'dictee', f: (x: { texte: string; fini: boolean }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(e: 'dicteeNiveau', f: (x: { niveau: number }) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(e: 'dicteeFin', f: (x: { erreur?: number }) => void): Promise<{ remove: () => Promise<void> }>;
   partager(o: { titre: string; texte: string }): Promise<void>;
   sms(o: { numero: string; texte: string }): Promise<void>;
   mail(o: { adresse: string; sujet: string; texte: string }): Promise<void>;

@@ -83,6 +83,9 @@ COLONNES_AJOUTEES = [
     ("invitations", "acceptee_par", "UUID REFERENCES utilisateurs(id)"),
     ("invitations", "sortie_id", "UUID REFERENCES sorties(id) ON DELETE CASCADE"),
     ("messages_buddies", "bud", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("messages_buddies", "repond_a", "UUID"),
+    ("messages_buddies", "edite_le", "TIMESTAMP WITH TIME ZONE"),
+    ("messages_buddies", "supprime", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 

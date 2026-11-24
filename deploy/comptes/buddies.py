@@ -19,8 +19,8 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, Groupe, Hebergement, Invitation, Membre, MessageBuddy, Participant, Photo, Planning, Position, Recit, Sortie,
-                     TracePartagee, Utilisateur, maintenant)
+from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
+                     Position, ReactionBuddy, Recit, Sortie, TracePartagee, Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -620,17 +620,85 @@ def message(s: Session, u: Utilisateur, op: dict) -> None:
         if p is None or so is None or p.sortie_id != so.id:
             raise Refus("Photo inconnue")
         photo = p.id
+    # Réponse à un message de la même conversation (sinon le rappel est ignoré).
+    cible = s.get(MessageBuddy, uuid.UUID(str(op["repond_a"]))) if op.get("repond_a") else None
+    repond_a = cible.id if cible and (cible.groupe_id, cible.sortie_id) == (None if so else g.id, so.id if so else None) else None
     s.add(MessageBuddy(id=mid, groupe_id=g.id if g else None, sortie_id=so.id if so else None, par=u.id, nature=nature,
-                       texte=texte, lon=lon, lat=lat, photo_id=photo, bud=bool(op.get("bud"))))
+                       texte=texte, lon=lon, lat=lat, photo_id=photo, bud=bool(op.get("bud")), repond_a=repond_a))
+
+
+def message_de(s: Session, u: Utilisateur, mid: Any) -> tuple[MessageBuddy | None, Groupe | None]:
+    """Un message de mes conversations, et le Buddy Group dont les admins peuvent le supprimer (modération)."""
+    m = s.get(MessageBuddy, uuid.UUID(str(mid)))
+    if m is None:
+        return None, None
+    if m.sortie_id:
+        so = sortie_de(s, u, m.sortie_id)
+        return m, s.get(Groupe, so.groupe_id)
+    return m, groupe_de(s, u, m.groupe_id)
+
+
+DELAI_MODIFIER = timedelta(minutes=15)
+
+
+def modifier_message(s: Session, u: Utilisateur, op: dict) -> None:
+    """Modifier : son propre message texte, pendant 15 minutes après l'envoi (comme AppBase)."""
+    m, _ = message_de(s, u, op["message"])
+    if m is None or m.supprime or m.par != u.id or m.bud or m.nature != "texte" or maintenant() - date(iso(m.cree_le)) > DELAI_MODIFIER:
+        raise Refus("Ce message ne peut plus être modifié")
+    texte = str(op.get("texte") or "").strip()[:2000]
+    if not texte:
+        raise Refus("Message vide")
+    if texte != m.texte:
+        m.texte, m.edite_le, m.modifie_le = texte, maintenant(), maintenant()
 
 
 def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
-    m = s.get(MessageBuddy, uuid.UUID(str(op["message"])))
-    if m is None:
+    """Supprimer : chez tous, la bulle devient « Ce message a été supprimé ». Ses messages, ou tous pour un admin
+    du Buddy Group (aussi dans ses Buddy Times)."""
+    m, g = message_de(s, u, op["message"])
+    if m is None or m.supprime:
         return
     if m.par != u.id:
-        raise Refus("On ne retire que ses messages")
-    s.delete(m)
+        mb = membre(s, g.id, u.id) if g else None
+        if mb is None or mb.role != "admin":
+            raise Refus("On ne supprime que ses messages")
+    m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
+    for r in s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id == m.id)):
+        s.delete(r)
+
+
+def reagir(s: Session, u: Utilisateur, op: dict) -> None:
+    """Réaction : une par personne, une autre la remplace, vide la retire."""
+    m, _ = message_de(s, u, op["message"])
+    if m is None or m.supprime:
+        return
+    emoji = str(op.get("emoji") or "").strip()
+    if len(emoji) > 16:
+        raise Refus("Une seule émoji")
+    r = s.get(ReactionBuddy, (m.id, u.id))
+    if r is not None:
+        s.delete(r)
+        s.flush()
+    if emoji:
+        s.add(ReactionBuddy(message_id=m.id, utilisateur_id=u.id, emoji=emoji))
+    m.modifie_le = maintenant()
+
+
+def lu(s: Session, u: Utilisateur, op: dict) -> None:
+    """Conversation lue jusqu'à ce message (heure du serveur) : coches bleues chez les autres."""
+    cle = uuid.UUID(str(op["cle"]))
+    so = s.get(Sortie, cle)
+    if so is not None:
+        sortie_de(s, u, cle)
+    else:
+        groupe_de(s, u, cle)
+    jusqu = min(date(str(op["jusqu"])), maintenant())
+    l = s.get(LectureBuddy, (u.id, cle))
+    if l is None:
+        s.add(LectureBuddy(utilisateur_id=u.id, cle=cle, lu_le=jusqu))
+    elif jusqu > date(iso(l.lu_le)):
+        l.lu_le = jusqu
 
 
 def fichier_photo(pid: uuid.UUID, taille: str) -> str:
@@ -645,7 +713,7 @@ OPERATIONS = {
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
-    "message": message, "retirer_message": retirer_message,
+    "message": message, "retirer_message": retirer_message, "modifier_message": modifier_message, "reagir": reagir, "lu": lu,
 }
 
 
@@ -701,6 +769,11 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     messages = s.scalars(select(MessageBuddy).where(or_(MessageBuddy.groupe_id.in_(gids), MessageBuddy.sortie_id.in_(sids)),
                                                     MessageBuddy.cree_le > debut - GARDE_MESSAGES)
                          .order_by(MessageBuddy.cree_le)).all()
+    reactions: dict[uuid.UUID, list[dict[str, str]]] = {}
+    for r in s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id.in_([m.id for m in messages if neuf(m.modifie_le)]))
+                       .order_by(ReactionBuddy.cree_le)):
+        reactions.setdefault(r.message_id, []).append({"qui": str(r.utilisateur_id), "emoji": r.emoji})
+    lectures = vue_lectures(s, u, gids, sids)
     # Positions : toujours toutes (peu nombreuses), seulement des participants, et oubliées après 48 h.
     positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
                                                 & (Participant.utilisateur_id == Position.utilisateur_id))
@@ -715,7 +788,8 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
             "ids_hebergements": [str(h.id) for h in hebergements],
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
-            "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m) for m in messages if neuf(m.modifie_le)],
+            "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, [])) for m in messages if neuf(m.modifie_le)],
+            "lectures": lectures,
             "positions": [vue_position(x) for x in positions], "appels": appels_en_cours(s, gids, sids), "refus": refus}
 
 
@@ -777,10 +851,27 @@ def vue_hebergement(s: Session, h: Hebergement) -> dict[str, Any]:
             "par": str(h.par), "coeurs": sorted(str(c) for c in coeurs), "cree_le": iso(h.cree_le), "modifie_le": iso(h.modifie_le)}
 
 
-def vue_message(m: MessageBuddy) -> dict[str, Any]:
+def vue_message(m: MessageBuddy, reactions: list[dict[str, str]] | None = None) -> dict[str, Any]:
     return {"id": str(m.id), "groupe": str(m.groupe_id) if m.groupe_id else None, "sortie": str(m.sortie_id) if m.sortie_id else None,
             "par": str(m.par), "nature": m.nature, "texte": m.texte, "lon": m.lon, "lat": m.lat,
-            "photo": str(m.photo_id) if m.photo_id else None, "bud": m.bud, "cree_le": iso(m.cree_le)}
+            "photo": str(m.photo_id) if m.photo_id else None, "bud": m.bud, "cree_le": iso(m.cree_le),
+            "repond_a": str(m.repond_a) if m.repond_a else None, "edite": m.edite_le is not None, "supprime": m.supprime,
+            "reactions": reactions or []}
+
+
+def vue_lectures(s: Session, u: Utilisateur, gids: list, sids: list) -> list[dict[str, Any]]:
+    """Coches des messages (§5.6) : pour chaque buddy de mes conversations, sa dernière synchro (« reçu ») et
+    jusqu'où il a lu chacune (« lu »)."""
+    qui = set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id.in_(gids))))
+    qui |= set(s.scalars(select(Participant.utilisateur_id).where(Participant.sortie_id.in_(sids))))
+    qui.discard(u.id)
+    cles = set(gids) | set(sids)
+    lus: dict[uuid.UUID, dict[str, str | None]] = {}
+    for l in s.scalars(select(LectureBuddy).where(LectureBuddy.utilisateur_id.in_(qui))):
+        if l.cle in cles:
+            lus.setdefault(l.utilisateur_id, {})[str(l.cle)] = iso(l.lu_le)
+    return [{"qui": str(x.id), "vu_le": iso(x.vu_le), "lus": lus.get(x.id, {})}
+            for x in s.scalars(select(Utilisateur).where(Utilisateur.id.in_(qui)))]
 
 
 def vue_position(x: Position) -> dict[str, Any]:

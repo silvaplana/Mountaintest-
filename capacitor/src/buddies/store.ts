@@ -66,7 +66,11 @@ export type MessageBuddy = {
   lon: number | null; lat: number | null; photo: string | null; cree_le: string; attente?: boolean;
   /** 🐻 Réponse de Bud (§5.12), demandée par `par`. */
   bud?: boolean;
+  /** Comme la messagerie d'AppBase : réponse à un message, « modifié », supprimé chez tous, réactions (une par buddy). */
+  repond_a?: string | null; edite?: boolean; supprime?: boolean; reactions?: { qui: string; emoji: string }[];
 };
+/** ✓✓ Un buddy de mes conversations : sa dernière synchro (« reçu ») et jusqu'où il a lu chacune (« lu », bleu). */
+export type Lecture = { qui: string; vu_le: string | null; lus: Record<string, string> };
 /** 📍 Position d'un buddy dans un Buddy Time (§5.9) : son épingle (ms) et sa dernière position. */
 export type Position = {
   sortie: string; qui: string; depuis: number; jusqu: number; lon: number | null; lat: number | null; alt: number | null; prise_le: number | null;
@@ -99,6 +103,8 @@ export type Etat = {
   actionsBud?: Record<string, { faites: ActionBud[]; annule?: boolean }>;
   /** 💬 Dernière lecture de chaque conversation (ms), par identifiant de Buddy Group ou de Buddy Time. */
   lus?: Record<string, number>;
+  /** ✓✓ Ce que les autres ont reçu et lu (d'après la dernière synchro). */
+  lectures?: Lecture[];
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
   envois?: string[];
   curseur?: string;
@@ -227,12 +233,18 @@ export function vue(e: Etat): {
     } else if (op.type === 'message' && !messages.some((m) => m.id === op.message)) {
       messages.push({ id: String(op.message), groupe: (op.groupe as string) ?? null, sortie: (op.sortie as string) ?? null, par: moi,
         nature: op.nature as MessageBuddy['nature'], texte: String(op.texte ?? ''), lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null,
-        photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true, ...(op.bud ? { bud: true } : {}) });
+        photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true, ...(op.bud ? { bud: true } : {}),
+        repond_a: (op.repond_a as string) ?? null, reactions: [] });
     } else if (op.type === 'retirer_sortie') {
       const i = sorties.findIndex((x) => x.id === op.sortie);
       if (i >= 0) sorties.splice(i, 1);
     } else if (op.type === 'retirer_message') {
-      messages = messages.filter((m) => m.id !== op.message);
+      messages = messages.map((m) => m.id === op.message ? { ...m, supprime: true, texte: '', reactions: [], attente: true } : m);
+    } else if (op.type === 'modifier_message') {
+      messages = messages.map((m) => m.id === op.message ? { ...m, texte: String(op.texte), edite: true, attente: true } : m);
+    } else if (op.type === 'reagir') {
+      messages = messages.map((m) => m.id !== op.message ? m
+        : { ...m, reactions: [...(m.reactions ?? []).filter((r) => r.qui !== moi), ...(op.emoji ? [{ qui: moi, emoji: String(op.emoji) }] : [])] });
     } else if (op.type === 'recit' || op.type === 'fiche' || op.type === 'carnet') {
       const k = sorties.findIndex((y) => y.id === op.sortie);
       if (k < 0) continue;
@@ -507,14 +519,15 @@ export function proposerHebergement(sorties: string[], h: { nom: string; nature:
     url: /^https?:\/\//.test(h.url) ? h.url.slice(0, 500) : '' })));
 }
 /** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
-export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string; bud?: boolean }) {
+export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string; bud?: boolean;
+  repond_a?: string }) {
   const texte = (m.texte ?? '').trim().slice(0, 2000);
   const nature = m.nature ?? 'texte';
   if (nature === 'texte' && !texte) return '';
   const message = uuid();
   ajouter({ type: 'message', message, ...(dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe }), nature, texte,
     ...(m.lon != null && m.lat != null ? { lon: Math.round(m.lon * 1e6) / 1e6, lat: Math.round(m.lat * 1e6) / 1e6 } : {}),
-    ...(m.photo ? { photo: m.photo } : {}), ...(m.bud ? { bud: true } : {}) });
+    ...(m.photo ? { photo: m.photo } : {}), ...(m.bud ? { bud: true } : {}), ...(m.repond_a ? { repond_a: m.repond_a } : {}) });
   return message;
 }
 /** Annuler un Buddy Time qu'on vient de créer (le serveur refuse s'il a déjà servi). */
@@ -523,9 +536,28 @@ export const retirerSortie = (sortie: string) => ajouter({ type: 'retirer_sortie
 export function noterActionsBud(message: string, faites: ActionBud[], annule = false) {
   ecrire({ ...lire(), actionsBud: { ...lire().actionsBud, [message]: { faites, annule } } });
 }
+/** Supprimer : chez tous, « Ce message a été supprimé ». */
 export const retirerMessage = (message: string) => ajouter({ type: 'retirer_message', message });
-/** Conversation lue jusqu'à maintenant. */
-export function marquerLu(cle: string, t = Date.now()) { ecrire({ ...lire(), lus: { ...lire().lus, [cle]: t } }); }
+/** Modifier son message, 15 minutes après l'envoi au plus (le serveur refuse après). */
+export const modifierMessage = (message: string, texte: string) => ajouter({ type: 'modifier_message', message, texte: texte.trim().slice(0, 2000) });
+export const DELAI_MODIFIER = 15 * 60_000;
+/** Réagir (une émoji par buddy ; null la retire). */
+export const reagir = (message: string, emoji: string | null) => ajouter({ type: 'reagir', message, emoji: emoji ?? '' });
+/** Conversation lue jusqu'à maintenant ; `jusqu` (heure du serveur du dernier message) part aussi aux autres : ✓✓ bleues. */
+export function marquerLu(cle: string, jusqu?: string) {
+  ecrire({ ...lire(), lus: { ...lire().lus, [cle]: jusqu ? Date.parse(jusqu) : Date.now() } });
+  if (jusqu && cle !== 'me-time') ajouter({ type: 'lu', cle, jusqu });
+}
+/** Coches d'un de mes messages : 🕓 pas parti, ✓ envoyé, ✓✓ reçu par tous, ✓✓ bleues lu par tous. */
+export function statut(m: MessageBuddy, autres: string[], lectures: Lecture[]): 'attente' | 'envoye' | 'recu' | 'lu' {
+  if (m.attente) return 'attente';
+  const t = Date.parse(m.cree_le);
+  const de = autres.map((q) => lectures.find((l) => l.qui === q));
+  if (!de.length || de.some((l) => !l)) return 'envoye';
+  const cle = m.sortie ?? m.groupe ?? '';
+  if (de.every((l) => l!.lus[cle] && Date.parse(l!.lus[cle]) >= t)) return 'lu';
+  return de.every((l) => l!.vu_le && Date.parse(l!.vu_le) >= t) ? 'recu' : 'envoye';
+}
 /** Messages des autres arrivés depuis ma dernière lecture de cette conversation. */
 export function nonLus(e: Etat, cle: string, messages: MessageBuddy[]): number {
   const moi = e.moi ?? 'moi', lu = e.lus?.[cle] ?? 0;
@@ -553,7 +585,7 @@ type Reponse = {
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
   positions?: Position[];
   ids_hebergements?: string[]; hebergements?: Hebergement[];
-  ids_messages?: string[]; messages?: MessageBuddy[];
+  ids_messages?: string[]; messages?: MessageBuddy[]; lectures?: Lecture[];
   appels?: AppelBuddy[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
@@ -591,6 +623,7 @@ export function synchroniser(): Promise<string[]> {
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
         positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [],
+        lectures: r.lectures ?? e.lectures,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour

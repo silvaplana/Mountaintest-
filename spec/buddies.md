@@ -194,7 +194,7 @@ sa gauche, on en choisit une.
   réduit à un bandeau en bas. Une trace ou un hébergement partagé apparaît sur la carte de
   l'autre (« Julie te montre… ») et reste dans la conversation en carte cliquable, pour la
   retrouver plus tard.
-- Envoi d'un geste : photo, point sur la carte, trace, vocal.
+- Envoi d'un geste : photo, point sur la carte, trace, dictée (§7.13).
 - Hors ligne : file d'attente d'envoi (§3.1).
 
 ### 5.7 Appels (écrans 10, 24)
@@ -584,12 +584,39 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   ni hébergement).
 - Ce qui sort de ces règles (un buddy hors du Buddy Time, une date hors du planning…) n'est pas fait : un message le dit.
 
+### 7.13 La messagerie d'AppBase reprise telle quelle (Seb, 24 novembre 2026)
+
+Seb : « il faut vraiment reprendre ma messagerie telle quelle » (`silvaplana/contretemps`, `backend/src/messagerie/`,
+`screens/messagerie/`). On garde ce qui est propre aux Buddies : Bud, traces et hébergements en cartes, carte au-dessus,
+envoi sans réseau. Quatre étapes, une PR chacune :
+
+1. **La discussion** (fait) : appui long (ou clic droit) sur un message, la barre du haut montre le nombre choisi,
+   toucher d'autres bulles les ajoute. **Répondre** (un message ; rappel au-dessus de la saisie, ✕ pour renoncer ;
+   toucher le rappel dans la bulle remonte au message), **Copier**, **Modifier** (son message texte, 15 minutes après
+   l'envoi, « modifié » à côté de l'heure), **Supprimer** (ses messages, ou tous pour un admin du Buddy Group, aussi
+   dans ses Buddy Times ; « Annuler » 10 secondes ; chez tous : « Ce message a été supprimé »), **réagir** (rangée
+   👍 ❤️ 😊 😂 😮 🙏 et + au-dessus du message choisi ; une par buddy, toucher la sienne la retire ; sous la bulle les
+   émojis et leur nombre, les toucher : qui a réagi). Coches sous mes messages : 🕓 pas parti, ✓ envoyé, ✓✓ reçu
+   (tous ont synchronisé depuis), ✓✓ bleues lu (tous l'ont lu). 🙂 : émojis à insérer (ceux d'AppBase, montagne au
+   lieu de danse). Liens cliquables, séparateurs « Aujourd'hui », « Hier », date. Entrée va à la ligne sur téléphone.
+   Serveur : colonnes `repond_a`, `edite_le`, `supprime` de `messages_buddies` ; tables `reactions_buddies` et
+   `lectures_buddies` (jusqu'où chacun a lu chaque conversation) ; opérations `modifier_message`, `reagir`, `lu` ;
+   `retirer_message` garde la bulle (supprimée). « Reçu » = dernière synchro du buddy (`utilisateurs.vu_le`).
+   **🎤 Dictée dans l'appli** (choix de Seb : « Dictée dans l'appli, gratuite ») : plus de fenêtre Google ; l'onde
+   bouge dans la saisie, les mots s'écrivent pendant qu'on parle, ■ pour arrêter (ou deux silences). Android :
+   SpeechRecognizer, hors ligne quand le téléphone a le français. Même dictée pour le récit du carnet.
+2. Discussions à deux entre buddies, liste des discussions (non lus, « en ligne », « écrit… »).
+3. Sondages, fichiers et vidéos, Transférer.
+4. Notifications des nouveaux messages (Firebase, comme la sonnerie des appels).
+
+Pas de message vocal : la messagerie d'AppBase n'en a pas.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**
 - Le vote de dates. **(Seb)**
 - Un annuaire des utilisateurs. **(Seb)**
-- Le détail de la messagerie. **(Seb)** Une version légère est faite au bloc 9 (§7.9).
+- ~~Le détail de la messagerie.~~ Repris d'AppBase (§7.13).
 
 ## 9. Points ouverts
 
