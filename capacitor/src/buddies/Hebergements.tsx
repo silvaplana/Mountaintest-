@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { searchPlaces } from '../search';
-import type { Lodging } from '../Lodging';
+import { LiensSites, type Lodging } from '../Lodging';
 import { Visage } from './Buddies';
 import { lire, mettreCoeur, proposerHebergement, retenirHebergement, retirerHebergement, type Hebergement, type Sortie } from './store';
 
@@ -56,6 +56,7 @@ export function OuOnDort({ x, hebergements, onChercher, onRetour, onClose, onToa
     })}
     {!hs.length && <p className="bd-vide">Pas encore d'idée : cherche un hébergement, puis « Proposer à mes buddies ». Chacun met un ♥, et vous en retenez un.</p>}
     <span style={{ flex: 1 }} />
+    <LiensSites lieu={x.lieu} arrivee={x.debut} nuits={nuits} personnes={x.participants.length} />
     <button className="bd-grand" onClick={onChercher}>🔍 Chercher {hs.length ? "d'autres hébergements" : 'un hébergement'}</button>
   </div>;
 }

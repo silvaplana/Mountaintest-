@@ -12,6 +12,29 @@ const KEY = 'hebergement';
 /** Sites proposés à cocher (on peut en ajouter) : cochés, Claude ne cherche que là ; aucun coché, tout le web. */
 export const SITES = ['gites-refuges.com', 'capverb.org'];
 export const cleanSite = (s: string) => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+/** Ajoute des jours à une date AAAA-MM-JJ. */
+const plusJours = (d: string, n: number) => new Date(Date.parse(d + 'T12:00:00Z') + n * 86_400_000).toISOString().slice(0, 10);
+
+/** Liens tout prêts (lieu, dates, personnes) vers les grands sites : gratuits, prix et dispos en direct sur le site. */
+export function liensSites(lieu: string, arrivee: string, nuits: number, personnes: number) {
+  const l = encodeURIComponent(lieu.trim()), depart = plusJours(arrivee, Math.max(1, nuits)), p = Math.max(1, personnes);
+  return [
+    { nom: 'Booking', url: `https://www.booking.com/searchresults.fr.html?ss=${l}&checkin=${arrivee}&checkout=${depart}&group_adults=${p}&no_rooms=1&group_children=0` },
+    { nom: 'Airbnb', url: `https://www.airbnb.fr/s/${l}/homes?checkin=${arrivee}&checkout=${depart}&adults=${p}` },
+    { nom: 'Abritel', url: `https://www.abritel.fr/search?destination=${l}&startDate=${arrivee}&endDate=${depart}&adults=${p}` },
+  ];
+}
+
+/** Les trois boutons « Voir sur Booking / Airbnb / Abritel ». */
+export function LiensSites({ lieu, arrivee, nuits, personnes }: { lieu: string; arrivee: string; nuits: number; personnes: number }) {
+  if (lieu.trim().length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(arrivee)) return null;
+  return <div className="liens-sites">
+    <small>Voir aussi, prix et dispos en direct :</small>
+    <span>{liensSites(lieu, arrivee, nuits, personnes).map((x) =>
+      <button key={x.nom} onClick={() => window.open(x.url, '_system')}>{x.nom}</button>)}</span>
+  </div>;
+}
+
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
 export function LodgingPanel({ password, onClose, onProposer }: { password: string; onClose: () => void; onProposer?: (h: Lodging) => void }) {
@@ -73,6 +96,7 @@ export function LodgingPanel({ password, onClose, onProposer }: { password: stri
       </span>
       <button className="primary" disabled={busy || !password} onClick={() => void search()}>
         {busy ? `Je cherche les meilleurs prix… ${elapsed} s` : '🔍 Chercher'}</button>
+      <LiensSites lieu={city} arrivee={date} nuits={Number(nights) || 1} personnes={Number(people) || 1} />
       {busy && <p className="hint">Je compare plusieurs sites : 30 s à 2 min.</p>}
       {!password && <p className="hint">Mot de passe de recherche manquant (onglet Randos).</p>}
       {error && <p className="error">{error}</p>}
