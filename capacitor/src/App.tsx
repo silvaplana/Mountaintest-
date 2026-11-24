@@ -1187,7 +1187,7 @@ export function App() {
       {c2c && c2cMap && (() => {
         const fresh = !!c2cView && !isCovered(c2c.bbox, c2cView);
         return <button className={`search-here${c2cLoading ? ' loading' : ''}`} disabled={!fresh || c2cLoading} onClick={searchHere}>
-          {c2cLoading ? '🔍 Recherche…' : '🔍 Rechercher ici'}</button>;
+          {c2cLoading ? '↻ Recherche…' : '↻ Rechercher dans cette zone'}</button>;
       })()}
       {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel} hidden={!!skiSheet}
