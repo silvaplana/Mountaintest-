@@ -25,9 +25,11 @@ import smtplib
 from email.mime.text import MIMEText
 from email.utils import formataddr
 import json
+import math
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
@@ -718,6 +720,229 @@ def visugpx_trace(vid: str) -> list:
     with verrou:
         _ecrire(fichier, pts)
     return pts
+
+
+# ---------- Itinéraires Geotrek (logiciel libre des parcs et départements, API publique v2 sans clé) ----------
+# Portails tirés de la liste officielle : https://github.com/GeotrekCE/Geotrek-website/wiki/Liste-des-Geotrek-connus
+# Chaque portail (site Geotrek-rando) s'appuie sur un serveur Geotrek-admin dont l'adresse n'est pas publiée :
+# le relais la trouve (page du portail, puis adresses habituelles), la vérifie et la garde 7 jours.
+# GET /mountaintest-ia/ montre « geotrek » : l'API trouvée (ou non) pour chaque portail.
+# Une adresse peut être imposée dans ia.env : GEOTREK_API_<ID>=https://…/api/v2 (ex. GEOTREK_API_VANOISE).
+# Cadre [ouest, sud, est, nord] approximatif : on n'interroge que les portails proches de l'écran.
+GEOTREK_PORTAILS = [
+    {"id": "ecrins", "nom": "Écrins", "portail": "https://destination.ecrins-parcnational.fr",
+     "api": "https://geotrek-admin.ecrins-parcnational.fr/api/v2", "cadre": [5.8, 44.5, 6.6, 45.15]},
+    {"id": "vanoise", "nom": "Vanoise", "portail": "https://rando.vanoise.com", "cadre": [6.5, 45.15, 7.2, 45.6]},
+    {"id": "mercantour", "nom": "Mercantour", "portail": "https://destination.marittimemercantour.eu", "cadre": [6.6, 43.9, 7.75, 44.45]},
+    {"id": "parcs", "nom": "Parcs de Provence", "portail": "https://www.cheminsdesparcs.fr", "cadre": [4.2, 43.2, 7.2, 44.9]},
+    {"id": "var", "nom": "Var", "portail": "https://sportnature.var.fr", "cadre": [5.65, 42.98, 6.95, 43.82]},
+    {"id": "portcros", "nom": "Port-Cros", "portail": "https://destination.portcros-parcnational.fr", "cadre": [6.0, 42.98, 6.6, 43.25]},
+    {"id": "alpesrando", "nom": "Hautes-Alpes", "portail": "https://alpesrando.net", "cadre": [5.4, 44.2, 7.1, 45.15]},
+    {"id": "paysdesecrins", "nom": "Pays des Écrins", "portail": "https://rando.paysdesecrins.com", "cadre": [6.2, 44.6, 6.7, 45.0]},
+    {"id": "sisteron", "nom": "Sisteronais", "portail": "https://rando.sisteron-alpesprovencales.fr", "cadre": [5.6, 44.0, 6.2, 44.5]},
+    {"id": "vercors", "nom": "Vercors", "portail": "https://rando.parc-du-vercors.fr", "cadre": [5.15, 44.65, 5.85, 45.3]},
+    {"id": "bauges", "nom": "Bauges", "portail": "https://rando.parcdesbauges.com", "cadre": [5.9, 45.5, 6.45, 45.85]},
+    {"id": "hautesavoie", "nom": "Haute-Savoie", "portail": "https://rando.nature-haute-savoie.fr", "cadre": [5.8, 45.65, 7.05, 46.45]},
+    {"id": "nature64", "nom": "Pyrénées-Atlantiques", "portail": "https://nature64.fr", "cadre": [-1.8, 42.75, 0.05, 43.6]},
+    {"id": "gavarnie", "nom": "Vallées de Gavarnie", "portail": "https://rando.valleesdegavarnie.com", "cadre": [-0.3, 42.65, 0.2, 43.1]},
+    {"id": "pyreneeshg", "nom": "Pyrénées Haut-Garonnaises", "portail": "https://rando.cc-pyreneeshautgaronnaises.fr", "cadre": [0.4, 42.7, 0.95, 43.1]},
+    {"id": "comminges", "nom": "Comminges", "portail": "https://rando.coeurcoteaux-comminges.fr", "cadre": [0.4, 42.9, 1.0, 43.35]},
+    {"id": "rando66", "nom": "Pyrénées-Orientales", "portail": "https://rando66.fr", "cadre": [1.7, 42.3, 3.2, 42.95]},
+    {"id": "cevennes", "nom": "Cévennes", "portail": "https://destination.cevennes-parcnational.fr", "cadre": [3.3, 43.9, 4.1, 44.5]},
+    {"id": "gard", "nom": "Gard", "portail": "https://rando.gard.fr", "cadre": [3.25, 43.45, 4.85, 44.46]},
+]
+_GEOTREK_API = "geotrek-api.json"
+GEOTREK_ETAT: dict = {}
+
+
+def _geotrek_json(url: str, timeout: int = 20):
+    req = urllib.request.Request(url, headers={"User-Agent": "Assomoutain", "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def _geotrek_essai(api: str) -> bool:
+    try:
+        j = _geotrek_json(f"{api}/trek/?page_size=1&fields=id", timeout=10)
+        return isinstance(j, dict) and "results" in j
+    except Exception:  # noqa: BLE001 (adresse à écarter)
+        return False
+
+
+def _geotrek_candidats(p: dict) -> list:
+    """Adresses possibles de l'API : celle écrite dans la page du portail, puis les noms habituels."""
+    out = []
+    try:
+        req = urllib.request.Request(p["portail"], headers={"User-Agent": "Mozilla/5.0 (Assomoutain)"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            page = r.read(3_000_000).decode("utf-8", "replace").replace("\\/", "/")
+        out += re.findall(r"https?://[A-Za-z0-9.-]+(?::\d+)?(?:/[A-Za-z0-9._-]+)*?/api/v2", page)
+    except Exception:  # noqa: BLE001
+        pass
+    hote = urlsplit(p["portail"]).hostname or ""
+    racine = ".".join(hote.split(".")[-2:])
+    for h in (f"geotrek-admin.{racine}", f"admin.{hote}", f"admin-{hote}", f"geotrek.{racine}", f"admin.{racine}",
+              f"geotrek-admin.{hote}", f"api.{hote}", hote):
+        out.append(f"https://{h}/api/v2")
+    return list(dict.fromkeys(out))
+
+
+def geotrek_api(p: dict) -> str | None:
+    """API Geotrek-admin d'un portail : imposée, connue (7 jours), ou cherchée (échec réessayé après un jour)."""
+    impose = os.environ.get(f"GEOTREK_API_{p['id'].upper()}") or p.get("api")
+    if impose:
+        GEOTREK_ETAT[p["id"]] = impose
+        return impose.rstrip("/")
+    with verrou:
+        c = _lire(_GEOTREK_API, {}).get(p["id"])
+    if c and time.time() - c["t"] < (7 if c["api"] else 1) * 86400:
+        GEOTREK_ETAT[p["id"]] = c["api"] or "introuvable"
+        return c["api"]
+    api = next((a for a in _geotrek_candidats(p) if _geotrek_essai(a)), None)
+    with verrou:
+        tout = _lire(_GEOTREK_API, {})
+        tout[p["id"]] = {"t": time.time(), "api": api}
+        _ecrire(_GEOTREK_API, tout)
+    GEOTREK_ETAT[p["id"]] = api or "introuvable"
+    print(f"Geotrek {p['id']} : {api or 'API introuvable'}", file=sys.stderr, flush=True)
+    return api
+
+
+def _fr(v) -> str:
+    if isinstance(v, dict):
+        v = v.get("fr") or next((x for x in v.values() if x), "")
+    return str(v or "")
+
+
+def _sans_html(t: str) -> str:
+    return html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", t))).strip()
+
+
+def geotrek_nature(pratique: str) -> str | None:
+    """Pratique Geotrek → mode de l'appli : rando, vtt, route ou gravel (None : ni l'un ni l'autre, ex. cheval)."""
+    p = pratique.lower()
+    if "gravel" in p:
+        return "gravel"
+    if "vtt" in p or "vélo tout" in p or "velo tout" in p or "enduro" in p or "fatbike" in p or "vae" in p.split():
+        return "vtt"
+    if "vélo" in p or "velo" in p or "cyclo" in p or "route" in p:
+        return "route"
+    if any(m in p for m in ("pédestre", "pedestre", "rando", "marche", "trail", "balade", "promenade", "famille", "pied", "raquette")):
+        return "rando"
+    return None
+
+
+def _geotrek_pratiques(api: str) -> dict:
+    fichier = f"geotrek-pratiques-{hashlib.sha1(api.encode()).hexdigest()[:10]}.json"
+    with verrou:
+        c = _lire(fichier, None)
+    if c and time.time() - c["t"] < 7 * 86400:
+        return c["p"]
+    j = _geotrek_json(f"{api}/trek_practice/?language=fr&page_size=200")
+    p = {str(x["id"]): _fr(x.get("name")) for x in (j.get("results") or []) if isinstance(x, dict) and "id" in x}
+    with verrou:
+        _ecrire(fichier, {"t": time.time(), "p": p})
+    return p
+
+
+def _slug(t: str) -> str:
+    import unicodedata
+    t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "-", t).strip("-")[:80]
+
+
+def _geotrek_portail(p: dict, cadre: list, act: str) -> list:
+    api = geotrek_api(p)
+    if not api:
+        return []
+    noms = _geotrek_pratiques(api)
+    champs = "id,name,practice,length_2d,ascent,duration,departure_geom,description_teaser,description,ambiance"
+    url = f"{api}/trek/?" + urllib.parse.urlencode({"in_bbox": ",".join(f"{v:.4f}" for v in cadre), "language": "fr",
+                                                     "page_size": 300, "fields": champs})
+    out = []
+    for x in (_geotrek_json(url, timeout=30).get("results") or []):
+        if not isinstance(x, dict):
+            continue
+        nature = geotrek_nature(noms.get(str(x.get("practice")), ""))
+        if nature is None or (act == "rando") != (nature == "rando"):
+            continue
+        dep = (x.get("departure_geom") or {}).get("coordinates") if isinstance(x.get("departure_geom"), dict) else None
+        if not dep or len(dep) < 2:
+            continue
+        titre = _fr(x.get("name"))[:200] or f"Itinéraire {x.get('id')}"
+        desc = " ".join(t for t in (_sans_html(_fr(x.get(k))) for k in ("description_teaser", "ambiance", "description")) if t)
+        duree = _nombre(x.get("duration"))
+        out.append({
+            "id": f"{p['id']}:{x['id']}", "titre": titre, "description": desc[:4000],
+            "distance_m": _nombre(x.get("length_2d")), "denivele_m": _nombre(x.get("ascent")),
+            "duree": (f"{int(duree)} h {round(duree % 1 * 60):02d}".replace(" h 00", " h") if duree else ""),
+            "nature": nature, "pratique": noms.get(str(x.get("practice")), ""),
+            "source": f"Geotrek · {p['nom']}", "lien": f"{p['portail']}/trek/{x['id']}-{_slug(titre)}",
+            "lat": float(dep[1]), "lon": float(dep[0]),
+        })
+    return out
+
+
+def geotrek_liste(lat: float, lon: float, act: str) -> dict:
+    """Itinéraires Geotrek à moins de ~25 km, de tous les portails proches, gardés un jour par zone."""
+    fichier = f"cache-geotrek-{act}-{lat:.2f}_{lon:.2f}.json"
+    with verrou:
+        c = _lire(fichier, None)
+    if c and time.time() - c["t"] < 86400:
+        return c["r"]
+    dla, dlo = 0.23, 0.23 / max(0.2, math.cos(math.radians(lat)))
+    cadre = [lon - dlo, lat - dla, lon + dlo, lat + dla]
+    proches = [p for p in GEOTREK_PORTAILS
+               if p["cadre"][0] <= cadre[2] and cadre[0] <= p["cadre"][2] and p["cadre"][1] <= cadre[3] and cadre[1] <= p["cadre"][3]]
+    out, erreurs = [], []
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        for p, f in [(p, ex.submit(_geotrek_portail, p, cadre, act)) for p in proches]:
+            try:
+                out += f.result()
+            except Exception as e:  # noqa: BLE001 (un portail en panne n'empêche pas les autres)
+                erreurs.append(f"{p['nom']} : {e}")
+    # Un même itinéraire peut venir de deux portails (ex. parc national et département) : gardé une fois.
+    vus, uniques = set(), []
+    for x in out:
+        k = (x["titre"].lower(), round(x["lat"], 3), round(x["lon"], 3))
+        if k not in vus:
+            vus.add(k)
+            uniques.append(x)
+    r = {"circuits": uniques, "portails": [p["nom"] for p in proches], "erreurs": erreurs}
+    if not erreurs:
+        with verrou:
+            _ecrire(fichier, {"t": time.time(), "r": r})
+    return r
+
+
+def geotrek_trace(gid: str) -> list:
+    """Tracé d'un itinéraire Geotrek (« portail:numéro »), gardé sur le serveur."""
+    m = re.fullmatch(r"([a-z0-9]{2,20}):(\d{1,9})", gid)
+    p = next((x for x in GEOTREK_PORTAILS if m and x["id"] == m.group(1)), None)
+    if not p:
+        raise ValueError("identifiant invalide")
+    fichier = f"cache-geotrek-trace-{p['id']}-{m.group(2)}.json"
+    with verrou:
+        c = _lire(fichier, None)
+    if c is not None:
+        return c
+    api = geotrek_api(p)
+    if not api:
+        raise RuntimeError(f"Geotrek {p['nom']} injoignable")
+    req = urllib.request.Request(f"{api}/trek/{m.group(2)}/?fields=geometry", headers={"User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        pts = _points_trace(r.read())
+    if len(pts) < 2:
+        raise RuntimeError("pas de tracé pour cet itinéraire")
+    with verrou:
+        _ecrire(fichier, pts)
+    return pts
+
+
+def _geotrek_decouverte():
+    """Au démarrage : chercher les API de tous les portails (montrées par GET /mountaintest-ia/)."""
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        list(ex.map(lambda p: geotrek_api(p), GEOTREK_PORTAILS))
 
 
 # ---------- Demandes à l'API skitour : comptées (quota de 1000 par jour), affichées dans 📊 de l'appli ----------
@@ -1645,7 +1870,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace"], "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace", "geotrek-liste", "geotrek-trace"], "geotrek": GEOTREK_ETAT, "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
 
     def _visugpx(self, liste: bool):
         if not VISUGPX_CLE:
@@ -1671,9 +1896,30 @@ class Relais(BaseHTTPRequestHandler):
         except Exception as ex:  # noqa: BLE001
             return self._json(502, {"erreur": str(ex)})
 
+    def _geotrek(self, liste: bool):
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)) or b"{}")
+            if liste:
+                act = str(d.get("activite"))
+                la, lo = float(d["lat"]), float(d["lon"])
+                if act not in ("rando", "velo") or not (-90 <= la <= 90 and -180 <= lo <= 180):
+                    raise ValueError("demande invalide")
+            else:
+                gid = str(d["id"])
+        except (ValueError, KeyError, TypeError) as ex:
+            return self._json(400, {"erreur": str(ex) or "demande invalide"})
+        try:
+            if liste:
+                return self._json(200, geotrek_liste(la, lo, act))
+            return self._json(200, {"trace": geotrek_trace(gid)})
+        except ValueError as ex:
+            return self._json(400, {"erreur": str(ex)})
+        except Exception as ex:  # noqa: BLE001
+            return self._json(502, {"erreur": str(ex)})
+
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace")):
+        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace", "/geotrek-liste", "/geotrek-trace")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -1728,6 +1974,8 @@ class Relais(BaseHTTPRequestHandler):
             return self._skitour_topos()
         if chemin.endswith(("/visugpx-liste", "/visugpx-trace")):
             return self._visugpx(chemin.endswith("/visugpx-liste"))
+        if chemin.endswith(("/geotrek-liste", "/geotrek-trace")):
+            return self._geotrek(chemin.endswith("/geotrek-liste"))
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         if chemin.endswith("/bud"):
@@ -2007,4 +2255,5 @@ class Relais(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"Relais IA prêt (modèle {MODELE}, {MAX_PAR_JOUR} recherches par jour)", flush=True)
+    threading.Thread(target=_geotrek_decouverte, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", 8080), Relais).serve_forever()
