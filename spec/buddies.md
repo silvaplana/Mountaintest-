@@ -615,7 +615,17 @@ envoi sans réseau. Quatre étapes, une PR chacune :
    puis « en ligne » (synchro il y a moins de 30 s) ou « vu aujourd'hui à 10 h 42 » ; dans un groupe « Julie en
    ligne » / « 2 en ligne ». Conversation ouverte : synchro toutes les 5 s. « écrit… » passe par `POST /buddies/ecrit`
    (gardé 12 s en mémoire du serveur, jamais en file d'attente).
-3. Sondages, fichiers et vidéos, Transférer.
+3. **Sondages, fichiers et vidéos, Transférer** (fait) : saisie [🙂] [📎] [Message] [🎤 / ➤] ; 📎 ouvre 📷 Photo, vidéo
+   (dans un Buddy Time : photo de l'album, comme avant), 📍 Ma position, 📄 Fichier, 📊 Sondage. Une photo jointe est
+   réduite à 1600 px et s'ouvre en plein écran ; une vidéo se lit dans la bulle (▶) ; un document (nom, taille)
+   s'ouvre avec l'appli du téléphone. Limites d'AppBase : 25 Mo par fichier, 100 Mo par vidéo. Sans réseau, le
+   fichier attend sur le téléphone (🕓) et part avec le message. **Sondage** : une question, 2 à 10 réponses,
+   « Plusieurs réponses possibles » (coché par défaut) ; toucher une réponse vote, la retoucher retire le vote ; barre
+   et nombre par réponse, « Voir les votes » dit qui. **Transférer** (barre de sélection) : « Envoyer à… » une ou
+   plusieurs conversations ; la bulle porte « ↪️ Transféré » (pas pour un sondage, une photo d'album ou Bud ; un
+   fichier transféré n'est pas renvoyé, le serveur vérifie qu'on peut le lire). Serveur : colonnes `fichier_id`,
+   `sondage` (JSON), `transfere` de `messages_buddies` ; tables `fichiers_buddies` et `votes_buddies` ; opération
+   `voter` ; `PUT`/`GET /buddies/fichiers/<id>` (lisible par qui peut lire un message qui le montre).
 4. Notifications des nouveaux messages (Firebase, comme la sonnerie des appels).
 
 Pas de message vocal : la messagerie d'AppBase n'en a pas.

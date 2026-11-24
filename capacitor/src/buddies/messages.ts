@@ -37,7 +37,7 @@ export function apercu(b: Bulle | undefined, nom: (id: string) => string, moi: s
   const m = b.m;
   if (m.supprime) return `${qui(m.par)} : 🚫 Ce message a été supprimé`;
   if (m.bud) return `🐻 Bud : ${m.nature === 'point' ? `📍 ${m.texte}` : m.texte}`;
-  return `${qui(m.par)} : ${m.nature === 'point' ? '📍 je suis ici' : m.nature === 'photo' ? '📷 une photo' : m.texte}`;
+  return `${qui(m.par)} : ${m.nature === 'point' ? '📍 je suis ici' : m.nature === 'photo' ? '📷 une photo' : m.fichier || m.sondage ? resume(m) : m.texte}`;
 }
 
 /** « 10 h 42 » aujourd'hui, « hier 10 h 42 », sinon « 12 déc. ». */
@@ -84,5 +84,7 @@ export function morceaux(texte: string): { texte: string; lien?: string }[] {
 /** Ce que rappelle une réponse (une ligne). */
 export function resume(m: MessageBuddy): string {
   if (m.supprime) return 'Ce message a été supprimé';
+  if (m.fichier) return `${m.fichier.mime.startsWith('video/') ? '🎬' : m.fichier.mime.startsWith('image/') ? '📷' : '📄'} ${m.fichier.nom}${m.texte ? ` · ${m.texte}` : ''}`;
+  if (m.sondage) return `📊 ${m.sondage.question}`;
   return m.nature === 'point' ? '📍 Position' : m.nature === 'photo' ? '📷 Photo' : m.texte;
 }

@@ -313,6 +313,10 @@ class MessageBuddy(Base):
     repond_a: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     edite_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     supprime: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Étape 3 (§7.13) : un fichier (photo, vidéo, document), un sondage (JSON : question, multiple, options), transféré.
+    fichier_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    sondage: Mapped[str | None] = mapped_column(Text)
+    transfere: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
 
@@ -325,6 +329,32 @@ class ReactionBuddy(Base):
     message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("messages_buddies.id", ondelete="CASCADE"), primary_key=True)
     utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
     emoji: Mapped[str] = mapped_column(String(16), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class FichierBuddy(Base):
+    """Fichier joint à un message (photo, vidéo, document) : annoncé par la synchro, envoyé ensuite (comme l'album).
+    Un message transféré garde le même fichier : on peut le lire depuis toute conversation qui le montre."""
+
+    __tablename__ = "fichiers_buddies"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    nom: Mapped[str] = mapped_column(String(200), nullable=False)
+    mime: Mapped[str] = mapped_column(String(100), nullable=False)
+    taille: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    envoye: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class VoteBuddy(Base):
+    """Vote à un sondage : une ligne par réponse cochée (plusieurs si le sondage le permet)."""
+
+    __tablename__ = "votes_buddies"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("messages_buddies.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    option: Mapped[int] = mapped_column(Integer, primary_key=True)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 
 

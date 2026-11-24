@@ -312,6 +312,7 @@ def nouvelle_photo(sid, prise_le="2026-12-12T09:30:00", lon=6.7, lat=44.6):
 def photos(tmp_path, monkeypatch):
     import buddies
     monkeypatch.setattr(buddies, "DOSSIER_PHOTOS", str(tmp_path / "photos"))
+    monkeypatch.setattr(buddies, "DOSSIER_FICHIERS", str(tmp_path / "fichiers"))
     return tmp_path / "photos"
 
 
@@ -626,6 +627,44 @@ def test_discussion_a_deux(client, photos):
     assert sync(client)["ecrivent"] == [{"cle": duos[0]["id"], "qui": julie}]
     assert sync(client, sub="julie")["ecrivent"] == []
     assert client.post("/buddies/ecrit", headers=entete(sub="luc"), json={"cle": duos[0]["id"]}).status_code == 404
+
+
+def test_sondage_fichier_transferer(client, photos):
+    """Étape 3 (§7.13) : sondage (voter, changer d'avis), fichier envoyé puis lu, transféré dans une autre conversation."""
+    gid, julie = bande_avec_julie(client)
+    autre = nouveau_groupe("Escalade")
+    sondage = {**nouveau_message(groupe=gid, nature="sondage", texte=""),
+               "sondage": {"question": "Samedi ?", "options": ["Belledonne", " belledonne ", "Chartreuse", ""], "multiple": False}}
+    doc = str(uuid.uuid4())
+    fichier = {**nouveau_message(groupe=gid, nature="fichier", texte="Le topo"),
+               "fichier": {"id": doc, "nom": "topo.pdf", "mime": "application/pdf", "taille": 5}}
+    trop = {**nouveau_message(groupe=gid, nature="fichier", texte=""),
+            "fichier": {"id": str(uuid.uuid4()), "nom": "film.mov", "mime": "video/quicktime", "taille": 200 * 1024 * 1024}}
+    r = sync(client, ops=[autre, sondage, fichier, trop, {**nouveau_message(groupe=gid, nature="sondage", texte=""), "sondage": {"question": "?", "options": ["a"]}}])
+    assert len(r["refus"]) == 2
+    sd = next(m for m in r["messages"] if m["id"] == sondage["message"])["sondage"]
+    assert sd == {"question": "Samedi ?", "multiple": False, "options": ["Belledonne", "Chartreuse"], "votes": []}
+    # Julie vote, change d'avis ; deux réponses : refusé (une seule permise).
+    rj = sync(client, sub="julie", ops=[{"id": "v", "type": "voter", "message": sondage["message"], "options": [0]},
+                                         {"id": "v2", "type": "voter", "message": sondage["message"], "options": [1]},
+                                         {"id": "v3", "type": "voter", "message": sondage["message"], "options": [0, 1]}])
+    assert len(rj["refus"]) == 1
+    assert next(m for m in rj["messages"] if m["id"] == sondage["message"])["sondage"]["votes"] == [{"qui": julie, "option": 1}]
+    # Le fichier : Julie ne peut pas l'envoyer à ma place ; moi, oui (pas plus gros qu'annoncé) ; elle le lit.
+    assert client.put(f"/buddies/fichiers/{doc}", headers=entete(sub="julie"), content=b"%PDF-").status_code == 403
+    assert client.put(f"/buddies/fichiers/{doc}", headers=entete(sub="seb"), content=b"%PDF-trop").status_code == 413
+    assert client.put(f"/buddies/fichiers/{doc}", headers=entete(sub="seb"), content=b"%PDF-").status_code == 200
+    lu = client.get(f"/buddies/fichiers/{doc}", headers=entete(sub="julie"))
+    assert lu.status_code == 200 and lu.content == b"%PDF-" and lu.headers["content-type"] == "application/pdf"
+    assert next(m for m in sync(client)["messages"] if m["id"] == fichier["message"])["fichier"]["envoye"] is True
+    # Luc ne le lit pas ; je le transfère dans « Escalade » (Julie n'y est pas : elle le lit toujours par l'autre).
+    assert client.get(f"/buddies/fichiers/{doc}", headers=entete(sub="luc")).status_code == 404
+    tr = {**nouveau_message(groupe=autre["groupe"], nature="fichier", texte="Le topo"), "fichier": {"id": doc}, "transfere": True}
+    r = sync(client, ops=[tr])
+    m = next(m for m in r["messages"] if m["id"] == tr["message"])
+    assert r["refus"] == [] and m["transfere"] and m["fichier"]["nom"] == "topo.pdf"
+    # Julie ne peut pas transférer un fichier qu'elle ne voit pas.
+    assert sync(client, sub="luc", ops=[{**nouveau_message(groupe="me-time", nature="fichier"), "fichier": {"id": doc}}])["refus"]
 
 
 def test_annuler_un_buddy_time(client, photos):
