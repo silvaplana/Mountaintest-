@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _reinitialiser as reinitCompte, ecrire as ecrireCompte } from '../src/compte/auth';
 import {
-  _reinitialiser, envoyerMessage, lire, marquerLu, modifierMessage, reagir, retirerMessage, statut, vue, type Lecture, type MessageBuddy,
+  _reinitialiser, envoyerMessage, lire, marquerLu, modifierMessage, reagir, retirerMessage, statut, transferer, voter, vue, type Lecture, type MessageBuddy,
 } from '../src/buddies/store';
 import { jourMessage, morceaux, resume } from '../src/buddies/messages';
 
@@ -81,5 +81,22 @@ describe('discussions à deux', () => {
     expect(presence('u-julie', [{ qui: 'u-julie', vu_le: '2026-11-24T10:00:00Z', lus: {} }], maintenant)).toBe('en ligne');
     expect(presence('u-julie', [{ qui: 'u-julie', vu_le: '2026-11-24T08:05:00Z', lus: {} }], maintenant)).toMatch(/^vu aujourd’hui à \d+ h 05$/);
     expect(presence('u-luc', [], maintenant)).toBeNull();
+  });
+
+  it('sondage, fichier joint et transfert, sans réseau', () => {
+    const s = envoyerMessage({ groupe: 'g' }, { nature: 'sondage', sondage: { question: 'Quel jour ?', multiple: false, options: ['Samedi', 'Dimanche'] } });
+    voter(s, [1]);
+    const f = { id: 'f1', nom: 'topo.pdf', mime: 'application/pdf', taille: 2048, envoye: false };
+    const p = envoyerMessage({ groupe: 'g' }, { nature: 'fichier', fichier: f });
+    const [ms, mp] = vue(lire()).messages;
+    expect(ms.sondage?.votes).toEqual([{ qui: 'u-seb', option: 1 }]);
+    expect(resume(ms)).toBe('📊 Quel jour ?');
+    expect(resume(mp)).toBe('📄 topo.pdf');
+    expect(lire().envoisFichiers).toEqual(['f1']);
+    // Transférer : le sondage reste ici, le fichier part (sans être renvoyé : déjà annoncé).
+    transferer(vue(lire()).messages.filter((x) => [s, p].includes(x.id)), [{ groupe: 'h' }]);
+    const t = vue(lire()).messages.filter((x) => x.groupe === 'h');
+    expect(t.map((x) => [x.nature, x.transfere, x.fichier?.id])).toEqual([['fichier', true, 'f1']]);
+    expect(lire().envoisFichiers).toEqual(['f1']);
   });
 });

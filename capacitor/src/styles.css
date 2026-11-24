@@ -1032,3 +1032,26 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-fab { position: sticky; bottom: 12px; align-self: flex-end; margin-top: auto; width: 64px; height: 64px; border-radius: 50%; border: 0; background: #e4572e;
   color: #fff; font-size: 34px; box-shadow: 0 3px 10px #0004; flex: none; }
 .bd-ecrit { color: #2fae5c !important; font-style: italic; }
+
+/* 💬 Messagerie, étape 3 (§7.13) : 📎 joindre, pièces jointes, sondages, transférer */
+.bd-joindre { display: flex; justify-content: space-around; gap: 4px; background: var(--card); border-radius: 16px; padding: 8px; flex: none; }
+.bd-joindre button { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 0; background: none; padding: 0; font-size: 15px; color: var(--fg); min-height: 48px; }
+.bd-joindre button span { width: 52px; height: 52px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 26px; }
+.bd-transfere { display: block; color: var(--muted); font-style: italic; font-size: 13px; }
+.bd-bulle.fichier, .bd-bulle.sondage { min-width: 220px; }
+.bd-piece-image { display: block; border: 0; padding: 0; background: none; margin: 2px 0; }
+.bd-piece-image img { display: block; max-width: min(64vw, 260px); max-height: 300px; border-radius: 12px; }
+.bd-piece-image span { display: grid; place-items: center; width: 160px; height: 120px; border-radius: 12px; background: #0001; font-size: 32px; }
+.bd-piece-video { display: block; max-width: min(64vw, 260px); max-height: 320px; border-radius: 12px; background: #000; }
+.bd-piece { display: flex; align-items: center; gap: 10px; border: 0; background: #0000000d; border-radius: 12px; padding: 8px; text-align: left; color: inherit; min-height: 56px; width: 100%; }
+.bd-piece .bd-icone { width: 40px; height: 40px; border-radius: 10px; background: var(--bg); display: grid; place-items: center; font-size: 20px; flex: none; }
+.bd-piece .bd-texte b { word-break: break-word; }
+.bd-sondage { display: flex; flex-direction: column; gap: 6px; }
+.bd-sondage > small { color: var(--muted); }
+.bd-sondage > button:not(.bd-lien) { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 48px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 12px; padding: 0 12px; font-size: 17px; text-align: left; }
+.bd-sondage > button.choisi { border-color: #2b8be6; }
+.bd-sondage > button > span, .bd-sondage > button > b { position: relative; }
+.bd-sondage .bd-sondage-barre { position: absolute; left: 0; top: 0; bottom: 0; background: #2b8be622; }
+.bd-coche { display: flex; align-items: center; gap: 10px; min-height: 48px; font-size: 17px; }
+.bd-coche input { width: 24px; height: 24px; }

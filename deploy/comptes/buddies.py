@@ -19,8 +19,8 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
-                     Position, ReactionBuddy, Recit, Sortie, TracePartagee, Utilisateur, maintenant)
+from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
+                     Position, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -609,7 +609,43 @@ def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
-NATURES_MESSAGE = {"texte", "point", "photo"}
+NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage"}
+# Comme AppBase (§7.13) : 25 Mo par fichier ou photo, 100 Mo par vidéo ; un sondage a 2 à 10 réponses.
+MAX_FICHIER, MAX_VIDEO = 25 * 1024 * 1024, 100 * 1024 * 1024
+MAX_REPONSES = 10
+DOSSIER_FICHIERS = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "fichiers")
+
+
+def max_fichier(mime: str) -> int:
+    return MAX_VIDEO if mime.startswith("video/") else MAX_FICHIER
+
+
+def sondage_propre(x: Any) -> str:
+    """La question et les réponses, sans vide ni doublon (comme AppBase)."""
+    question = str((x or {}).get("question") or "").strip()[:200]
+    if not question:
+        raise Refus("Écris la question du sondage")
+    reponses: list[str] = []
+    for o in (x or {}).get("options") or []:
+        r = str(o).strip()[:100]
+        if r and r.lower() not in (y.lower() for y in reponses):
+            reponses.append(r)
+    if len(reponses) < 2:
+        raise Refus("Donne au moins 2 réponses")
+    if len(reponses) > MAX_REPONSES:
+        raise Refus(f"{MAX_REPONSES} réponses au plus")
+    return json.dumps({"question": question, "multiple": bool(x.get("multiple", True)), "options": reponses}, ensure_ascii=False)
+
+
+def fichier_lisible(s: Session, u: Utilisateur, fid: uuid.UUID) -> bool:
+    """Un fichier se lit depuis toute conversation où un message le montre (envoyé ou transféré)."""
+    for m in s.scalars(select(MessageBuddy).where(MessageBuddy.fichier_id == fid, MessageBuddy.supprime.is_(False))):
+        try:
+            message_de(s, u, m.id)
+            return True
+        except Refus:
+            continue
+    return False
 
 
 def message(s: Session, u: Utilisateur, op: dict) -> None:
@@ -637,11 +673,28 @@ def message(s: Session, u: Utilisateur, op: dict) -> None:
         if p is None or so is None or p.sortie_id != so.id:
             raise Refus("Photo inconnue")
         photo = p.id
+    fichier = sondage = None
+    if nature == "fichier":
+        f = op["fichier"]
+        fid = uuid.UUID(str(f["id"]))
+        ff = s.get(FichierBuddy, fid)
+        if ff is None:
+            nom, mime, taille = propre(f.get("nom"), 200) or "fichier", propre(f.get("mime"), 100) or "application/octet-stream", int(f["taille"])
+            if not 0 < taille <= max_fichier(mime):
+                raise Refus("Trop gros : 25 Mo au plus, 100 Mo pour une vidéo")
+            s.add(FichierBuddy(id=fid, par=u.id, nom=nom, mime=mime, taille=taille))
+            s.flush()
+        elif ff.par != u.id and not fichier_lisible(s, u, fid):
+            raise Refus("Fichier inconnu")
+        fichier = fid
+    if nature == "sondage":
+        sondage = sondage_propre(op.get("sondage"))
     # Réponse à un message de la même conversation (sinon le rappel est ignoré).
     cible = s.get(MessageBuddy, uuid.UUID(str(op["repond_a"]))) if op.get("repond_a") else None
     repond_a = cible.id if cible and (cible.groupe_id, cible.sortie_id) == (None if so else g.id, so.id if so else None) else None
     s.add(MessageBuddy(id=mid, groupe_id=g.id if g else None, sortie_id=so.id if so else None, par=u.id, nature=nature,
-                       texte=texte, lon=lon, lat=lat, photo_id=photo, bud=bool(op.get("bud")), repond_a=repond_a))
+                       texte=texte, lon=lon, lat=lat, photo_id=photo, bud=bool(op.get("bud")), repond_a=repond_a,
+                       fichier_id=fichier, sondage=sondage, transfere=bool(op.get("transfere"))))
 
 
 def message_de(s: Session, u: Utilisateur, mid: Any) -> tuple[MessageBuddy | None, Groupe | None]:
@@ -681,8 +734,28 @@ def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
         if mb is None or mb.role != "admin":
             raise Refus("On ne supprime que ses messages")
     m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
-    for r in s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id == m.id)):
+    m.fichier_id = m.sondage = None
+    for r in [*s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id == m.id)), *s.scalars(select(VoteBuddy).where(VoteBuddy.message_id == m.id))]:
         s.delete(r)
+
+
+def voter(s: Session, u: Utilisateur, op: dict) -> None:
+    """Sondage : mes réponses remplacent les précédentes ; aucune retire mon vote."""
+    m, _ = message_de(s, u, op["message"])
+    if m is None or m.supprime or not m.sondage:
+        raise Refus("Sondage inconnu")
+    sd = json.loads(m.sondage)
+    choix = {int(x) for x in op.get("options") or []}
+    if not choix <= set(range(len(sd["options"]))):
+        raise Refus("Réponse introuvable")
+    if len(choix) > 1 and not sd["multiple"]:
+        raise Refus("Une seule réponse")
+    for v in s.scalars(select(VoteBuddy).where(VoteBuddy.message_id == m.id, VoteBuddy.utilisateur_id == u.id)):
+        s.delete(v)
+    s.flush()
+    for o in sorted(choix):
+        s.add(VoteBuddy(message_id=m.id, utilisateur_id=u.id, option=o))
+    m.modifie_le = maintenant()
 
 
 def reagir(s: Session, u: Utilisateur, op: dict) -> None:
@@ -730,7 +803,7 @@ OPERATIONS = {
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
-    "message": message, "retirer_message": retirer_message, "duo": duo, "modifier_message": modifier_message, "reagir": reagir, "lu": lu,
+    "message": message, "retirer_message": retirer_message, "duo": duo, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
 }
 
 
@@ -787,9 +860,13 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
                                                     MessageBuddy.cree_le > debut - GARDE_MESSAGES)
                          .order_by(MessageBuddy.cree_le)).all()
     reactions: dict[uuid.UUID, list[dict[str, str]]] = {}
-    for r in s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id.in_([m.id for m in messages if neuf(m.modifie_le)]))
-                       .order_by(ReactionBuddy.cree_le)):
+    neufs = [m for m in messages if neuf(m.modifie_le)]
+    for r in s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id.in_([m.id for m in neufs])).order_by(ReactionBuddy.cree_le)):
         reactions.setdefault(r.message_id, []).append({"qui": str(r.utilisateur_id), "emoji": r.emoji})
+    votes: dict[uuid.UUID, list[dict[str, Any]]] = {}
+    for v in s.scalars(select(VoteBuddy).where(VoteBuddy.message_id.in_([m.id for m in neufs if m.sondage])).order_by(VoteBuddy.cree_le)):
+        votes.setdefault(v.message_id, []).append({"qui": str(v.utilisateur_id), "option": v.option})
+    fichiers = {f.id: f for f in s.scalars(select(FichierBuddy).where(FichierBuddy.id.in_([m.fichier_id for m in neufs if m.fichier_id])))}
     lectures = vue_lectures(s, u, gids, sids)
     # Positions : toujours toutes (peu nombreuses), seulement des participants, et oubliées après 48 h.
     positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
@@ -805,7 +882,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
             "ids_hebergements": [str(h.id) for h in hebergements],
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
-            "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, [])) for m in messages if neuf(m.modifie_le)],
+            "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, []), votes.get(m.id, []), fichiers.get(m.fichier_id)) for m in neufs],
             "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
             "positions": [vue_position(x) for x in positions], "appels": appels_en_cours(s, gids, sids), "refus": refus}
 
@@ -868,12 +945,15 @@ def vue_hebergement(s: Session, h: Hebergement) -> dict[str, Any]:
             "par": str(h.par), "coeurs": sorted(str(c) for c in coeurs), "cree_le": iso(h.cree_le), "modifie_le": iso(h.modifie_le)}
 
 
-def vue_message(m: MessageBuddy, reactions: list[dict[str, str]] | None = None) -> dict[str, Any]:
+def vue_message(m: MessageBuddy, reactions: list[dict[str, str]] | None = None, votes: list[dict[str, Any]] | None = None,
+                f: FichierBuddy | None = None) -> dict[str, Any]:
     return {"id": str(m.id), "groupe": str(m.groupe_id) if m.groupe_id else None, "sortie": str(m.sortie_id) if m.sortie_id else None,
             "par": str(m.par), "nature": m.nature, "texte": m.texte, "lon": m.lon, "lat": m.lat,
             "photo": str(m.photo_id) if m.photo_id else None, "bud": m.bud, "cree_le": iso(m.cree_le),
             "repond_a": str(m.repond_a) if m.repond_a else None, "edite": m.edite_le is not None, "supprime": m.supprime,
-            "reactions": reactions or []}
+            "reactions": reactions or [], "transfere": m.transfere,
+            "fichier": {"id": str(f.id), "nom": f.nom, "mime": f.mime, "taille": f.taille, "envoye": f.envoye} if f else None,
+            "sondage": {**json.loads(m.sondage), "votes": votes or []} if m.sondage else None}
 
 
 # « écrit… » (§7.13) : gardé en mémoire quelques secondes, jamais en base.

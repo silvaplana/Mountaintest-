@@ -20,6 +20,7 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
   PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
   GET  /buddies/photos/{id}/{petite|grande}   la lire (participants du Buddy Time)
+  PUT  /buddies/fichiers/{id} envoyer le fichier joint à un message (annoncé par la synchro) ; GET : le lire
   POST /appareils             📞 le jeton Firebase de ce téléphone (pour sonner)
   POST /appels                📞 appeler un Buddy Group ou un Buddy Time (ou rejoindre l'appel en cours) (appels.py)
   POST /appels/{id}/rejoindre décrocher ; POST /appels/{id}/presence  entrer / raccrocher
@@ -32,6 +33,7 @@ import os
 import re
 import threading
 import time
+import uuid
 import urllib.parse
 import urllib.request
 from contextlib import asynccontextmanager
@@ -40,6 +42,7 @@ from typing import Any
 
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, func, inspect, select, text
@@ -87,6 +90,9 @@ COLONNES_AJOUTEES = [
     ("messages_buddies", "repond_a", "UUID"),
     ("messages_buddies", "edite_le", "TIMESTAMP WITH TIME ZONE"),
     ("messages_buddies", "supprime", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("messages_buddies", "fichier_id", "UUID"),
+    ("messages_buddies", "sondage", "TEXT"),
+    ("messages_buddies", "transfere", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 
@@ -295,6 +301,52 @@ def lire_photo(pid: str, taille: str, j: dict = Depends(jeton_requis), s: Sessio
             return Response(f.read(), media_type="image/jpeg", headers={"Cache-Control": "private, max-age=31536000, immutable"})
     except OSError as e:
         raise HTTPException(404, "Pas encore arrivée") from e
+
+
+def fichier_du_message(s: Session, j: dict, fid: str):
+    try:
+        f = s.get(buddies.FichierBuddy, uuid.UUID(fid))
+    except ValueError as e:
+        raise HTTPException(404, "Fichier inconnu") from e
+    u = utilisateur(s, j)
+    if f is None or (f.par != u.id and not buddies.fichier_lisible(s, u, f.id)):
+        raise HTTPException(404, "Fichier inconnu")
+    return f, u
+
+
+@app.put("/buddies/fichiers/{fid}")
+async def envoyer_fichier(fid: str, req: Request, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """Le fichier joint à un message (§7.13), annoncé par la synchro ; seul l'auteur l'envoie, renvoyer remplace."""
+    f, u = fichier_du_message(s, j, fid)
+    if f.par != u.id:
+        raise HTTPException(403, "Seul l'auteur envoie son fichier")
+    os.makedirs(buddies.DOSSIER_FICHIERS, exist_ok=True)
+    chemin = os.path.join(buddies.DOSSIER_FICHIERS, str(f.id))
+    n = 0
+    with open(chemin + ".tmp", "wb") as sortie:
+        async for bout in req.stream():
+            n += len(bout)
+            if n > min(f.taille, buddies.max_fichier(f.mime)):
+                sortie.close()
+                os.remove(chemin + ".tmp")
+                raise HTTPException(413, "Plus gros qu'annoncé")
+            sortie.write(bout)
+    os.replace(chemin + ".tmp", chemin)
+    if not f.envoye:
+        f.envoye = True
+        for m in s.scalars(select(buddies.MessageBuddy).where(buddies.MessageBuddy.fichier_id == f.id)):
+            m.modifie_le = maintenant()
+        s.commit()
+    return {"ok": True}
+
+
+@app.get("/buddies/fichiers/{fid}")
+def lire_fichier(fid: str, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    f, _ = fichier_du_message(s, j, fid)
+    chemin = os.path.join(buddies.DOSSIER_FICHIERS, str(f.id))
+    if not os.path.exists(chemin):
+        raise HTTPException(404, "Pas encore arrivé")
+    return FileResponse(chemin, media_type=f.mime, filename=f.nom, headers={"Cache-Control": "private, max-age=31536000, immutable"})
 
 
 # ---------------------------------------------------------------- 📞 appels (bloc 10)

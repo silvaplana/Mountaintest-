@@ -9,9 +9,10 @@ import { Onde, useDictee } from './Dictee';
 import { iconeHebergement, prixHebergement } from './Hebergements';
 import { apercu, cle, fil, heureMessage, jourMessage, longueurTrace, morceaux, resume, type Bulle, type Dest } from './messages';
 import { agir, annuler, contexte, demander, pourBud } from './bud';
+import { adresse, estImage, estVideo, ouvrir, preparer, taille } from './fichiers';
 import {
   appliquer, autreDuDuo, contacts, DELAI_MODIFIER, presence, envoyerMessage, estAdmin, lire, marquerLu, modifierMessage, noterActionsBud, nonLus, proposerHebergement, reagir, retirerMessage, signalerEcrit, statut,
-  synchroniser, vue, type Buddy, type Groupe, type Hebergement, type Lecture, type MessageBuddy, type Sortie, type TraceBuddy,
+  synchroniser, transferer, voter, vue, type Buddy, type FichierMessage, type Groupe, type Hebergement, type Lecture, type MessageBuddy, type Sortie, type TraceBuddy,
 } from './store';
 
 /**
@@ -48,7 +49,7 @@ const ANNULER_MS = 10_000;
 const ENTREE_ENVOIE = typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches && !window.matchMedia('(any-pointer: coarse)').matches;
 
 /**
- * Une conversation : le fil, puis [🙂] [📷] [📍] [Message] [🎤 / ➤]. `court` : seulement les derniers mots (écran 24).
+ * Une conversation : le fil, puis [🙂] [📎] [Message] [🎤 / ➤] (📎 : 📷 photo ou vidéo, 📍 position, 📄 fichier, 📊 sondage). `court` : seulement les derniers mots (écran 24).
  * Appui long sur un message (§5.6, comme AppBase) : Répondre, Copier, Modifier (15 min), Supprimer, et les réactions.
  */
 export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Actions & {
@@ -71,6 +72,11 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const bas = useRef<HTMLDivElement>(null);
   const saisie = useRef<HTMLTextAreaElement>(null);
   const fichier = useRef<HTMLInputElement>(null);
+  const media = useRef<HTMLInputElement>(null);
+  const piece = useRef<HTMLInputElement>(null);
+  const [menu, setMenu] = useState(false);
+  const [sondage, setSondage] = useState(false);
+  const [transfert, setTransfert] = useState<MessageBuddy[] | null>(null);
   const k = cle(dest);
   const dictee = useDictee((t) => setTexte((x) => `${x}${x && !x.endsWith(' ') ? ' ' : ''}${t}`), onToast);
   const nom = (id: string) => membres.find((b) => b.id === id)?.pseudo ?? '?';
@@ -132,6 +138,16 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
     try { envoyerMessage(dest, { nature: 'point', ...await maPosition() }); } catch { onToast('Position introuvable : le GPS est-il allumé ?'); }
     setOccupe(false);
   };
+  // 📎 et 📷 (hors Buddy Time) : photos, vidéos, documents, gardés sur le téléphone puis envoyés au retour du réseau.
+  const joindre = async (l: FileList | null) => {
+    if (!l?.length) return;
+    setOccupe(true);
+    for (const f of Array.from(l)) {
+      try { envoyerMessage(dest, { nature: 'fichier', fichier: await preparer(f), repond_a: reponse?.id }); } catch (err) { onToast((err as Error).message); }
+    }
+    setReponse(null); setOccupe(false);
+    void synchroniser().catch(() => undefined);
+  };
   const insererEmoji = (x: string) => {
     const el = saisie.current;
     const d = el?.selectionStart ?? texte.length, f = el?.selectionEnd ?? texte.length;
@@ -143,6 +159,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const choisis = v.messages.filter((m) => selection.includes(m.id));
   const seul = choisis.length === 1 ? choisis[0] : null;
   const peutModifier = !!seul && seul.par === moi && !seul.bud && seul.nature === 'texte' && Date.now() - Date.parse(seul.cree_le) < DELAI_MODIFIER;
+  const aTransferer = choisis.filter((m) => !m.supprime && !m.sondage && m.nature !== 'photo' && !m.bud);
   const peutSupprimer = choisis.length > 0 && choisis.every((m) => m.par === moi || m.par === 'moi' || admin);
   const envoyerSuppressions = (ids: string[]) => { ids.forEach(retirerMessage); void synchroniser().catch(() => undefined); };
   const supprimer = () => {
@@ -169,18 +186,19 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const montrees = court ? bulles.slice(-2) : bulles;
   const lectures = e.lectures ?? [];
   const ctx: Contexte = { moi, nom, photos: v.photos, messages: v.messages, autres, lectures, selection, aSupprimer, clignote,
-    appui: court ? undefined : appui, allerA, reagir: (m, x) => { reagir(m.id, x); setSelection([]); void synchroniser().catch(() => undefined); } };
+    appui: court ? undefined : appui, toast: onToast, allerA, reagir: (m, x) => { reagir(m.id, x); setSelection([]); void synchroniser().catch(() => undefined); } };
   return <div className={`bd-conv${court ? ' court' : ''}`}>
     {selection.length > 0 && <div className="bd-selection">
       <button aria-label="Annuler la sélection" onClick={() => setSelection([])}>‹</button>
       <b>{selection.length}</b>
       {seul && !seul.supprime && <button onClick={() => { setEdition(null); setReponse(seul); setSelection([]); saisie.current?.focus(); }}>↩️<small>Répondre</small></button>}
       <button onClick={copier}>📋<small>Copier</small></button>
+      {aTransferer.length > 0 && <button onClick={() => { setTransfert(aTransferer); setSelection([]); }}>↪️<small>Transférer</small></button>}
       {peutModifier && <button onClick={() => { setReponse(null); setEdition(seul); setTexte(seul!.texte); setSelection([]); requestAnimationFrame(() => saisie.current?.focus()); }}>✏️<small>Modifier</small></button>}
       {peutSupprimer && <button onClick={supprimer}>🗑️<small>Supprimer</small></button>}
     </div>}
     <div className="bd-fil">
-      {!bulles.length && <p className="bd-vide">Pas encore de message. Écris, dicte avec 🎤, ou montre où tu es avec 📍.</p>}
+      {!bulles.length && <p className="bd-vide">Pas encore de message. Écris, dicte avec 🎤, ou joins une photo, un fichier, ta position ou un sondage avec 📎.</p>}
       {montrees.map((b, i) => {
         const jour = jourMessage(b.quand);
         const sep = !court && (i === 0 || jourMessage(montrees[i - 1].quand) !== jour);
@@ -200,19 +218,28 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
         <small>{resume((edition ?? reponse)!)}</small></span>
       <button aria-label="Renoncer" onClick={() => { if (edition) setTexte(''); setReponse(null); setEdition(null); }}>✕</button>
     </div>}
+    {menu && <div className="bd-joindre">
+      <button onClick={() => { setMenu(false); (sortie ? fichier : media).current?.click(); }}><span>📷</span>{sortie ? 'Photo' : 'Photo, vidéo'}</button>
+      <button disabled={occupe} onClick={() => { setMenu(false); void point(); }}><span>📍</span>Ma position</button>
+      <button onClick={() => { setMenu(false); piece.current?.click(); }}><span>📄</span>Fichier</button>
+      <button onClick={() => { setMenu(false); setSondage(true); }}><span>📊</span>Sondage</button>
+    </div>}
+    {sondage && <NouveauSondage onFermer={() => setSondage(false)} onEnvoyer={(x) => { envoyerMessage(dest, { nature: 'sondage', sondage: x }); setSondage(false); void synchroniser().catch(() => undefined); }} />}
+    {transfert && <Transferer ms={transfert} ici={k} onFermer={() => setTransfert(null)} onFait={(n) => { setTransfert(null); montrer(n > 1 ? `Envoyé à ${n} conversations` : 'Envoyé'); }} />}
     {emojis && <div className="bd-emojis">{EMOJIS.map((x) => <button key={x} onClick={() => insererEmoji(x)}>{x}</button>)}</div>}
     <div className="bd-saisie">
       {dictee.ecoute ? <Onde niveau={dictee.niveau} partiel={dictee.partiel} avant={texte} /> : <>
-        <button aria-label="Insérer une émoji" className={emojis ? 'actif' : ''} onClick={() => setEmojis(!emojis)}>🙂</button>
-        {sortie && !edition && <button aria-label="Envoyer une photo" disabled={occupe} onClick={() => fichier.current?.click()}>📷</button>}
-        {!edition && <button aria-label="Montrer où je suis" disabled={occupe} onClick={() => void point()}>📍</button>}
+        <button aria-label="Insérer une émoji" className={emojis ? 'actif' : ''} onClick={() => { setEmojis(!emojis); setMenu(false); }}>🙂</button>
+        {!edition && <button aria-label="Joindre" className={menu ? 'actif' : ''} disabled={occupe} onClick={() => { setMenu(!menu); setEmojis(false); }}>📎</button>}
         <textarea ref={saisie} rows={1} value={texte} placeholder="Message, ou « Bud, … »" enterKeyHint={ENTREE_ENVOIE ? 'send' : 'enter'} maxLength={2000}
           onChange={(ev) => { setTexte(ev.target.value); signalerEcrit(k); ev.target.style.height = 'auto'; ev.target.style.height = `${Math.min(ev.target.scrollHeight, 140)}px`; }}
-          onFocus={() => setEmojis(false)}
+          onFocus={() => { setEmojis(false); setMenu(false); }}
           onKeyDown={(ev) => { if (ENTREE_ENVOIE && ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); envoyer(); } }} />
       </>}
       {texte.trim() && !dictee.ecoute ? <button className="bd-envoyer" aria-label={edition ? 'Enregistrer' : 'Envoyer'} onClick={envoyer}>{edition ? '✓' : '➤'}</button>
         : <button className={dictee.ecoute ? 'bd-ecoute' : ''} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dicter'} onClick={() => void dictee.basculer()}>{dictee.ecoute ? '■' : '🎤'}</button>}
+      <input ref={media} type="file" accept="image/*,video/*" multiple hidden onChange={(ev) => void joindre(ev.target.files).finally(() => { ev.target.value = ''; })} />
+      <input ref={piece} type="file" multiple hidden onChange={(ev) => void joindre(ev.target.files).finally(() => { ev.target.value = ''; })} />
       {sortie && <input ref={fichier} type="file" accept="image/*" multiple hidden onChange={(ev) => {
         const f = ev.target.files; if (!f?.length) return;
         setOccupe(true);
@@ -247,7 +274,7 @@ function useAppuiLong(selection: string[], setSelection: (f: (s: string[]) => st
 type Contexte = {
   moi: string; nom: (id: string) => string; photos: ReturnType<typeof vue>['photos']; messages: MessageBuddy[]; autres: string[];
   lectures: Lecture[]; selection: string[]; aSupprimer: string[]; clignote: string | null;
-  appui?: ReturnType<typeof useAppuiLong>; allerA: (id: string) => void; reagir: (m: MessageBuddy, emoji: string | null) => void;
+  appui?: ReturnType<typeof useAppuiLong>; toast: (m: string) => void; allerA: (id: string) => void; reagir: (m: MessageBuddy, emoji: string | null) => void;
 };
 
 /** ✓ envoyé, ✓✓ reçu, ✓✓ bleues lu (par tous les autres). */
@@ -313,6 +340,7 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto }: Actions & 
   const cible = m.repond_a ? c.messages.find((x) => x.id === m.repond_a) : undefined;
   const rappel = cible && !supprime && <button className="bd-rappel" onClick={(ev) => { ev.stopPropagation(); c.allerA(cible.id); }}>
     <b>{cible.bud ? '🐻 Bud' : cible.par === moi ? 'Toi' : nom(cible.par)}</b><small>{resume(cible)}</small></button>;
+  const transfere = m.transfere && <small className="bd-transfere">↪️ Transféré</small>;
   const qui = !mien && !m.bud && <b className="bd-qui-ecrit" style={{ color: couleur(m.par) }}>{nom(m.par)}</b>;
   if (supprime) return <div id={`m-${m.id}`} className={`bd-bulle supprime${mien ? ' mien' : ''}`}>{qui}<i>🚫 Ce message a été supprimé</i>{heure}</div>;
   let corps: React.ReactNode;
@@ -341,10 +369,108 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto }: Actions & 
       {p ? <button className="bd-bulle-photo" onClick={onPhoto}><PhotoImage p={p} className="bd-bulle-img" /></button> : <small>📷 photo retirée de l'album</small>}
       {heure}
     </div>;
+  } else if (m.fichier) {
+    corps = <div className={`bd-bulle${mien ? ' mien' : ''} fichier${classe}`} {...appui}>{qui}{transfere}{rappel}
+      <Piece f={m.fichier} attente={!!m.attente || (mien && !m.fichier.envoye)} onErreur={c.toast} />{m.texte && <Texte t={m.texte} />}{heure}</div>;
+  } else if (m.sondage) {
+    corps = <div className={`bd-bulle${mien ? ' mien' : ''} sondage${classe}`} {...appui}>{qui}<UnSondage m={m} c={c} />{heure}</div>;
   } else {
-    corps = <div className={`bd-bulle${mien ? ' mien' : ''}${m.attente ? ' attente' : ''}${classe}`} {...appui}>{qui}{rappel}<Texte t={m.texte} />{heure}</div>;
+    corps = <div className={`bd-bulle${mien ? ' mien' : ''}${m.attente ? ' attente' : ''}${classe}`} {...appui}>{qui}{transfere}{rappel}<Texte t={m.texte} />{heure}</div>;
   }
   return <div id={`m-${m.id}`} className={`bd-bulle-de${mien ? ' mien' : ''}`}>{rapides}{corps}<Reactions m={m} c={c} mien={mien} /></div>;
+}
+
+/** Une pièce jointe : photo (plein écran au toucher), vidéo (▶), document (s'ouvre avec l'appli du téléphone). */
+function Piece({ f, attente, onErreur }: { f: FichierMessage; attente: boolean; onErreur: (m: string) => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [grand, setGrand] = useState(false);
+  const [joue, setJoue] = useState(false);
+  const voir = estImage(f) || (estVideo(f) && joue);
+  useEffect(() => { let ok = true; if (voir || estImage(f)) void adresse(f).then((u) => ok && setUrl(u)); return () => { ok = false; }; }, [f, f.envoye, voir]);
+  const etat = attente ? ' · 🕓 part au retour du réseau' : '';
+  if (estImage(f)) {
+    return <>
+      <button className="bd-piece-image" onClick={(ev) => { if (!url) return; ev.stopPropagation(); setGrand(true); }}>
+        {url ? <img src={url} alt={f.nom} /> : <span>📷</span>}</button>
+      {etat && <small>{etat.slice(3)}</small>}
+      {grand && url && <div className="bd-visionneuse" onClick={() => setGrand(false)}>
+        <div className="bd-vis-haut"><span className="bd-texte"><b>{f.nom}</b></span><button aria-label="Fermer">✕</button></div>
+        <img className="bd-vis-image" src={url} alt={f.nom} />
+      </div>}
+    </>;
+  }
+  if (estVideo(f) && joue && url) return <video className="bd-piece-video" src={url} controls autoPlay playsInline />;
+  return <button className="bd-piece" onClick={(ev) => {
+    ev.stopPropagation();
+    if (estVideo(f)) setJoue(true); else void ouvrir(f).catch((e) => onErreur((e as Error).message));
+  }}>
+    <span className="bd-icone">{estVideo(f) ? '▶' : '📄'}</span>
+    <span className="bd-texte"><b>{f.nom}</b><small>{taille(f.taille)}{etat}{estVideo(f) && joue && !url ? ' · chargement…' : ''}</small></span>
+  </button>;
+}
+
+/** 📊 Un sondage (comme AppBase) : toucher une réponse vote, la retoucher retire le vote ; « Voir les votes » dit qui. */
+function UnSondage({ m, c }: { m: MessageBuddy; c: Contexte }) {
+  const s = m.sondage!;
+  const [qui, setQui] = useState(false);
+  const mes = s.votes.filter((x) => x.qui === c.moi).map((x) => x.option);
+  const votants = new Set(s.votes.map((x) => x.qui)).size;
+  const toucher = (i: number) => {
+    const l = mes.includes(i) ? mes.filter((x) => x !== i) : s.multiple ? [...mes, i] : [i];
+    voter(m.id, l); void synchroniser().catch(() => undefined);
+  };
+  return <div className="bd-sondage">
+    <b>📊 {s.question}</b>
+    <small>{s.multiple ? 'Plusieurs réponses possibles' : 'Une seule réponse'}</small>
+    {s.options.map((o, i) => {
+      const n = s.votes.filter((x) => x.option === i).length;
+      return <button key={i} className={mes.includes(i) ? 'choisi' : ''} disabled={!!m.attente} onClick={(ev) => { ev.stopPropagation(); toucher(i); }}>
+        <span className="bd-sondage-barre" style={{ width: `${votants ? Math.round((100 * n) / votants) : 0}%` }} />
+        <span>{mes.includes(i) ? '✅' : s.multiple ? '⬜' : '⚪'} {o}</span><b>{n}</b>
+      </button>;
+    })}
+    <button className="bd-lien" onClick={(ev) => { ev.stopPropagation(); setQui(!qui); }}>{qui ? 'Masquer les votes' : `Voir les votes (${votants})`}</button>
+    {qui && s.options.map((o, i) => <small key={i}><b>{o}</b> : {s.votes.filter((x) => x.option === i).map((x) => (x.qui === c.moi ? 'Toi' : c.nom(x.qui))).join(', ') || 'personne'}</small>)}
+  </div>;
+}
+
+/** Créer un sondage : une question, de 2 à 10 réponses. */
+function NouveauSondage({ onFermer, onEnvoyer }: { onFermer: () => void; onEnvoyer: (s: { question: string; multiple: boolean; options: string[] }) => void }) {
+  const [question, setQuestion] = useState('');
+  const [options, setOptions] = useState(['', '']);
+  const [multiple, setMultiple] = useState(true);
+  const pleines = options.map((o) => o.trim()).filter(Boolean);
+  return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+    <h3>📊 Sondage</h3>
+    <label className="field">Question<input value={question} maxLength={300} onChange={(ev) => setQuestion(ev.target.value)} placeholder="On part quel jour ?" /></label>
+    {options.map((o, i) => <label key={i} className="field">Réponse {i + 1}
+      <input value={o} maxLength={100} onChange={(ev) => setOptions(options.map((x, j) => (j === i ? ev.target.value : x)))} /></label>)}
+    {options.length < 10 && <button onClick={() => setOptions([...options, ''])}>＋ Ajouter une réponse</button>}
+    <label className="bd-coche"><input type="checkbox" checked={multiple} onChange={(ev) => setMultiple(ev.target.checked)} /> Plusieurs réponses possibles</label>
+    <button className="primary" disabled={!question.trim() || pleines.length < 2} onClick={() => onEnvoyer({ question: question.trim(), multiple, options: pleines })}>Envoyer</button>
+    <button onClick={onFermer}>Annuler</button>
+  </div></div>;
+}
+
+/** ↪️ Transférer : « Envoyer à… » une ou plusieurs de mes conversations. */
+function Transferer({ ms, ici, onFermer, onFait }: { ms: MessageBuddy[]; ici: string; onFermer: () => void; onFait: (n: number) => void }) {
+  const e = useBuddies();
+  const v = vue(e);
+  const [choix, setChoix] = useState<string[]>([]);
+  const l = [
+    ...appliquer(e).filter((g) => g.nature !== 'me_time' && g.id !== ici).map((g) => ({ id: g.id, nom: autreDuDuo(g, e)?.pseudo ?? g.nom, dest: { groupe: g.id } })),
+    ...v.sorties.filter((x) => x.participants.length > 1 && x.id !== ici).map((x) => ({ id: x.id, nom: x.nom, dest: { sortie: x.id } })),
+  ];
+  return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+    <h3>Envoyer à…</h3>
+    {!l.length && <p className="hint">Pas d'autre conversation.</p>}
+    {l.map((c) => <label key={c.id} className="bd-coche"><input type="checkbox" checked={choix.includes(c.id)}
+      onChange={() => setChoix(choix.includes(c.id) ? choix.filter((x) => x !== c.id) : [...choix, c.id])} /> {c.nom}</label>)}
+    <button className="primary" disabled={!choix.length} onClick={() => {
+      transferer(ms, l.filter((c) => choix.includes(c.id)).map((c) => c.dest)); void synchroniser().catch(() => undefined); onFait(choix.length);
+    }}>Envoyer{choix.length ? ` (${choix.length})` : ''}</button>
+    <button onClick={onFermer}>Annuler</button>
+  </div></div>;
 }
 
 /** Le point montré sur la carte (« Julie est ici »), le temps de le regarder. */

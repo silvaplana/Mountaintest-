@@ -10,6 +10,7 @@
  *   et renvoyer une opération ne fait jamais de doublon.
  */
 import { envoyer as envoyerFichier, oublier as oublierFichier } from './album';
+import { envoyer as envoyerFichierMessage, oublier as oublierFichierMessage } from './fichiers';
 import { api, connecte, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
 
 export const LIEN_INVITATION = 'https://silvaplana.cloud/mountaintest/rejoindre.html?c=';
@@ -63,13 +64,17 @@ export type Hebergement = {
 };
 /** 💬 Message d'un Buddy Group ou d'un Buddy Time (§5.6) : texte, « je suis ici » (point) ou photo de l'album. */
 export type MessageBuddy = {
-  id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo'; texte: string;
+  id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo' | 'fichier' | 'sondage'; texte: string;
   lon: number | null; lat: number | null; photo: string | null; cree_le: string; attente?: boolean;
   /** 🐻 Réponse de Bud (§5.12), demandée par `par`. */
   bud?: boolean;
   /** Comme la messagerie d'AppBase : réponse à un message, « modifié », supprimé chez tous, réactions (une par buddy). */
   repond_a?: string | null; edite?: boolean; supprime?: boolean; reactions?: { qui: string; emoji: string }[];
+  /** Étape 3 : fichier joint (photo, vidéo, document), sondage, transféré. */
+  fichier?: FichierMessage | null; sondage?: Sondage | null; transfere?: boolean;
 };
+export type FichierMessage = { id: string; nom: string; mime: string; taille: number; envoye: boolean };
+export type Sondage = { question: string; multiple: boolean; options: string[]; votes: { qui: string; option: number }[] };
 /** ✓✓ Un buddy de mes conversations : sa dernière synchro (« reçu ») et jusqu'où il a lu chacune (« lu », bleu). */
 export type Lecture = { qui: string; vu_le: string | null; lus: Record<string, string> };
 /** 📍 Position d'un buddy dans un Buddy Time (§5.9) : son épingle (ms) et sa dernière position. */
@@ -110,6 +115,8 @@ export type Etat = {
   ecrivent?: { cle: string; qui: string }[];
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
   envois?: string[];
+  /** Mes fichiers joints à des messages, pas encore partis (étape 3). */
+  envoisFichiers?: string[];
   curseur?: string;
   /** Mon identifiant côté serveur. */
   moi?: string;
@@ -237,7 +244,9 @@ export function vue(e: Etat): {
       messages.push({ id: String(op.message), groupe: (op.groupe as string) ?? null, sortie: (op.sortie as string) ?? null, par: moi,
         nature: op.nature as MessageBuddy['nature'], texte: String(op.texte ?? ''), lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null,
         photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true, ...(op.bud ? { bud: true } : {}),
-        repond_a: (op.repond_a as string) ?? null, reactions: [] });
+        repond_a: (op.repond_a as string) ?? null, reactions: [], transfere: !!op.transfere,
+        fichier: op.fichier ? { ...(op.fichier as FichierMessage), envoye: !!(op.fichier as FichierMessage).envoye } : null,
+        sondage: op.sondage ? { ...(op.sondage as Omit<Sondage, 'votes'>), votes: [] } : null });
     } else if (op.type === 'retirer_sortie') {
       const i = sorties.findIndex((x) => x.id === op.sortie);
       if (i >= 0) sorties.splice(i, 1);
@@ -245,6 +254,9 @@ export function vue(e: Etat): {
       messages = messages.map((m) => m.id === op.message ? { ...m, supprime: true, texte: '', reactions: [], attente: true } : m);
     } else if (op.type === 'modifier_message') {
       messages = messages.map((m) => m.id === op.message ? { ...m, texte: String(op.texte), edite: true, attente: true } : m);
+    } else if (op.type === 'voter') {
+      messages = messages.map((m) => m.id !== op.message || !m.sondage ? m
+        : { ...m, sondage: { ...m.sondage, votes: [...m.sondage.votes.filter((v) => v.qui !== moi), ...(op.options as number[]).map((option) => ({ qui: moi, option }))] } });
     } else if (op.type === 'reagir') {
       messages = messages.map((m) => m.id !== op.message ? m
         : { ...m, reactions: [...(m.reactions ?? []).filter((r) => r.qui !== moi), ...(op.emoji ? [{ qui: moi, emoji: String(op.emoji) }] : [])] });
@@ -527,14 +539,16 @@ export function proposerHebergement(sorties: string[], h: { nom: string; nature:
 }
 /** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
 export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string; bud?: boolean;
-  repond_a?: string }) {
+  repond_a?: string; fichier?: FichierMessage; sondage?: Omit<Sondage, 'votes'>; transfere?: boolean }) {
   const texte = (m.texte ?? '').trim().slice(0, 2000);
   const nature = m.nature ?? 'texte';
   if (nature === 'texte' && !texte) return '';
   const message = uuid();
   ajouter({ type: 'message', message, ...(dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe }), nature, texte,
     ...(m.lon != null && m.lat != null ? { lon: Math.round(m.lon * 1e6) / 1e6, lat: Math.round(m.lat * 1e6) / 1e6 } : {}),
-    ...(m.photo ? { photo: m.photo } : {}), ...(m.bud ? { bud: true } : {}), ...(m.repond_a ? { repond_a: m.repond_a } : {}) });
+    ...(m.photo ? { photo: m.photo } : {}), ...(m.bud ? { bud: true } : {}), ...(m.repond_a ? { repond_a: m.repond_a } : {}),
+    ...(m.fichier ? { fichier: m.fichier } : {}), ...(m.sondage ? { sondage: m.sondage } : {}), ...(m.transfere ? { transfere: true } : {}) });
+  if (m.fichier && !m.transfere) ecrire({ ...lire(), envoisFichiers: [...(lire().envoisFichiers ?? []), m.fichier.id] });
   return message;
 }
 /** Annuler un Buddy Time qu'on vient de créer (le serveur refuse s'il a déjà servi). */
@@ -548,6 +562,16 @@ export const retirerMessage = (message: string) => ajouter({ type: 'retirer_mess
 /** Modifier son message, 15 minutes après l'envoi au plus (le serveur refuse après). */
 export const modifierMessage = (message: string, texte: string) => ajouter({ type: 'modifier_message', message, texte: texte.trim().slice(0, 2000) });
 export const DELAI_MODIFIER = 15 * 60_000;
+/** Voter à un sondage : mes réponses remplacent les précédentes ([] retire mon vote). */
+export const voter = (message: string, options: number[]) => ajouter({ type: 'voter', message, options });
+/** Transférer (comme AppBase) : le message part dans chaque conversation choisie, marqué « Transféré ». */
+export function transferer(ms: MessageBuddy[], dests: { groupe?: string; sortie?: string }[]) {
+  for (const d of dests) for (const m of ms) {
+    if (m.supprime || m.sondage || m.nature === 'photo') continue;
+    envoyerMessage(d, { nature: m.nature, texte: m.texte, transfere: true, ...(m.nature === 'point' ? { lon: m.lon!, lat: m.lat! } : {}),
+      ...(m.fichier ? { fichier: m.fichier } : {}) });
+  }
+}
 /** Réagir (une émoji par buddy ; null la retire). */
 export const reagir = (message: string, emoji: string | null) => ajouter({ type: 'reagir', message, emoji: emoji ?? '' });
 /** Conversation lue jusqu'à maintenant ; `jusqu` (heure du serveur du dernier message) part aussi aux autres : ✓✓ bleues. */
@@ -686,10 +710,22 @@ export function synchroniser(): Promise<string[]> {
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
+      await envoyerFichiersMessages().catch(() => undefined);
       return r.refus.map((x) => x.raison);
     } finally { enCours = null; }
   })();
   return enCours;
+}
+
+/** Fichiers joints à mes messages acceptés par le serveur ; ceux d'un message refusé sont oubliés. */
+async function envoyerFichiersMessages() {
+  for (const id of lire().envoisFichiers ?? []) {
+    if (lire().attente.some((o) => o.type === 'message' && (o.fichier as FichierMessage | undefined)?.id === id)) continue;
+    const m = (lire().messages ?? []).find((x) => x.fichier?.id === id);
+    if (m && !m.fichier!.envoye) await envoyerFichierMessage(id);
+    else if (!m) await oublierFichierMessage(id);
+    ecrire({ ...lire(), envoisFichiers: (lire().envoisFichiers ?? []).filter((x) => x !== id) });
+  }
 }
 
 /** Fichiers de mes photos annoncées et acceptées par le serveur ; une photo refusée est oubliée. */

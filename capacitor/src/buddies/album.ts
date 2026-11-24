@@ -63,7 +63,7 @@ export async function envoyer(id: string): Promise<boolean> {
 
 // ------------------------------------------------------------------ préparer une photo choisie
 
-async function reduire(img: ImageBitmap, px: number, q: number): Promise<Blob> {
+export async function reduire(img: ImageBitmap, px: number, q: number): Promise<Blob> {
   const k = Math.min(1, px / Math.max(img.width, img.height));
   const c = document.createElement('canvas');
   c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);

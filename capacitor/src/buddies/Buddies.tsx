@@ -34,6 +34,8 @@ export const Natif = registerPlugin<{
   /** 🎤 Dictée dans l'appli (SpeechRecognizer d'Android, sans sa fenêtre) : phrases en cours et finies, niveau du son. */
   ecouter(): Promise<void>;
   arreterEcoute(): Promise<void>;
+  /** Ouvre un fichier du cache de l'appli avec l'appli du téléphone (PDF…). */
+  ouvrirFichier(o: { chemin: string; mime: string }): Promise<void>;
   addListener(e: 'dictee', f: (x: { texte: string; fini: boolean }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'dicteeNiveau', f: (x: { niveau: number }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'dicteeFin', f: (x: { erreur?: number }) => void): Promise<{ remove: () => Promise<void> }>;

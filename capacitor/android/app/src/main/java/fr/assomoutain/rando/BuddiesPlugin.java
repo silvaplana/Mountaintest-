@@ -262,6 +262,19 @@ public class BuddiesPlugin extends Plugin {
         if (reco != null) { reco.destroy(); reco = null; }
     }
 
+    /** Un fichier reçu dans la messagerie (écrit dans le cache par l'appli) : ouvert avec l'appli qui sait le lire. */
+    @PluginMethod
+    public void ouvrirFichier(PluginCall call) {
+        try {
+            java.io.File f = new java.io.File(getContext().getCacheDir(), call.getString("chemin", ""));
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+            Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(uri, call.getString("mime", "*/*")).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            ouvrir(call, Intent.createChooser(i, f.getName()));
+        } catch (Exception e) {
+            call.reject("Fichier illisible");
+        }
+    }
+
     @PluginMethod
     public void partager(PluginCall call) {
         Intent i = new Intent(Intent.ACTION_SEND);
