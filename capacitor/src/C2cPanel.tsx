@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { byDistance, C2C_ATTRIBUTION, c2cLink, fetchRoutes, fetchSheet, formatDurations, savedSheet,
+import { type Bike, byDistance, C2C_ATTRIBUTION, c2cLink, fetchRoutes, fetchSheet, formatDurations, savedSheet,
   type C2cActivity, type C2cRoute, type C2cSheet } from './topos/c2c';
 import type { LonLat } from './trails/osmTrails';
 import { fetchVgpx, fetchVgpxSheet, savedVgpxSheet, VGPX_ATTRIBUTION, vgpxLink } from './topos/visugpx';
@@ -7,6 +7,11 @@ import { fetchVgpx, fetchVgpxSheet, savedVgpxSheet, VGPX_ATTRIBUTION, vgpxLink }
 const km = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 const LIST_KEY = (act: C2cActivity) => `c2cListe:${act}`;
 const VGPX_KEY = (act: C2cActivity) => `vgpxListe:${act}`;
+/** 🚵 Filtre vélo : les itinéraires Camptocamp VTT comptent comme VTT. */
+const BIKES: { k: Bike | 'tout'; label: string }[] = [
+  { k: 'tout', label: 'Tout' }, { k: 'vtt', label: '🚵 VTT' }, { k: 'route', label: '🚴 Route' }, { k: 'gravel', label: '🚲 Gravel' },
+];
+const BIKE_NAME: Record<Bike, string> = { vtt: 'VTT', route: 'Vélo de route', gravel: 'Gravel' };
 
 /** Ligne d'infos d'un itinéraire : cotation, dénivelé, longueur, altitude max. */
 export function routeInfo(r: C2cRoute) {
@@ -46,6 +51,7 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
   const [sheetMsg, setSheetMsg] = useState('');
   const [vgpx, setVgpx] = useState<C2cRoute[] | null>(null);
   const [vgpxMsg, setVgpxMsg] = useState('');
+  const [bike, setBike] = useState<Bike | 'tout'>('tout');
 
   useEffect(() => {
     let live = true;
@@ -85,9 +91,11 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
 
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return byDistance((all ?? []).filter((r) => !t || r.title.toLowerCase().includes(t)), center);
-  }, [all, q, center]);
-  useEffect(() => onRoutes(all ?? []), [all]); // eslint-disable-line react-hooks/exhaustive-deps
+    return byDistance((all ?? []).filter((r) => (!t || r.title.toLowerCase().includes(t))
+      && (bike === 'tout' || (r.src ? r.bike : 'vtt') === bike)), center);
+  }, [all, q, center, bike]);
+  // Sur la carte, seulement ceux de la puce choisie (🚵 VTT, 🚴 Route, 🚲 Gravel).
+  useEffect(() => onRoutes(rows.map((x) => x.r)), [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (r: C2cRoute) => {
     setSheetMsg('');
@@ -134,6 +142,8 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
       <div className="travel-head"><b className="ski-head-title">{icon} {what}
         <button className="ski-map-btn" onClick={onMap} aria-label="Itinéraires tracés sur la carte">🗺</button></b>
         <button className="close" onClick={onClose} aria-label="Fermer">✕</button></div>
+      {act === 'mountain_biking' && <div className="tabs bike-tabs">{BIKES.map((b) => (
+        <button key={b.k} className={bike === b.k ? 'active' : ''} onClick={() => setBike(b.k)}>{b.label}</button>))}</div>}
       <input type="search" placeholder="Chercher un nom" value={q} onChange={(e) => setQ(e.target.value)} />
       {busy && <p className="hint">Recherche des itinéraires de l'écran…</p>}
       {error && <p className="error">{error}</p>}
@@ -146,7 +156,7 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
           {rows.map(({ r, d }) => (
             <tr key={r.id} onClick={() => open(r)}>
               <td>{km(d)}</td>
-              <td><b>{r.title}</b><br /><small>{[r.src ? 'VisuGPX' : 'Camptocamp', routeInfo(r)].filter(Boolean).join(' · ')}</small></td>
+              <td><b>{r.title}</b><br /><small>{[r.src ? 'VisuGPX' : 'Camptocamp', r.bike && act === 'mountain_biking' ? BIKE_NAME[r.bike] : '', routeInfo(r)].filter(Boolean).join(' · ')}</small></td>
             </tr>
           ))}
         </tbody>

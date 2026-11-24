@@ -3,12 +3,18 @@
 // Comme Camptocamp : toutes dates, du plus proche au plus loin. Même code côté Kotlin (VisuGpx.kt).
 import { relayPost } from '../travel/travel';
 import type { LonLat } from '../trails/osmTrails';
-import type { C2cRoute, C2cSheet } from './c2c';
+import type { Bike, C2cRoute, C2cSheet } from './c2c';
 
 export const VGPX_ATTRIBUTION = 'Circuits © leurs auteurs sur VisuGPX';
 export const vgpxLink = (vid: string) => `https://www.visugpx.com/${vid}`;
 
-interface Row { id: string; titre: string; description: string; distance_m: number | null; denivele_m: number | null; duree: string; lat: number; lon: number }
+interface Row { id: string; titre: string; description: string; distance_m: number | null; denivele_m: number | null; duree: string; lat: number; lon: number; activite?: string }
+
+/** Codes d'activité VisuGPX : vtt, vr (cyclotourisme = vélo de route), vg (gravel). */
+export function bikeOf(code: string | undefined): Bike | undefined {
+  const c = (code ?? '').toLowerCase();
+  return c === 'vtt' ? 'vtt' : c === 'vr' ? 'route' : c === 'vg' ? 'gravel' : undefined;
+}
 
 /** Numéro négatif tiré de l'identifiant VisuGPX : ne croise jamais un numéro Camptocamp (positif). */
 export function vgpxNum(vid: string) {
@@ -21,7 +27,7 @@ export function vgpxRoute(x: Row): C2cRoute {
   return {
     id: vgpxNum(x.id), src: 'visugpx', vid: x.id, title: x.titre, summary: '', lon: x.lon, lat: x.lat,
     rating: x.duree ? x.duree : '', heightUpM: x.denivele_m != null ? Math.round(x.denivele_m) : null, elevMaxM: null,
-    lengthM: x.distance_m, durations: [], vdesc: x.description,
+    lengthM: x.distance_m, durations: [], vdesc: x.description, bike: bikeOf(x.activite),
   };
 }
 

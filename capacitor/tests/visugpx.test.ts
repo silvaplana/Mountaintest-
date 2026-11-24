@@ -12,3 +12,10 @@ describe('VisuGPX', () => {
     expect(r).toMatchObject({ src: 'visugpx', vid: 'abc', title: 'Tour', lengthM: 12500, heightUpM: 450, vdesc: 'Joli' });
   });
 });
+
+import { bikeOf } from '../src/topos/visugpx';
+describe('VisuGPX vélo', () => {
+  it('codes d’activité', () => {
+    expect(bikeOf('vtt')).toBe('vtt'); expect(bikeOf('vr')).toBe('route'); expect(bikeOf('VG')).toBe('gravel'); expect(bikeOf('rp')).toBeUndefined();
+  });
+});
