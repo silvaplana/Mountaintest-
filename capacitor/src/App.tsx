@@ -59,6 +59,7 @@ import { wayRunLines, type WayRun } from './trails/wayTypes';
 import { ACTIVITY_ICON, loadActivity, saveActivity, type Activity } from './activity';
 import { C2cPanel } from './C2cPanel';
 import { fetchLines, type C2cActivity, type C2cRoute } from './topos/c2c';
+import { fetchVgpxSheet } from './topos/visugpx';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
 import type { LonLat } from './trails/osmTrails';
@@ -235,7 +236,8 @@ export function App() {
     if (!c2c || !c2cMap || !c2cRoutes.length) return;
     const sig = { stop: false };
     setC2cLines([]);
-    void fetchLines(c2cRoutes, c2c.center, (id, line) => setC2cLines((cur) => [...cur.filter((x) => x.id !== id), { id, line }]), sig);
+    void fetchLines(c2cRoutes, c2c.center, (id, line) => setC2cLines((cur) => [...cur.filter((x) => x.id !== id), { id, line }]), sig,
+      (r) => fetchVgpxSheet(r, [IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')));
     return () => { sig.stop = true; };
   }, [c2c, c2cMap, c2cRoutes]);
   // Sur la carte, aussi les itinéraires balisés d'OpenStreetMap (randos, ou circuits VTT en 🚵) : toucher l'un ouvre son profil.
@@ -1147,15 +1149,15 @@ export function App() {
         activity={activity} onActivity={(a) => {
           setActivity(a); closeC2c();
           setToast(a === 'vtt' ? '🚵 Mode VTT : itinéraires VTT, durée à vélo, pente en %, type de chemin des traces'
-            : a === 'rando' ? '🥾 Mode rando : toutes les randos de l’écran (Camptocamp)' : '⛷ Mode ski de rando : sorties skitour');
+            : a === 'rando' ? '🥾 Mode rando : toutes les randos de l’écran (Camptocamp, VisuGPX)' : '⛷ Mode ski de rando : sorties skitour');
         }}
         onTopos={() => openC2c(activity === 'vtt' ? 'mountain_biking' : 'hiking')}
         onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
-      {c2c && <C2cPanel act={c2c.act} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} pick={c2cPick}
+      {c2c && <C2cPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} act={c2c.act} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} pick={c2cPick}
         hidden={c2cMap} onMap={() => setC2cMap(true)} onClose={closeC2c}
         onShowLine={(sh) => {
           closeC2c();
-          showMine(sh.line, { onPaths: false, name: sh.title, kind: 'Camptocamp' });
+          showMine(sh.line, { onPaths: false, name: sh.title, kind: sh.src ? 'VisuGPX' : 'Camptocamp' });
           setToast(`« ${sh.title} » ajoutée à tes traces : profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne`);
         }} />}
       {c2c && c2cMap && <div className="c2c-bar">

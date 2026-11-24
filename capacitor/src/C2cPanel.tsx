@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { byDistance, C2C_ATTRIBUTION, c2cLink, fetchRoutes, fetchSheet, formatDurations, savedSheet,
   type C2cActivity, type C2cRoute, type C2cSheet } from './topos/c2c';
 import type { LonLat } from './trails/osmTrails';
+import { fetchVgpx, fetchVgpxSheet, savedVgpxSheet, VGPX_ATTRIBUTION, vgpxLink } from './topos/visugpx';
 
 const km = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 const LIST_KEY = (act: C2cActivity) => `c2cListe:${act}`;
+const VGPX_KEY = (act: C2cActivity) => `vgpxListe:${act}`;
 
 /** Ligne d'infos d'un itinéraire : cotation, dénivelé, longueur, altitude max. */
 export function routeInfo(r: C2cRoute) {
@@ -17,8 +19,11 @@ export function routeInfo(r: C2cRoute) {
  * Pas de filtre de date (en rando et en VTT on veut tous les topos) : du plus proche au plus loin du centre
  * de l'écran. La dernière liste et les fiches ouvertes sont gardées sur le téléphone (hors ligne).
  * « 🗺 Sur la carte » ajoute le tracé à Mes traces (profil, type de chemin, ▶ Commencer, 📶 Hors ligne).
+ * Les circuits VisuGPX (par le relais du VPS, qui garde la clé) s'ajoutent à la même liste, marqués « VisuGPX ».
  */
-export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap, hidden, onClose }: {
+export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap, hidden, onClose, password }: {
+  /** Mot de passe du relais (circuits VisuGPX). */
+  password: string;
   act: C2cActivity;
   /** Cadre de l'écran affiché quand le panneau s'ouvre, et son centre (tri par distance). */
   bbox: [number, number, number, number]; center: LonLat;
@@ -39,6 +44,8 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
   const [q, setQ] = useState('');
   const [sheet, setSheet] = useState<C2cSheet | C2cRoute | null>(null);
   const [sheetMsg, setSheetMsg] = useState('');
+  const [vgpx, setVgpx] = useState<C2cRoute[] | null>(null);
+  const [vgpxMsg, setVgpxMsg] = useState('');
 
   useEffect(() => {
     let live = true;
@@ -57,25 +64,50 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
     }).finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
   }, [bbox, act]);
+  useEffect(() => {
+    let live = true;
+    setVgpx(null); setVgpxMsg('');
+    fetchVgpx(center, act === 'mountain_biking', password).then((r) => {
+      if (!live) return;
+      setVgpx(r);
+      try { localStorage.setItem(VGPX_KEY(act), JSON.stringify(r)); } catch { /* plein */ }
+    }).catch((e) => {
+      if (!live) return;
+      try {
+        const saved = JSON.parse(localStorage.getItem(VGPX_KEY(act)) ?? 'null') as C2cRoute[] | null;
+        if (saved) { setVgpx(saved); setVgpxMsg('📴 VisuGPX : dernière liste chargée.'); return; }
+      } catch { /* rien */ }
+      setVgpx([]); setVgpxMsg(`VisuGPX indisponible : ${(e as Error).message}`);
+    });
+    return () => { live = false; };
+  }, [bbox, act]); // eslint-disable-line react-hooks/exhaustive-deps
+  const all = useMemo(() => (routes || vgpx ? [...(routes ?? []), ...(vgpx ?? [])] : null), [routes, vgpx]);
 
   const rows = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return byDistance((routes ?? []).filter((r) => !t || r.title.toLowerCase().includes(t)), center);
-  }, [routes, q, center]);
-  useEffect(() => onRoutes(routes ?? []), [routes]); // eslint-disable-line react-hooks/exhaustive-deps
+    return byDistance((all ?? []).filter((r) => !t || r.title.toLowerCase().includes(t)), center);
+  }, [all, q, center]);
+  useEffect(() => onRoutes(all ?? []), [all]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (r: C2cRoute) => {
-    setSheet(savedSheet(r.id) ?? r); setSheetMsg('');
+    setSheetMsg('');
+    if (r.src) {
+      setSheet(savedVgpxSheet(r) ?? { ...r, summary: '' });
+      fetchVgpxSheet(r, password).then(setSheet).catch((e) => setSheetMsg(`Tracé indisponible : ${(e as Error).message}`));
+      return;
+    }
+    setSheet(savedSheet(r.id) ?? r);
     fetchSheet(r.id).then(setSheet).catch((e) => setSheetMsg(`Fiche complète indisponible (pas de réseau ?) : ${(e as Error).message}`));
   };
   useEffect(() => {
-    const r = pick ? routes?.find((x) => x.id === pick.id) : null;
+    const r = pick ? all?.find((x) => x.id === pick.id) : null;
     if (r) open(r);
   }, [pick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (hidden) return null;
   if (sheet) {
     const full = 'line' in sheet ? sheet : null;
+    const desc = full?.description || (sheet.src ? sheet.vdesc : '');
     return (
       <div className="ski-page">
         <div className="travel-head"><button onClick={() => setSheet(null)}>← Liste</button>
@@ -84,38 +116,42 @@ export function C2cPanel({ act, bbox, center, onRoutes, pick, onShowLine, onMap,
         <p className="ski-meta">{routeInfo(sheet)}</p>
         {sheetMsg && <p className="hint">{sheetMsg}</p>}
         {sheet.summary && <p className="ski-text"><b>{sheet.summary}</b></p>}
-        {full?.description && <><h3>Description</h3><p className="ski-text">{full.description}</p></>}
+        {desc && <><h3>Description</h3><p className="ski-text">{desc}</p></>}
         <div className="row">
           <button className="primary" disabled={!full?.line.length} onClick={() => full && onShowLine(full)}>🗺 Sur la carte</button>
-          <button onClick={() => window.open(c2cLink(sheet.id), '_system')}>Voir sur camptocamp.org</button>
+          {sheet.src
+            ? <button onClick={() => window.open(vgpxLink(sheet.vid ?? ''), '_system')}>Voir sur visugpx.com</button>
+            : <button onClick={() => window.open(c2cLink(sheet.id), '_system')}>Voir sur camptocamp.org</button>}
         </div>
-        {full && !full.line.length && <p className="hint">Pas de tracé pour cet itinéraire sur Camptocamp.</p>}
-        <p className="hint">Texte {C2C_ATTRIBUTION}, non modifié.</p>
+        {full && !full.line.length && <p className="hint">Pas de tracé pour cet itinéraire.</p>}
+        <p className="hint">{sheet.src ? `${VGPX_ATTRIBUTION}.` : `Texte ${C2C_ATTRIBUTION}, non modifié.`}</p>
       </div>
     );
   }
 
   return (
     <div className="ski-page">
-      <div className="travel-head"><b className="ski-head-title">{icon} {what} · Camptocamp
+      <div className="travel-head"><b className="ski-head-title">{icon} {what}
         <button className="ski-map-btn" onClick={onMap} aria-label="Itinéraires tracés sur la carte">🗺</button></b>
         <button className="close" onClick={onClose} aria-label="Fermer">✕</button></div>
       <input type="search" placeholder="Chercher un nom" value={q} onChange={(e) => setQ(e.target.value)} />
       {busy && <p className="hint">Recherche des itinéraires de l'écran…</p>}
       {error && <p className="error">{error}</p>}
       {offline && <p className="hint">📴 Hors ligne : dernière liste chargée.</p>}
-      {routes && !busy && <p className="hint">{rows.length} itinéraire{rows.length > 1 ? 's' : ''}, toutes dates, du plus proche au plus loin du centre de l'écran.</p>}
+      {vgpx == null && <p className="hint">Recherche des circuits VisuGPX…</p>}
+      {vgpxMsg && <p className="hint">{vgpxMsg}</p>}
+      {all && !busy && <p className="hint">{rows.length} itinéraire{rows.length > 1 ? 's' : ''}, toutes dates, du plus proche au plus loin du centre de l'écran.</p>}
       <table className="ski-table">
         <tbody>
           {rows.map(({ r, d }) => (
             <tr key={r.id} onClick={() => open(r)}>
               <td>{km(d)}</td>
-              <td><b>{r.title}</b><br /><small>{routeInfo(r)}</small></td>
+              <td><b>{r.title}</b><br /><small>{[r.src ? 'VisuGPX' : 'Camptocamp', routeInfo(r)].filter(Boolean).join(' · ')}</small></td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="hint">Données {C2C_ATTRIBUTION}.</p>
+      <p className="hint">Données {C2C_ATTRIBUTION}. {VGPX_ATTRIBUTION}.</p>
     </div>
   );
 }

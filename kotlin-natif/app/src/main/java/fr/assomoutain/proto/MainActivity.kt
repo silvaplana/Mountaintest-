@@ -1486,7 +1486,7 @@ class MainActivity : AppCompatActivity() {
             closeC2c()
             toast(when (now) {
                 "vtt" -> "🚵 Mode VTT : itinéraires VTT, durée à vélo, pente en %, type de chemin des traces"
-                "rando" -> "🥾 Mode rando : toutes les randos de l’écran (Camptocamp)"
+                "rando" -> "🥾 Mode rando : toutes les randos de l’écran (Camptocamp, VisuGPX)"
                 else -> "⛷ Mode ski de rando : sorties skitour"
             })
             refreshTrails(); refreshTraceMenu(); refreshSlopeTags(); showSlopeCursor()
@@ -1661,11 +1661,11 @@ class MainActivity : AppCompatActivity() {
             onRoutes = { r -> c2cRoutes = r; drawC2c() },
             onShowLine = { s ->
                 closeC2c()
-                showMine(s.line, false, name = s.route.title, kind = "Camptocamp")
+                showMine(s.line, false, name = s.route.title, kind = if (s.route.src.isNotEmpty()) "VisuGPX" else "Camptocamp")
                 toast("« ${s.route.title} » ajoutée à tes traces : profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne")
             },
             onMap = { c2cShowMap(act, zone, LonLat(c.longitude, c.latitude)) },
-            onClose = { closeC2c() })
+            onClose = { closeC2c() }, password = skiPassword())
         c2cPanel = p
         findViewById<android.widget.FrameLayout>(R.id.root).addView(p.view)
         p.view.updatePadding(bottom = navBottom + (24 * resources.displayMetrics.density).toInt())
@@ -1698,7 +1698,10 @@ class MainActivity : AppCompatActivity() {
                 launch {
                     while (true) {
                         val r = todo.poll() ?: break
-                        val s = withContext(Dispatchers.IO) { Camptocamp.savedSheet(this@MainActivity, r.id) ?: runCatching { Camptocamp.fetchSheet(this@MainActivity, r.id) }.getOrNull() }
+                        val s = withContext(Dispatchers.IO) {
+                            if (r.src.isNotEmpty()) runCatching { VisuGpx.fetchSheet(this@MainActivity, r, skiPassword()) }.getOrNull()
+                            else Camptocamp.savedSheet(this@MainActivity, r.id) ?: runCatching { Camptocamp.fetchSheet(this@MainActivity, r.id) }.getOrNull()
+                        }
                         if (s != null && s.line.isNotEmpty()) { c2cLines[r.id] = s.line; drawC2c() }
                     }
                 }
