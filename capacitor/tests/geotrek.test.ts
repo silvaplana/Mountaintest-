@@ -40,3 +40,17 @@ describe('zone cherchée', () => {
     expect(searchArea([5.5, 43.1, 5.7, 43.3], false)).not.toContain('Camptocamp');
   });
 });
+
+import { isCovered } from '../src/C2cPanel';
+describe('Rechercher ici', () => {
+  const s: [number, number, number, number] = [5.5, 43.1, 5.7, 43.3];
+  it('grisé tant que le centre reste dans la zone cherchée', () => {
+    expect(isCovered(s, [5.55, 43.15, 5.75, 43.35])).toBe(true);
+  });
+  it('actif quand le centre sort de la zone', () => {
+    expect(isCovered(s, [5.7, 43.1, 5.9, 43.3])).toBe(false);
+  });
+  it('actif quand on a beaucoup dézoomé', () => {
+    expect(isCovered(s, [5.3, 42.9, 5.9, 43.5])).toBe(false);
+  });
+});

@@ -42,6 +42,8 @@ describe('sorties de l\'écran', () => {
     const os = [{ id: 1, lat: 45, lon: 6 }, { id: 2, lat: 46, lon: 8 }, { id: 3, lat: 45.5, lon: 6.5 }] as Outing[];
     expect(inView(os, [5.5, 44.5, 7, 46]).map((o) => o.id)).toEqual([1, 3]);
     expect(inView(os, [5.5, 44.5, 7, 46], 1).map((o) => o.id)).toEqual([1]);
+    // Sans limite par défaut : un point ne disparaît plus quand on dézoome.
+    expect(inView(Array.from({ length: 400 }, () => os[0]), [5.5, 44.5, 7, 46]).length).toBe(400);
   });
   it('détails gardés : les plus récents, DETAILS_MAX au plus', () => {
     const old = mergeDetails({}, Object.fromEntries(Array.from({ length: DETAILS_MAX }, (_, i) => [String(i), { etoiles: 1 }])));

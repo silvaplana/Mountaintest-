@@ -5,6 +5,7 @@ import { PERIODS, SKI_LEVELS, fetchDetails, skiLabel, skiOk, hasDetails, inView,
 
 /** En dessous de ce zoom, l'écran couvre trop de pays : on ne montre pas les points. */
 export const SKI_MIN_ZOOM = 7;
+const LIST_MAX = 150;
 
 /**
  * Sorties skitour.fr de l'écran affiché : toute la liste de la période est chargée une fois, puis filtrée sur l'écran
@@ -42,6 +43,9 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   const asked = useRef(new Set<number>()); // déjà demandés (une fois par ouverture, même si la réponse manque)
   const selId = useRef<number | null>(null);
   selId.current = selected != null ? outings[selected]?.id ?? null : null;
+  // Sortie touchée sans sa trace : demandée tout de suite, sans attendre un mouvement de la carte.
+  const updateRef = useRef<(() => void) | null>(null);
+  useEffect(() => { if (selId.current != null) updateRef.current?.(); }, [selId.current]); // eslint-disable-line react-hooks/exhaustive-deps
   // Sortie venue de la fiche texte (🗺 Carte) : gardée sur la carte même si elle sort de la période choisie.
   const pinned = useRef<Outing | null>(selected != null ? outings[selected] ?? null : null);
   useEffect(() => {
@@ -76,7 +80,10 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
     const update = () => {
       const vis = show();
       window.clearTimeout(timer);
-      const missing = vis.filter((o) => !hasDetails(o, det.current) && !asked.current.has(o.id)).slice(0, 30).map((o) => o.id);
+      // D'abord la sortie touchée, puis celles qui ont un tracé (trace ou itinéraire, entourées sur la carte).
+      const rank = (o: Outing) => (o.id === selId.current ? 0 : o.gpx || o.iti ? 1 : 2);
+      const missing = vis.filter((o) => !hasDetails(o, det.current) && !asked.current.has(o.id))
+        .sort((a, b) => rank(a) - rank(b)).slice(0, 30).map((o) => o.id);
       if (!missing.length) return;
       timer = window.setTimeout(() => {
         missing.forEach((id) => asked.current.add(id));
@@ -84,6 +91,7 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       }, 1000);
     };
     update();
+    updateRef.current = update;
     map.on('moveend', update);
     return () => { live = false; window.clearTimeout(timer); map.off('moveend', update); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,11 +122,11 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       </span></div>
     {/* Cases toujours visibles, sous les filtres, aux couleurs des lignes de la carte. */}
     <div className="ski-menu lines">
-      {([['trace', 'Trace GPX'], ['iti', 'Itinéraire']] as const).map(([k, t]) => (
-        <button key={k} role="checkbox" aria-checked={lines[k]} className={`${k}${lines[k] ? ' on' : ''}`} onClick={() => {
-          const v = { ...lines, [k]: !lines[k] }; setLines(v);
-          try { localStorage.setItem('skitourLignes', JSON.stringify(v)); } catch { /* ignoré */ }
-        }}>{lines[k] ? '☑' : '☐'} {t}</button>))}</div>
+      {/* Une seule case (Seb) : trace de l'auteur, sinon itinéraire du topo, dessinés pareil. */}
+      <button role="checkbox" aria-checked={lines.trace} className={`trace${lines.trace ? ' on' : ''}`} onClick={() => {
+        const v = { trace: !lines.trace, iti: !lines.trace }; setLines(v);
+        try { localStorage.setItem('skitourLignes', JSON.stringify(v)); } catch { /* ignoré */ }
+      }}>{lines.trace ? '☑' : '☐'} Tracés GPX</button></div>
   </>);
   if (low) return <div className="travel" hidden={hidden}>{head}</div>;
   return (
@@ -138,11 +146,13 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
         </span>
       </div>}
       <ul className="routes lodgings">
-        {outings.map((o, i) => (
+        {/* Liste : les 150 plus récentes (la carte, elle, montre toutes les sorties de l'écran). */}
+        {outings.slice(0, LIST_MAX).map((o, i) => (
           <li key={o.id}><button className={i === selected ? 'sel' : ''} onClick={() => onSelect(i)}>
             <b>{o.titre}</b><em>{outingDate(o)}</em><span>{outingLine(o)}</span></button></li>
         ))}
       </ul>
+      {outings.length > LIST_MAX && <p className="hint">Liste : les {LIST_MAX} plus récentes sur {outings.length} de l'écran (toutes sont sur la carte).</p>}
       <p className="hint">Données skitour.fr (CC BY-NC-ND pour les récits).</p>
     </div>
   );
