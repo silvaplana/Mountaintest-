@@ -5,6 +5,7 @@ import { fetchGeotrek, GEOTREK_ATTRIBUTION } from './topos/geotrek';
 import { fetchOtherSheet, loadHiddenSources, savedOtherSheet, SOURCES, srcAttribution, srcKey, srcLabel, srcLink,
   toggleSource } from './topos/sources';
 import type { LonLat } from './trails/osmTrails';
+import { searchPlaces, type Place } from './search';
 import { fetchVgpx, VGPX_ATTRIBUTION } from './topos/visugpx';
 
 const km = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
@@ -76,9 +77,11 @@ export function routeInfo(r: C2cRoute) {
  * Les circuits VisuGPX (par le relais du VPS, qui garde la clé) et les itinéraires Geotrek (parcs, départements)
  * s'ajoutent à la même liste, présentés pareil et marqués de leur source (« VisuGPX », « Geotrek · Écrins »).
  */
-export function C2cPanel({ act, bike, bbox, center, onRoutes, onLoading, pick, onShowLine, onMap, hidden, onClose, password }: {
+export function C2cPanel({ act, bike, bbox, center, onRoutes, onLoading, onPlace, pick, onShowLine, onMap, hidden, onClose, password }: {
   /** Recherche en cours (toutes sources) : le bouton « Rechercher ici » de la carte clignote. */
   onLoading?: (loading: boolean) => void;
+  /** Lieu choisi sous le champ de recherche (comme la loupe 🔍) : la recherche des itinéraires s'y déplace. */
+  onPlace?: (p: Place) => void;
   /** Mot de passe du relais (VisuGPX, Geotrek). */
   password: string;
   /** Mode vélo : 🚵 VTT (Camptocamp, VisuGPX, Geotrek), 🚴 route ou 🚲 gravel (VisuGPX, Geotrek). */
@@ -131,6 +134,17 @@ export function C2cPanel({ act, bike, bbox, center, onRoutes, onLoading, pick, o
     [routes, vgpx, geotrek]);
 
   const [hiddenSrc, setHiddenSrc] = useState(loadHiddenSources);
+  // Le champ cherche aussi les lieux (même service que la loupe 🔍) : un lieu touché déplace la recherche.
+  const [places, setPlaces] = useState<Place[]>([]);
+  useEffect(() => {
+    const t = q.trim();
+    if (t.length < 3 || !onPlace) { setPlaces([]); return; }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      searchPlaces(t, ctrl.signal).then((r) => setPlaces(r.slice(0, 5))).catch(() => setPlaces([]));
+    }, 400);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
   /** Itinéraires du mode (🚵 VTT, 🚴 route, 🚲 gravel), toutes sources : comptés sur les pastilles. */
   const ofMode = useMemo(() => (all ?? []).filter((r) => !bike || (r.src ? r.bike : 'vtt') === bike), [all, bike]);
   const rows = useMemo(() => {
@@ -185,7 +199,15 @@ export function C2cPanel({ act, bike, bbox, center, onRoutes, onLoading, pick, o
       <div className="travel-head"><b className="ski-head-title">{icon} {what}
         <button className="ski-map-btn" onClick={onMap} aria-label="Itinéraires tracés sur la carte">🗺</button></b>
         <button className="close" onClick={onClose} aria-label="Fermer">✕</button></div>
-      <input type="search" placeholder="Chercher un nom" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input type="search" placeholder="Chercher un nom ou un lieu" value={q} onChange={(e) => setQ(e.target.value)} />
+      {places.length > 0 && (
+        <ul className="search-results">
+          {places.map((p, i) => (
+            <li key={i}><button onClick={() => { setQ(''); setPlaces([]); onPlace?.(p); }}>
+              <b>📍 {p.label}</b><span>{p.detail} · chercher les itinéraires ici</span></button></li>
+          ))}
+        </ul>
+      )}
       <div className="src-chips">
         {SOURCES.filter((x) => x.key !== 'c2c' || withC2c).map((x) => (
           <button key={x.key} className={hiddenSrc.includes(x.key) ? '' : 'on'} aria-pressed={!hiddenSrc.includes(x.key)}
