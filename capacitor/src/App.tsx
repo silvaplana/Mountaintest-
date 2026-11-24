@@ -24,7 +24,8 @@ import { useEpingle } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { montrer } from './buddies/appel';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
-import { LodgingPanel, type Lodging } from './Lodging';
+import { LodgingPanel, placeLodgings, type Lodging, type PlacedLodging } from './Lodging';
+import { LodgingsOnMap } from './LodgingMap';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
 import { rowOf, topoBounds, topoRowOf, type Outing, type OutingRow, type TopoRow, type TopoSheet } from './ski/skitour';
@@ -128,6 +129,9 @@ export function App() {
   const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void; hebergement?: Lodging } | null>(null);
   const buddiesEtat = useBuddies();
   const [lodging, setLodging] = useState(false);
+  const [lodgingPins, setLodgingPins] = useState<PlacedLodging[]>([]);
+  const proposerHebergementTrouve = (h: Lodging) => setPartage({ nom: h.nom, ligne: [], hebergement: h,
+    ailleurs: () => void (navigator.share?.({ title: h.nom, text: [h.nom, h.adresse, h.url].filter(Boolean).join('\n') }) ?? Promise.resolve()).catch(() => undefined) });
   // ⛷ Sorties skitour.fr : zone encadrée, sorties trouvées, celle choisie.
   // ⛷🗺 : sorties de l'écran affiché (plus de zone à encadrer).
   const [skiOn, setSkiOn] = useState(false);
@@ -1201,8 +1205,11 @@ export function App() {
       {topoSheet && <TopoTextPanel key={topoSheet.id} onShowOnMap={(t) => { setTopoSheet(null); showTopoOnMap(t); }} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} start={topoSheet}
         onMode={(m) => { if (m === 'carteTopos') setTopoSheet(null); else skiMode(m); }} onClose={() => setTopoSheet(null)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)}
-        onProposer={(h) => setPartage({ nom: h.nom, ligne: [], hebergement: h,
-          ailleurs: () => void (navigator.share?.({ title: h.nom, text: [h.nom, h.adresse, h.url].filter(Boolean).join('\n') }) ?? Promise.resolve()).catch(() => undefined) })} />}
+        onProposer={proposerHebergementTrouve}
+        onShowOnMap={(l) => { setToast('Je place les hébergements sur la carte…'); void placeLodgings(l).then((p) => {
+          if (p.length) { setLodging(false); setLodgingPins(p); } else setToast('Adresses introuvables sur la carte');
+        }); }} />}
+      {lodgingPins.length > 0 && !lodging && <LodgingsOnMap map={map} items={lodgingPins} onProposer={proposerHebergementTrouve} onClose={() => setLodgingPins([])} />}
       {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}

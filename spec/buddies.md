@@ -482,6 +482,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   direct. Pourquoi : aucune API de ces sites n'est ouverte à une appli entre copains (Booking réserve la sienne aux
   affiliés sous contrat, Airbnb n'en a pas, Abritel passe par une certification Expedia), et la recherche web lit mal
   leurs prix. Capacitor seulement (Kotlin arrêté).
+- **Hébergements trouvés sur la carte (24 novembre 2026, demande de Seb)** : sous les résultats de « 🔍 Chercher »,
+  « 🗺 Voir sur la carte » place chacun par son adresse (sinon son nom, géocodage IGN gratuit ; ceux qu'on ne trouve
+  pas restent hors carte), ferme la recherche et pose des épingles 🏨 avec le prix. Un toucher ouvre la fiche en bas :
+  « Voir le site », « 👥 Proposer à mes buddies » ; ✕ retire les épingles. Pas de disponibilités : gites-refuges.com
+  est un annuaire (téléphone, mail), on réserve ailleurs.
 - **Pas encore** : la ligne automatique dans le Buddy Count (le prix trouvé n'est pas toujours celui payé : on ajoute
   la dépense à la main). La recherche elle-même est l'écran existant, non retouché (voir point ouvert 6).
 - **Serveur** : tables `hebergements` (Buddy Time, nom, nature, prix par nuit en euros, adresse, lien http(s), résumé,
