@@ -626,7 +626,13 @@ envoi sans réseau. Quatre étapes, une PR chacune :
    fichier transféré n'est pas renvoyé, le serveur vérifie qu'on peut le lire). Serveur : colonnes `fichier_id`,
    `sondage` (JSON), `transfere` de `messages_buddies` ; tables `fichiers_buddies` et `votes_buddies` ; opération
    `voter` ; `PUT`/`GET /buddies/fichiers/<id>` (lisible par qui peut lire un message qui le montre).
-4. Notifications des nouveaux messages (Firebase, comme la sonnerie des appels).
+4. **Notifications des nouveaux messages** (fait, Android) : chaque nouveau message prévient les autres buddies de la
+   conversation (pas son auteur, une seule fois même renvoyé) par Firebase, comme la sonnerie des appels (même clé,
+   gardé un jour si le téléphone est hors réseau). Appli fermée : une notification par conversation (titre : le
+   Buddy Group, le Buddy Time, ou le buddy pour une discussion à deux ; ses 6 derniers messages « Julie : … ») ; la
+   toucher ouvre la conversation (celle d'un Buddy Time sur sa carte) ; elle s'efface quand on ouvre la conversation.
+   Appli ouverte : pas de notification, le message arrive tout de suite. Android 13 : l'autorisation est demandée
+   une fois. Sans clé Firebase sur le VPS, rien ne part (la messagerie marche quand même). iPhone : à faire (APNs).
 
 Pas de message vocal : la messagerie d'AppBase n'en a pas.
 

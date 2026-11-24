@@ -9,6 +9,7 @@ import { Onde, useDictee } from './Dictee';
 import { iconeHebergement, prixHebergement } from './Hebergements';
 import { apercu, cle, fil, heureMessage, jourMessage, longueurTrace, morceaux, resume, type Bulle, type Dest } from './messages';
 import { agir, annuler, contexte, demander, pourBud } from './bud';
+import { effacerNotif } from './notifs';
 import { adresse, estImage, estVideo, ouvrir, preparer, taille } from './fichiers';
 import {
   appliquer, autreDuDuo, contacts, DELAI_MODIFIER, presence, envoyerMessage, estAdmin, lire, marquerLu, modifierMessage, noterActionsBud, nonLus, proposerHebergement, reagir, retirerMessage, signalerEcrit, statut,
@@ -88,6 +89,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
     const t = setInterval(() => { void synchroniser().catch(() => undefined); }, 5_000);
     return () => clearInterval(t);
   }, []);
+  useEffect(() => { if (!court) effacerNotif(k); }, [k, court, bulles.length]);
   const dernier = bulles.at(-1)?.quand;
   useEffect(() => {
     if (nonLus(e, k, v.messages)) {

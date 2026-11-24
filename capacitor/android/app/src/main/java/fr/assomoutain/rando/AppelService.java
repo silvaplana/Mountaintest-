@@ -28,7 +28,7 @@ public class AppelService extends FirebaseMessagingService {
     static volatile Ecouteur ecouteur;
     static volatile boolean premierPlan;
 
-    interface Ecouteur { void appel(JSONObject sonnerie); void fin(String appel); }
+    interface Ecouteur { void appel(JSONObject sonnerie); void fin(String appel); void message(String cle); }
 
     @Override
     public void onMessageReceived(RemoteMessage m) {
@@ -36,6 +36,12 @@ public class AppelService extends FirebaseMessagingService {
         String type = d.get("type");
         if ("fin".equals(type)) {
             arreter(this, d.get("appel"));
+            return;
+        }
+        if ("message".equals(type)) {
+            // Appli à l'écran : elle va chercher le message (la pastille, la conversation ouverte) ; sinon une notification.
+            Ecouteur e = ecouteur;
+            if (premierPlan && e != null) e.message(d.get("cle")); else MessagesNotif.montrer(this, d);
             return;
         }
         if (!"appel".equals(type)) return;

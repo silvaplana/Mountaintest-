@@ -72,7 +72,7 @@ def _jeton_google(cle: dict[str, Any]) -> str:
         return _google["jeton"]
 
 
-def envoyer_push(jetons: list[str], data: dict[str, str]) -> list[str]:
+def envoyer_push(jetons: list[str], data: dict[str, str], ttl: str = "45s") -> list[str]:
     """Message Firebase prioritaire (« data » seulement : l'appli fait sonner elle-même). Rend les jetons périmés."""
     cle = _cle_firebase()
     if not cle or not jetons:
@@ -84,7 +84,7 @@ def envoyer_push(jetons: list[str], data: dict[str, str]) -> list[str]:
         print("Firebase indisponible :", e, flush=True)
         return []
     for j in jetons:
-        msg = {"message": {"token": j, "data": data, "android": {"priority": "HIGH", "ttl": "45s"}}}
+        msg = {"message": {"token": j, "data": data, "android": {"priority": "HIGH", "ttl": ttl}}}
         req = urllib.request.Request(f"https://fcm.googleapis.com/v1/projects/{cle['project_id']}/messages:send",
                                      json.dumps(msg).encode(), {"Content-Type": "application/json", "Authorization": f"Bearer {acces}"})
         try:
@@ -97,12 +97,12 @@ def envoyer_push(jetons: list[str], data: dict[str, str]) -> list[str]:
     return perimes
 
 
-def sonner(Sessions, qui: list[uuid.UUID], data: dict[str, str]) -> None:
+def sonner(Sessions, qui: list[uuid.UUID], data: dict[str, str], ttl: str = "45s") -> None:
     """En arrière-plan : la réponse à l'appelant n'attend pas Google."""
     def tache():
         with Sessions() as s:
             jetons = list(s.scalars(select(Appareil.jeton).where(Appareil.utilisateur_id.in_(qui))))
-            for j in envoyer_push(jetons, data):
+            for j in envoyer_push(jetons, data, ttl):
                 a = s.get(Appareil, j)
                 if a is not None:
                     s.delete(a)

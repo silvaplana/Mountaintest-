@@ -680,3 +680,27 @@ def test_annuler_un_buddy_time(client, photos):
     so2 = nouvelle_sortie(gid)
     sync(client, ops=[so2, nouveau_message(sortie=so2["sortie"])])
     assert sync(client, ops=[{"id": "c", "type": "retirer_sortie", "sortie": so2["sortie"]}])["refus"]
+
+
+def test_notification_des_nouveaux_messages(client, monkeypatch):
+    """Étape 4 (§7.13) : un nouveau message prévient les autres (pas l'auteur), une seule fois, même renvoyé."""
+    import appels
+    envois = []
+    monkeypatch.setattr(appels, "sonner", lambda _S, qui, data, ttl="45s": envois.append((sorted(map(str, qui)), data, ttl)))
+    gid, julie = bande_avec_julie(client)
+    moi = sync(client)["moi"]
+    envois.clear()
+    m = nouveau_message(groupe=gid, texte="On part à 7 h ?")
+    sync(client, ops=[m])
+    sync(client, ops=[m])  # renvoyé (réseau coupé avant la réponse) : pas de deuxième notification
+    assert len(envois) == 1
+    qui, data, ttl = envois[0]
+    assert qui == [julie] and ttl == "86400s"
+    assert {k: data[k] for k in ("type", "cle", "groupe", "sortie", "titre", "de", "texte", "duo")} == {
+        "type": "message", "cle": gid, "groupe": gid, "sortie": "", "titre": "Ski du dimanche", "de": "seb", "texte": "On part à 7 h ?", "duo": ""}
+    # À deux : le titre est le nom de l'auteur.
+    duo = next(g for g in sync(client, sub="julie", ops=[{"id": "d", "type": "duo", "buddy": moi}])["groupes"] if g["nature"] == "duo")
+    envois.clear()
+    sync(client, sub="julie", ops=[nouveau_message(groupe=duo["id"], nature="point", texte="", lon=6.8, lat=44.6)])
+    assert envois[0][0] == [moi] and envois[0][1]["titre"] == envois[0][1]["de"] and envois[0][1]["duo"] == "1"
+    assert envois[0][1]["texte"] == "📍 est ici"

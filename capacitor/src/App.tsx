@@ -23,7 +23,8 @@ import { PointSurCarte } from './buddies/Messages';
 import { useEpingle } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { montrer } from './buddies/appel';
-import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
+import { lire as lireBuddies, nouveautes, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
+import { useNotifMessages } from './buddies/notifs';
 import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
 import { LodgingsOnMap } from './LodgingMap';
 import { SkiPanel } from './SkiPanel';
@@ -285,6 +286,13 @@ export function App() {
   useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
   // 📞 Appel : la sonnerie (écran 10) et, une fois en ligne, la carte à l'écran avec la barre d'appel (écran 24).
   useSonnerie(setToast);
+  // 🔔 Toucher la notification d'un message : sa conversation s'ouvre (celle d'un Buddy Time, sur sa carte).
+  useNotifMessages((c) => {
+    const v = vueBuddies(lireBuddies());
+    const x = c.sortie ? v.sorties.find((y) => y.id === c.sortie) : undefined;
+    if (x) montrerBuddies({ sortie: x, traces: v.traces.filter((t) => t.sortie === x.id), parler: true });
+    else if (c.groupe) { setCarteSortie(null); setBuddiesDepart({ ecran: 'conv', id: c.groupe }); setBuddies(true); }
+  });
   const appel = useAppel();
   const enAppel = !!appel && appel.phase !== 'sonne';
   useEffect(() => { if (enAppel) setBuddies(false); }, [enAppel]);
@@ -1229,7 +1237,7 @@ export function App() {
         onProposer={proposerHebergementTrouve}
         onShowOnMap={(p) => { setLodging(false); setLodgingPins(p); }} />}
       {lodgingPins.length > 0 && !lodging && <LodgingsOnMap map={map} items={lodgingPins} onProposer={proposerHebergementTrouve} onList={() => setLodging(true)} onClose={() => setLodgingPins([])} />}
-      {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
+      {buddies && <Buddies key={JSON.stringify(buddiesDepart ?? '')} onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onCarte={montrerBuddies} />}
