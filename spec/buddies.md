@@ -476,6 +476,12 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   Buddy Time ; n'importe quel participant peut changer), « Retirer l'idée ». Le retenu en haut, puis les plus aimés,
   puis les moins chers. Un seul bouton principal : « 🔍 Chercher d'autres hébergements ».
 - **Sur la carte** : les épingles 🏨 des idées placées, la retenue en vert.
+- **Liens tout prêts (24 novembre 2026, accord de Seb)** : au-dessus de « 🔍 Chercher », trois boutons Booking, Airbnb,
+  Abritel ouvrent le site déjà réglé sur le lieu du Buddy Time, ses dates (une nuit au moins) et le nombre de
+  participants ; même chose dans l'écran de recherche (ville, arrivée, nuits, personnes). Gratuit, prix et dispos en
+  direct. Pourquoi : aucune API de ces sites n'est ouverte à une appli entre copains (Booking réserve la sienne aux
+  affiliés sous contrat, Airbnb n'en a pas, Abritel passe par une certification Expedia), et la recherche web lit mal
+  leurs prix. Capacitor seulement (Kotlin arrêté).
 - **Pas encore** : la ligne automatique dans le Buddy Count (le prix trouvé n'est pas toujours celui payé : on ajoute
   la dépense à la main). La recherche elle-même est l'écran existant, non retouché (voir point ouvert 6).
 - **Serveur** : tables `hebergements` (Buddy Time, nom, nature, prix par nuit en euros, adresse, lien http(s), résumé,

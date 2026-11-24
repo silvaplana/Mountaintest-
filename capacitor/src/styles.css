@@ -957,3 +957,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .search-here:disabled { opacity: .45; }
 .search-here.loading { opacity: 1; border: 2px dashed var(--accent); animation: search-blink 1s ease-in-out infinite; }
 @keyframes search-blink { 50% { opacity: .5; } }
+
+/* Liens tout prêts vers Booking, Airbnb, Abritel (Lodging.tsx). */
+.liens-sites { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.liens-sites small { font-size: 15px; opacity: .8; }
+.liens-sites span { display: flex; gap: 8px; }
+.liens-sites button { flex: 1; min-height: 48px; border-radius: 12px; border: 1px solid var(--accent); background: #fff; color: var(--accent); font-weight: 700; font-size: 17px; }
