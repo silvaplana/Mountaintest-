@@ -152,8 +152,8 @@ function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: 
 }
 
 /** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging, onTravel, onPlanning, onAlbum, onMessages, onAppel }: {
-  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
+function Colonne({ onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel }: {
+  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
   onAppel?: () => void;
 }) {
   return <div className="bd-colonne">
@@ -165,6 +165,8 @@ function Colonne({ onToast, onExpenses, onLodging, onTravel, onPlanning, onAlbum
     <button aria-label="Hébergement" onClick={onLodging}>🏨</button>
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Voyage en voiture" onClick={onTravel}>🚗</button>
+    {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
+    <button aria-label="Moi : mon compte" onClick={onAccount}>👤</button>
   </div>;
 }
 
@@ -312,7 +314,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }, [onToast]);
 
   if (!connecte(compte)) {
-    const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} onTravel={onTravel} />;
+    const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} onTravel={onTravel} onAccount={onAccount} />;
     return <div className="buddies">{colonne}<div className="bd-corps">
       <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
       <p className="bd-vide">Connecte-toi pour retrouver tes copains, créer tes Buddy Groups et partager vos sorties.</p>
@@ -333,7 +335,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
   const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) ? vue.id : undefined;
   // 🏨 : « Où on dort ? » du Buddy Time ouvert, sinon la recherche d'hébergement.
-  const colonne = <Colonne onToast={onToast} onTravel={onTravel} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
+  const colonne = <Colonne onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}

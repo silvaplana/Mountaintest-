@@ -38,10 +38,6 @@ export interface QuickProps {
   /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de Buddy Groups qui ont bougé. */
   onBuddies: () => void;
   nouveautes: number;
-  /** 👤 Moi : mon compte. */
-  onAccount: () => void;
-  /** Pastille de 👤 : connecté (vert), à reconnecter (orange), pas de compte. */
-  compte: 'ok' | 'reconnecter' | 'aucun';
   /** ⛷ 💬 : question en texte sur les sorties skitour. */
   onSkiText: () => void;
   /** ⛷ 🚵 🚴 🚲 🥾 : appui long = choisir l'activité ; toucher ouvre les sorties ou les itinéraires de l'écran. */
@@ -108,7 +104,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, forests, onForests, onBuddies, nouveautes, onAccount, compte, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, forests, onForests, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -314,7 +310,6 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         }}>📷</button>
       {all && <>
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
-      <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>
       <div className="pair" ref={pairRef}>
       <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche" {...lp('avion')}
         onClick={() => {
@@ -356,15 +351,15 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         onClick={() => { if (!relief && !help) { setPairOpen('relief'); return; } onSlopes(!slopes); }}>⛰</button>
       {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       {(relief || help) && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
+      {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}
+      {(relief || help) && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
       </div>
       {/* Activité : toucher ouvre les sorties ⛷ ou les itinéraires ; appui long : ⛷ 🚵 🚴 🚲 🥾 au choix. */}
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
         data-help={`${ACTIVITY_LABEL[activity]} · appui long : changer`} {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
-      <button aria-label="Buddies" data-help="Buddies (voyage, hébergement, partage des frais dedans)" {...lp('groups')} onClick={onBuddies}>👥
+      <button aria-label="Buddies" data-help="Buddies (voyage, hébergement, partage des frais, mon profil dedans)" {...lp('groups')} onClick={onBuddies}>👥
         {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
-      <button aria-label="Moi : mon compte" data-help="Moi · mon compte" {...lp('moi')} onClick={onAccount}>👤
-        {compte !== 'aucun' && <span className={`acc-dot ${compte === 'ok' ? 'vert' : 'orange'}`} />}</button>
       <div className="pair" ref={meteoRef}>
       <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo sur la carte · appui : montre aussi la météo montagne · appui long : appli Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
