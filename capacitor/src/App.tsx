@@ -1262,6 +1262,9 @@ export function App() {
         <SearchBar onClose={() => setSearching(false)} onPick={(p) => {
           setSearching(false);
           setFollow(false);
+          // Quitter le suivi de ◎ : MapLibre ne le lâche pas sur un flyTo qui zoome (isZooming), et le GPS
+          // ramenait la carte sur moi. Un jumpTo sans zoom le passe en arrière-plan ; ◎ recentre ensuite.
+          map?.jumpTo({ center: map.getCenter() });
           map?.flyTo({ center: [p.lon, p.lat], zoom: p.zoom, duration: 1500 });
           setTarget({ lon: p.lon, lat: p.lat, label: p.label });
         }} />
