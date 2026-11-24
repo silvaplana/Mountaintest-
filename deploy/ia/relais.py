@@ -281,6 +281,9 @@ Cherche sur le web 3 à 8 hébergements réels dans ce lieu ou tout près (hôte
 qui peuvent loger ce nombre de personnes sous ce prix. Donne pour chacun un lien vers une page réellement vue
 (site de l'établissement de préférence, sinon une page de réservation). Tu ne peux pas vérifier les disponibilités en
 temps réel : dis-le dans le conseil.
+Pour un refuge ou un gîte qui se réserve en ligne (centrale de réservation du CAF/FFCAM, Tour du Queyras, refuges des
+Écrins…), mets dans « url » sa page de réservation, celle où l'on voit le calendrier des places, plutôt qu'une simple
+fiche descriptive.
 Cherche les meilleurs prix : compare plusieurs sources (site de l'établissement, Booking, Gîtes de France, Airbnb…)
 et garde pour chacun le prix le plus bas trouvé. Si une liste « sites » est donnée, ne cherche et ne propose QUE des
 hébergements trouvés sur ces sites. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
@@ -357,6 +360,8 @@ Règles :
 - Tu ne te fais jamais passer pour l'un d'eux.
 - Pour trouver un hébergement, cherche sur le web (pages réellement vues, jamais inventées), donne leurs coordonnées
   approximatives et mets-les dans « hebergements » : l'appli les pose sur la carte. Dis-le dans le texte.
+  Pour un refuge qui se réserve en ligne (CAF/FFCAM, Tour du Queyras…), donne le lien de sa page de réservation (le
+  calendrier des places) : tu ne vois pas les places libres, dis de vérifier là.
 - Pour un endroit précis (sommet, parking, col…), mets-le dans « point » : l'appli le montre sur la carte.
 - Si l'appli ne te donne pas l'information (par exemple l'altitude ou la pente d'une trace), dis-le simplement.
 Termine en appelant l'outil repondre."""

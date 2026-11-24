@@ -1209,7 +1209,7 @@ export function App() {
         onShowOnMap={(l) => { setToast('Je place les hébergements sur la carte…'); void placeLodgings(l).then((p) => {
           if (p.length) { setLodging(false); setLodgingPins(p); } else setToast('Adresses introuvables sur la carte');
         }); }} />}
-      {lodgingPins.length > 0 && !lodging && <LodgingsOnMap map={map} items={lodgingPins} onProposer={proposerHebergementTrouve} onClose={() => setLodgingPins([])} />}
+      {lodgingPins.length > 0 && !lodging && <LodgingsOnMap map={map} items={lodgingPins} onProposer={proposerHebergementTrouve} onList={() => setLodging(true)} onClose={() => setLodgingPins([])} />}
       {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}

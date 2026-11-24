@@ -487,6 +487,12 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   pas restent hors carte), ferme la recherche et pose des épingles 🏨 avec le prix. Un toucher ouvre la fiche en bas :
   « Voir le site », « 👥 Proposer à mes buddies » ; ✕ retire les épingles. Pas de disponibilités : gites-refuges.com
   est un annuaire (téléphone, mail), on réserve ailleurs.
+- **Directement sur la carte (24 novembre 2026, accord de Seb)** : dès que la recherche a fini, les résultats vont sur
+  la carte (la recherche se ferme) ; « ☰ Liste » de la fiche du bas rouvre la liste avec les mêmes résultats.
+- **Refuges : la page de réservation** : pour un refuge ou un gîte réservable en ligne (centrale CAF/FFCAM, Tour du
+  Queyras, refuges des Écrins…), la recherche et Bud donnent le lien de sa page de réservation (le calendrier des
+  places). Ils ne lisent pas les places libres : ces calendriers demandent un compte (et une salle d'attente à
+  l'ouverture).
 - **Pas encore** : la ligne automatique dans le Buddy Count (le prix trouvé n'est pas toujours celui payé : on ajoute
   la dépense à la main). La recherche elle-même est l'écran existant, non retouché (voir point ouvert 6).
 - **Serveur** : tables `hebergements` (Buddy Time, nom, nature, prix par nuit en euros, adresse, lien http(s), résumé,

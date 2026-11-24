@@ -5,8 +5,8 @@ import type { Lodging, PlacedLodging } from './Lodging';
 import { iconeHebergement } from './buddies/Hebergements';
 
 /** Les épingles 🏨 (avec le prix) ; un toucher ouvre la fiche en bas : voir le site, proposer à mes buddies. */
-export function LodgingsOnMap({ map, items, onProposer, onClose }: {
-  map: MlMap | null; items: PlacedLodging[]; onProposer: (h: Lodging) => void; onClose: () => void;
+export function LodgingsOnMap({ map, items, onProposer, onList, onClose }: {
+  map: MlMap | null; items: PlacedLodging[]; onProposer: (h: Lodging) => void; onList: () => void; onClose: () => void;
 }) {
   const [sel, setSel] = useState<PlacedLodging | null>(null);
   useEffect(() => {
@@ -32,7 +32,10 @@ export function LodgingsOnMap({ map, items, onProposer, onClose }: {
         {sel.url && <button onClick={() => window.open(sel.url, '_system')}>Voir le site</button>}
         <button onClick={() => onProposer(sel)}>👥 Proposer à mes buddies</button>
       </span>
-    </> : <small>{items.length} hébergement{items.length > 1 ? 's' : ''} sur la carte : touche une épingle 🏨</small>}
+    </> : <>
+      <small>{items.length} hébergement{items.length > 1 ? 's' : ''} sur la carte : touche une épingle 🏨</small>
+      <span><button onClick={onList}>☰ Liste</button></span>
+    </>}
     <button className="lodging-sheet-close" onClick={onClose} aria-label="Retirer les hébergements de la carte">✕</button>
   </div>;
 }

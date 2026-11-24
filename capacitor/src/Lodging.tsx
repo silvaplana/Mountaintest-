@@ -24,6 +24,8 @@ export async function placeLodgings(list: Lodging[], find: (q: string) => Promis
 }
 
 const KEY = 'hebergement';
+/** Les derniers résultats, retrouvés quand on rouvre la liste depuis la carte. */
+let dernier: Answer | null = null;
 /** Sites proposés à cocher (on peut en ajouter) : cochés, Claude ne cherche que là ; aucun coché, tout le web. */
 export const SITES = ['gites-refuges.com', 'capverb.org'];
 export const cleanSite = (s: string) => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
@@ -65,21 +67,24 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
-  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [answer, setAnswer] = useState<Answer | null>(dernier);
   const bottom = useRef<HTMLDivElement>(null);
 
   async function search() {
     const p = Number(people), m = Number(max.replace(',', '.')), n = Number(nights);
     if (city.trim().length < 2 || !(p >= 1) || !(m > 0) || !(n >= 1)) { setError('Indique la ville, le nombre de personnes, le prix maxi et les nuits'); return; }
     try { localStorage.setItem(KEY, JSON.stringify({ city, people, max, date, nights, sites: JSON.stringify(sites), checked: JSON.stringify(checked) })); } catch { /* ignoré */ }
-    setBusy(true); setError(''); setAnswer(null); setElapsed(0);
+    setBusy(true); setError(''); setAnswer(null); dernier = null; setElapsed(0);
     const t0 = Date.now();
     const tick = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
     const ctrl = new AbortController();
     const stop = setTimeout(() => ctrl.abort(), 240_000);
     try {
       const r = await relayPost<Answer>('hebergement', { ville: city.trim(), personnes: p, prix_max: m, arrivee: date, nuits: n, sites: checked.filter((x) => sites.includes(x)) }, password, ctrl.signal);
-      setAnswer({ ...r, hebergements: sortByPrice(r.hebergements ?? []) });
+      dernier = { ...r, hebergements: sortByPrice(r.hebergements ?? []) };
+      setAnswer(dernier);
+      // Les résultats vont directement sur la carte ; « ☰ Liste » ramène ici.
+      if (onShowOnMap && dernier.hebergements?.length) onShowOnMap(dernier.hebergements);
     } catch (e) {
       setError(`Recherche impossible : ${(e as Error).name === 'AbortError' ? 'pas de réponse en 4 minutes' : e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`);
     }
