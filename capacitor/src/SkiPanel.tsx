@@ -5,6 +5,7 @@ import { PERIODS, SKI_LEVELS, fetchDetails, skiLabel, skiOk, hasDetails, inView,
 
 /** En dessous de ce zoom, l'écran couvre trop de pays : on ne montre pas les points. */
 export const SKI_MIN_ZOOM = 7;
+const LIST_MAX = 150;
 
 /**
  * Sorties skitour.fr de l'écran affiché : toute la liste de la période est chargée une fois, puis filtrée sur l'écran
@@ -138,11 +139,13 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
         </span>
       </div>}
       <ul className="routes lodgings">
-        {outings.map((o, i) => (
+        {/* Liste : les 150 plus récentes (la carte, elle, montre toutes les sorties de l'écran). */}
+        {outings.slice(0, LIST_MAX).map((o, i) => (
           <li key={o.id}><button className={i === selected ? 'sel' : ''} onClick={() => onSelect(i)}>
             <b>{o.titre}</b><em>{outingDate(o)}</em><span>{outingLine(o)}</span></button></li>
         ))}
       </ul>
+      {outings.length > LIST_MAX && <p className="hint">Liste : les {LIST_MAX} plus récentes sur {outings.length} de l'écran (toutes sont sur la carte).</p>}
       <p className="hint">Données skitour.fr (CC BY-NC-ND pour les récits).</p>
     </div>
   );

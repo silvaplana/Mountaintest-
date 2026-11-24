@@ -151,8 +151,11 @@ export async function loadAll(days: number, password: string): Promise<{ outings
   }
 }
 
-/** Sorties dans l'écran [ouest, sud, est, nord], les plus récentes d'abord (max au plus). */
-export const inView = (all: Outing[], b: Bbox, max = 150) =>
+/**
+ * Sorties dans l'écran [ouest, sud, est, nord], les plus récentes d'abord. Toutes par défaut : avant, seules
+ * les 150 plus récentes de l'écran étaient gardées, et des points disparaissaient en dézoomant (Seb, 24/11).
+ */
+export const inView = (all: Outing[], b: Bbox, max = Infinity) =>
   all.filter((o) => o.lon >= b[0] && o.lon <= b[2] && o.lat >= b[1] && o.lat <= b[3]).slice(0, max);
 
 export function readDetails(): Record<string, Details> {
