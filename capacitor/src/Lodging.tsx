@@ -1,12 +1,27 @@
 import { useRef, useState } from 'react';
 import { costLine } from './trails/webHikes';
 import { relayPost } from './travel/travel';
+import { searchPlaces, type Place } from './search';
 
 /** Hébergements trouvés par Claude (relais du VPS, recherche web), du moins cher au plus cher. Même écran côté Kotlin (LodgingPanel.kt). */
 export interface Lodging { nom: string; type: string; prix_nuit: number | null; adresse: string; url: string; resume: string }
 interface Answer { hebergements?: Lodging[]; conseil?: string; cache?: boolean; cout_usd?: number; cumul_mois_usd?: number; cumul_total_usd?: number }
 
 export const sortByPrice = (l: Lodging[]) => [...l].sort((x, y) => (x.prix_nuit ?? Infinity) - (y.prix_nuit ?? Infinity));
+
+/** Hébergements trouvés par « 🔍 Chercher », posés sur la carte par leur adresse (géocodage IGN, gratuit). */
+export type PlacedLodging = Lodging & { lon: number; lat: number };
+
+/** Place chaque hébergement : son adresse d'abord, sinon son nom ; ceux qu'on ne trouve pas restent hors carte. */
+export async function placeLodgings(list: Lodging[], find: (q: string) => Promise<Place[]> = (q) => searchPlaces(q, AbortSignal.timeout(5000))) {
+  const one = async (l: Lodging): Promise<PlacedLodging | null> => {
+    for (const q of [l.adresse, l.nom].map((x) => x.trim()).filter((x) => x.length >= 3)) {
+      try { const p = (await find(q))[0]; if (p) return { ...l, lon: p.lon, lat: p.lat }; } catch { /* suivant */ }
+    }
+    return null;
+  };
+  return (await Promise.all(list.map(one))).filter((x): x is PlacedLodging => x !== null);
+}
 
 const KEY = 'hebergement';
 /** Sites proposés à cocher (on peut en ajouter) : cochés, Claude ne cherche que là ; aucun coché, tout le web. */
@@ -37,7 +52,7 @@ export function LiensSites({ lieu, arrivee, nuits, personnes }: { lieu: string; 
 
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
-export function LodgingPanel({ password, onClose, onProposer }: { password: string; onClose: () => void; onProposer?: (h: Lodging) => void }) {
+export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { password: string; onClose: () => void; onProposer?: (h: Lodging) => void; onShowOnMap?: (l: Lodging[]) => void }) {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, string>; } catch { return {}; } })();
   const [city, setCity] = useState(saved.city ?? '');
   const [people, setPeople] = useState(saved.people ?? '2');
@@ -110,6 +125,7 @@ export function LodgingPanel({ password, onClose, onProposer }: { password: stri
               {onProposer && <button className="lodging-proposer" onClick={() => onProposer(h)}>👥 Proposer à mes buddies</button>}</li>
           ))}
         </ul>
+        {onShowOnMap && (answer.hebergements ?? []).length > 0 && <button className="lodging-proposer" onClick={() => onShowOnMap(answer.hebergements ?? [])}>🗺 Voir sur la carte</button>}
         {answer.conseil && <p className="hint">{answer.conseil}</p>}
         <p className="hint">{costLine({ cout: answer.cout_usd ?? 0, mois: answer.cumul_mois_usd ?? 0, total: answer.cumul_total_usd ?? 0 }, !!answer.cache).replace('Zone déjà cherchée', 'Déjà cherché')}</p>
       </>}
