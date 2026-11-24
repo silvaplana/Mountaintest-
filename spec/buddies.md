@@ -556,7 +556,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 
 ### 7.11 Bloc 11 : ce qui est construit (23 novembre 2026)
 
-- **Bud parle seulement si on l'appelle** : un message qui contient « Bud, … » (ou « Bud : … », écrit ou dicté)
+- **Bud parle seulement si on l'appelle** : un message qui contient « Bud, … » (ou « Bud : … », écrit ou dicté ; « Buds » aussi, souvent entendu par la dictée)
   part comme les autres, puis le téléphone pose la question à Bud. Pendant qu'il cherche : une bulle « 🐻 Bud … ».
 - **Sa réponse est un message de la conversation**, vu de tous, dans sa bulle à part (sombre, « 🐻 Bud », toujours à
   gauche) : il ne se fait jamais passer pour un buddy. Le message est enregistré au nom de celui qui a demandé, avec

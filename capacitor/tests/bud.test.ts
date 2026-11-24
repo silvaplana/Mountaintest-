@@ -10,6 +10,7 @@ describe('Bud', () => {
     expect(pourBud('Les Baladins 👍 Bud, la pente maxi ?')).toBe(true);
     expect(pourBud('On dort où le samedi ?')).toBe(false);
     expect(pourBud('Mon budget est serré')).toBe(false);
+    expect(pourBud('buds quelle heure est-il')).toBe(true); // dicté « buds »
   });
   it('connaît la sortie, les comptes et les derniers messages', () => {
     const b = (id: string, pseudo: string) => ({ id, pseudo, photo: null, role: 'membre' });
