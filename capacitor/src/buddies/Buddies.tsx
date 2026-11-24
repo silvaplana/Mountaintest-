@@ -5,6 +5,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
+import type { ConversationNotif } from './notifs';
 import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
 import { BuddyCount, Comptes, UneDepense } from './BuddyCount';
 import { EcrireCarnet, UnCarnet } from './Carnet';
@@ -53,6 +54,11 @@ export const Natif = registerPlugin<{
   appelEnAttente(): Promise<{ appel?: Sonnerie & { action?: string } }>;
   addListener(e: 'appel', f: (s: Sonnerie & { action?: string }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'finAppel', f: (x: { appel: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  /** 🔔 Nouveaux messages (MessagesNotif.java) : la conversation dont la notification a ouvert l'appli ; l'effacer. */
+  conversationEnAttente(): Promise<{ conversation?: ConversationNotif }>;
+  effacerNotif(o: { cle: string }): Promise<void>;
+  addListener(e: 'ouvrirConversation', f: (c: ConversationNotif) => void): Promise<{ remove: () => Promise<void> }>;
+  addListener(e: 'message', f: (x: { cle: string }) => void): Promise<{ remove: () => Promise<void> }>;
 }>('Buddies');
 export type PositionNative = { lat: number; lon: number; alt?: number; t: number };
 
@@ -297,7 +303,7 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
   | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' };
 /** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
-export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string };
+export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
 
 /** Ce qu'on montre sur la carte : un Buddy Time (sa conversation ouverte si `parler`), des traces, un point d'un message. */
 export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string } };
@@ -311,7 +317,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const e = useBuddies();
   const compte = useCompte();
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
-    : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
+    : depart?.ecran === 'conv' ? depart : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
   // Ouvert : on regarde les nouveautés toutes les minutes ; fermé, la pastille de 👥 repart de maintenant.
   useEffect(() => {
     const sync = () => { void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };

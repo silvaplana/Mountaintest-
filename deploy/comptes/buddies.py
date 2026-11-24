@@ -697,6 +697,44 @@ def message(s: Session, u: Utilisateur, op: dict) -> None:
                        fichier_id=fichier, sondage=sondage, transfere=bool(op.get("transfere"))))
 
 
+def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
+    """Le texte d'une notification (§7.13, étape 4)."""
+    if m.nature == "point":
+        return "📍 est ici"
+    if m.nature == "photo":
+        return "📷 Photo"
+    if m.nature == "fichier":
+        return f"{'🎬' if f and f.mime.startswith('video/') else '📷' if f and f.mime.startswith('image/') else '📄'} {f.nom if f else 'Fichier'}"
+    if m.nature == "sondage":
+        return "📊 " + json.loads(m.sondage or "{}").get("question", "Sondage")
+    return m.texte[:200]
+
+
+def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[list[uuid.UUID], dict[str, str]]]:
+    """🔔 Nouveaux messages (§7.13, étape 4) : à qui envoyer une notification, et quoi. Pas à l'auteur."""
+    l = []
+    for mid in mids:
+        m = s.get(MessageBuddy, mid)
+        if m is None:
+            continue
+        a_deux = False
+        if m.sortie_id:
+            so = s.get(Sortie, m.sortie_id)
+            qui, titre = participants(s, so), so.nom
+        else:
+            g = s.get(Groupe, m.groupe_id)
+            qui = set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id)))
+            a_deux = g.nature == "duo"
+            titre = personne(u)["pseudo"] if a_deux else g.nom
+        de = "🐻 Bud" if m.bud else personne(u)["pseudo"]
+        texte = resume_message(m, s.get(FichierBuddy, m.fichier_id) if m.fichier_id else None)
+        l.append(([x for x in qui if x != u.id], {
+            "type": "message", "cle": str(m.sortie_id or m.groupe_id), "groupe": str(m.groupe_id or ""), "sortie": str(m.sortie_id or ""),
+            "titre": titre, "de": de, "texte": texte, "duo": "1" if a_deux else "",
+            "envoye_le": str(int(datetime.now(timezone.utc).timestamp() * 1000))}))
+    return l
+
+
 def message_de(s: Session, u: Utilisateur, mid: Any) -> tuple[MessageBuddy | None, Groupe | None]:
     """Un message de mes conversations, et le Buddy Group dont les admins peuvent le supprimer (modération)."""
     m = s.get(MessageBuddy, uuid.UUID(str(mid)))
@@ -831,16 +869,21 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     debut = maintenant()
     me_time(s, u)
     refus = []
+    nouveaux = []
     for op in ops:
         f = OPERATIONS.get(str(op.get("type")))
         try:
             if f is None:
                 raise Refus("Opération inconnue")
+            neuf_msg = op.get("type") == "message" and s.get(MessageBuddy, uuid.UUID(str(op["message"]))) is None
             with s.begin_nested():
                 f(s, u, op)
+            if neuf_msg:
+                nouveaux.append(uuid.UUID(str(op["message"])))
         except (Refus, KeyError, ValueError, TypeError, IndexError) as e:
             refus.append({"id": op.get("id"), "raison": str(e) if isinstance(e, Refus) else "Opération mal formée"})
     s.commit()
+    s.info["nouveaux_messages"] = nouveaux  # pour les notifications (serveur.py, après la réponse)
     mes = s.scalars(select(Groupe).join(Membre, Membre.groupe_id == Groupe.id).where(Membre.utilisateur_id == u.id)).all()
     d = date(depuis) if depuis else None
     neuf = lambda t: d is None or date(iso(t)) >= d - MARGE  # noqa: E731

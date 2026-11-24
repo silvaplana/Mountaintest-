@@ -50,6 +50,11 @@ public class BuddiesPlugin extends Plugin {
                 o.put("appel", appel);
                 notifyListeners("finAppel", o);
             }
+            @Override public void message(String cle) {
+                JSObject o = new JSObject();
+                o.put("cle", cle);
+                notifyListeners("message", o);
+            }
         };
         AppelService.premierPlan = true;
     }
@@ -65,6 +70,35 @@ public class BuddiesPlugin extends Plugin {
     protected void handleOnNewIntent(Intent i) {
         JSObject a = appelDe(i);
         if (a != null) notifyListeners("appel", a);
+        JSObject c = conversationDe(i);
+        if (c != null) notifyListeners("ouvrirConversation", c);
+    }
+
+    /** 🔔 Ouverte depuis la notification d'un message : la conversation à ouvrir. */
+    private JSObject conversationDe(Intent i) {
+        String cle = i != null ? i.getStringExtra("conversation") : null;
+        if (cle == null) return null;
+        JSObject c = new JSObject();
+        c.put("cle", cle);
+        c.put("groupe", i.getStringExtra("groupe"));
+        c.put("sortie", i.getStringExtra("sortie"));
+        i.removeExtra("conversation");
+        return c;
+    }
+
+    @PluginMethod
+    public void conversationEnAttente(PluginCall call) {
+        JSObject r = new JSObject();
+        JSObject c = conversationDe(getActivity().getIntent());
+        if (c != null) r.put("conversation", c);
+        call.resolve(r);
+    }
+
+    /** La conversation est ouverte : sa notification s'efface. */
+    @PluginMethod
+    public void effacerNotif(PluginCall call) {
+        MessagesNotif.effacer(getContext(), call.getString("cle", ""));
+        call.resolve();
     }
 
     private JSObject appelDe(Intent i) {

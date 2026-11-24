@@ -245,7 +245,12 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
         buddies.date(corps.depuis)
     except ValueError as e:
         raise HTTPException(422, "depuis : date ISO attendue") from e
-    return buddies.synchroniser(s, utilisateur(s, j), corps.ops, corps.depuis)
+    u = utilisateur(s, j)
+    r = buddies.synchroniser(s, u, corps.ops, corps.depuis)
+    # 🔔 Nouveaux messages : une notification aux autres (en arrière-plan, sans clé Firebase : rien).
+    for qui, data in buddies.a_prevenir(s, u, s.info.pop("nouveaux_messages", [])):
+        appels.sonner(Sessions, qui, data, ttl="86400s")
+    return r
 
 
 class Ecrit(BaseModel):
