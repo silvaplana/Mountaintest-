@@ -19,9 +19,11 @@ export interface C2cRoute {
   heightUpM: number | null; elevMaxM: number | null; lengthM: number | null;
   /** Durée annoncée, en jours (« 1 » = une journée). */
   durations: string[];
-  /** Circuit VisuGPX (visugpx.ts) : son identifiant et sa description ; sinon itinéraire Camptocamp. */
-  src?: 'visugpx'; vid?: string; vdesc?: string;
-  /** 🚵 Nature du circuit VisuGPX : VTT, vélo de route ou gravel (filtre de la liste). */
+  /** Circuit VisuGPX (visugpx.ts) ou itinéraire Geotrek (geotrek.ts) : son identifiant et sa description ; sinon Camptocamp. */
+  src?: 'visugpx' | 'geotrek'; vid?: string; vdesc?: string;
+  /** Geotrek : source affichée (« Geotrek · Écrins ») et page du portail. */
+  srcName?: string; link?: string;
+  /** 🚵 Nature du circuit VisuGPX ou Geotrek : VTT, vélo de route ou gravel (filtre de la liste). */
   bike?: Bike;
 }
 

@@ -47,6 +47,16 @@ Le relais interroge l'API officielle de VisuGPX avec la clé personnelle gardée
 tracés gardés sur le serveur. Pour l'ajouter : `echo 'VISUGPX_CLE=<clé>' >> ~/mountaintest/ia.env` puis relancer
 le script. `GET /mountaintest-ia/` montre `visugpx: true` quand la clé est lue, et les champs vus dans les réponses.
 
+## Itinéraires Geotrek (parcs nationaux, parcs régionaux, départements)
+
+Sans clé : API publique v2 de chaque serveur Geotrek-admin. Portails tirés de la
+[liste des Geotrek connus](https://github.com/GeotrekCE/Geotrek-website/wiki/Liste-des-Geotrek-connus)
+(`GEOTREK_PORTAILS` dans `relais.py`, avec un cadre approximatif : seuls les portails proches de l'écran sont
+interrogés). L'adresse de l'API n'étant pas publiée, le relais la cherche au démarrage (page du portail, puis
+noms habituels) et la garde 7 jours. `GET /mountaintest-ia/` montre `geotrek` : l'API trouvée ou « introuvable »
+pour chaque portail. Pour en imposer une : `echo 'GEOTREK_API_VANOISE=https://…/api/v2' >> ~/mountaintest/ia.env`.
+Liste gardée un jour par zone, tracés gardés sur le serveur.
+
 ## Tout retirer
 
 ```bash
