@@ -19,7 +19,8 @@ export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
 export type Buddy = { id: string; pseudo: string; photo: string | null; role?: 'admin' | 'membre' };
 export type Invitation = { id: string; code: string; canal: Canal; nom: string; contact: string; par: string; attente?: boolean };
 export type Groupe = {
-  id: string; nom: string; nature: 'bande' | 'me_time'; photo: string | null; modifie_le: string;
+  /** duo : discussion à deux (§7.13), sans nom : on montre l'autre buddy. */
+  id: string; nom: string; nature: 'bande' | 'me_time' | 'duo'; photo: string | null; modifie_le: string;
   membres: Buddy[]; invitations: Invitation[]; attente?: boolean;
 };
 /** Carnet d'un Buddy Time (spec §5.8) : le texte de chaque buddy, une fiche par jour (facultative), ce que la trace ne dit pas. */
@@ -105,6 +106,8 @@ export type Etat = {
   lus?: Record<string, number>;
   /** ✓✓ Ce que les autres ont reçu et lu (d'après la dernière synchro). */
   lectures?: Lecture[];
+  /** « écrit… » : qui tape dans quelle conversation (d'après la dernière synchro). */
+  ecrivent?: { cle: string; qui: string }[];
   /** Mes photos annoncées dont le fichier n'est pas encore parti. */
   envois?: string[];
   curseur?: string;
@@ -380,6 +383,10 @@ export function appliquer(e: Etat): Groupe[] {
       case 'retirer':
         if (g) g.membres = g.membres.filter((m) => m.id !== op.buddy);
         break;
+      case 'duo':
+        if (!g) gs.push({ id: String(op.groupe), nom: '', nature: 'duo', photo: null, modifie_le: quand(op), invitations: [], attente: true,
+          membres: [moiBuddy(e), { id: String(op.buddy), pseudo: String(op.pseudo ?? ''), photo: (op.photo as string) ?? null, role: 'membre' }] });
+        break;
       case 'nommer_admin':
         if (g) g.membres = g.membres.map((m) => m.id === op.buddy ? { ...m, role: 'admin' } : m);
         break;
@@ -548,6 +555,58 @@ export function marquerLu(cle: string, jusqu?: string) {
   ecrire({ ...lire(), lus: { ...lire().lus, [cle]: jusqu ? Date.parse(jusqu) : Date.now() } });
   if (jusqu && cle !== 'me-time') ajouter({ type: 'lu', cle, jusqu });
 }
+// ------------------------------------------------------------------ discussions à deux (§7.13)
+
+const ESPACE_DUO = '0b6d8f4e-2c1a-4e57-9f3d-6a1e5c7b9d20';
+/** UUID version 5 (SHA-1), le même que uuid.uuid5 du serveur : la discussion à deux a le même identifiant partout. */
+export async function uuid5(nom: string, espace = ESPACE_DUO): Promise<string> {
+  const ns = espace.replace(/-/g, '').match(/../g)!.map((h) => parseInt(h, 16));
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-1', new Uint8Array([...ns, ...new TextEncoder().encode(nom)])));
+  h[6] = (h[6] & 0x0f) | 0x50; h[8] = (h[8] & 0x3f) | 0x80;
+  const x = [...h.slice(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20)}`;
+}
+/** Ouvre la discussion à deux avec ce buddy (toujours la même), la crée au besoin ; rend son identifiant. */
+export async function ouvrirDuo(b: Buddy): Promise<string> {
+  const moi = lire().moi;
+  if (!moi) throw new Error('Il faut le réseau une première fois');
+  const id = await uuid5([moi, b.id].sort().join(':'));
+  if (!appliquer(lire()).some((g) => g.id === id)) ajouter({ type: 'duo', groupe: id, buddy: b.id, pseudo: b.pseudo, photo: b.photo });
+  return id;
+}
+/** Mes buddies (ceux de mes Buddy Groups), par ordre alphabétique, avec leurs bandes. */
+export function contacts(e: Etat = lire()): { b: Buddy; bandes: string[] }[] {
+  const moi = e.moi ?? 'moi';
+  const l = new Map<string, { b: Buddy; bandes: string[] }>();
+  for (const g of appliquer(e).filter((x) => x.nature === 'bande')) {
+    for (const b of g.membres) if (b.id !== moi && b.id !== 'moi') { const c = l.get(b.id) ?? { b, bandes: [] }; c.bandes.push(g.nom); l.set(b.id, c); }
+  }
+  return [...l.values()].sort((a, b) => a.b.pseudo.localeCompare(b.b.pseudo, 'fr'));
+}
+/** Le nom d'une conversation : celui de la bande, ou l'autre buddy pour une discussion à deux. */
+export function autreDuDuo(g: Groupe, e: Etat = lire()): Buddy | undefined {
+  return g.nature === 'duo' ? g.membres.find((b) => b.id !== (e.moi ?? 'moi') && b.id !== 'moi') : undefined;
+}
+/** « en ligne » (synchro il y a moins de 30 s), sinon « vu aujourd'hui à 10 h 42 » (comme AppBase). */
+export function presence(qui: string, lectures: Lecture[], maintenant = Date.now()): string | null {
+  const vu = lectures.find((l) => l.qui === qui)?.vu_le;
+  if (!vu) return null;
+  const t = Date.parse(vu);
+  if (maintenant - t < 30_000) return 'en ligne';
+  const d = new Date(t), auj = new Date(maintenant), hier = new Date(maintenant - 86_400_000);
+  const h = `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`;
+  if (d.toDateString() === auj.toDateString()) return `vu aujourd’hui à ${h}`;
+  if (d.toDateString() === hier.toDateString()) return `vu hier à ${h}`;
+  return `vu le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+}
+let dernierEcrit = 0;
+/** Je tape : « écrit… » chez les autres (au plus toutes les 5 s, jamais mis en file d'attente). */
+export function signalerEcrit(cle: string) {
+  if (!connecte() || Date.now() - dernierEcrit < 5000 || cle === 'me-time') return;
+  dernierEcrit = Date.now();
+  void api('POST', '/buddies/ecrit', { cle }).catch(() => undefined);
+}
+
 /** Coches d'un de mes messages : 🕓 pas parti, ✓ envoyé, ✓✓ reçu par tous, ✓✓ bleues lu par tous. */
 export function statut(m: MessageBuddy, autres: string[], lectures: Lecture[]): 'attente' | 'envoye' | 'recu' | 'lu' {
   if (m.attente) return 'attente';
@@ -585,7 +644,7 @@ type Reponse = {
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
   positions?: Position[];
   ids_hebergements?: string[]; hebergements?: Hebergement[];
-  ids_messages?: string[]; messages?: MessageBuddy[]; lectures?: Lecture[];
+  ids_messages?: string[]; messages?: MessageBuddy[]; lectures?: Lecture[]; ecrivent?: { cle: string; qui: string }[];
   appels?: AppelBuddy[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
@@ -623,7 +682,7 @@ export function synchroniser(): Promise<string[]> {
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
         positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [],
-        lectures: r.lectures ?? e.lectures,
+        lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour

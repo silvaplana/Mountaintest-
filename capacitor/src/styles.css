@@ -1024,3 +1024,11 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .lodging-sheet span { display: flex; gap: 8px; margin-top: 6px; }
 .lodging-sheet span button { flex: 1; min-height: 48px; border-radius: 12px; border: 1px solid var(--accent); background: #fff; color: var(--accent); font-weight: 700; font-size: 16px; }
 .lodging-sheet-close { position: absolute; top: 4px; right: 4px; width: 48px; height: 48px; border: 0; background: none; font-size: 22px; }
+
+/* 💬 Liste des discussions et discussions à deux (§7.13, comme AppBase) */
+.bd-convs { position: relative; }
+.bd-cherche { width: 100%; box-sizing: border-box; min-height: 48px; border-radius: 24px; border: 1px solid var(--line); padding: 0 16px; font-size: 17px;
+  background: var(--bg); color: var(--fg); margin-bottom: 4px; }
+.bd-fab { position: sticky; bottom: 12px; align-self: flex-end; margin-top: auto; width: 64px; height: 64px; border-radius: 50%; border: 0; background: #e4572e;
+  color: #fff; font-size: 34px; box-shadow: 0 3px 10px #0004; flex: none; }
+.bd-ecrit { color: #2fae5c !important; font-style: italic; }

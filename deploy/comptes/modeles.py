@@ -40,7 +40,7 @@ class Utilisateur(Base):
 
 class Groupe(Base):
     """Buddy Group (spec/buddies.md §5.3). `nature` = « bande » (copains invités) ou « me_time » (le
-    Buddy Group par défaut de chacun, créé par le serveur, un seul membre)."""
+    Buddy Group par défaut de chacun, créé par le serveur, un seul membre) ou « duo » (discussion à deux, §7.13)."""
 
     __tablename__ = "groupes"
 

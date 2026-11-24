@@ -26,6 +26,8 @@ DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
 # Me Time : un par personne, même identifiant sur tous ses téléphones.
 ESPACE_ME_TIME = uuid.UUID("6f0c2f7e-5b8f-4a43-9a2e-0c1f6d2b7d11")
+# Discussion à deux : toujours la même pour deux buddies (comme AppBase), même identifiant chez l'un et l'autre.
+ESPACE_DUO = uuid.UUID("0b6d8f4e-2c1a-4e57-9f3d-6a1e5c7b9d20")
 # Marge sur « depuis » : une écriture en cours au moment de la lecture n'est pas manquée (renvoyer deux fois
 # un groupe ne coûte rien, le téléphone le remplace).
 MARGE = timedelta(seconds=5)
@@ -77,6 +79,21 @@ def me_time(s: Session, u: Utilisateur) -> Groupe:
         s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role="admin"))
         s.flush()
     return g
+
+
+def duo(s: Session, u: Utilisateur, op: dict) -> None:
+    """Discussion à deux (§7.13, comme AppBase) : un Buddy Group « duo » de deux personnes qui partagent déjà une bande."""
+    autre = s.get(Utilisateur, uuid.UUID(str(op["buddy"])))
+    mes_bandes = select(Membre.groupe_id).join(Groupe, Groupe.id == Membre.groupe_id).where(Membre.utilisateur_id == u.id, Groupe.nature == "bande")
+    if autre is None or autre.id == u.id or s.scalar(select(Membre).where(Membre.utilisateur_id == autre.id, Membre.groupe_id.in_(mes_bandes))) is None:
+        raise Refus("Seulement avec un buddy de tes Buddy Groups")
+    gid = uuid.uuid5(ESPACE_DUO, ":".join(sorted([str(u.id), str(autre.id)])))
+    if s.get(Groupe, gid) is None:
+        s.add(Groupe(id=gid, nom="", nature="duo", cree_par=u.id))
+        s.flush()
+    for x in (u.id, autre.id):
+        if membre(s, gid, x) is None:
+            s.add(Membre(groupe_id=gid, utilisateur_id=x, role="membre"))
 
 
 def membre(s: Session, gid: uuid.UUID, uid: uuid.UUID) -> Membre | None:
@@ -713,7 +730,7 @@ OPERATIONS = {
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
-    "message": message, "retirer_message": retirer_message, "modifier_message": modifier_message, "reagir": reagir, "lu": lu,
+    "message": message, "retirer_message": retirer_message, "duo": duo, "modifier_message": modifier_message, "reagir": reagir, "lu": lu,
 }
 
 
@@ -789,7 +806,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_hebergements": [str(h.id) for h in hebergements],
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
             "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, [])) for m in messages if neuf(m.modifie_le)],
-            "lectures": lectures,
+            "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
             "positions": [vue_position(x) for x in positions], "appels": appels_en_cours(s, gids, sids), "refus": refus}
 
 
@@ -857,6 +874,25 @@ def vue_message(m: MessageBuddy, reactions: list[dict[str, str]] | None = None) 
             "photo": str(m.photo_id) if m.photo_id else None, "bud": m.bud, "cree_le": iso(m.cree_le),
             "repond_a": str(m.repond_a) if m.repond_a else None, "edite": m.edite_le is not None, "supprime": m.supprime,
             "reactions": reactions or []}
+
+
+# « écrit… » (§7.13) : gardé en mémoire quelques secondes, jamais en base.
+ECRIVENT: dict[uuid.UUID, dict[uuid.UUID, datetime]] = {}
+DUREE_ECRIT = timedelta(seconds=12)
+
+
+def ecrit(s: Session, u: Utilisateur, cle: Any) -> None:
+    c = uuid.UUID(str(cle))
+    if s.get(Sortie, c) is not None:
+        sortie_de(s, u, c)
+    else:
+        groupe_de(s, u, c)
+    ECRIVENT.setdefault(c, {})[u.id] = maintenant()
+
+
+def ecrivent(u: Utilisateur, cles: list) -> list[dict[str, str]]:
+    t = maintenant() - DUREE_ECRIT
+    return [{"cle": str(c), "qui": str(q)} for c in cles for q, quand in ECRIVENT.get(c, {}).items() if q != u.id and quand > t]
 
 
 def vue_lectures(s: Session, u: Utilisateur, gids: list, sids: list) -> list[dict[str, Any]]:

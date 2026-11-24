@@ -12,14 +12,14 @@ import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
 import { BandePositions, nombreVisibles, PositionsSurCarte, useReperes } from './Positions';
-import { Conversation, Conversations, PointSurCarte } from './Messages';
+import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
-  nouveauCode, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, vue as vueSorties,
+  annulerInvitation, appliquer, aujourdhui, autreDuDuo, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
+  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -293,7 +293,7 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
-  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string };
+  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' };
 /** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string };
 
@@ -329,6 +329,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }
 
   const groupes = appliquer(e);
+  // Discussion à deux avec un buddy (toujours la même) : elle s'ouvre, créée au besoin.
+  const parlerA = (b: Buddy) => void ouvrirDuo(b).then((id) => setVue({ ecran: 'conv', id })).catch((err: Error) => onToast(err.message));
   const { sorties, traces, plannings, photos, depenses, hebergements } = vueSorties(e);
   const ouvrir = (x: Sortie, parler = false) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id), parler });
   // Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
@@ -372,13 +374,17 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })} onAnciens={onExpenses}
         onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
-        onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)}
+        onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
+        onNouvelle={() => setVue({ ecran: 'nouvelleConv' })}
         onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'nouvelleConv' ? <NouvelleDiscussion onContact={parlerA} onNouveauGroupe={() => setVue({ ecran: 'nouveau' })} onClose={onClose}
+        onRetour={() => setVue({ ecran: 'messages' })} />
       : vue.ecran === 'conv' && groupes.some((x) => x.id === vue.id) ? (() => {
         const gc = groupes.find((x) => x.id === vue.id)!;
         return <div className="bd-corps bd-corps-conv">
-          <div className="xp-head"><button onClick={() => setVue({ ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
-            <span className="bd-titre"><b>{gc.nom}</b><small>💬 {gc.membres.length} buddies</small></span>
+          <div className="xp-head"><button onClick={() => setVue(gc.nature === 'duo' ? { ecran: 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
+            {gc.nature === 'duo' && <Visage b={autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
+            <span className="bd-titre"><b>{autreDuDuo(gc, e)?.pseudo ?? gc.nom}</b><SousTitre g={gc} e={e} /></span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
             onPoint={(p) => onCarte({ traces: [], point: p })} onTrace={(t) => onCarte({ traces: [t] })} />
@@ -417,7 +423,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : g ? <UnGroupe g={g} plannings={plannings.filter((x) => x.groupe === g.id)} onRemplir={remplir} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
         onToast={onToast} onOuvrir={voir} onTrace={(t) => onCarte({ traces: [t] })}
         onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-        : <Liste e={e} groupes={groupes} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
+        : <Liste e={e} groupes={groupes.filter((x) => x.nature !== 'duo')} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
           onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: meTime.id })} onClose={onClose} />}
   </div>;
 }

@@ -62,3 +62,24 @@ describe('messagerie façon AppBase', () => {
     expect(resume(m({ supprime: true }))).toBe('Ce message a été supprimé');
   });
 });
+
+describe('discussions à deux', () => {
+  it('même identifiant que le serveur (uuid5), une seule par paire', async () => {
+    const { uuid5, ouvrirDuo, appliquer, contacts, presence } = await import('../src/buddies/store');
+    expect(await uuid5('aa:bb')).toBe('aef85378-86bf-5bbb-b7cc-611b92e9772a');
+    const g = { id: 'g', nom: 'Ski', nature: 'bande' as const, photo: null, modifie_le: '2026-11-24T10:00:00Z', invitations: [],
+      membres: [{ id: 'u-seb', pseudo: 'Seb', photo: null }, { id: 'u-julie', pseudo: 'Julie', photo: null }, { id: 'u-alex', pseudo: 'Alex', photo: null }] };
+    localStorage.setItem('buddies', JSON.stringify({ ...lire(), serveur: [g] }));
+    _reinitialiser();
+    expect(contacts().map((c) => [c.b.pseudo, c.bandes])).toEqual([['Alex', ['Ski']], ['Julie', ['Ski']]]);
+    const a = await ouvrirDuo(g.membres[1]);
+    expect(await ouvrirDuo(g.membres[1])).toBe(a);
+    const duos = appliquer(lire()).filter((x) => x.nature === 'duo');
+    expect(duos.map((x) => [x.id, x.membres.map((b) => b.pseudo)])).toEqual([[a, ['Seb', 'Julie']]]);
+    expect(lire().attente.filter((o) => o.type === 'duo')).toHaveLength(1);
+    const maintenant = Date.parse('2026-11-24T10:00:20Z');
+    expect(presence('u-julie', [{ qui: 'u-julie', vu_le: '2026-11-24T10:00:00Z', lus: {} }], maintenant)).toBe('en ligne');
+    expect(presence('u-julie', [{ qui: 'u-julie', vu_le: '2026-11-24T08:05:00Z', lus: {} }], maintenant)).toMatch(/^vu aujourd’hui à \d+ h 05$/);
+    expect(presence('u-luc', [], maintenant)).toBeNull();
+  });
+});

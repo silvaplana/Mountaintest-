@@ -10,7 +10,7 @@ import { iconeHebergement, prixHebergement } from './Hebergements';
 import { apercu, cle, fil, heureMessage, jourMessage, longueurTrace, morceaux, resume, type Bulle, type Dest } from './messages';
 import { agir, annuler, contexte, demander, pourBud } from './bud';
 import {
-  appliquer, DELAI_MODIFIER, envoyerMessage, estAdmin, lire, marquerLu, modifierMessage, noterActionsBud, nonLus, proposerHebergement, reagir, retirerMessage, statut,
+  appliquer, autreDuDuo, contacts, DELAI_MODIFIER, presence, envoyerMessage, estAdmin, lire, marquerLu, modifierMessage, noterActionsBud, nonLus, proposerHebergement, reagir, retirerMessage, signalerEcrit, statut,
   synchroniser, vue, type Buddy, type Groupe, type Hebergement, type Lecture, type MessageBuddy, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -77,9 +77,9 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const autres = membres.map((b) => b.id).filter((id) => id !== moi && id !== 'moi');
   const groupe = appliquer(e).find((g) => g.id === (sortie?.groupe ?? dest.groupe));
   const admin = !!groupe && estAdmin(groupe, e);
-  // Ouverte : on regarde les nouveaux messages toutes les 10 s, et on les marque lus (✓✓ bleues chez les autres).
+  // Ouverte : on regarde les nouveaux messages toutes les 5 s (« écrit… », « en ligne »), et on les marque lus (✓✓ bleues).
   useEffect(() => {
-    const t = setInterval(() => { void synchroniser().catch(() => undefined); }, 10_000);
+    const t = setInterval(() => { void synchroniser().catch(() => undefined); }, 5_000);
     return () => clearInterval(t);
   }, []);
   const dernier = bulles.at(-1)?.quand;
@@ -207,7 +207,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
         {sortie && !edition && <button aria-label="Envoyer une photo" disabled={occupe} onClick={() => fichier.current?.click()}>📷</button>}
         {!edition && <button aria-label="Montrer où je suis" disabled={occupe} onClick={() => void point()}>📍</button>}
         <textarea ref={saisie} rows={1} value={texte} placeholder="Message, ou « Bud, … »" enterKeyHint={ENTREE_ENVOIE ? 'send' : 'enter'} maxLength={2000}
-          onChange={(ev) => { setTexte(ev.target.value); ev.target.style.height = 'auto'; ev.target.style.height = `${Math.min(ev.target.scrollHeight, 140)}px`; }}
+          onChange={(ev) => { setTexte(ev.target.value); signalerEcrit(k); ev.target.style.height = 'auto'; ev.target.style.height = `${Math.min(ev.target.scrollHeight, 140)}px`; }}
           onFocus={() => setEmojis(false)}
           onKeyDown={(ev) => { if (ENTREE_ENVOIE && ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); envoyer(); } }} />
       </>}
@@ -361,31 +361,83 @@ export function PointSurCarte({ map, p }: { map: MlMap | null; p: { lon: number;
   return null;
 }
 
-/** Toutes mes conversations (💬 depuis la liste) : les plus récentes en haut, avec les non lus. */
-export function Conversations({ groupes, sorties, onGroupe, onSortie, onRetour, onClose }: {
-  groupes: Groupe[]; sorties: Sortie[]; onGroupe: (g: Groupe) => void; onSortie: (x: Sortie) => void; onRetour: () => void; onClose: () => void;
+/**
+ * 💬 Toutes mes conversations, comme la liste d'AppBase : la plus récente en haut (heure, « hier », date), non lus,
+ * recherche (Discussions puis Contacts : toucher un buddy ouvre la discussion à deux), gros + pour une nouvelle discussion.
+ */
+export function Conversations({ groupes, sorties, onGroupe, onSortie, onContact, onNouvelle, onRetour, onClose }: {
+  groupes: Groupe[]; sorties: Sortie[]; onGroupe: (g: Groupe) => void; onSortie: (x: Sortie) => void; onContact: (b: Buddy) => void;
+  onNouvelle: () => void; onRetour: () => void; onClose: () => void;
 }) {
   const e = useBuddies();
   const v = vue(e);
   const moi = e.moi ?? 'moi';
+  const [cherche, setCherche] = useState('');
   const l = [
-    ...groupes.filter((g) => g.nature !== 'me_time').map((g) => ({ id: g.id, nom: g.nom, photo: g.photo, membres: g.membres, ouvrir: () => onGroupe(g),
-      sous: `${g.membres.length} buddies`, dest: { groupe: g.id } })),
-    ...sorties.filter((x) => x.participants.length > 1).map((x) => ({ id: x.id, nom: x.nom, photo: x.photo, membres: x.participants, ouvrir: () => onSortie(x),
-      sous: `${x.participants.length} buddies`, dest: { sortie: x.id } })),
+    ...groupes.filter((g) => g.nature !== 'me_time').map((g) => {
+      const autre = autreDuDuo(g, e);
+      return { id: g.id, nom: autre?.pseudo ?? g.nom, visage: autre ?? { id: g.id, nom: g.nom, photo: g.photo }, membres: g.membres, ouvrir: () => onGroupe(g),
+        sous: autre ? '' : `${g.membres.length} buddies`, dest: { groupe: g.id }, cree: g.modifie_le, duo: !!autre };
+    }),
+    ...sorties.filter((x) => x.participants.length > 1).map((x) => ({ id: x.id, nom: x.nom, visage: { id: x.id, nom: x.nom, photo: x.photo }, membres: x.participants,
+      ouvrir: () => onSortie(x), sous: `${x.participants.length} buddies`, dest: { sortie: x.id }, cree: x.modifie_le, duo: false })),
   ].map((c) => {
     const f = fil(c.dest, v.messages, v.traces, v.hebergements);
-    return { ...c, dernier: f.at(-1), n: nonLus(e, c.id, v.messages) };
+    const ecrit = (e.ecrivent ?? []).find((y) => y.cle === c.id);
+    return { ...c, dernier: f.at(-1), n: nonLus(e, c.id, v.messages), ecrit: ecrit && (c.duo ? 'écrit…' : `${c.membres.find((b) => b.id === ecrit.qui)?.pseudo ?? '?'} écrit…`) };
   }).filter((c) => c.dernier || 'groupe' in c.dest)
-    .sort((a, b) => (b.dernier ? Date.parse(b.dernier.quand) : 0) - (a.dernier ? Date.parse(a.dernier.quand) : 0));
-  return <div className="bd-corps">
+    // Une discussion encore vide se classe à sa création (comme AppBase).
+    .sort((a, b) => Date.parse(b.dernier?.quand ?? b.cree) - Date.parse(a.dernier?.quand ?? a.cree));
+  const q = cherche.trim().toLowerCase();
+  const trouvees = q ? l.filter((c) => c.nom.toLowerCase().includes(q)) : l;
+  const deja = new Set(l.filter((c) => c.duo).map((c) => c.nom));
+  const autres = q ? contacts(e).filter((c) => c.b.pseudo.toLowerCase().includes(q) && !deja.has(c.b.pseudo)) : [];
+  return <div className="bd-corps bd-convs">
     <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>💬 Messages</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    <input className="bd-cherche" type="search" value={cherche} onChange={(ev) => setCherche(ev.target.value)} placeholder="🔍 Rechercher" />
     {!l.length && <p className="bd-vide">Crée un Buddy Group ou un Buddy Time avec des copains : vous pourrez vous écrire ici.</p>}
-    {l.map((c) => <button key={c.id} className="bd-ligne" onClick={c.ouvrir}>
-      <Visage b={{ id: c.id, nom: c.nom, photo: c.photo }} taille={48} />
-      <span className="bd-texte"><b>{c.nom}</b><small>{c.dernier ? apercu(c.dernier, (id) => c.membres.find((m) => m.id === id)?.pseudo ?? '?', moi) : c.sous}</small></span>
+    {q && trouvees.length > 0 && <h3 className="bd-section">Discussions</h3>}
+    {trouvees.map((c) => <button key={c.id} className="bd-ligne" onClick={c.ouvrir}>
+      <Visage b={c.visage} taille={48} />
+      <span className="bd-texte"><b>{c.nom}</b>
+        <small className={c.ecrit ? 'bd-ecrit' : ''}>{c.ecrit ?? (c.dernier ? apercu(c.dernier, (id) => c.membres.find((m) => m.id === id)?.pseudo ?? '?', moi) : c.sous)}</small></span>
       {c.dernier && <small className="bd-heure">{heureMessage(c.dernier.quand)}</small>}
       {c.n > 0 && <span className="bd-nonlu">{c.n}</span>}
     </button>)}
+    {autres.length > 0 && <h3 className="bd-section">Contacts</h3>}
+    {autres.map((c) => <button key={c.b.id} className="bd-ligne" onClick={() => onContact(c.b)}>
+      <Visage b={c.b} taille={48} /><span className="bd-texte"><b>{c.b.pseudo}</b><small>{c.bandes.join(', ')}</small></span>
+    </button>)}
+    <button className="bd-fab" aria-label="Nouvelle discussion" onClick={onNouvelle}>＋</button>
   </div>;
+}
+
+/** Nouvelle discussion (comme AppBase) : « Nouveau Buddy Group » en tête, puis mes buddies par ordre alphabétique. */
+export function NouvelleDiscussion({ onContact, onNouveauGroupe, onRetour, onClose }: {
+  onContact: (b: Buddy) => void; onNouveauGroupe: () => void; onRetour: () => void; onClose: () => void;
+}) {
+  const e = useBuddies();
+  const [cherche, setCherche] = useState('');
+  const q = cherche.trim().toLowerCase();
+  const l = contacts(e).filter((c) => !q || c.b.pseudo.toLowerCase().includes(q));
+  return <div className="bd-corps">
+    <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouvelle discussion</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    <input className="bd-cherche" type="search" value={cherche} onChange={(ev) => setCherche(ev.target.value)} placeholder="🔍 Rechercher un buddy" />
+    <button className="bd-ligne" onClick={onNouveauGroupe}><span className="bd-faces"><i /><i /><i /></span><span className="bd-texte"><b>Nouveau Buddy Group</b></span></button>
+    {!contacts(e).length && <p className="bd-vide">Invite des copains dans un Buddy Group : tu pourras ensuite leur écrire à deux.</p>}
+    {l.map((c) => <button key={c.b.id} className="bd-ligne" onClick={() => onContact(c.b)}>
+      <Visage b={c.b} taille={48} /><span className="bd-texte"><b>{c.b.pseudo}</b><small>{c.bandes.join(', ')}</small></span>
+    </button>)}
+  </div>;
+}
+
+/** Sous le nom d'une conversation : « écrit… », « en ligne », « vu aujourd'hui à 10 h 42 », « Julie en ligne »… */
+export function SousTitre({ g, e }: { g: Groupe; e: ReturnType<typeof useBuddies> }) {
+  const lectures = e.lectures ?? [];
+  const autre = autreDuDuo(g, e);
+  const ecrit = (e.ecrivent ?? []).find((y) => y.cle === g.id);
+  if (ecrit) return <small className="bd-ecrit">{autre ? 'écrit…' : `${g.membres.find((b) => b.id === ecrit.qui)?.pseudo ?? '?'} écrit…`}</small>;
+  if (autre) return <small>{presence(autre.id, lectures) ?? 'Discussion à deux'}</small>;
+  const la = g.membres.filter((b) => presence(b.id, lectures) === 'en ligne');
+  return <small>{la.length === 1 ? `${la[0].pseudo} en ligne` : la.length > 1 ? `${la.length} en ligne` : `💬 ${g.membres.length} buddies`}</small>;
 }
