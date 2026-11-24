@@ -45,7 +45,9 @@ export function searchArea(b: [number, number, number, number], withC2c: boolean
   const lat = (b[1] + b[3]) / 2;
   const w = Math.round((b[2] - b[0]) * 111.32 * Math.cos((lat * Math.PI) / 180));
   const h = Math.round((b[3] - b[1]) * 111.32);
-  return [withC2c ? `Camptocamp : l'écran, ${w} × ${h} km` : '', 'VisuGPX : 25 km autour du centre', 'Geotrek : carré de 50 × 50 km']
+  // Limites des services : VisuGPX 1000 demandes / jour (doc de l'API) ; Camptocamp et Geotrek n'en annoncent pas.
+  return [withC2c ? `Camptocamp : l'écran, ${w} × ${h} km, sans limite annoncée` : '',
+    'VisuGPX : 25 km autour du centre, 1000 demandes par jour', 'Geotrek : carré de 50 × 50 km, sans limite annoncée']
     .filter(Boolean).join(' · ');
 }
 
