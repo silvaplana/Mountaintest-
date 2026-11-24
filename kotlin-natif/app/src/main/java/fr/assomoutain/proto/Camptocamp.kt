@@ -23,7 +23,9 @@ object Camptocamp {
     const val MAP_LINES = 40
 
     data class Route(val id: Long, val title: String, val summary: String, val lon: Double, val lat: Double, val rating: String,
-                     val heightUpM: Int?, val elevMaxM: Int?, val lengthM: Double?, val durations: List<String>)
+                     val heightUpM: Int?, val elevMaxM: Int?, val lengthM: Double?, val durations: List<String>,
+                     /** Circuit VisuGPX (VisuGpx.kt) : son identifiant et sa description ; sinon itinéraire Camptocamp. */
+                     val src: String = "", val vid: String = "", val vdesc: String = "")
     class Sheet(val route: Route, val description: String, val line: List<LonLat>)
 
     private const val R = 6378137.0

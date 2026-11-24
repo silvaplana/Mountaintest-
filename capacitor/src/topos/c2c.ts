@@ -18,6 +18,8 @@ export interface C2cRoute {
   heightUpM: number | null; elevMaxM: number | null; lengthM: number | null;
   /** Durée annoncée, en jours (« 1 » = une journée). */
   durations: string[];
+  /** Circuit VisuGPX (visugpx.ts) : son identifiant et sa description ; sinon itinéraire Camptocamp. */
+  src?: 'visugpx'; vid?: string; vdesc?: string;
 }
 
 export interface C2cSheet extends C2cRoute { description: string; line: LonLat[] }
@@ -160,12 +162,13 @@ export const C2C_MAP_LINES = 40;
  * Tracés des itinéraires les plus proches, fiche par fiche (4 à la fois), chacun prévenu dès qu'il arrive.
  * Les fiches sont gardées sur le téléphone : une seconde ouverture marche hors ligne.
  */
-export async function fetchLines(routes: C2cRoute[], center: LonLat, onLine: (id: number, line: LonLat[]) => void, signal?: { stop: boolean }) {
+export async function fetchLines(routes: C2cRoute[], center: LonLat, onLine: (id: number, line: LonLat[]) => void, signal?: { stop: boolean },
+  other?: (r: C2cRoute) => Promise<C2cSheet | null>) {
   const todo = byDistance(routes, center).slice(0, C2C_MAP_LINES).map((x) => x.r);
   const next = async (): Promise<void> => {
     const r = todo.shift();
     if (!r || signal?.stop) return;
-    const s = savedSheet(r.id) ?? await fetchSheet(r.id).catch(() => null);
+    const s = r.src ? await other?.(r).catch(() => null) : savedSheet(r.id) ?? await fetchSheet(r.id).catch(() => null);
     if (s?.line.length && !signal?.stop) onLine(r.id, s.line);
     return next();
   };

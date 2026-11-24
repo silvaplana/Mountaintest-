@@ -40,6 +40,13 @@ ma clé API » (elle arrive par mail). Limite : 1000 requêtes par 24 h ; le rel
 en cache une heure. Pour l'ajouter après coup : `echo 'SKITOUR_CLE=<clé>' >> ~/mountaintest/ia.env`
 puis relancer le script (un `docker restart` ne relit pas `ia.env`).
 
+## Circuits VisuGPX (🚵 / 🥾 : liste des itinéraires)
+
+Le relais interroge l'API officielle de VisuGPX avec la clé personnelle gardée dans `ia.env` (`VISUGPX_CLE`),
+à prendre dans son profil sur visugpx.com. Limite : 1000 demandes par jour ; liste gardée une heure par zone,
+tracés gardés sur le serveur. Pour l'ajouter : `echo 'VISUGPX_CLE=<clé>' >> ~/mountaintest/ia.env` puis relancer
+le script. `GET /mountaintest-ia/` montre `visugpx: true` quand la clé est lue, et les champs vus dans les réponses.
+
 ## Tout retirer
 
 ```bash

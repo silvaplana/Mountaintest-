@@ -576,6 +576,150 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
     return lignes
 
 
+# ---------- Circuits VisuGPX (API officielle, clé personnelle de Seb gardée ici, jamais dans l'appli) ----------
+# Doc : https://www.visugpx.com/api/documentation_api.php — en-tête « cle », 60 demandes / min, 1000 / jour.
+# Les tracés « lock » (téléchargement interdit par leur auteur) restent fermés : l'API refuse, on le dit.
+
+VISUGPX_CLE = os.environ.get("VISUGPX_CLE", "")
+VISUGPX_API = "https://www.visugpx.com/api"
+QUOTA_VISUGPX = 1000
+# Champs vus dans les réponses (affichés par GET /mountaintest-ia/ : la forme exacte n'est pas documentée).
+VISUGPX_CHAMPS: set = set()
+_VGPX_APPELS = "visugpx-appels.json"
+
+
+def _visugpx_get(chemin: str, params: dict | None = None) -> bytes:
+    """Demande à l'API VisuGPX, comptée par jour (visugpx-appels.json, montrée dans 📊)."""
+    jour = time.strftime("%Y-%m-%d")
+    with verrou:
+        c = _lire(_VGPX_APPELS, {})
+        c[jour] = c.get(jour, 0) + 1
+        for vieux in sorted(c)[:-30]:
+            del c[vieux]
+        _ecrire(_VGPX_APPELS, c)
+    url = f"{VISUGPX_API}/{chemin}" + ("?" + urllib.parse.urlencode(params) if params else "")
+    req = urllib.request.Request(url, headers={"cle": VISUGPX_CLE, "User-Agent": "Assomoutain"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.read()
+
+
+def appels_visugpx() -> dict:
+    with verrou:
+        c = _lire(_VGPX_APPELS, {})
+    return {"visugpx_appels": {"quota": QUOTA_VISUGPX, "aujourdhui": c.get(time.strftime("%Y-%m-%d"), 0)}}
+
+
+def _champ(x: dict, *noms, defaut=None):
+    for n in noms:
+        v = x.get(n)
+        if v not in (None, ""):
+            return v
+    return defaut
+
+
+def _nombre(v):
+    try:
+        return float(str(v).replace(",", ".").split()[0])
+    except (ValueError, TypeError, IndexError):
+        return None
+
+
+def _visugpx_ligne(x: dict) -> dict | None:
+    """Un circuit de la liste, sous une forme simple (noms de champs devinés large : la doc ne les détaille pas)."""
+    if not isinstance(x, dict):
+        return None
+    VISUGPX_CHAMPS.update(x.keys())
+    vid = str(_champ(x, "id", "idgpx", "id_gpx", "code", defaut=""))
+    lat = _nombre(_champ(x, "lat", "latitude", "lat_depart", "latdep", "start_lat"))
+    lon = _nombre(_champ(x, "lng", "lon", "longitude", "lng_depart", "lon_depart", "lngdep", "start_lng"))
+    if (lat is None or lon is None) and isinstance(x.get("latlng"), str) and "," in x["latlng"]:
+        lat, lon = (_nombre(v) for v in x["latlng"].split(",")[:2])
+    if not vid or lat is None or lon is None:
+        return None
+    dist = _nombre(_champ(x, "distance", "longueur", "length"))
+    return {
+        "id": vid, "titre": str(_champ(x, "titre", "title", "nom", defaut=f"Circuit {vid}"))[:200],
+        "description": str(_champ(x, "description", "desc", defaut=""))[:4000],
+        # Distance : en km si le nombre est petit, sinon en mètres.
+        "distance_m": (dist * 1000 if dist is not None and dist < 1000 else dist),
+        "denivele_m": _nombre(_champ(x, "denivele", "dénivelé", "deniv", "denivele_positif", "dplus", "elevation")),
+        "duree": str(_champ(x, "duree", "durée", "duration", defaut=""))[:40],
+        "activite": str(_champ(x, "activity", "activite", defaut=""))[:20],
+        "lat": lat, "lon": lon,
+    }
+
+
+def visugpx_liste(lat: float, lon: float, act: str) -> list:
+    """Circuits de l'activité à moins de 25 km du point (300 au plus), gardés une heure par zone."""
+    fichier = f"cache-visugpx-{act}-{lat:.2f}_{lon:.2f}.json"
+    with verrou:
+        c = _lire(fichier, None)
+    if c and time.time() - c["t"] < 3600:
+        return c["l"]
+    out = []
+    for page in range(1, 4):
+        j = json.loads(_visugpx_get("search", {"latlng": f"{lat:.5f},{lon:.5f}", "rayon": 25, "activity": act, "page": page}) or b"[]")
+        if isinstance(j, dict) and j.get("ERROR"):
+            raise RuntimeError(f"VisuGPX : {j['ERROR']}")
+        items = j if isinstance(j, list) else _champ(j, "results", "resultats", "activities", "data", defaut=[]) if isinstance(j, dict) else []
+        out += [r for r in (_visugpx_ligne(x) for x in items) if r]
+        if len(items) < 100:
+            break
+    with verrou:
+        _ecrire(fichier, {"t": time.time(), "l": out})
+    return out
+
+
+def _points_trace(data: bytes) -> list:
+    """Points [lon, lat] d'un fichier GPX, KML ou GeoJSON, ramenés à 3000 au plus."""
+    t = data.decode("utf-8", "replace").lstrip()
+    pts = []
+    if t.startswith("{") or t.startswith("["):
+        j = json.loads(t)
+        if isinstance(j, dict) and j.get("ERROR"):
+            raise RuntimeError(f"VisuGPX : {j['ERROR']}")
+        def coords(g):
+            if isinstance(g, dict):
+                if g.get("type") == "LineString":
+                    pts.extend(g.get("coordinates") or [])
+                elif g.get("type") == "MultiLineString":
+                    for l in g.get("coordinates") or []:
+                        pts.extend(l)
+                for k in ("features", "geometry", "geometries"):
+                    v = g.get(k)
+                    for e in (v if isinstance(v, list) else [v]):
+                        coords(e)
+        coords(j)
+        pts = [[float(p[0]), float(p[1])] for p in pts if len(p) >= 2]
+    else:
+        for m in re.finditer(r"<(?:trkpt|rtept)\b([^>]*)>", t):
+            a = dict(re.findall(r'(lat|lon)\s*=\s*["\']([-\d.]+)["\']', m.group(1)))
+            if "lat" in a and "lon" in a:
+                pts.append([float(a["lon"]), float(a["lat"])])
+        if not pts:
+            for m in re.finditer(r"<coordinates>(.*?)</coordinates>", t, re.S):
+                pts += [[float(v.split(",")[0]), float(v.split(",")[1])] for v in m.group(1).split() if v.count(",") >= 1]
+    pas = max(1, len(pts) // 3000)
+    return [[round(p[0], 6), round(p[1], 6)] for p in pts[::pas]]
+
+
+def visugpx_trace(vid: str) -> list:
+    """Tracé d'un circuit, gardé sur le serveur (un circuit ne change guère)."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{3,40}", vid):
+        raise ValueError("identifiant invalide")
+    fichier = f"cache-visugpx-trace-{vid}.json"
+    with verrou:
+        c = _lire(fichier, None)
+    if c is not None:
+        return c
+    pts = _points_trace(_visugpx_get(f"activityfile/{vid}"))
+    if len(pts) < 2:
+        raise RuntimeError("pas de tracé téléchargeable pour ce circuit (son auteur l'a peut-être verrouillé)")
+    with verrou:
+        _ecrire(fichier, pts)
+    return pts
+
+
 # ---------- Demandes à l'API skitour : comptées (quota de 1000 par jour), affichées dans 📊 de l'appli ----------
 QUOTA_SKITOUR = 1000
 _APPELS_FICHIER = "skitour-appels.json"
@@ -1501,11 +1645,34 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos"], "skitour": bool(SKITOUR_CLE), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace"], "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
+
+    def _visugpx(self, liste: bool):
+        if not VISUGPX_CLE:
+            return self._json(503, {"erreur": "clé VisuGPX pas encore installée sur le serveur"})
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)) or b"{}")
+            if liste:
+                act = {"vtt": "vtt", "rando": "rp"}.get(str(d.get("activite")), "")
+                la, lo = float(d["lat"]), float(d["lon"])
+                if not act or not (-90 <= la <= 90 and -180 <= lo <= 180):
+                    raise ValueError("demande invalide")
+            else:
+                vid = str(d["id"])
+        except (ValueError, KeyError, TypeError) as ex:
+            return self._json(400, {"erreur": str(ex) or "demande invalide"})
+        try:
+            if liste:
+                return self._json(200, {"circuits": visugpx_liste(la, lo, act)})
+            return self._json(200, {"trace": visugpx_trace(vid)})
+        except ValueError as ex:
+            return self._json(400, {"erreur": str(ex)})
+        except Exception as ex:  # noqa: BLE001
+            return self._json(502, {"erreur": str(ex)})
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos")):
+        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -1558,6 +1725,8 @@ class Relais(BaseHTTPRequestHandler):
             return self._skitour_topo()
         if chemin.endswith("/skitour-topos"):
             return self._skitour_topos()
+        if chemin.endswith(("/visugpx-liste", "/visugpx-trace")):
+            return self._visugpx(chemin.endswith("/visugpx-liste"))
         if chemin.endswith(("/voiture", "/voyage", "/hebergement")):
             return self._voyage(chemin.rsplit("/", 1)[1])
         if chemin.endswith("/bud"):
