@@ -308,8 +308,34 @@ class MessageBuddy(Base):
     photo_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     # 🐻 Réponse de Bud (§5.12), demandée par `par` : affichée dans la bulle de Bud, jamais comme un message du buddy.
     bud: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Comme la messagerie d'AppBase (§5.6) : réponse à un message, texte corrigé (15 min), supprimé chez tous
+    # (la bulle devient « Ce message a été supprimé »).
+    repond_a: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    edite_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    supprime: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class ReactionBuddy(Base):
+    """Réaction à un message, comme WhatsApp et AppBase : une par personne, une autre la remplace."""
+
+    __tablename__ = "reactions_buddies"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("messages_buddies.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    emoji: Mapped[str] = mapped_column(String(16), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class LectureBuddy(Base):
+    """Jusqu'où un buddy a lu une conversation (cle = id du Buddy Group ou du Buddy Time) : les coches bleues."""
+
+    __tablename__ = "lectures_buddies"
+
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    cle: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    lu_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class Appareil(Base):

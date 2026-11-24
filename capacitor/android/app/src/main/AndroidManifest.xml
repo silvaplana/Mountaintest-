@@ -6,6 +6,8 @@
         <intent><action android:name="android.intent.action.SENDTO" /><data android:scheme="smsto" /></intent>
         <intent><action android:name="android.intent.action.SENDTO" /><data android:scheme="mailto" /></intent>
         <intent><action android:name="android.intent.action.PICK" /><data android:mimeType="vnd.android.cursor.dir/phone_v2" /></intent>
+        <!-- 🎤 Dictée dans l'appli (SpeechRecognizer). -->
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
     </queries>
 
     <application

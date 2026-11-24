@@ -452,7 +452,7 @@ describe('Messagerie (bloc 9)', () => {
       ['texte', 'Top ! RDV 7 h 30 au parking ?', 's1', 'u-seb', true], ['point', '', 's1', 'u-seb', true]]);
     expect(ms[1].lon).toBe(6.712346);
     retirerMessage(ms[0].id);
-    expect(vue(lire()).messages.map((x) => x.nature)).toEqual(['point']);
+    expect(vue(lire()).messages.map((x) => [x.nature, x.supprime ?? false, x.texte])).toEqual([['texte', true, ''], ['point', false, '']]);
   });
 
   it('reçus du serveur, non lus', async () => {
@@ -462,7 +462,7 @@ describe('Messagerie (bloc 9)', () => {
     await synchroniser();
     expect(vue(lire()).messages.map((x) => x.id)).toEqual(['m1', 'm2', 'm3']);
     expect(nonLus(lire(), 's1', vue(lire()).messages)).toBe(2);
-    marquerLu('s1', Date.parse('2026-11-23T08:07:00Z'));
+    marquerLu('s1', '2026-11-23T08:07:00Z');
     expect(nonLus(lire(), 's1', vue(lire()).messages)).toBe(1);
   });
 

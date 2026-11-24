@@ -542,10 +542,11 @@ def test_messages_dans_un_groupe_et_un_buddy_time(client, photos):
     rj = sync(client, sub="julie", ops=[nouveau_message(groupe=gid, texte="Ok pour moi")])
     assert len(rj["ids_messages"]) == 4 and rj["messages"][-1]["par"] == julie
     assert sync(client, sub="luc")["ids_messages"] == []
-    # Seulement ses propres messages se retirent.
+    # Julie ne supprime pas le message de l'admin ; lui, oui : la bulle reste, « Ce message a été supprimé ».
     assert sync(client, sub="julie", ops=[{"id": "x", "type": "retirer_message", "message": m1["message"]}])["refus"]
     r = sync(client, ops=[{"id": "y", "type": "retirer_message", "message": m1["message"]}])
-    assert m1["message"] not in r["ids_messages"]
+    m = next(m for m in r["messages"] if m["id"] == m1["message"])
+    assert m["supprime"] and m["texte"] == ""
 
 
 def test_message_refuse(client, photos):
@@ -567,6 +568,45 @@ def test_reponse_de_bud(client, photos):
     r = sync(client, ops=[question, reponse])
     assert r["refus"] == []
     assert [m["bud"] for m in r["messages"]] == [False, True]
+
+
+def test_repondre_modifier_supprimer_reagir(client, photos):
+    """Comme la messagerie d'AppBase (§5.6) : répondre, modifier 15 min, supprimer chez tous, réagir, coches."""
+    gid, julie = bande_avec_julie(client)
+    m1 = nouveau_message(groupe=gid, texte="On part à 7 h ?")
+    r = sync(client, ops=[m1])
+    moi = r["moi"]
+    rep = {**nouveau_message(groupe=gid, texte="Plutôt 6 h"), "repond_a": m1["message"]}
+    ailleurs = {**nouveau_message(groupe=gid, texte="?"), "repond_a": str(uuid.uuid4())}
+    rj = sync(client, sub="julie", ops=[rep, ailleurs,
+                                         {"id": "r", "type": "reagir", "message": m1["message"], "emoji": "👍"},
+                                         {"id": "r2", "type": "reagir", "message": m1["message"], "emoji": "❤️"},  # remplace
+                                         {"id": "m", "type": "modifier_message", "message": m1["message"], "texte": "pirate"}])
+    assert len(rj["refus"]) == 1  # Julie ne modifie pas mon message
+    par_id = {m["id"]: m for m in rj["messages"]}
+    assert par_id[rep["message"]]["repond_a"] == m1["message"] and par_id[ailleurs["message"]]["repond_a"] is None
+    assert par_id[m1["message"]]["reactions"] == [{"qui": julie, "emoji": "❤️"}]
+    # Je corrige mon message ; Julie retire sa réaction ; elle a lu jusqu'à sa réponse.
+    sync(client, sub="julie", ops=[{"id": "r3", "type": "reagir", "message": m1["message"], "emoji": ""},
+                                   {"id": "l", "type": "lu", "cle": gid, "jusqu": par_id[rep["message"]]["cree_le"]}])
+    r = sync(client, ops=[{"id": "e", "type": "modifier_message", "message": m1["message"], "texte": "On part à 6 h 30 ?"}])
+    m = next(m for m in r["messages"] if m["id"] == m1["message"])
+    assert m["texte"] == "On part à 6 h 30 ?" and m["edite"] and m["reactions"] == []
+    lj = next(x for x in r["lectures"] if x["qui"] == julie)
+    assert lj["lus"][gid] == par_id[rep["message"]]["cree_le"] and lj["vu_le"]
+    assert all(x["qui"] != moi for x in r["lectures"])
+    # Plus de 15 minutes après : plus modifiable.
+    import modeles
+    from datetime import timedelta
+    import serveur
+    with serveur.Sessions() as s:
+        x = s.get(modeles.MessageBuddy, uuid.UUID(m1["message"]))
+        x.cree_le = x.cree_le - timedelta(minutes=16)
+        s.commit()
+    assert sync(client, ops=[{"id": "t", "type": "modifier_message", "message": m1["message"], "texte": "trop tard"}])["refus"]
+    # L'admin du Buddy Group supprime le message de Julie (modération).
+    r = sync(client, ops=[{"id": "s", "type": "retirer_message", "message": rep["message"]}])
+    assert r["refus"] == [] and next(m for m in r["messages"] if m["id"] == rep["message"])["supprime"]
 
 
 def test_annuler_un_buddy_time(client, photos):

@@ -35,6 +35,7 @@ export function apercu(b: Bulle | undefined, nom: (id: string) => string, moi: s
   if (b.genre === 'trace') return `〰 ${b.t.par.id === moi ? 'Toi' : b.t.par.pseudo} : ${b.t.nom}`;
   if (b.genre === 'hebergement') return `🏨 ${qui(b.h.par)} : ${b.h.nom}`;
   const m = b.m;
+  if (m.supprime) return `${qui(m.par)} : 🚫 Ce message a été supprimé`;
   if (m.bud) return `🐻 Bud : ${m.nature === 'point' ? `📍 ${m.texte}` : m.texte}`;
   return `${qui(m.par)} : ${m.nature === 'point' ? '📍 je suis ici' : m.nature === 'photo' ? '📷 une photo' : m.texte}`;
 }
@@ -55,4 +56,33 @@ export function longueurTrace(l: [number, number][]): string {
   let m = 0;
   for (let i = 1; i < l.length; i++) m += distanceM({ lon: l[i - 1][0], lat: l[i - 1][1] }, { lon: l[i][0], lat: l[i][1] });
   return km(m);
+}
+
+/** Séparateur du fil, comme AppBase : « Aujourd'hui », « Hier », sinon « samedi 12 décembre ». */
+export function jourMessage(iso: string, maintenant = new Date()): string {
+  const d = new Date(iso);
+  const hier = new Date(maintenant); hier.setDate(hier.getDate() - 1);
+  if (d.toDateString() === maintenant.toDateString()) return 'Aujourd’hui';
+  if (d.toDateString() === hier.toDateString()) return 'Hier';
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', ...(d.getFullYear() !== maintenant.getFullYear() ? { year: 'numeric' } : {}) });
+}
+
+/** Liens cliquables (https://, http://, www.) ; la ponctuation qui suit reste du texte. */
+export function morceaux(texte: string): { texte: string; lien?: string }[] {
+  const l: { texte: string; lien?: string }[] = [];
+  let i = 0;
+  for (const m of texte.matchAll(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi)) {
+    const brut = m[0].replace(/[.,;:!?)»"']+$/, '');
+    if (m.index! > i) l.push({ texte: texte.slice(i, m.index) });
+    l.push({ texte: brut, lien: brut.startsWith('www.') ? `https://${brut}` : brut });
+    i = m.index! + brut.length;
+  }
+  if (i < texte.length) l.push({ texte: texte.slice(i) });
+  return l;
+}
+
+/** Ce que rappelle une réponse (une ligne). */
+export function resume(m: MessageBuddy): string {
+  if (m.supprime) return 'Ce message a été supprimé';
+  return m.nature === 'point' ? '📍 Position' : m.nature === 'photo' ? '📷 Photo' : m.texte;
 }

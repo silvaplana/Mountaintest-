@@ -4,29 +4,37 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.ContactsContract;
+import android.Manifest;
+import android.os.Bundle;
+import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import java.util.ArrayList;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 /**
  * Buddies (src/buddies/) : inviter des copains depuis le téléphone (spec/buddies.md §5.3).
  * - pickContact() : choisir un copain dans les contacts. Le sélecteur d'Android donne seulement le contact
  *   choisi : pas de permission « lire tous les contacts ».
  * - sms({numero, texte}) / mail({adresse, sujet, texte}) : ouvre Messages ou l'appli mail, prêts à envoyer.
- * - dicter() : la dictée d'Android (hors ligne quand le téléphone le permet), pour le récit du carnet (§5.8).
+ * - 🎤 ecouter() / arreterEcoute() : la dictée d'Android dans l'appli, sans sa fenêtre (hors ligne quand le téléphone
+ *   a le français) : événements « dictee » (phrase en cours ou finie), « dicteeNiveau » (son, pour l'onde), « dicteeFin ».
  * - partager({titre, texte}) : le carnet en texte, vers l'appli choisie.
  * - epingler({jusqu}) / relever() : 📍 la position part toutes les 5 minutes (EpingleService, §5.9) ; chaque
  *   position arrive en événement « position » ; derniere() rend celle reçue appli fermée (et l'oublie).
  * - 📞 jetonPush() : le jeton Firebase de ce téléphone (vide sans google-services.json) ; appelEnAttente() : l'appel
  *   dont la notification a ouvert l'appli ; événements « appel » et « finAppel » (AppelService, §5.7).
  */
-@CapacitorPlugin(name = "Buddies")
+@CapacitorPlugin(name = "Buddies", permissions = { @Permission(alias = "micro", strings = { Manifest.permission.RECORD_AUDIO }) })
 public class BuddiesPlugin extends Plugin {
     @Override
     public void load() {
@@ -162,27 +170,96 @@ public class BuddiesPlugin extends Plugin {
         ouvrir(call, i);
     }
 
+    // ------------------------------------------------------------------ 🎤 dictée
+
+    private SpeechRecognizer reco;
+    /** On veut encore dicter : une phrase finie, l'écoute repart (Android s'arrête après chaque phrase). */
+    private boolean voulue;
+    private int silences;
+    private static final int SILENCES_MAX = 2;
+
     @PluginMethod
-    public void dicter(PluginCall call) {
+    public void ecouter(PluginCall call) {
+        if (getPermissionState("micro") != PermissionState.GRANTED) { requestPermissionForAlias("micro", call, "microAccorde"); return; }
+        demarrerEcoute(call);
+    }
+
+    @PermissionCallback
+    private void microAccorde(PluginCall call) {
+        if (getPermissionState("micro") == PermissionState.GRANTED) demarrerEcoute(call); else call.reject("micro");
+    }
+
+    private void demarrerEcoute(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (!SpeechRecognizer.isRecognitionAvailable(getContext())) { call.reject("indisponible"); return; }
+            if (reco == null) {
+                reco = SpeechRecognizer.createSpeechRecognizer(getContext());
+                reco.setRecognitionListener(ecouteur);
+            }
+            voulue = true;
+            silences = 0;
+            lancer();
+            call.resolve();
+        });
+    }
+
+    private void lancer() {
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR");
+        i.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
         i.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-        i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Raconte, je t'écoute");
-        try {
-            startActivityForResult(call, i, "dicte");
-        } catch (Exception e) {
-            call.reject("Dictée indisponible");
-        }
+        reco.startListening(i);
     }
 
-    @ActivityCallback
-    private void dicte(PluginCall call, ActivityResult result) {
-        if (call == null) return;
-        ArrayList<String> l = result.getData() != null ? result.getData().getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS) : null;
-        JSObject r = new JSObject();
-        r.put("texte", l != null && !l.isEmpty() ? l.get(0) : "");
-        call.resolve(r);
+    @PluginMethod
+    public void arreterEcoute(PluginCall call) {
+        voulue = false;
+        getActivity().runOnUiThread(() -> { if (reco != null) reco.stopListening(); });
+        call.resolve();
+    }
+
+    private void suite() {
+        if (voulue && silences < SILENCES_MAX) { lancer(); return; }
+        voulue = false;
+        notifyListeners("dicteeFin", new JSObject());
+    }
+
+    private void phrase(Bundle b, boolean fini) {
+        ArrayList<String> l = b != null ? b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION) : null;
+        JSObject o = new JSObject();
+        o.put("texte", l != null && !l.isEmpty() ? l.get(0) : "");
+        o.put("fini", fini);
+        notifyListeners("dictee", o);
+        if (fini) silences = o.getString("texte", "").isEmpty() ? silences + 1 : 0;
+    }
+
+    private final RecognitionListener ecouteur = new RecognitionListener() {
+        @Override public void onReadyForSpeech(Bundle b) { }
+        @Override public void onBeginningOfSpeech() { }
+        @Override public void onRmsChanged(float db) {
+            JSObject o = new JSObject();
+            o.put("niveau", db);
+            notifyListeners("dicteeNiveau", o);
+        }
+        @Override public void onBufferReceived(byte[] b) { }
+        @Override public void onEndOfSpeech() { }
+        @Override public void onPartialResults(Bundle b) { phrase(b, false); }
+        @Override public void onEvent(int t, Bundle b) { }
+        @Override public void onResults(Bundle b) { phrase(b, true); suite(); }
+        @Override public void onError(int e) {
+            if (e == SpeechRecognizer.ERROR_NO_MATCH || e == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) { silences++; suite(); return; }
+            boolean arrete = !voulue;
+            voulue = false;
+            JSObject o = new JSObject();
+            if (!arrete && e != SpeechRecognizer.ERROR_CLIENT) o.put("erreur", e);
+            notifyListeners("dicteeFin", o);
+        }
+    };
+
+    @Override
+    protected void handleOnDestroy() {
+        if (reco != null) { reco.destroy(); reco = null; }
     }
 
     @PluginMethod
