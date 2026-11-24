@@ -13,7 +13,7 @@ import {
 } from './store';
 
 /** « Bud, … », « bud : … », « Les Baladins 👍 Bud, la pente ? » : Bud est appelé. */
-export const pourBud = (texte: string) => /(^|[\s.!?👍])bud\s*[,:]/iu.test(texte) || /^\s*bud\b/i.test(texte);
+export const pourBud = (texte: string) => /(^|[\s.!?👍])buds?\s*[,:]/iu.test(texte) || /^\s*buds?\b/i.test(texte);
 
 export type Donnees = {
   nom: string; sortie?: Sortie; membres: Buddy[]; moi: string;
