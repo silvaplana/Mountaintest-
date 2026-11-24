@@ -48,7 +48,7 @@ import { DrawOverlay } from './DrawOverlay';
 import { TraceList, TraceMenu } from './TraceMenu';
 import { defaultTraceName, deleteTrace, listTraces, saveTrace, traceLine, type SavedTrace } from './trails/savedTraces';
 import { removeTraceFile, shareTrace, writeTraceFile } from './trails/traceShare';
-import { Profile } from './Profile';
+import { Profile, WayLegend } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
 import { drawnTrail, isMine, nextMine, bikeHours, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import { parseTraceFile } from './trails/traceFile';
@@ -329,9 +329,10 @@ export function App() {
       ...(showSlopes && importProfile ? slopeLabels(importProfile.prof, importProfile.gps ? 100 : 50, undefined, vtt) : []),
     ];
   }, [showSlopes, profile, importProfile, drawnSel, drawnSlopes, vtt]);
-  // 🚵 Types de chemin de la trace choisie (mode VTT) : gardés sur le téléphone, sinon cherchés sur le réseau.
-  const wantWays = activity !== 'ski' && wayTypesOn && drawnSel;
-  const selKey = useMemo(() => (selected && isMine(selected.id) ? lineKey(selected.segments.flat()) : ''), [selected]);
+  // Types de chemin de la trace choisie, en 🚵 🚴 🚲 🥾 (Seb : aussi gravel et marche, et pas seulement mes traces :
+  // sentiers balisés et itinéraires touchés sur la carte aussi) : gardés sur le téléphone, sinon cherchés sur le réseau.
+  const wantWays = activity !== 'ski' && wayTypesOn && selected != null;
+  const selKey = useMemo(() => (selected ? lineKey(selected.segments.flat()) : ''), [selected]);
   useEffect(() => {
     if (!wantWays || !selected) return;
     const line = selected.segments.flat(), key = selKey;
@@ -1362,7 +1363,10 @@ export function App() {
                   <div><b>{typeof elevated === 'object' && elevated ? `${Math.round(elevated.lossM)} m` : elevated === 'loading' ? '…' : '—'}</b><span>D−</span></div>
                   <div><b>{typeof elevated === 'object' && elevated ? formatHours(vtt ? bikeHours(selected.distanceM, elevated.gainM) : walkingHours(selected.distanceM, elevated.gainM, elevated.lossM)) : elevated === 'loading' ? '…' : '—'}</b><span>{vtt ? 'à vélo' : 'marche'}</span></div>
                 </div>
-                {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} cursor={profCursor} onCursor={setProfCursor} pctFirst={vtt} />}
+                {typeof elevated === 'object' && elevated && <Profile segments={elevated.segments} cursor={profCursor} onCursor={setProfCursor} pctFirst={vtt}
+                  runs={Array.isArray(selRuns) ? selRuns : null} />}
+                {wantWays && (selRuns === 'loading' ? <p className="hint">Recherche des types de chemin…</p>
+                  : Array.isArray(selRuns) && <WayLegend runs={selRuns} />)}
                 {elevated === 'error' && <p className="hint">Altitudes indisponibles (service IGN injoignable) : le GPX sera exporté sans altitude.</p>}
                 <div className="row">
                   <button className="primary" onClick={exportTrail} disabled={elevated === 'loading'}>Exporter GPX</button>
