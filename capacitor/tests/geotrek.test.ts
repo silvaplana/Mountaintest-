@@ -30,3 +30,13 @@ describe('Geotrek', () => {
     expect(toggleSource(h, 'c2c')).toEqual([]);
   });
 });
+
+import { searchArea } from '../src/C2cPanel';
+describe('zone cherchée', () => {
+  it('donne la taille de l’écran en km et les zones des autres sources', () => {
+    const t = searchArea([5.5, 43.1, 5.7, 43.3], true);
+    expect(t).toContain("l'écran, 16 × 22 km");
+    expect(t).toContain('25 km autour du centre');
+    expect(searchArea([5.5, 43.1, 5.7, 43.3], false)).not.toContain('Camptocamp');
+  });
+});
