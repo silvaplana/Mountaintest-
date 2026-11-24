@@ -932,14 +932,21 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-bud-fait { color: #ffffffd0; font-size: 15px; }
 .bd-bulle.bud .bd-bud-annuler { color: #f2c14e; min-height: 48px; align-self: flex-start; padding: 0; font-size: 17px; }
 
-/* Appui long sur un bouton à variantes (activité, fond de carte) : elles s'ouvrent à sa gauche, une seule au choix. */
+/* Appui long sur un bouton à variantes (activité, fond de carte) : elles s'ouvrent à sa gauche, une seule au choix.
+   Mêmes boutons que la barre (taille, fond), sans bandeau derrière (Seb, 24/11). */
 .variants {
-  position: fixed; transform: translateY(-50%); display: flex; gap: 6px; padding: 5px; border-radius: 30px;
-  background: var(--bg); box-shadow: 0 2px 12px #0005; pointer-events: auto;
+  position: fixed; transform: translateY(-50%); display: flex; gap: 8px; pointer-events: auto;
 }
 .variants button {
-  min-width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 24px; border: 0;
-  font-size: 26px; line-height: 1; background: #0000000d; color: inherit;
+  width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; border: 0;
+  font-size: 22px; line-height: 1; background: var(--bg); box-shadow: 0 1px 6px #0004; color: inherit;
 }
-.variants button.txt { font-size: 17px; padding: 0 12px; }
-.variants button.sel { background: var(--accent); color: #fff; }
+.variants button.txt { width: auto; border-radius: 22px; font-size: 17px; padding: 0 14px; }
+.variants button.sel { box-shadow: 0 0 0 3px var(--accent), 0 1px 6px #0004; }
+
+/* Petits écrans : la colonne étendue doit rester au-dessus du ☰ du bas. */
+@media (max-height: 720px) {
+  .quick { gap: 5px; }
+  .quick button:not(.toggle) { width: 40px; height: 40px; font-size: 20px; }
+  .quick > button:not(.arrow), .quick > .pair { margin-right: 8px; }
+}
