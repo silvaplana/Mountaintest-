@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { costLine } from './trails/webHikes';
 import { relayPost } from './travel/travel';
 import { searchPlaces, type Place } from './search';
+import { distanceM } from './gps/adaptive';
 
 /** Hébergements trouvés par Claude (relais du VPS, recherche web), du moins cher au plus cher. Même écran côté Kotlin (LodgingPanel.kt). */
 export interface Lodging { nom: string; type: string; prix_nuit: number | null; adresse: string; url: string; resume: string }
@@ -23,9 +24,22 @@ export async function placeLodgings(list: Lodging[], find: (q: string) => Promis
   return (await Promise.all(list.map(one))).filter((x): x is PlacedLodging => x !== null);
 }
 
+/** Distance choisie autour de la ville (km). */
+export const RAYONS = [5, 10, 20];
+
+/**
+ * Garde ce qui est dans le cercle autour du lieu (marge de 25 % : une adresse placée au centre du village reste approchée).
+ * Ceux qu'on n'a pas pu placer restent dans la liste (distance inconnue) ; ceux placés trop loin sont écartés.
+ */
+export function dansLeCercle(centre: { lon: number; lat: number }, km: number, tous: Lodging[], places: PlacedLodging[]) {
+  const loin = new Set(places.filter((h) => distanceM(centre, h) > km * 1250).map((h) => h.nom + h.adresse));
+  return { liste: tous.filter((h) => !loin.has(h.nom + h.adresse)), carte: places.filter((h) => !loin.has(h.nom + h.adresse)) };
+}
+
 const KEY = 'hebergement';
 /** Les derniers résultats, retrouvés quand on rouvre la liste depuis la carte. */
 let dernier: Answer | null = null;
+let dernierPlaces: PlacedLodging[] = [];
 /** Sites proposés à cocher (on peut en ajouter) : cochés, Claude ne cherche que là ; aucun coché, tout le web. */
 export const SITES = ['gites-refuges.com', 'capverb.org'];
 export const cleanSite = (s: string) => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
@@ -54,13 +68,14 @@ export function LiensSites({ lieu, arrivee, nuits, personnes }: { lieu: string; 
 
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
-export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { password: string; onClose: () => void; onProposer?: (h: Lodging) => void; onShowOnMap?: (l: Lodging[]) => void }) {
+export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { password: string; onClose: () => void; onProposer?: (h: Lodging) => void; onShowOnMap?: (l: PlacedLodging[]) => void }) {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, string>; } catch { return {}; } })();
   const [city, setCity] = useState(saved.city ?? '');
   const [people, setPeople] = useState(saved.people ?? '2');
   const [max, setMax] = useState(saved.max ?? '100');
   const [date, setDate] = useState(saved.date && saved.date >= new Date().toISOString().slice(0, 10) ? saved.date : tomorrow());
   const [nights, setNights] = useState(saved.nights ?? '1');
+  const [rayon, setRayon] = useState(RAYONS.includes(Number(saved.rayon)) ? Number(saved.rayon) : 10);
   const [sites, setSites] = useState<string[]>(() => { try { return JSON.parse(saved.sites ?? 'null') ?? SITES; } catch { return SITES; } });
   const [checked, setChecked] = useState<string[]>(() => { try { return JSON.parse(saved.checked ?? '[]'); } catch { return []; } });
   const [newSite, setNewSite] = useState('');
@@ -73,18 +88,24 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
   async function search() {
     const p = Number(people), m = Number(max.replace(',', '.')), n = Number(nights);
     if (city.trim().length < 2 || !(p >= 1) || !(m > 0) || !(n >= 1)) { setError('Indique la ville, le nombre de personnes, le prix maxi et les nuits'); return; }
-    try { localStorage.setItem(KEY, JSON.stringify({ city, people, max, date, nights, sites: JSON.stringify(sites), checked: JSON.stringify(checked) })); } catch { /* ignoré */ }
-    setBusy(true); setError(''); setAnswer(null); dernier = null; setElapsed(0);
+    try { localStorage.setItem(KEY, JSON.stringify({ city, people, max, date, nights, rayon: String(rayon), sites: JSON.stringify(sites), checked: JSON.stringify(checked) })); } catch { /* ignoré */ }
+    setBusy(true); setError(''); setAnswer(null); dernier = null; dernierPlaces = []; setElapsed(0);
     const t0 = Date.now();
     const tick = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
     const ctrl = new AbortController();
     const stop = setTimeout(() => ctrl.abort(), 240_000);
     try {
-      const r = await relayPost<Answer>('hebergement', { ville: city.trim(), personnes: p, prix_max: m, arrivee: date, nuits: n, sites: checked.filter((x) => sites.includes(x)) }, password, ctrl.signal);
-      dernier = { ...r, hebergements: sortByPrice(r.hebergements ?? []) };
+      const r = await relayPost<Answer>('hebergement', { ville: city.trim(), personnes: p, prix_max: m, arrivee: date, nuits: n, rayon_km: rayon, sites: checked.filter((x) => sites.includes(x)) }, password, ctrl.signal);
+      const tous = sortByPrice(r.hebergements ?? []);
+      // On place chacun sur la carte (adresse, sinon nom) et on écarte ceux hors du cercle autour de la ville.
+      const [places, centre] = await Promise.all([placeLodgings(tous),
+        searchPlaces(city.trim(), AbortSignal.timeout(5000)).then((x) => x[0]).catch(() => undefined)]);
+      const garde = centre ? dansLeCercle(centre, rayon, tous, places) : { liste: tous, carte: places };
+      dernier = { ...r, hebergements: garde.liste };
+      dernierPlaces = garde.carte;
       setAnswer(dernier);
       // Les résultats vont directement sur la carte ; « ☰ Liste » ramène ici.
-      if (onShowOnMap && dernier.hebergements?.length) onShowOnMap(dernier.hebergements);
+      if (onShowOnMap && dernierPlaces.length) onShowOnMap(dernierPlaces);
     } catch (e) {
       setError(`Recherche impossible : ${(e as Error).name === 'AbortError' ? 'pas de réponse en 4 minutes' : e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`);
     }
@@ -104,6 +125,8 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
         <label className="field">Arrivée<input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
         <label className="field">Nuits<input type="number" inputMode="numeric" min="1" value={nights} onChange={(e) => setNights(e.target.value)} /></label>
       </span>
+      <label className="field">Distance autour de la ville<select value={rayon} onChange={(e) => setRayon(Number(e.target.value))}>
+        {RAYONS.map((k) => <option key={k} value={k}>{k} km</option>)}</select></label>
       <p className="hint">Chercher seulement sur (rien de coché : tout le web)</p>
       {sites.map((x) => (
         <label key={x} className="check"><input type="checkbox" checked={checked.includes(x)}
@@ -121,7 +144,7 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
       {!password && <p className="hint">Mot de passe de recherche manquant (onglet Randos).</p>}
       {error && <p className="error">{error}</p>}
       {answer && <>
-        {(answer.hebergements ?? []).length === 0 && <p className="hint">Aucun hébergement trouvé sous ce prix.</p>}
+        {(answer.hebergements ?? []).length === 0 && <p className="hint">Aucun hébergement trouvé sous ce prix à moins de {rayon} km.</p>}
         <ul className="routes lodgings">
           {(answer.hebergements ?? []).map((h, i) => (
             <li key={i}><button onClick={() => window.open(h.url, '_system')}>
@@ -130,7 +153,7 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
               {onProposer && <button className="lodging-proposer" onClick={() => onProposer(h)}>👥 Proposer à mes buddies</button>}</li>
           ))}
         </ul>
-        {onShowOnMap && (answer.hebergements ?? []).length > 0 && <button className="lodging-proposer" onClick={() => onShowOnMap(answer.hebergements ?? [])}>🗺 Voir sur la carte</button>}
+        {onShowOnMap && dernierPlaces.length > 0 && <button className="lodging-proposer" onClick={() => onShowOnMap(dernierPlaces)}>🗺 Voir sur la carte</button>}
         {answer.conseil && <p className="hint">{answer.conseil}</p>}
         <p className="hint">{costLine({ cout: answer.cout_usd ?? 0, mois: answer.cumul_mois_usd ?? 0, total: answer.cumul_total_usd ?? 0 }, !!answer.cache).replace('Zone déjà cherchée', 'Déjà cherché')}</p>
       </>}

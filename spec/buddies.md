@@ -489,6 +489,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   est un annuaire (téléphone, mail), on réserve ailleurs.
 - **Directement sur la carte (24 novembre 2026, accord de Seb)** : dès que la recherche a fini, les résultats vont sur
   la carte (la recherche se ferme) ; « ☰ Liste » de la fiche du bas rouvre la liste avec les mêmes résultats.
+- **Ville + distance (choix de Seb, 25 novembre 2026)** : « Distance autour de la ville » 5, 10 ou 20 km (10 par
+  défaut, retenu). Le relais reçoit `rayon_km` et ne cherche que dans ce cercle ; l'appli place chaque résultat et
+  écarte ceux placés à plus de la distance + 25 % du centre de la ville (géocodage approché) ; ceux qu'on ne peut pas
+  placer restent dans la liste, pas sur la carte.
 - **Refuges : la page de réservation** : pour un refuge ou un gîte réservable en ligne (centrale CAF/FFCAM, Tour du
   Queyras, refuges des Écrins…), la recherche et Bud donnent le lien de sa page de réservation (le calendrier des
   places). Ils ne lisent pas les places libres : ces calendriers demandent un compte (et une salle d'attente à
