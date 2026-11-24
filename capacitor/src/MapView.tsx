@@ -175,6 +175,9 @@ export function MapView(props: MapViewProps) {
           { id: 'topo-line', type: 'line', source: 'topoLine', layout: { 'line-join': 'round' },
             paint: { 'line-color': '#2e9d4f', 'line-width': 4, 'line-opacity': 0.95, 'line-dasharray': [2, 1] } },
           { id: 'topos', type: 'circle', source: 'topos', paint: { 'circle-radius': 8, 'circle-color': '#e07b00', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
+          // Cercle autour des sorties qui ont une trace GPX (Seb) : la trace arrive dès qu'on touche le point.
+          { id: 'ski-gpx', type: 'circle', source: 'ski', filter: ['get', 'g'],
+            paint: { 'circle-radius': 14, 'circle-opacity': 0, 'circle-stroke-width': 3, 'circle-stroke-color': '#1d6fe0' } },
           { id: 'ski', type: 'circle', source: 'ski', paint: { 'circle-radius': 8, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
           { id: 'me', type: 'circle', source: 'me', paint: { 'circle-radius': 7, 'circle-color': '#1d6fe0', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
         ],
@@ -360,7 +363,7 @@ export function MapView(props: MapViewProps) {
     if (!ready) return;
     const m = map.current!;
     (m.getSource('ski') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).map((o, i) => ({
-      type: 'Feature', properties: { i }, geometry: { type: 'Point', coordinates: [o.lon, o.lat] } })) });
+      type: 'Feature', properties: { i, g: !!o.gpx }, geometry: { type: 'Point', coordinates: [o.lon, o.lat] } })) });
     const sel = props.skiSel ?? -1;
     (m.getSource('skiLines') as GeoJSONSource).setData({ type: 'FeatureCollection', features: (props.skiOutings ?? []).flatMap((o, i) =>
       ([['trace', o.trace], ['iti', o.itineraire]] as const).filter(([, c]) => c && c.length > 1).map(([k, c]) =>
@@ -373,6 +376,8 @@ export function MapView(props: MapViewProps) {
     ] : [] });
     m.setPaintProperty('ski', 'circle-color', ['case', ['==', ['get', 'i'], sel], '#7b3fe4', '#1d6fe0']);
     m.setPaintProperty('ski', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 11, 8]);
+    m.setPaintProperty('ski-gpx', 'circle-stroke-color', ['case', ['==', ['get', 'i'], sel], '#7b3fe4', '#1d6fe0']);
+    m.setPaintProperty('ski-gpx', 'circle-radius', ['case', ['==', ['get', 'i'], sel], 17, 14]);
     const o = props.skiOutings?.[sel];
     // Sortie choisie : la carte ne bouge pas (demandé par Seb : le parking s'affiche, même s'il sort de l'écran) ;
     // seulement si le sommet n'est pas à l'écran (choisi ailleurs), on centre dessus, une fois par choix.

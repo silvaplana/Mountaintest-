@@ -14,6 +14,8 @@ export interface Outing {
   parking?: Parking | null;
   /** Trace GPX de la sortie et itinéraire GPX de son topo, simplifiés ([lon, lat]), s'ils existent. */
   trace?: [number, number][]; itineraire?: [number, number][];
+  /** Adresse de la trace GPX sur skitour.fr (déjà dans la liste France) : le point est entouré d'un cercle. */
+  gpx?: string;
 }
 export interface Parking { nom: string; altitude: number | null; lat: number; lon: number }
 /**

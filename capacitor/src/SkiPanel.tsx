@@ -43,6 +43,9 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   const asked = useRef(new Set<number>()); // déjà demandés (une fois par ouverture, même si la réponse manque)
   const selId = useRef<number | null>(null);
   selId.current = selected != null ? outings[selected]?.id ?? null : null;
+  // Sortie touchée sans sa trace : demandée tout de suite, sans attendre un mouvement de la carte.
+  const updateRef = useRef<(() => void) | null>(null);
+  useEffect(() => { if (selId.current != null) updateRef.current?.(); }, [selId.current]); // eslint-disable-line react-hooks/exhaustive-deps
   // Sortie venue de la fiche texte (🗺 Carte) : gardée sur la carte même si elle sort de la période choisie.
   const pinned = useRef<Outing | null>(selected != null ? outings[selected] ?? null : null);
   useEffect(() => {
@@ -77,7 +80,10 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
     const update = () => {
       const vis = show();
       window.clearTimeout(timer);
-      const missing = vis.filter((o) => !hasDetails(o, det.current) && !asked.current.has(o.id)).slice(0, 30).map((o) => o.id);
+      // D'abord la sortie touchée, puis celles qui ont une trace GPX (entourées sur la carte).
+      const rank = (o: Outing) => (o.id === selId.current ? 0 : o.gpx ? 1 : 2);
+      const missing = vis.filter((o) => !hasDetails(o, det.current) && !asked.current.has(o.id))
+        .sort((a, b) => rank(a) - rank(b)).slice(0, 30).map((o) => o.id);
       if (!missing.length) return;
       timer = window.setTimeout(() => {
         missing.forEach((id) => asked.current.add(id));
@@ -85,6 +91,7 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       }, 1000);
     };
     update();
+    updateRef.current = update;
     map.on('moveend', update);
     return () => { live = false; window.clearTimeout(timer); map.off('moveend', update); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
