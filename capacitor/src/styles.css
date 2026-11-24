@@ -931,3 +931,15 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-bulle.bud .bd-heure { color: #ffffffa0; }
 .bd-bud-fait { color: #ffffffd0; font-size: 15px; }
 .bd-bulle.bud .bd-bud-annuler { color: #f2c14e; min-height: 48px; align-self: flex-start; padding: 0; font-size: 17px; }
+
+/* Appui long sur un bouton à variantes (activité, fond de carte) : elles s'ouvrent à sa gauche, une seule au choix. */
+.variants {
+  position: fixed; transform: translateY(-50%); display: flex; gap: 6px; padding: 5px; border-radius: 30px;
+  background: var(--bg); box-shadow: 0 2px 12px #0005; pointer-events: auto;
+}
+.variants button {
+  min-width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 24px; border: 0;
+  font-size: 26px; line-height: 1; background: #0000000d; color: inherit;
+}
+.variants button.txt { font-size: 17px; padding: 0 12px; }
+.variants button.sel { background: var(--accent); color: #fff; }

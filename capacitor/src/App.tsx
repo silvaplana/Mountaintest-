@@ -1128,6 +1128,7 @@ export function App() {
           const next = keys[(keys.indexOf(baseLayer) + 1) % keys.length];
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
+        baseLayer={baseLayer} onPickBaseLayer={(m) => { setBaseLayer(m); setToast(`Fond de carte : ${BASE_MODES[m]}`); }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
         forests={forests.length > 0 || forestsLoading} onForests={() => {
           // 🌲 : forêts de la zone affichée sans ouvrir le menu ; un 2e appui les efface.
@@ -1140,8 +1141,6 @@ export function App() {
         junctionWake={junctionWake} onJunctionWake={(on) => { setJunctionWake(on); void setTraceWakeEnabled(on); }}
         traceState={navId != null || freeRec ? (navPaused ? 'pause' : 'run') : 'none'}
         offVibrate={offVibrate} onOffVibrate={(on) => { setOffVibrate(on); void setOffTrackVibrateEnabled(on); }}
-        onTravel={() => { setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
-        onExpenses={() => { setExpenses(true); setOpen(false); setSearching(false); }}
         onBuddies={() => { setBuddies(true); setOpen(false); setSearching(false); }}
         nouveautes={nouveautes(buddiesEtat)}
         onAccount={() => { setAccount(true); setOpen(false); setSearching(false); }}
@@ -1154,8 +1153,7 @@ export function App() {
             : a === 'gravel' ? '🚲 Mode gravel : circuits VisuGPX et Geotrek, durée à vélo, pente en %, type de chemin des traces'
             : a === 'rando' ? '🥾 Mode rando : toutes les randos de l’écran (Camptocamp, VisuGPX, Geotrek)' : '⛷ Mode ski de rando : sorties skitour');
         }}
-        onTopos={() => openC2c(isBike(activity) ? 'mountain_biking' : 'hiking', isBike(activity) ? activity as Bike : undefined)}
-        onLodging={() => { setLodging(true); setTravel(false); setOpen(false); setSearching(false); }} />}
+        onTopos={() => openC2c(isBike(activity) ? 'mountain_biking' : 'hiking', isBike(activity) ? activity as Bike : undefined)} />}
       {c2c && <C2cPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} act={c2c.act} bike={c2c.bike} bbox={c2c.bbox} center={c2c.center} onRoutes={setC2cRoutes} pick={c2cPick}
         hidden={c2cMap} onMap={() => setC2cMap(true)} onClose={closeC2c}
         onShowLine={(sh) => {
@@ -1188,6 +1186,7 @@ export function App() {
           ailleurs: () => void (navigator.share?.({ title: h.nom, text: [h.nom, h.adresse, h.url].filter(Boolean).join('\n') }) ?? Promise.resolve()).catch(() => undefined) })} />}
       {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
+        onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onCarte={montrerBuddies} />}
       {pointBuddy && !buddies && <PointSurCarte map={map} p={pointBuddy} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}
