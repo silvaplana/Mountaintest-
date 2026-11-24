@@ -631,6 +631,15 @@ def _nombre(v):
         return None
 
 
+def _duree_visugpx(v) -> str:
+    """Durée en secondes (nombre) → « 4 h 19 » ; un texte est gardé tel quel."""
+    n = _nombre(v) if isinstance(v, (int, float)) or str(v).strip().isdigit() else None
+    if n is None:
+        return str(v or "")[:40]
+    h, m = int(n // 3600), round(n % 3600 / 60)
+    return f"{h} h {m:02d}" if h else f"{m} min"
+
+
 def _visugpx_ligne(x: dict) -> dict | None:
     """Un circuit de la liste, sous une forme simple (noms de champs devinés large : la doc ne les détaille pas)."""
     if not isinstance(x, dict):
@@ -641,6 +650,10 @@ def _visugpx_ligne(x: dict) -> dict | None:
     lon = _nombre(_champ(x, "lng", "lon", "longitude", "lng_depart", "lon_depart", "lngdep", "start_lng"))
     if (lat is None or lon is None) and isinstance(x.get("latlng"), str) and "," in x["latlng"]:
         lat, lon = (_nombre(v) for v in x["latlng"].split(",")[:2])
+    # Forme réelle de l'API (vue le 24/11) : "start_latlng": [lat, lon], "duree" en secondes, "distance" en mètres.
+    sl = x.get("start_latlng")
+    if (lat is None or lon is None) and isinstance(sl, (list, tuple)) and len(sl) >= 2:
+        lat, lon = _nombre(sl[0]), _nombre(sl[1])
     if not vid or lat is None or lon is None:
         return None
     dist = _nombre(_champ(x, "distance", "longueur", "length"))
@@ -650,7 +663,7 @@ def _visugpx_ligne(x: dict) -> dict | None:
         # Distance : en km si le nombre est petit, sinon en mètres.
         "distance_m": (dist * 1000 if dist is not None and dist < 1000 else dist),
         "denivele_m": _nombre(_champ(x, "denivele", "dénivelé", "deniv", "denivele_positif", "dplus", "elevation")),
-        "duree": str(_champ(x, "duree", "durée", "duration", defaut=""))[:40],
+        "duree": _duree_visugpx(_champ(x, "duree", "durée", "duration", defaut="")),
         "activite": str(_champ(x, "activity", "activite", defaut=""))[:20],
         "lat": lat, "lon": lon,
     }
@@ -658,7 +671,7 @@ def _visugpx_ligne(x: dict) -> dict | None:
 
 def visugpx_liste(lat: float, lon: float, act: str) -> list:
     """Circuits de l'activité à moins de 25 km du point (300 au plus), gardés une heure par zone."""
-    fichier = f"cache-visugpx-{act}-{lat:.2f}_{lon:.2f}.json"
+    fichier = f"cache-visugpx2-{act}-{lat:.2f}_{lon:.2f}.json"
     with verrou:
         c = _lire(fichier, None)
     if c and time.time() - c["t"] < 3600:
@@ -871,7 +884,9 @@ def _geotrek_portail(p: dict, cadre: list, act: str) -> list:
         nature = geotrek_nature(noms.get(str(x.get("practice")), ""))
         if nature is None or (act == "rando") != (nature == "rando"):
             continue
-        dep = (x.get("departure_geom") or {}).get("coordinates") if isinstance(x.get("departure_geom"), dict) else None
+        # departure_geom : [lon, lat] (vu le 24/11), ou un point GeoJSON selon la version de Geotrek.
+        dg = x.get("departure_geom")
+        dep = dg.get("coordinates") if isinstance(dg, dict) else dg if isinstance(dg, (list, tuple)) else None
         if not dep or len(dep) < 2:
             continue
         titre = _fr(x.get("name"))[:200] or f"Itinéraire {x.get('id')}"
@@ -890,7 +905,7 @@ def _geotrek_portail(p: dict, cadre: list, act: str) -> list:
 
 def geotrek_liste(lat: float, lon: float, act: str) -> dict:
     """Itinéraires Geotrek à moins de ~25 km, de tous les portails proches, gardés un jour par zone."""
-    fichier = f"cache-geotrek-{act}-{lat:.2f}_{lon:.2f}.json"
+    fichier = f"cache-geotrek2-{act}-{lat:.2f}_{lon:.2f}.json"
     with verrou:
         c = _lire(fichier, None)
     if c and time.time() - c["t"] < 86400:
