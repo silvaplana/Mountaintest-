@@ -16,6 +16,8 @@ export interface Outing {
   trace?: [number, number][]; itineraire?: [number, number][];
   /** Adresse de la trace GPX sur skitour.fr (déjà dans la liste France) : le point est entouré d'un cercle. */
   gpx?: string;
+  /** Un topo lié a un itinéraire GPX (connu par les listes de topos du serveur) : point entouré aussi. */
+  iti?: boolean;
 }
 export interface Parking { nom: string; altitude: number | null; lat: number; lon: number }
 /**

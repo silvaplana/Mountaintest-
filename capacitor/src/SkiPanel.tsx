@@ -80,8 +80,8 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
     const update = () => {
       const vis = show();
       window.clearTimeout(timer);
-      // D'abord la sortie touchée, puis celles qui ont une trace GPX (entourées sur la carte).
-      const rank = (o: Outing) => (o.id === selId.current ? 0 : o.gpx ? 1 : 2);
+      // D'abord la sortie touchée, puis celles qui ont un tracé (trace ou itinéraire, entourées sur la carte).
+      const rank = (o: Outing) => (o.id === selId.current ? 0 : o.gpx || o.iti ? 1 : 2);
       const missing = vis.filter((o) => !hasDetails(o, det.current) && !asked.current.has(o.id))
         .sort((a, b) => rank(a) - rank(b)).slice(0, 30).map((o) => o.id);
       if (!missing.length) return;
@@ -122,11 +122,11 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       </span></div>
     {/* Cases toujours visibles, sous les filtres, aux couleurs des lignes de la carte. */}
     <div className="ski-menu lines">
-      {([['trace', 'Trace GPX'], ['iti', 'Itinéraire']] as const).map(([k, t]) => (
-        <button key={k} role="checkbox" aria-checked={lines[k]} className={`${k}${lines[k] ? ' on' : ''}`} onClick={() => {
-          const v = { ...lines, [k]: !lines[k] }; setLines(v);
-          try { localStorage.setItem('skitourLignes', JSON.stringify(v)); } catch { /* ignoré */ }
-        }}>{lines[k] ? '☑' : '☐'} {t}</button>))}</div>
+      {/* Une seule case (Seb) : trace de l'auteur, sinon itinéraire du topo, dessinés pareil. */}
+      <button role="checkbox" aria-checked={lines.trace} className={`trace${lines.trace ? ' on' : ''}`} onClick={() => {
+        const v = { trace: !lines.trace, iti: !lines.trace }; setLines(v);
+        try { localStorage.setItem('skitourLignes', JSON.stringify(v)); } catch { /* ignoré */ }
+      }}>{lines.trace ? '☑' : '☐'} Tracés GPX</button></div>
   </>);
   if (low) return <div className="travel" hidden={hidden}>{head}</div>;
   return (

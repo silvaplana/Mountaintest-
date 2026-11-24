@@ -1336,6 +1336,8 @@ def _topo_court(t: dict) -> dict:
             "orientation": _texte(t.get("orientation")), "denivele": _entier(t.get("denivele")), "dif_ski": _texte(t.get("dif_ski")),
             "difficulte": _texte(t.get("difficulte")), "expo": _texte(t.get("expo")),
             "gpx": t.get("gpx") is None or str(t.get("gpx")).strip() not in ("", "0", "false"),
+            # GPX annoncé explicitement par l'API (sert au cercle des sorties sur la carte : pas de cercle si on ne sait pas).
+            "gpx_sur": t.get("gpx") not in (None, "", 0, "0", False, "false"),
             "depart": dep and {"nom": dep["nom"], "altitude": dep["altitude"], "lat": dep["lat"], "lon": dep["lon"]}}
 
 
@@ -1363,6 +1365,46 @@ def _liste_topos(fichier: str, q: dict, pages: int = 20) -> list:
 
 def topos_du_massif(m: int) -> list:
     return _liste_topos(f"cache-skitour-topos-m{m}.json", {"m": m})
+
+
+# ---------- Sorties dont un topo lié a un itinéraire GPX (cercle sur la carte, Seb 24/11) ----------
+# Les listes de topos gardées sur le disque (par massif, ou autour d'un point) disent quels topos ont un GPX.
+# Un fil les complète doucement : 25 massifs au plus par jour, chacun gardé 7 jours (1 à 3 demandes par massif).
+_TOPOS_GPX_IDS: list = [0.0, set()]
+
+
+def topos_gpx_connus() -> set:
+    if time.time() - _TOPOS_GPX_IDS[0] < 600:
+        return _TOPOS_GPX_IDS[1]
+    ids = set()
+    noms = os.listdir(DOSSIER) if os.path.isdir(DOSSIER) else []
+    for n in noms:
+        if re.fullmatch(r"cache-skitour-topos-(m\d+|ll[-\d._]+)\.json", n):
+            with verrou:
+                c = _lire(n, {})
+            ids.update(t["id"] for t in c.get("topos") or [] if isinstance(t, dict) and t.get("gpx_sur"))
+    _TOPOS_GPX_IDS[:] = [time.time(), ids]
+    return ids
+
+
+def _topos_par_massif_en_fond():
+    while True:
+        try:
+            if SKITOUR_CLE:
+                faits = 0
+                for m in liste_massifs():
+                    c = _lire(f"cache-skitour-topos-m{m['id']}.json", None)
+                    if c and time.time() - c.get("t", 0) < 7 * 86400 and all("gpx_sur" in t for t in c.get("topos", [])[:1]):
+                        continue
+                    topos_du_massif(m["id"])
+                    faits += 1
+                    if faits >= 25:
+                        break
+                    time.sleep(5)
+                _TOPOS_GPX_IDS[0] = 0.0
+        except Exception as ex:  # noqa: BLE001 (on réessaiera demain)
+            print(f"topos en fond : {ex}", file=sys.stderr, flush=True)
+        time.sleep(86400)
 
 
 def _massifs_proches(lat: float, lon: float, maxi: int = 2) -> list:
@@ -1955,7 +1997,10 @@ class Relais(BaseHTTPRequestHandler):
                 return self._json(400, {"erreur": "demande invalide"})
             try:
                 if chemin.endswith("/skitour-tout"):
-                    return self._json(200, {"sorties": toutes_sorties(jours)})
+                    connus = topos_gpx_connus()
+                    sorties = [{**o, "iti": True} if any(t in connus for t in o.get("topos_ids") or []) else o
+                               for o in toutes_sorties(jours)]
+                    return self._json(200, {"sorties": sorties})
                 return self._json(200, {"details": details_sorties(ids)})
             except Exception as ex:  # noqa: BLE001
                 return self._json(502, {"erreur": str(ex)})
@@ -2256,4 +2301,5 @@ class Relais(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     print(f"Relais IA prêt (modèle {MODELE}, {MAX_PAR_JOUR} recherches par jour)", flush=True)
     threading.Thread(target=_geotrek_decouverte, daemon=True).start()
+    threading.Thread(target=_topos_par_massif_en_fond, daemon=True).start()
     ThreadingHTTPServer(("0.0.0.0", 8080), Relais).serve_forever()
