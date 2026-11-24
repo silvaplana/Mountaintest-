@@ -127,7 +127,8 @@ Dans la barre étendue de la carte, 👥 ouvre Buddies (pastille = du nouveau) ;
 (profil, compte, réglages, état hors ligne). 👤 reprend l'écran « Mon compte » existant. **(Seb)**
 
 Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 📷 ;
-étendue = ✕, flèche, ◎, 📷, 🔍, ✈, ✏, ⛰, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
+étendue = ✕, flèche, ◎, 📷, ✈, ✏, ⛰, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
+Appui long sur ◎ : 🔍 apparaît à sa gauche (chercher un lieu), même en barre réduite.
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
