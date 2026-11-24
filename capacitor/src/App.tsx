@@ -255,11 +255,11 @@ export function App() {
       .then((found) => setTrails((prev) => [...prev.filter((x) => isMine(x.id)), ...found])).catch(() => {});
     return () => ctrl.abort();
   }, [c2c, c2cMap]);
-  const openC2c = (act: C2cActivity, bike?: Bike) => {
+  const openC2c = (act: C2cActivity, bike?: Bike, onMap = false) => {
     if (!map) return;
     const b = map.getBounds(), c = map.getCenter();
     setTravel(false); setLodging(false); setOpen(false); setSearching(false); setSkiText(false); setSkiOn(false);
-    setC2cRoutes([]); setC2cLines([]); setC2cMap(false); setC2cPick(null);
+    setC2cRoutes([]); setC2cLines([]); setC2cMap(onMap); setC2cPick(null);
     setC2c({ act, bike, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], center: { lon: c.lng, lat: c.lat } });
   };
   const closeC2c = () => { setC2c(null); setC2cRoutes([]); setC2cLines([]); setC2cMap(false); setC2cPick(null); };
@@ -1189,6 +1189,11 @@ export function App() {
         return <button className={`search-here${c2cLoading ? ' loading' : ''}`} disabled={!fresh || c2cLoading} onClick={searchHere}>
           {c2cLoading ? '↻ Recherche…' : '↻ Rechercher dans cette zone'}</button>;
       })()}
+      {/* Dans un mode 🚵 🚴 🚲 🥾, le même bouton directement sur la carte (Seb) : les itinéraires de l'écran, tracés dessus. */}
+      {!c2c && activity !== 'ski' && !open && !travel && !lodging && !searching && !framing && map
+        && <button className="search-here alone"
+          onClick={() => openC2c(isBike(activity) ? 'mountain_biking' : 'hiking', isBike(activity) ? activity as Bike : undefined, true)}>
+          ↻ Rechercher dans cette zone</button>}
       {skiOn && map && !framing && <SkiPanel map={map} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         outings={skiOutings} selected={skiSel} onOutings={setSkiOutings} onSelect={setSkiSel} hidden={!!skiSheet}
         onSheet={(o) => setSkiSheet(rowOf(o))} onMode={skiMode}
