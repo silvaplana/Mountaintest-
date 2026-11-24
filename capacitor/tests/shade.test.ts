@@ -1,3 +1,4 @@
+import { terrariumRgba } from '../src/shade/terrain';
 import { describe, expect, it } from 'vitest';
 import { sunPosition, compass } from '../src/shade/sun';
 import { CAST_SHADOW, computeShade, LIT, NIGHT, SELF_SHADE } from '../src/shade/shadow';
@@ -139,5 +140,15 @@ describe('film', () => {
     const px = framePixels(new Uint8Array([LIT, CAST_SHADOW]));
     expect(px[3]).toBe(0);
     expect(px[7]).toBeGreaterThan(0);
+  });
+});
+
+describe('vue 3D : relief en terrarium', () => {
+  it('code les altitudes comme MapLibre les relit', () => {
+    const alt = new Float32Array([0, 4808.7, 1035.25, -3]);
+    const px = terrariumRgba(alt);
+    const back = (i: number) => px[i * 4] * 256 + px[i * 4 + 1] + px[i * 4 + 2] / 256 - 32768;
+    for (let i = 0; i < alt.length; i++) expect(back(i)).toBeCloseTo(alt[i], 1);
+    expect(px[3]).toBe(255);
   });
 });

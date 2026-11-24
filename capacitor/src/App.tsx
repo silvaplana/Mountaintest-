@@ -39,6 +39,7 @@ import { bench, metrics } from './metrics';
 import { checkLayer } from './tiles/capabilities';
 import { downloadTiles, getTileStore, type DownloadProgress } from './tiles/offlineStore';
 import { registerIgnProtocol } from './tiles/protocol';
+import { registerReliefProtocol } from './shade/terrain';
 import { CORRIDOR_M, lineBbox, tilesForBbox, tilesForCorridor, type TileCoord } from './tiles/tileMath';
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
@@ -81,6 +82,7 @@ type SourceKind = 'gps' | 'sim10' | 'sim60';
 
 const prefs = { apiKey: DEFAULT_SCAN_KEY, cacheViewed: true };
 registerIgnProtocol({ getApiKey: () => prefs.apiKey, cacheViewedTiles: () => prefs.cacheViewed });
+registerReliefProtocol();
 
 /** Ouvre Google Maps (appli si installée) en itinéraire voiture vers le point. */
 function openDirections(lat: number, lon: number) {
@@ -218,6 +220,8 @@ export function App() {
   const [elevated, setElevated] = useState<ElevatedTrail | 'loading' | 'error' | null>(null);
   /** Tracé au doigt en cours, et recalage sur les chemins (IGN) ou ligne libre. */
   const [drawing, setDrawing] = useState(false);
+  /** Vue 3D : carte inclinée ou tournée. */
+  const [tilted, setTilted] = useState(false);
   /** Menu du bas de la trace violette, liste 📂 des traces enregistrées (null : fermée). */
   const [traceMenu, setTraceMenu] = useState(false);
   const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
@@ -368,6 +372,8 @@ export function App() {
   // Mesures (rafraîchies à la demande pour ne pas réveiller l'écran inutilement)
   const [, setTick] = useState(0);
   const [map, setMap] = useState<MlMap | null>(null);
+  // Tracer au doigt et encadrer une zone se font sur la carte à plat : on quitte la 3D.
+  useEffect(() => { if ((drawing || framing) && tilted) map?.jumpTo({ pitch: 0, bearing: 0 }); }, [drawing, framing, tilted, map]);
   // Itinéraires sur la carte : on suit les déplacements pour proposer « 🔍 Rechercher ici » hors de la zone cherchée.
   useEffect(() => {
     if (!map || !c2c || !c2cMap) { setC2cView(null); return; }
@@ -1093,7 +1099,7 @@ export function App() {
       {nature && <button className="restore" onClick={() => setNature(false)} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
-        onMapReady={setMap} onGeolocate={setGeo} trails={trails} selectedTrail={selected} frame={frame}
+        onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
           // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
           if (isMine(id) && selected?.id === id) { if (profile) setProfCursor(nearestD(profile, at.lon, at.lat)); setTraceList(null); setTraceMenu(true); return; }
@@ -1159,6 +1165,7 @@ export function App() {
         }}
         baseLayer={baseLayer} onPickBaseLayer={(m) => { setBaseLayer(m); setToast(`Fond de carte : ${BASE_MODES[m]}`); }}
         slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
+        tilted={tilted} onTilt3d={() => map?.easeTo({ pitch: 60, duration: 900 })} onFlat={() => map?.easeTo({ pitch: 0, bearing: 0, duration: 700 })}
         forests={forests.length > 0 || forestsLoading} onForests={() => {
           // 🌲 : forêts de la zone affichée sans ouvrir le menu ; un 2e appui les efface.
           if (forests.length > 0 || forestsLoading) { clearForests(); return; }

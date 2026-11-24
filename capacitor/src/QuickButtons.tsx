@@ -33,6 +33,8 @@ export interface QuickProps {
   baseLayer: BaseMode; onPickBaseLayer: (m: BaseMode) => void;
   slopes: boolean; onSlopes: (on: boolean) => void;
   shade: boolean; onShade: (on: boolean) => void;
+  /** Vue 3D : 🗻 (variante de ⛰) incline la carte ; 🧭 sous la flèche, tant qu'elle est inclinée ou tournée, la remet à plat. */
+  tilted: boolean; onTilt3d: () => void; onFlat: () => void;
   /** 🌲 à gauche de 🌗 : forêts par essence de la zone affichée ; allumé quand elles sont sur la carte. */
   forests: boolean; onForests: () => void;
   /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de Buddy Groups qui ont bougé. */
@@ -104,7 +106,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, forests, onForests, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -304,6 +306,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onContextMenu={(e) => e.preventDefault()}
         onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } toggleWide(); }}>{wide ? '◂' : '▸'}</button>
+      {(tilted || help) && <button aria-label="Remettre la carte à plat, nord en haut" data-help="À plat, nord en haut" {...lp('compass')} onClick={onFlat}>🧭</button>}
       {/* Appui long sur ◎ : 🔍 apparaît à sa gauche pour chercher un lieu (Seb, 24/11). */}
       <button className={locating ? 'on' : ''} aria-label="Me localiser (appui long : chercher un lieu)" data-help="Me localiser · appui long : 🔍 chercher un lieu" {...lpPick('locate')}
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
@@ -351,6 +354,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
       <div className="pair" ref={reliefRef}>
       <button className={slopes ? 'on' : ''} aria-label={relief ? 'Pentes' : 'Pentes et ombres'} data-help="Pentes · appui : montre aussi les ombres" {...lp('slopes')}
         onClick={() => { if (!relief && !help) { setPairOpen('relief'); return; } onSlopes(!slopes); }}>⛰</button>
+      {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}>🗻</button>}
       {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       {(relief || help) && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
       {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}

@@ -13,6 +13,7 @@ import type { CarRoute } from './travel/travel';
 import { outingLabel, parkingText, topoLine, type Outing, type TopoRow } from './ski/skitour';
 import { placeLabels } from './ski/labels';
 import { GR_COLOR, isWide, WAY_COLOR, type WayType } from './trails/wayTypes';
+import { RELIEF_SOURCE } from './shade/terrain';
 
 /** Zoom à partir duquel on écrit les étiquettes des sorties (sommets), puis montre les parkings : de loin, des points seuls. */
 
@@ -69,6 +70,8 @@ export interface MapViewProps {
   onTopoClick?: (i: number) => void;
   /** Appui sur l'étiquette du topo choisi : ouvrir sa fiche. */
   onTopoOpen?: (i: number) => void;
+  /** Vue 3D : vrai quand la carte est inclinée ou tournée (relief allumé, rotation permise). */
+  onTilt?: (tilted: boolean) => void;
 }
 
 // Le worker MapLibre est empaqueté par Vite avec l'appli : il marche hors ligne.
@@ -114,6 +117,8 @@ export function MapView(props: MapViewProps) {
   onTopoOpen.current = props.onTopoOpen;
   const onTravelClick = useRef(props.onTravelClick);
   onTravelClick.current = props.onTravelClick;
+  const onTilt = useRef(props.onTilt);
+  onTilt.current = props.onTilt;
 
   useEffect(() => {
     const m = new maplibregl.Map({
@@ -121,6 +126,8 @@ export function MapView(props: MapViewProps) {
       // Rouvre la carte là où on l'avait laissée (sinon La Ciotat).
       ...savedView(),
       maxZoom: DISPLAY_MAX_ZOOM,
+      // Vue 3D : au-delà, la carte charge beaucoup de tuiles vers l'horizon.
+      maxPitch: 70,
       // Un écran 3x dessine 2,25 fois plus de pixels qu'en 2x pour un gain peu visible sur des cartes raster.
       pixelRatio: Math.min(window.devicePixelRatio, 2),
       fadeDuration: 0,
@@ -131,7 +138,7 @@ export function MapView(props: MapViewProps) {
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
-          forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' } },
+          forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' }, relief: RELIEF_SOURCE },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
           // Plan IGN sous le SCAN 25 : en mode Auto, le SCAN 25 apparaît en fondu par-dessus en zoomant.
@@ -183,9 +190,21 @@ export function MapView(props: MapViewProps) {
         ],
       },
     });
-    // Carte toujours nord en haut : pas de rotation, donc pas de boussole (demande de Seb).
+    // À plat, carte toujours nord en haut : pas de rotation (demande de Seb).
+    // Inclinée (deux doigts vers le haut, ou 🗻) : relief en 3D, sans exagération, et on peut la tourner (Seb, 24/11).
     m.dragRotate.disable();
     m.touchZoomRotate.disableRotation();
+    let tilted = false;
+    const onView = () => {
+      const now = m.getPitch() > 2 || Math.abs(m.getBearing()) > 0.5;
+      if (now === tilted) return;
+      tilted = now;
+      if (now) { m.setTerrain({ source: 'relief', exaggeration: 1 }); m.dragRotate.enable(); m.touchZoomRotate.enableRotation(); }
+      else { m.setTerrain(null); m.dragRotate.disable(); m.touchZoomRotate.disableRotation(); }
+      onTilt.current?.(now);
+    };
+    m.on('pitch', onView);
+    m.on('rotate', onView);
     // Bouton « me localiser » : 1er appui centre sur ma position et la suit, 2e appui arrête.
     // Le GPS du téléphone ne tourne que tant que le bouton est actif (et jamais appli en arrière-plan).
     const geo = new maplibregl.GeolocateControl({
