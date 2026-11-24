@@ -605,7 +605,16 @@ envoi sans réseau. Quatre étapes, une PR chacune :
    **🎤 Dictée dans l'appli** (choix de Seb : « Dictée dans l'appli, gratuite ») : plus de fenêtre Google ; l'onde
    bouge dans la saisie, les mots s'écrivent pendant qu'on parle, ■ pour arrêter (ou deux silences). Android :
    SpeechRecognizer, hors ligne quand le téléphone a le français. Même dictée pour le récit du carnet.
-2. Discussions à deux entre buddies, liste des discussions (non lus, « en ligne », « écrit… »).
+2. **Discussions à deux et liste des discussions** (fait) : 💬 Messages liste toutes les discussions (Buddy Groups,
+   Buddy Times, discussions à deux), la plus récente en haut (une vide se classe à sa création), avec non lus et
+   « Julie écrit… ». Recherche : « Discussions » puis « Contacts » (toucher un buddy ouvre la discussion à deux). Gros
+   ＋ orange : « Nouvelle discussion » (« Nouveau Buddy Group » en tête, puis mes buddies par ordre alphabétique avec
+   leurs bandes). Une discussion à deux est toujours la même pour deux buddies : un Buddy Group de nature « duo »
+   (identifiant uuid5 des deux comptes, le même calculé par le téléphone, donc possible hors ligne), seulement entre
+   buddies d'une même bande ; il n'apparaît pas dans la liste des Buddy Groups. En haut d'une discussion : « écrit… »,
+   puis « en ligne » (synchro il y a moins de 30 s) ou « vu aujourd'hui à 10 h 42 » ; dans un groupe « Julie en
+   ligne » / « 2 en ligne ». Conversation ouverte : synchro toutes les 5 s. « écrit… » passe par `POST /buddies/ecrit`
+   (gardé 12 s en mémoire du serveur, jamais en file d'attente).
 3. Sondages, fichiers et vidéos, Transférer.
 4. Notifications des nouveaux messages (Firebase, comme la sonnerie des appels).
 

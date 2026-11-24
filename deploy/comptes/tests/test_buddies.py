@@ -609,6 +609,25 @@ def test_repondre_modifier_supprimer_reagir(client, photos):
     assert r["refus"] == [] and next(m for m in r["messages"] if m["id"] == rep["message"])["supprime"]
 
 
+def test_discussion_a_deux(client, photos):
+    """Comme AppBase : toujours la même discussion pour deux buddies ; seulement entre buddies d'une même bande."""
+    gid, julie = bande_avec_julie(client)
+    moi = sync(client)["moi"]
+    r = sync(client, ops=[{"id": "d", "type": "duo", "buddy": julie}] * 2)
+    duos = [g for g in r["groupes"] if g["nature"] == "duo"]
+    assert r["refus"] == [] and len(duos) == 1 and {m["id"] for m in duos[0]["membres"]} == {moi, julie}
+    rj = sync(client, sub="julie", ops=[{"id": "d", "type": "duo", "buddy": moi}])
+    assert [g["id"] for g in rj["groupes"] if g["nature"] == "duo"] == [duos[0]["id"]]
+    sync(client, sub="luc")
+    luc = sync(client, sub="luc")["moi"]
+    assert sync(client, ops=[{"id": "l", "type": "duo", "buddy": luc}])["refus"]
+    # « écrit… » : Julie tape, je le vois ; Luc ne peut pas écrire dans notre discussion.
+    assert client.post("/buddies/ecrit", headers=entete(sub="julie"), json={"cle": duos[0]["id"]}).status_code == 200
+    assert sync(client)["ecrivent"] == [{"cle": duos[0]["id"], "qui": julie}]
+    assert sync(client, sub="julie")["ecrivent"] == []
+    assert client.post("/buddies/ecrit", headers=entete(sub="luc"), json={"cle": duos[0]["id"]}).status_code == 404
+
+
 def test_annuler_un_buddy_time(client, photos):
     gid, julie = bande_avec_julie(client)
     so = nouvelle_sortie(gid, participants=[julie])

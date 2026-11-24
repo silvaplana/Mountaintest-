@@ -16,6 +16,7 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   GET  /moi      mon profil (créé à la première visite, e-mail repris de Logto)
   PUT  /moi      changer mon pseudo / ma photo
   POST /buddies/sync          Buddies : envoyer ce que le téléphone a fait, recevoir les nouveautés (buddies.py)
+  POST /buddies/ecrit         « écrit… » dans une conversation (gardé 12 s en mémoire)
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
   PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
   GET  /buddies/photos/{id}/{petite|grande}   la lire (participants du Buddy Time)
@@ -239,6 +240,20 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     except ValueError as e:
         raise HTTPException(422, "depuis : date ISO attendue") from e
     return buddies.synchroniser(s, utilisateur(s, j), corps.ops, corps.depuis)
+
+
+class Ecrit(BaseModel):
+    cle: str
+
+
+@app.post("/buddies/ecrit")
+def buddies_ecrit(corps: Ecrit, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """« écrit… » : je tape dans cette conversation (les autres le voient à leur prochaine synchro, 12 s au plus)."""
+    try:
+        buddies.ecrit(s, utilisateur(s, j), corps.cle)
+    except (buddies.Refus, ValueError) as e:
+        raise HTTPException(404, "Conversation inconnue") from e
+    return {"ok": True}
 
 
 def photo_visible(s: Session, j: dict, pid: str, taille: str):
