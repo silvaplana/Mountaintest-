@@ -24,7 +24,7 @@ import { useEpingle } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { montrer } from './buddies/appel';
 import { nouveautes, type Sortie, type TraceBuddy } from './buddies/store';
-import { LodgingPanel, placeLodgings, type Lodging, type PlacedLodging } from './Lodging';
+import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
 import { LodgingsOnMap } from './LodgingMap';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
@@ -1220,9 +1220,7 @@ export function App() {
         onMode={(m) => { if (m === 'carteTopos') setTopoSheet(null); else skiMode(m); }} onClose={() => setTopoSheet(null)} />}
       {lodging && <LodgingPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onClose={() => setLodging(false)}
         onProposer={proposerHebergementTrouve}
-        onShowOnMap={(l) => { setToast('Je place les hébergements sur la carte…'); void placeLodgings(l).then((p) => {
-          if (p.length) { setLodging(false); setLodgingPins(p); } else setToast('Adresses introuvables sur la carte');
-        }); }} />}
+        onShowOnMap={(p) => { setLodging(false); setLodgingPins(p); }} />}
       {lodgingPins.length > 0 && !lodging && <LodgingsOnMap map={map} items={lodgingPins} onProposer={proposerHebergementTrouve} onList={() => setLodging(true)} onClose={() => setLodgingPins([])} />}
       {buddies && <Buddies onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}

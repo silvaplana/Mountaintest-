@@ -276,9 +276,10 @@ OUTIL_HEBERGEMENTS = {
 }
 
 CONSIGNE_HEBERGEMENTS = """Tu aides un randonneur à trouver où dormir. On te donne une ville (ou un lieu), le nombre de personnes,
-le prix maximum de la chambre par nuit et la date d'arrivée avec le nombre de nuits.
+le prix maximum de la chambre par nuit, la date d'arrivée avec le nombre de nuits, et parfois une distance « rayon_km ».
 Cherche sur le web 3 à 8 hébergements réels dans ce lieu ou tout près (hôtels, gîtes, chambres d'hôtes, refuges…)
-qui peuvent loger ce nombre de personnes sous ce prix. Donne pour chacun un lien vers une page réellement vue
+qui peuvent loger ce nombre de personnes sous ce prix. Si « rayon_km » est donné, seulement à moins de rayon_km km à
+vol d'oiseau du lieu (villages et refuges alentour compris). Donne pour chacun un lien vers une page réellement vue
 (site de l'établissement de préférence, sinon une page de réservation). Tu ne peux pas vérifier les disponibilités en
 temps réel : dis-le dans le conseil.
 Pour un refuge ou un gîte qui se réserve en ligne (centrale de réservation du CAF/FFCAM, Tour du Queyras, refuges des
@@ -2272,10 +2273,16 @@ class Relais(BaseHTTPRequestHandler):
             elif quoi == "hebergement":
                 v = {"ville": " ".join(str(d["ville"]).split())[:80], "personnes": int(d["personnes"]),
                      "prix_max_nuit": float(d["prix_max"]), "arrivee": str(d.get("arrivee", ""))[:10], "nuits": int(d.get("nuits", 1)),
+                     # Distance choisie autour de la ville (5, 10 ou 20 km dans l'appli ; ancienne appli : « tout près »).
+                     "rayon_km": int(d.get("rayon_km") or 0),
                      # Sites cochés dans l'appli : la recherche web ne regarde qu'eux (vide : tout le web).
                      "sites": sorted({str(x).lower().strip().removeprefix("https://").removeprefix("http://").removeprefix("www.").strip("/")
                                       for x in (d.get("sites") or [])[:10]})}
                 if any(not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", x) for x in v["sites"]):
+                    raise ValueError
+                if not v["rayon_km"]:
+                    del v["rayon_km"]
+                elif not 1 <= v["rayon_km"] <= 50:
                     raise ValueError
                 if len(v["ville"]) < 2 or not (1 <= v["personnes"] <= 30 and 0 < v["prix_max_nuit"] < 5000 and 1 <= v["nuits"] <= 30):
                     raise ValueError
