@@ -17,6 +17,9 @@ android {
         // Mot de passe du relais IA intégré par la CI (secret IA_MOT_DE_PASSE) : rien à taper dans l'appli.
         val iaMdp = (System.getenv("IA_MOT_DE_PASSE") ?: "").replace("\\", "\\\\").replace("\"", "\\\"")
         buildConfigField("String", "IA_MOT_DE_PASSE", "\"$iaMdp\"")
+        // Téléphones ARM seulement (tous les Android récents) : sans x86/x86_64 (émulateurs), les bibliothèques des
+        // appels (LiveKit/WebRTC) ne font plus passer l'APK au-dessus de 100 Mo, limite de la branche « site » du VPS.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("String", "IGN_SCAN_KEY", "\"${project.findProperty("ignScanKey") ?: "ign_scan_ws"}\"")
     }
 
