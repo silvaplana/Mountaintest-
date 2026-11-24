@@ -336,7 +336,7 @@ OUTIL_BUD = {
                         "debut": {"type": ["string", "null"], "description": "buddy_time et dispo : date AAAA-MM-JJ"},
                         "fin": {"type": ["string", "null"], "description": "buddy_time : date AAAA-MM-JJ"},
                         "lieu": {"type": ["string", "null"], "description": "buddy_time"},
-                        "etat": {"type": ["string", "null"], "enum": ["oui", "peut", "non", None], "description": "dispo de celui qui te parle"},
+                        "etat": {"anyOf": [{"type": "string", "enum": ["oui", "peut", "non"]}, {"type": "null"}], "description": "dispo de celui qui te parle"},
                     },
                     "required": ["type", "titre", "montant_euros", "paye_par", "pour", "nom", "debut", "fin", "lieu", "etat"],
                     "additionalProperties": False,
