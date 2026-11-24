@@ -1,9 +1,9 @@
-import { ACTIVITY_ICON, NEXT_ACTIVITY, type Activity } from './activity';
+import { ACTIVITY_ICON, type Activity } from './activity';
+import { BASE_MODES, type BaseMode } from './config';
 import { useEffect, useRef, useState } from 'react';
 import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { ShareIcon } from './Expenses';
 import { ICON_HELP, SLOPE_LEGEND, SLOPE_TAGS_HELP, type IconKey } from './iconHelp';
 
 /** Plugins natifs (android/.../PocketMode.java et BatterySettings.java, identiques côté Kotlin). */
@@ -28,14 +28,13 @@ export interface QuickProps {
   onToast: (msg: string) => void;
   onDraw?: () => void;
   onSearch: () => void;
+  /** 🗺 : appui = fond suivant ; appui long = choisir le fond. */
   onBaseLayer: () => void;
+  baseLayer: BaseMode; onPickBaseLayer: (m: BaseMode) => void;
   slopes: boolean; onSlopes: (on: boolean) => void;
   shade: boolean; onShade: (on: boolean) => void;
   /** 🌲 à gauche de 🌗 : forêts par essence de la zone affichée ; allumé quand elles sont sur la carte. */
   forests: boolean; onForests: () => void;
-  onTravel: () => void;
-  onExpenses: () => void;
-  onLodging: () => void;
   /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de Buddy Groups qui ont bougé. */
   onBuddies: () => void;
   nouveautes: number;
@@ -45,9 +44,9 @@ export interface QuickProps {
   compte: 'ok' | 'reconnecter' | 'aucun';
   /** ⛷ 💬 : question en texte sur les sorties skitour. */
   onSkiText: () => void;
-  /** ⛷ ski de rando / 🚵 VTT / 🥾 rando : appui long sur le bouton pour passer au suivant ; en 🚵 et 🥾, toucher ouvre les itinéraires de l'écran. */
+  /** ⛷ 🚵 🚴 🚲 🥾 : appui long = choisir l'activité ; toucher ouvre les sorties ou les itinéraires de l'écran. */
   activity: Activity; onActivity: (a: Activity) => void; onTopos: () => void;
-  /** Météo posée sur la carte (icône 🌦) ; appui long : ouvre l'appli Météo-France. */
+  /** Météo posée sur la carte (icône 🌦, avec 🏔 météo montagne à sa gauche) ; appui long : ouvre l'appli Météo-France. */
   weather: boolean; onWeather: (on: boolean) => void;
   /** ⑂ Écran rallumé avant les carrefours pendant le suivi d'une trace (à gauche de 👖). */
   junctionWake: boolean; onJunctionWake: (on: boolean) => void;
@@ -105,28 +104,25 @@ const LocateIcon = () => (
   </svg>
 );
 
-const MODE_KEY = 'iconesMode';
-/** Flèche : 0 = toutes les icônes, 1 = l'appareil photo seul, 2 = menu Voyage (météo, voiture), 3 = aucune (puis 0). */
-type IconsMode = 0 | 1 | 2 | 3;
+const WIDE_KEY = 'iconesEtendu';
+const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
+const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slopes, onSlopes, shade, onShade, forests, onForests, onTravel, onExpenses, onLodging, onBuddies, nouveautes, onAccount, compte, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
-  // Flèche en haut : affiche ou cache toutes les icônes (choix retenu).
-  const [mode, setModeState] = useState<IconsMode>(() => {
-    try { const v = Number(localStorage.getItem(MODE_KEY)); return v === 1 || v === 2 || v === 3 ? v : 0; } catch { return 0; }
-  });
-  const nextMode = () => {
-    const v = ((mode + 1) % 4) as IconsMode;
-    setModeState(v);
-    try { localStorage.setItem(MODE_KEY, String(v)); } catch { /* ignoré */ }
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, forests, onForests, onBuddies, nouveautes, onAccount, compte, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+  // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
+  const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
+  const toggleWide = () => {
+    setWideState(!wide);
+    try { localStorage.setItem(WIDE_KEY, wide ? '0' : '1'); } catch { /* ignoré */ }
   };
   const native = Capacitor.isNativePlatform();
   const [watch, setWatch] = useState<WatchState>('OFF');
   const [airplane, setAirplane] = useState(false);
   const [pocket, setPocket] = useState(false);
-  // Duos : ✈ seul d'habitude, un appui le « déplie » et 👖 apparaît à sa gauche ; de même ⛰ puis 🌗.
+  // Duos : ✈ seul d'habitude, un appui le « déplie » et 👖 apparaît à sa gauche ; de même ⛰ puis 🌗, 🌦 puis 🏔.
   // Ensuite chaque icône bascule son mode ; toucher ailleurs replie. La colonne ne bouge pas (alignée à droite).
-  const [pairOpen, setPairOpen] = useState<'avion' | 'relief' | null>(null);
-  const pair = pairOpen === 'avion', relief = pairOpen === 'relief';
+  const [pairOpen, setPairOpen] = useState<'avion' | 'relief' | 'meteo' | null>(null);
+  const pair = pairOpen === 'avion', relief = pairOpen === 'relief', meteo = pairOpen === 'meteo';
   // ⚙ réglages du suivi (à gauche de 👖) : un appui déplie ⑂, la vibration hors trace et le double tap ; replié avec le duo.
   const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => { if (!pair) setSettingsOpen(false); }, [pair]);
@@ -134,9 +130,10 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   const [dtBubble, setDtBubble] = useState(false);
   const pairRef = useRef<HTMLDivElement>(null);
   const reliefRef = useRef<HTMLDivElement>(null);
+  const meteoRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!pairOpen) return;
-    const ref = pairOpen === 'avion' ? pairRef : reliefRef;
+    const ref = pairOpen === 'avion' ? pairRef : pairOpen === 'relief' ? reliefRef : meteoRef;
     const close = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setPairOpen(null); };
     document.addEventListener('pointerdown', close, true);
     return () => document.removeEventListener('pointerdown', close, true);
@@ -226,7 +223,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
   // Appui long sur la flèche : aide (une étiquette à gauche de chaque icône) ; toucher n'importe où la ferme.
   const [help, setHelp] = useState(false);
   const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
-  const show = help ? 0 : mode;
+  const all = help || wide;
   const wx = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
   // Appui long sur une icône : bulle d'aide à sa gauche (pour ⛰, la légende des couleurs en degrés) ; toucher ailleurs la ferme.
   const [tip, setTip] = useState<{ key: IconKey; top: number; right: number; maxWidth: number } | null>(null);
@@ -249,13 +246,21 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       onClickCapture: (e: React.MouseEvent) => { if (tipPress.current.long) { tipPress.current.long = false; e.stopPropagation(); e.preventDefault(); } },
     };
   };
-  /** Appui long qui bascule ⛷ / 🚵 au lieu d'ouvrir la bulle d'aide. */
-  const lpSwitch = (to: Activity) => ({
-    ...lp('skiText'),
-    onPointerDown: () => {
+  // Règle générale (Seb, 24/11) : appui long sur un bouton qui a des variantes = elles s'ouvrent à sa gauche,
+  // on en touche une (une seule à la fois) ; toucher ailleurs ferme.
+  const [pick, setPick] = useState<{ kind: 'activity' | 'layer'; top: number; right: number } | null>(null);
+  const lpPick = (kind: 'activity' | 'layer') => ({
+    ...lp(kind === 'activity' ? 'skiText' : 'layer'),
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       if (tipPress.current.timer) clearTimeout(tipPress.current.timer);
       tipPress.current.long = false;
-      tipPress.current.timer = setTimeout(() => { tipPress.current.long = true; onActivity(to); }, 550);
+      const el = e.currentTarget;
+      tipPress.current.timer = setTimeout(() => {
+        tipPress.current.long = true;
+        const r = el.getBoundingClientRect();
+        setPairOpen(null);
+        setPick({ kind, top: r.top + r.height / 2, right: window.innerWidth - r.left + 6 });
+      }, 550);
     },
   });
   return (
@@ -272,6 +277,15 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
         </>}
       </div>
     </div>}
+    {pick && <div className="tip-close" onPointerDown={(e) => { if (e.target === e.currentTarget) setPick(null); }} onContextMenu={(e) => e.preventDefault()}>
+      <div className="variants" style={{ top: pick.top, right: pick.right }}>
+        {pick.kind === 'activity'
+          ? ACTIVITIES.map((a) => <button key={a} className={a === activity ? 'sel' : ''} aria-label={ACTIVITY_LABEL[a]}
+              onClick={() => { setPick(null); if (a !== activity) onActivity(a); }}>{ACTIVITY_ICON[a]}</button>)
+          : (Object.keys(BASE_MODES) as BaseMode[]).map((m) => <button key={m} className={`txt ${m === baseLayer ? 'sel' : ''}`} aria-label={BASE_MODES[m]}
+              onClick={() => { setPick(null); if (m !== baseLayer) onPickBaseLayer(m); }}>{LAYER_SHORT[m]}</button>)}
+      </div>
+    </div>}
     {dtBubble && <div className="tip-close" onPointerDown={(e) => { if (e.target === e.currentTarget) setDtBubble(false); }} onContextMenu={(e) => e.preventDefault()}>
       <div className="icon-tip dt-bubble">
         <b>Double tap pour allumer l'écran</b>
@@ -286,23 +300,21 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
     <div className={help ? 'quick help' : 'quick'} onContextMenu={(e) => e.preventDefault()}>
       <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli" {...lp('close')}
         onClick={() => { if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
-      <button className="toggle arrow" aria-label={mode === 3 ? 'Afficher les icônes' : 'Changer les icônes'} data-help="Appui : icônes suivantes · appui long : aide"
+      <button className="toggle arrow" aria-label={wide ? 'Moins d’icônes' : 'Toutes les icônes'} data-help="Appui : plus ou moins d'icônes · appui long : aide"
         onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
         onPointerUp={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onContextMenu={(e) => e.preventDefault()}
-        onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } nextMode(); }}>{mode === 3 ? '◂' : '▸'}</button>
-      {show === 0 && <>
+        onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } toggleWide(); }}>{wide ? '◂' : '▸'}</button>
       <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser" {...lp('locate')}
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
-      <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
-      </>}
-      {show < 2 && <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
+      <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
         onClick={() => {
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
-        }}>📷</button>}
-      {show === 0 && <>
-      <button aria-label="Changer de fond de carte" data-help="Fond de carte" {...lp('layer')} onClick={onBaseLayer}>🗺</button>
+        }}>📷</button>
+      {all && <>
+      <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
+      <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>
       <div className="pair" ref={pairRef}>
       <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche" {...lp('avion')}
         onClick={() => {
@@ -345,28 +357,28 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, slop
       {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       {(relief || help) && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
       </div>
-      {/* ⛷ : la liste « Sorties ski » ; sa carte s'ouvre avec 🗺 à droite du titre. */}
-      {/* Appui long : ⛷ ski de rando → 🚵 VTT → 🥾 rando → ⛷ (demande de Seb), au lieu de la bulle d'aide. */}
-      <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : ${ACTIVITY_LABEL[NEXT_ACTIVITY[activity]]})`}
-        data-help={`${ACTIVITY_LABEL[activity]} · appui long : ${ACTIVITY_ICON[NEXT_ACTIVITY[activity]]}`} {...lpSwitch(NEXT_ACTIVITY[activity])}
+      {/* Activité : toucher ouvre les sorties ⛷ ou les itinéraires ; appui long : ⛷ 🚵 🚴 🚲 🥾 au choix. */}
+      <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
+        data-help={`${ACTIVITY_LABEL[activity]} · appui long : changer`} {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
-      </>}
-      {(show === 2 || help) && <>
-      {/* 👥 Buddies et 👤 Moi : en haut de la seconde barre (demande de Seb, spec/buddies.md écran 1). */}
-      <button aria-label="Buddies" data-help="Buddies" {...lp('groups')} onClick={onBuddies}>👥
+      <button aria-label="Buddies" data-help="Buddies (voyage, hébergement, partage des frais dedans)" {...lp('groups')} onClick={onBuddies}>👥
         {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       <button aria-label="Moi : mon compte" data-help="Moi · mon compte" {...lp('moi')} onClick={onAccount}>👤
         {compte !== 'aucun' && <span className={`acc-dot ${compte === 'ok' ? 'vert' : 'orange'}`} />}</button>
-      <button className={weather ? 'on' : ''} aria-label="Météo sur la carte" data-help="Météo sur la carte · appui long : appli Météo-France"
+      <div className="pair" ref={meteoRef}>
+      <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo sur la carte · appui : montre aussi la météo montagne · appui long : appli Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
         onPointerUp={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
         onPointerLeave={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
         onContextMenu={(e) => e.preventDefault()}
-        onClick={() => { if (wx.current.long) { wx.current.long = false; return; } onWeather(!weather); }}>🌦</button>
-      <button aria-label="Météo montagne" data-help="Météo montagne" {...lp('weatherMountain')} onClick={() => openWeather(true)}>🏔</button>
-      <button aria-label="Préparer un voyage en voiture" data-help="Voyage en voiture (km, coût, péages)" {...lp('travel')} onClick={onTravel}>🚗</button>
-      <button aria-label="Trouver un hébergement" data-help="Hébergement (meilleurs prix)" {...lp('lodging')} onClick={onLodging}>🏨</button>
-      <button aria-label="Partage des frais" data-help="Partage des frais (façon Tricount)" {...lp('expenses')} onClick={onExpenses}><ShareIcon /></button>
+        onClick={() => {
+          if (wx.current.long) { wx.current.long = false; return; }
+          // 1er appui : la météo s'affiche et 🏔 apparaît à gauche (demande de Seb) ; ensuite 🌦 l'allume ou l'éteint.
+          if (!meteo && !help) { setPairOpen('meteo'); if (!weather) onWeather(true); return; }
+          onWeather(!weather);
+        }}>🌦</button>
+      {(meteo || help) && <button aria-label="Météo montagne" data-help="Météo montagne" {...lp('weatherMountain')} onClick={() => openWeather(true)}>🏔</button>}
+      </div>
       </>}
     </div>
     </>

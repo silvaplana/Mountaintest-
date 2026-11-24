@@ -21,7 +21,7 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 
 | Mot à l'écran | Ce que c'est |
 |---|---|
-| **Buddies** | L'espace entier, ouvert par 👥 dans la 2e barre de la carte. |
+| **Buddies** | L'espace entier, ouvert par 👥 dans la barre étendue de la carte. |
 | **Buddy Group** | Une bande de copains (comme une conversation de groupe). |
 | **Buddy Time** | Une sortie ou un week-end passé ensemble. |
 | **Me Time** | Le Buddy Group par défaut de chacun : ses sorties à lui, où il peut inviter des copains à une sortie. Nom accepté du bout des lèvres, modifiable. |
@@ -123,8 +123,14 @@ Il n'y a pas d'écran 5 : le vote de dates a été retiré (§5.4).
 
 ### 5.1 Accès (écran 1)
 
-Dans la 2e barre de la carte, 👥 ouvre Buddies (pastille = du nouveau) et 👤 ouvre Moi
+Dans la barre étendue de la carte, 👥 ouvre Buddies (pastille = du nouveau) et 👤 ouvre Moi
 (profil, compte, réglages, état hors ligne). 👤 reprend l'écran « Mon compte » existant. **(Seb)**
+
+Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 📷 ;
+étendue = ✕, flèche, ◎, 📷, 🔍, 🗺, ✈, ✏, ⛰, activité, 👥, 👤, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
+🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨).
+Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
+sa gauche, on en choisit une.
 
 ### 5.2 La liste Buddies (écran 2)
 
