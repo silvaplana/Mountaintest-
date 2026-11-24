@@ -40,7 +40,7 @@ import org.json.JSONObject;
  * Mises à jour sans Play Store (copie identique dans les deux prototypes, voir shared/Updater.java) :
  * - à l'ouverture de l'appli : si une version plus récente est publiée, on propose de l'installer ;
  * - en arrière-plan, deux fois par jour (WorkManager, seulement avec réseau) : notification « Nouvelle version ».
- * version.json est publié par GitHub Actions avec les APK : {"build": 12, "apk": {"capacitor": url, "kotlin": url}}.
+ * version.json est publié par GitHub Actions avec les APK : {"build": 12, "apk": {"capacitor": url}}.
  */
 public final class Updater {
     private static final String TAG = "Updater";

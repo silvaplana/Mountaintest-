@@ -4,7 +4,7 @@ Adresse : **https://silvaplana.cloud/mountaintest/** (version web du proto React
 et **https://silvaplana.cloud/mountaintest/apk/** (les deux APK à installer).
 
 ```
-push sur main ─▶ GitHub Actions : tests, build web, APK Capacitor, APK Kotlin
+push sur main ─▶ GitHub Actions : tests, build web, APK Capacitor
                      └─▶ branche « site » (web + apk/), écrasée à chaque fois
 VPS, toutes les 5 min : ~/mountaintest/maj.sh récupère la branche « site » dans ~/mountaintest/www
 gateway (~/gateway/Caddyfile) : /mountaintest/* ─▶ conteneur mountaintest-web (caddy:2-alpine, fichiers de www)

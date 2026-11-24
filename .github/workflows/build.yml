@@ -113,34 +113,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: apk-capacitor, path: mountain-buddies-capacitor.apk }
 
-  apk-kotlin:
-    name: APK Kotlin natif
-    needs: cle
-    runs-on: ubuntu-latest
-    defaults: { run: { working-directory: kotlin-natif } }
-    env:
-      SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}'
-      IA_MOT_DE_PASSE: '${{ secrets.IA_MOT_DE_PASSE }}'
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - if: needs.cle.outputs.ok
-        uses: actions/download-artifact@v4
-        with: { name: cle, path: signing }
-      - if: needs.cle.outputs.ok
-        run: echo "SIGNING_STORE=$GITHUB_WORKSPACE/signing/prototypes.p12" >> "$GITHUB_ENV"
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
-      - run: |
-          python3 ../shared/changelog.py ${{ github.run_number }} app/src/main/assets/changelog.json
-          ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
-      - run: cp app/build/outputs/apk/release/*.apk ../mountain-buddies-kotlin.apk
-      - uses: actions/upload-artifact@v4
-        with: { name: apk-kotlin, path: mountain-buddies-kotlin.apk }
-
   release:
     name: Mettre les APK en téléchargement
-    needs: [apk-capacitor, apk-kotlin]
+    needs: [apk-capacitor]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -150,10 +125,10 @@ jobs:
         env: { GH_TOKEN: '${{ github.token }}', GH_REPO: '${{ github.repository }}' }
         run: |
           u=https://github.com/${{ github.repository }}/releases/latest/download
-          printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk", "kotlin": "%s/mountain-buddies-kotlin.apk"}}\n' \
-            "${{ github.run_number }}" "$u" "$u" > version.json
+          printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk"}}\n' \
+            "${{ github.run_number }}" "$u" > version.json
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest mountain-buddies-capacitor.apk mountain-buddies-kotlin.apk version.json \
+          gh release create latest mountain-buddies-capacitor.apk version.json \
             --title "Mountain Buddies : dernière version" \
             --notes "APK construits automatiquement depuis le commit ${{ github.sha }}. À ouvrir depuis le téléphone pour installer."
 
@@ -161,7 +136,7 @@ jobs:
     # Branche « site » = ce que le VPS sert sur https://silvaplana.cloud/mountaintest/
     # (le VPS la récupère toutes les 5 minutes, voir deploy/README.md).
     name: Préparer le site pour le VPS
-    needs: [serveur, web, apk-capacitor, apk-kotlin]
+    needs: [serveur, web, apk-capacitor]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -180,12 +155,11 @@ jobs:
           mkdir -p site/comptes && cp deploy/comptes/*.py deploy/comptes/requirements.txt deploy/comptes/installer-comptes.sh deploy/comptes/installer-appels.sh site/comptes/
           sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" \
               -e "s/@CAP@/$(du -m site/apk/mountain-buddies-capacitor.apk | cut -f1)/" \
-              -e "s/@KOT@/$(du -m site/apk/mountain-buddies-kotlin.apk | cut -f1)/" \
               deploy/apk-index.html > site/apk/index.html
           # Lu par les applis pour proposer la mise à jour (Updater.java).
           u=https://silvaplana.cloud/mountaintest/apk
-          printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk", "kotlin": "%s/mountain-buddies-kotlin.apk"}}\n' \
-            "${{ github.run_number }}" "$u" "$u" > site/apk/version.json
+          printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk"}}\n' \
+            "${{ github.run_number }}" "$u" > site/apk/version.json
       - name: Pousser la branche site
         run: |
           cd site
