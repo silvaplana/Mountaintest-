@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSheet } from './useSheet';
 import type { Map as MlMap } from 'maplibre-gl';
 import { allSavedTopos, fetchToposNear, savedToposNear, topoLine, type TopoRow } from './ski/skitour';
 import { SkiTabs, type SkiMode } from './SkiTabs';
@@ -20,7 +21,8 @@ export function TopoMapPanel({ map, password, topos, selected, onTopos, onSelect
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [tooFar, setTooFar] = useState(false);
-  const [low, setLow] = useState(true);
+  const sheet = useSheet('toposCarte', { defaut: 0, masque: false });
+  const low = sheet.cran === 0;
   const selId = useRef<number | null>(null);
   selId.current = selected != null ? topos[selected]?.id ?? null : null;
   useEffect(() => {
@@ -56,17 +58,16 @@ export function TopoMapPanel({ map, password, topos, selected, onTopos, onSelect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, password]);
   const sel = selected != null ? topos[selected] : null;
-  const head = (<>
+  const head = (<div {...sheet.prise}><div className="handle" />
     <SkiTabs mode="carteTopos" onMode={onMode} />
     <div className="travel-head ski-head"><span className="hint">{busy ? 'Recherche…' : tooFar ? 'Zoome pour voir les topos' : `${topos.length} topo${topos.length > 1 ? 's' : ''}`}</span>
       <span className="head-btns">
-        <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir le panneau' : 'Réduire le panneau'}>{low ? '▴' : '▾'}</button>
         <button onClick={onClose} aria-label="Fermer">✕</button>
       </span></div>
-  </>);
-  if (low) return <div className="travel" hidden={hidden}>{head}{msg && <p className="error">{msg}</p>}</div>;
+  </div>);
+  if (low) return <div className={`travel${sheet.classe}`} hidden={hidden}>{head}{msg && <p className="error">{msg}</p>}</div>;
   return (
-    <div className="travel" hidden={hidden}>
+    <div className={`travel${sheet.classe}`} hidden={hidden}>
       {head}
       {msg && <p className="error">{msg}</p>}
       {sel && <div className="cost">

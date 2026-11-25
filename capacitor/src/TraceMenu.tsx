@@ -8,6 +8,7 @@ import { traceLengthM, type SavedTrace } from './trails/savedTraces';
 import { TRACE_FOLDER } from './trails/traceShare';
 import { formatKm } from './track/stats';
 import { CameraIcon } from './Survol';
+import { useSheet } from './useSheet';
 
 function hours(h: number) {
   const m = Math.round(h * 60);
@@ -41,14 +42,16 @@ export function TraceMenu({ trail, onFilm, elevated, slopes, onSlopes, showProfi
 }) {
   const el = elevated && typeof elevated === 'object' ? elevated : null;
   const wait = elevated === 'loading' ? '…' : '—';
+  const sheet = useSheet('trace');
   return (
-    <section className="trace-menu">
+    <section className={`trace-menu${sheet.classe}`}>
+      <div {...sheet.prise}><div className="handle" />
       <div className="head">
         <b><i className="swatch" style={{ background: trail.color }} />{trail.name}</b>
         <button className="close" onClick={onFilm} disabled={trail.segments.flat().length < 2} aria-label="Filmer un survol 3D de la trace"><CameraIcon /></button>
         <button className="close" onClick={onShare} aria-label={`Partager ${trail.name}`}><ShareTraceIcon /></button>
         <button className="close" onClick={onClose} aria-label="Fermer le menu de la trace">✕</button>
-      </div>
+      </div></div>
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}
         {el && (vtt ? ` · ${hours(bikeHours(trail.distanceM, el.gainM))} à VTT` : ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`)}</span>
       <div className="checks">
@@ -89,12 +92,14 @@ export function TraceList({ traces, onPick, onDelete, onShare, onClose, onFile }
 }) {
   const [showFolder, setShowFolder] = useState(false);
   const press = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sheet = useSheet('traces');
   return (
-    <section className="trace-menu">
+    <section className={`trace-menu${sheet.classe}`}>
+      <div {...sheet.prise}><div className="handle" />
       <div className="head">
         <b>📂 Charger des traces</b>
         <button className="close" onClick={onClose} aria-label="Fermer la liste des traces">✕</button>
-      </div>
+      </div></div>
       <div className="row"><button onClick={onFile}>📥 Ouvrir un fichier (GPX, KML, GeoJSON)</button></div>
       {/* Appui long sur « Mes traces » : le dossier des fichiers GPX (demande de Seb : pas affiché en permanence). */}
       <b className="list-title" onContextMenu={(e) => e.preventDefault()}

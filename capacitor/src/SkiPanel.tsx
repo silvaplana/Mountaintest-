@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSheet } from './useSheet';
 import type { Map as MlMap } from 'maplibre-gl';
 import { SkiTabs, type SkiMode } from './SkiTabs';
 import { PERIODS, SKI_LEVELS, fetchDetails, skiLabel, skiOk, hasDetails, inView, loadAll, outingDate, outingLine, periodLabel, periodOk, readDetails, withDetails, type Outing } from './ski/skitour';
@@ -98,8 +99,9 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
   }, [map, all, password, skiMax, lines]);
   const sel = selected != null ? outings[selected] : null;
   // Première ligne (sans titre : on est déjà dans la recherche par carte) : nombre de sorties, pastille de période,
-  // ▾ qui réduit le panneau à cette ligne pour voir la carte (▴ le remet) et ✕.
-  const [low, setLow] = useState(true); // ouvert réduit : juste la première ligne, la carte d'abord
+  // et ✕ ; la poignée (ou un appui sur cette ligne) règle la hauteur, réduit = cette ligne seule pour voir la carte.
+  const sheet = useSheet('skiCarte', { defaut: 0, masque: false }); // ouvert réduit la première fois : la carte d'abord
+  const low = sheet.cran === 0;
   // Pas de nombre de sorties (inutile) : seulement « Recherche… » pendant le chargement, ou « Zoome » de trop loin.
   const count = busy ? 'Recherche…' : error ? '' : tooFar ? 'Zoome' : '';
   const choices = <T extends number>(list: [T, string][], cur: T, pick: (v: T) => void, cls: string) => (
@@ -107,7 +109,7 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
       <button key={v} role="option" aria-selected={v === cur} className={v === cur ? 'on' : ''}
         onClick={() => { pick(v); setMenu(null); }}>{t}</button>))}</div>);
   // Filtres en pastilles, tous visibles ; celui qu'on touche se déplie au-dessus (un seul à la fois), un choix le replie.
-  const head = (<>
+  const head = (<div {...sheet.prise}><div className="handle" />
     {onMode && <SkiTabs mode="carte" onMode={onMode} />}
     {menu === 'days' && choices(PERIODS, days, setDays, '')}
     {menu === 'ski' && choices(SKI_LEVELS, skiMax, (v) => { setSkiMax(v); try { localStorage.setItem('skitourSkiMax', String(v)); } catch { /* ignoré */ } }, 'ski')}
@@ -117,7 +119,6 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
           onClick={() => setMenu(menu === 'days' ? null : 'days')}>{periodLabel(days)} {menu === 'days' ? '▴' : '▾'}</button>
         <button className="ski-pill ski" aria-label="Difficulté ski maximale" aria-expanded={menu === 'ski'}
           onClick={() => setMenu(menu === 'ski' ? null : 'ski')}>{skiLabel(skiMax)} {menu === 'ski' ? '▴' : '▾'}</button>
-        <button onClick={() => setLow(!low)} aria-label={low ? 'Agrandir le panneau' : 'Réduire le panneau'}>{low ? '▴' : '▾'}</button>
         <button onClick={onClose} aria-label="Fermer">✕</button>
       </span></div>
     {/* Cases toujours visibles, sous les filtres, aux couleurs des lignes de la carte. */}
@@ -127,10 +128,10 @@ export function SkiPanel({ map, password, outings, selected, onOutings, onSelect
         const v = { trace: !lines.trace, iti: !lines.trace }; setLines(v);
         try { localStorage.setItem('skitourLignes', JSON.stringify(v)); } catch { /* ignoré */ }
       }}>{lines.trace ? '☑' : '☐'} Tracés GPX</button></div>
-  </>);
-  if (low) return <div className="travel" hidden={hidden}>{head}</div>;
+  </div>);
+  if (low) return <div className={`travel${sheet.classe}`} hidden={hidden}>{head}</div>;
   return (
-    <div className="travel" hidden={hidden}>
+    <div className={`travel${sheet.classe}`} hidden={hidden}>
       {head}
       {error && <p className="error">{error}</p>}
       {offline != null && <p className="hint">📴 Hors ligne : sorties gardées sur le téléphone, recherche du {new Date(offline).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.</p>}
