@@ -13,6 +13,7 @@ import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from '.
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
 import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
 import type { Trail } from './trails/osmTrails';
+import { useSheet } from './useSheet';
 
 /** Réglages du film, gardés d'une fois sur l'autre. */
 /** rapide : ⚡ les images n'attendent pas leurs cartes (tournage ≈ durée du film) ; sinon ✨ soigné, chaque image attend.
@@ -50,6 +51,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   sortie: Sortie | null; sorties: Sortie[];
 }) {
   const [r, setR] = useState<Reglages>(lire);
+  // Poignée commune des panneaux ; le survol s'ouvre en grand pour que tous ses boutons se voient.
+  const sheet = useSheet('survol', { defaut: 2 });
   const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | null>(null);
   const [etape, setEtape] = useState<Etape>('reglages');
   const [avance, setAvance] = useState('');
@@ -289,12 +292,13 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           {!joue && <button className="survol-play" aria-label="Revoir le film" onClick={() => void video.current?.play()}>▶</button>}
         </div>
       )}
-      <section className="trace-menu survol" ref={panneau}>
+      <section className={`trace-menu survol${sheet.classe}`} ref={panneau}>
+        <div {...sheet.prise}><div className="handle" />
         <div className="head">
           <button className="retour" onClick={retour} aria-label="Retour">←</button>
           <b><CameraIcon size={22} /> Survol</b>
           <button className="close" onClick={() => { arret.current?.abort(); onClose(); }} aria-label="Fermer le survol">✕</button>
-        </div>
+        </div></div>
         {etape === 'reglages' && <>
           {ouvert === 'duree' ? (
             <div className="survol-choix">{DUREES.map((d) => <button key={d} className={r.duree === d ? 'on' : ''} onClick={() => { maj({ duree: d }); setOuvert(null); }}>{d} s</button>)}</div>
