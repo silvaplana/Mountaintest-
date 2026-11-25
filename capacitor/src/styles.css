@@ -6,11 +6,13 @@
   --danger: #b3261e;
   --line: #d9dfdc;
   --card: #f2f4f1;
+  --micro-bg: #ecebe6;
+  --micro-fg: #2b2b28;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--fg);
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #18201c; --fg: #e8eeeb; --muted: #a3b0aa; --accent: #6cc196; --line: #34403a; --card: #26302b; }
+  :root { --bg: #18201c; --fg: #e8eeeb; --muted: #a3b0aa; --accent: #6cc196; --line: #34403a; --card: #26302b; --micro-bg: #3a3f3c; --micro-fg: #ecebe6; }
 }
 * { box-sizing: border-box; }
 html, body, #root, .app { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
@@ -69,6 +71,9 @@ progress { width: 100%; }
 .search-row { display: flex; gap: 6px; padding: 6px; }
 .search-row input { flex: 1; min-width: 0; }
 .search-row button.bd-ecoute { background: #d0464f; color: #fff; }
+/* Micro (Seb, 25/11) : icône au trait fin, foncée, dans un rond gris clair. */
+button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color: var(--micro-fg); display: flex; align-items: center; justify-content: center; padding: 0; }
+.search-row button.micro { width: 48px; height: 48px; flex: none; }
 .search-results { list-style: none; margin: 0; padding: 0; max-height: 65vh; overflow-y: auto; border-top: 1px solid var(--line); }
 .search-results li { border-bottom: 1px solid var(--line); }
 .search-results li.hint { padding: 10px 12px; }
@@ -799,8 +804,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-pratique-corps p { margin: 4px 0; } .bd-pratique-corps small { color: var(--muted); }
 .bd-carnet > .bd-plus button { flex: 1; justify-content: center; font-size: 19px; min-height: 56px; }
 .bd-recit-saisie { flex: none; width: 100%; box-sizing: border-box; border: 1px solid #d9dfdc; border-radius: 16px; padding: 14px; font-size: 18px; line-height: 1.5; resize: vertical; font-family: inherit; }
-.bd-micro { flex: none; align-self: center; width: 112px; height: 112px; border-radius: 50%; border: 0; font-size: 48px; background: #e4572e; color: #fff;
-  box-shadow: 0 0 0 14px #e4572e22; margin: 10px 0 0; }
+.bd-micro { flex: none; align-self: center; width: 112px; height: 112px; border-radius: 50%; border: 0; background: var(--micro-bg); color: var(--micro-fg);
+  display: flex; align-items: center; justify-content: center; margin: 10px 0 0; }
+.bd-micro.ecoute { background: #e4572e; color: #fff; box-shadow: 0 0 0 14px #e4572e22; }
 .bd-micro.ecoute { animation: bd-ecoute 1.2s ease-in-out infinite; }
 @keyframes bd-ecoute { 50% { box-shadow: 0 0 0 26px #e4572e33; } }
 .bd-centre { text-align: center; }
@@ -900,6 +906,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-saisie > button { width: 48px; height: 48px; flex: none; border-radius: 50%; border: 0; background: var(--card); font-size: 22px; padding: 0; }
 .bd-saisie > button.bd-envoyer { background: var(--accent); color: #fff; }
 .bd-saisie > button.bd-ecoute { background: #d0464f; color: #fff; }
+.bd-saisie > button.micro { background: var(--micro-bg); color: var(--micro-fg); }
 .bd-saisie input, .bd-saisie textarea { flex: 1; min-width: 0; min-height: 48px; border-radius: 24px; border: 1px solid var(--line); padding: 12px 16px; font-size: 17px;
   background: var(--bg); color: var(--fg); font-family: inherit; line-height: 1.3; resize: none; box-sizing: border-box; }
 .bd-saisie { align-items: flex-end; }

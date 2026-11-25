@@ -72,6 +72,18 @@ export function useDictee(ajouter: (t: string) => void, onToast: (m: string) => 
   return { ecoute, partiel, niveau, basculer };
 }
 
+/**
+ * Icône micro au trait fin (Seb, 25/11 : plus d'emoji 🎤), la même partout : loupe, messagerie, carnet, Bud.
+ * Posée dans un rond gris clair par la classe CSS « micro ».
+ */
+export function MicIcon({ size = 24 }: { size?: number }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+  </svg>;
+}
+
 /** L'onde pendant qu'on parle, et la phrase en cours. */
 export function Onde({ niveau, partiel, avant }: { niveau: number; partiel: string; avant?: string }) {
   const barres = [0.5, 0.8, 1, 0.7, 0.9, 0.6, 1, 0.75, 0.55, 0.85, 0.65, 0.95];

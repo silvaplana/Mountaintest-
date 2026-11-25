@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
 import { deposer, Image as PhotoImage } from './Album';
 import { couleur, useBuddies, Visage } from './Buddies';
-import { Onde, useDictee } from './Dictee';
+import { MicIcon, Onde, useDictee } from './Dictee';
 import { iconeHebergement, prixHebergement } from './Hebergements';
 import { apercu, cle, fil, heureMessage, jourMessage, longueurTrace, morceaux, resume, type Bulle, type Dest } from './messages';
 import { agir, annuler, contexte, demander, pourBud } from './bud';
@@ -200,7 +200,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
       {peutSupprimer && <button onClick={supprimer}>🗑️<small>Supprimer</small></button>}
     </div>}
     <div className="bd-fil">
-      {!bulles.length && <p className="bd-vide">Pas encore de message. Écris, dicte avec 🎤, ou joins une photo, un fichier, ta position ou un sondage avec 📎.</p>}
+      {!bulles.length && <p className="bd-vide">Pas encore de message. Écris, dicte avec le micro, ou joins une photo, un fichier, ta position ou un sondage avec 📎.</p>}
       {montrees.map((b, i) => {
         const jour = jourMessage(b.quand);
         const sep = !court && (i === 0 || jourMessage(montrees[i - 1].quand) !== jour);
@@ -239,7 +239,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
           onKeyDown={(ev) => { if (ENTREE_ENVOIE && ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); envoyer(); } }} />
       </>}
       {texte.trim() && !dictee.ecoute ? <button className="bd-envoyer" aria-label={edition ? 'Enregistrer' : 'Envoyer'} onClick={envoyer}>{edition ? '✓' : '➤'}</button>
-        : <button className={dictee.ecoute ? 'bd-ecoute' : ''} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dicter'} onClick={() => void dictee.basculer()}>{dictee.ecoute ? '■' : '🎤'}</button>}
+        : <button className={dictee.ecoute ? 'bd-ecoute' : 'micro'} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dicter'} onClick={() => void dictee.basculer()}>{dictee.ecoute ? '■' : <MicIcon />}</button>}
       <input ref={media} type="file" accept="image/*,video/*" multiple hidden onChange={(ev) => void joindre(ev.target.files).finally(() => { ev.target.value = ''; })} />
       <input ref={piece} type="file" multiple hidden onChange={(ev) => void joindre(ev.target.files).finally(() => { ev.target.value = ''; })} />
       {sortie && <input ref={fichier} type="file" accept="image/*" multiple hidden onChange={(ev) => {

@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { nomAffiche } from '../compte/auth';
 import { Image } from './Album';
 import { dates, Natif, Visage } from './Buddies';
-import { Onde, useDictee } from './Dictee';
+import { MicIcon, Onde, useDictee } from './Dictee';
 import {
   carnetDe, chiffres, choixPhotos, duree, fiches as fichesDe, joursDe, km, lireDuree, lireKm, lireMetres, metres, relief, reliefGarde,
   texteCarnet, tracesDuCarnet, type FicheAffichee, type Relief, type TraceCarnet,
@@ -208,7 +208,7 @@ export function EcrireCarnet({ x, traces, onRetour, onClose, onToast }: {
     <div className="bd-section bd-entre"><b>Le récit</b><small>{nomAffiche()}{dictee.ecoute ? ` · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : ''}</small></div>
     <textarea className="bd-recit-saisie" rows={6} value={texte} onChange={(e) => setTexte(e.target.value)}
       placeholder="Ce que tu veux raconter : le départ, le temps, les rires du soir…" />
-    <button className={`bd-micro${dictee.ecoute ? ' ecoute' : ''}`} onClick={() => void dictee.basculer()} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dicter'}>🎤</button>
+    <button className={`bd-micro${dictee.ecoute ? ' ecoute' : ''}`} onClick={() => void dictee.basculer()} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dicter'}><MicIcon size={48} /></button>
     {dictee.ecoute && <Onde niveau={dictee.niveau} partiel={dictee.partiel} />}
     <p className="hint bd-centre">{dictee.ecoute ? 'Je t’écoute… touche pour arrêter, puis corrige le texte.' : 'Touche le micro et raconte : tes mots sont écrits tels quels.'}</p>
     {jours.map((j, i) => {
