@@ -78,7 +78,6 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
       ) : pique && <span className="hint">📍 Touche la carte pour piquer un point. Sur un point : un appui pour changer son mot, appui long pour le déplacer, très long pour l’enlever.</span>}
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}
         {el && (vtt ? ` · ${hours(bikeHours(trail.distanceM, el.gainM))} à VTT` : ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`)}</span>
-      <LigneLien lien={lien} onClick={onAssocier} />
       <div className="checks">
         <label><input type="checkbox" checked={slopes} onChange={(e) => onSlopes(e.target.checked)} /> Afficher la pente</label>
         <label><input type="checkbox" checked={showProfile} onChange={(e) => onShowProfile(e.target.checked)} /> Afficher le profil</label>
@@ -103,6 +102,8 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
         <button onClick={onSave} disabled={savedId != null}>{savedId != null ? '✓ Enregistrée' : '💾 Sauvegarder'}</button>
         <button className="danger" onClick={onDelete}><TrashIcon size={20} /> Supprimer</button>
       </div>
+      {/* 👥 Tout en bas du menu (Seb, 25/11). */}
+      <LigneLien lien={lien} onClick={onAssocier} />
     </section>
   );
 }
