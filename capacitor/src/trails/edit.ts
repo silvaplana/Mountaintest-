@@ -78,6 +78,34 @@ export function snapToWays(seg: LonLat[], ways: LonLat[][], nearM = 40): Snap {
   return { line, onWay, share: Math.round((100 * on) / pts.length) };
 }
 
+/**
+ * Enlève les « houppettes » d'un tracé recollé : un aller-retour en pointe qui part loin du dessin
+ * puis revient au même endroit (le calcul d'itinéraire a accroché un point sur un chemin voisin).
+ * Un aller-retour que le dessin `ref` fait lui-même (un sommet, un cul-de-sac voulu) est gardé.
+ */
+export function cutSpurs(line: LonLat[], ref: LonLat[], maxM = 400): LonLat[] {
+  const out = line.slice();
+  const dessin = densify(ref, 5);
+  let i = 0;
+  while (i < out.length - 2) {
+    let len = 0, best = -1;
+    for (let j = i + 1; j < out.length; j++) {
+      len += distanceM(out[j - 1], out[j]);
+      if (len > maxM) break;
+      // Revenu à moins de 8 m du point de départ après au moins 15 m de pointe : un aller-retour.
+      const c = distanceM(out[i], out[j]);
+      if (j > i + 1 && c < 8 && len > 2 * c + 30) best = j;
+    }
+    if (best > 0) {
+      let pointe = out[i], dp = 0;
+      for (let k = i + 1; k < best; k++) { const d = distanceM(out[i], out[k]); if (d > dp) { dp = d; pointe = out[k]; } }
+      if (nearestIndex(dessin, pointe).d > 15) { out.splice(i + 1, best - i - 1); continue; }
+    }
+    i++;
+  }
+  return out;
+}
+
 /** Morceaux continus sur chemin (indices dans `snap.line`), d'au moins `minM` mètres. */
 export function wayRunsOf(snap: Snap, minM = 80): [number, number][] {
   const out: [number, number][] = [];
@@ -113,6 +141,18 @@ export function splineNodes(line: LonLat[], n: number): number[] {
   }
   idx.push(line.length - 1);
   return idx;
+}
+
+/**
+ * Mode souple : un rond tous les `stepM` mètres le long de la trace (départ et arrivée compris),
+ * au plus `max` ronds. L'écart vient de l'écran : les ronds restent à la même distance au doigt quel que soit le zoom.
+ */
+export function splineNodesEvery(line: LonLat[], stepM: number, max = 200): number[] {
+  if (line.length < 2) return line.map((_, i) => i);
+  let total = 0;
+  for (let i = 1; i < line.length; i++) total += distanceM(line[i - 1], line[i]);
+  const n = Math.max(2, Math.min(max, Math.round(total / Math.max(1, stepM)) + 1));
+  return splineNodes(line, n);
 }
 
 const STEPS = 10;
