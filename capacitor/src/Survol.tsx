@@ -1,11 +1,13 @@
 import { LngLat, type GeoJSONSource, type Map as MlMap } from 'maplibre-gl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
-import { garder, heureLocale, PX, reduire } from './buddies/album';
-import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
+import { adresse, garder, heureLocale, PX, reduire } from './buddies/album';
+import { Image as Vignette } from './buddies/Album';
+import { aujourdhui, deposerPhotos, lire as lireBuddies, uuid, type Sortie } from './buddies/store';
+import { horlogePhotos, momentPhoto, photosDeLaTrace } from './survol/photos-film';
 import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, dureeFilm, PITCH_MAX, PLONGEE_NUAGES_S, T_INTRO, T_PLONGEE, trajectoire, VITESSES, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
@@ -72,7 +74,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   const [r, setR] = useState<Reglages>(lire);
   // Poignée commune des panneaux ; le survol s'ouvre en grand pour que tous ses boutons se voient.
   const sheet = useSheet('survol', { defaut: 2 });
-  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | 'films' | null>(null);
+  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | 'films' | 'photos' | null>(null);
+  // 📷 Photos de la sortie montrées dans le film, là où elles ont été prises ; `sans` = celles qu'on a décochées.
+  const [sans, setSans] = useState<Set<string>>(new Set());
   /** 📁 Derniers films gardés sur le téléphone, et celui qu'on regarde (pour le retirer si on le jette). */
   const [garde, setGarde] = useState<FilmGarde[]>([]);
   const [filmId, setFilmId] = useState<string | null>(null);
@@ -112,6 +116,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   useEffect(() => () => { if (film) URL.revokeObjectURL(film.url); }, [film]);
 
   const line = trail.segments.flat();
+  const photos = useMemo(() => photosDeLaTrace(lireBuddies().photos.filter((p) => !sortie || p.sortie === sortie.id), line),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trail, sortie]);
   const zone: Bbox = [Math.min(...line.map((p) => p.lon)), Math.min(...line.map((p) => p.lat)), Math.max(...line.map((p) => p.lon)), Math.max(...line.map((p) => p.lat))];
 
   // Avant le tournage : la trace vue d'ensemble, inclinée.
@@ -144,6 +151,17 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     const duree = corps.corps + tIntro, debut = tIntro / duree;
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, Math.max(IMAGES, Math.min(3000, Math.round(duree * 20))), r.plongee !== 'non',
       { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight, debut, temps: corps.temps });
+    // 📷 Les photos cochées : leur image, et le moment où le film passe à leur endroit.
+    const tirages: { image: HTMLImageElement; moment: number }[] = [];
+    for (const p of photos.filter((x) => !sans.has(x.id))) {
+      const moment = momentPhoto(track, { lon: p.lon!, lat: p.lat! }, debut), u = moment == null ? null : await adresse(p.id, 'grande', p.envoyee);
+      if (!u) continue;
+      const image = new window.Image();
+      image.src = u;
+      if (await image.decode().then(() => true, () => false)) tirages.push({ image, moment: moment! });
+    }
+    const horloge = horlogePhotos(duree, tirages.map((x) => x.moment));
+    const dureeFilmee = horloge.total;
     const photo = r.fond === 'photo' && navigator.onLine;
     if (r.fond === 'photo' && !photo) onToast('Pas de réseau : film sur la carte');
     const retirerPhoto = photo ? poserPhoto(map) : null;
@@ -172,11 +190,13 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         if (!ombres && !ctl.signal.aborted) onToast('Relief indisponible ici : film sans les ombres');
       }
       const dessin = { heure: r.ombres && ombres ? heureTexte(heures[0]) : undefined, infos: '', nuages: r.plongee === 'nuages' ? 0 : undefined } as Incrustation;
-      const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages, titre: dessin.titre, credit: photo ? CREDIT_PHOTO : undefined });
+      const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages, titre: dessin.titre, photo: dessin.photo, credit: photo ? CREDIT_PHOTO : undefined });
       const ciel = voile.current?.getContext('2d') ?? null;
       if (voile.current) { voile.current.width = voile.current.offsetWidth; voile.current.height = voile.current.offsetHeight; }
       /** Place la caméra au temps t (0 → 1) du film, avec l'heure des ombres, les km · altitude et les nuages. */
-      const placer = (t: number) => {
+      const placer = (u: number) => {
+        const { t, photo: tirage, q } = horloge.a(u);
+        dessin.photo = tirage != null ? { image: tirages[tirage].image, q } : undefined;
         const cam = cameraA(track, t);
         poser(map, cam);
         if (ombres) {
@@ -196,7 +216,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           dessin.nuages = t / debut;
           if (ciel && voile.current) { ciel.clearRect(0, 0, voile.current.width, voile.current.height); dessinerNuages(ciel, voile.current.width, voile.current.height, dessin.nuages); }
         }
-        setAvance(`${Math.round(t * 100)} %`);
+        setAvance(`${Math.round(u * 100)} %`);
       };
       // Les cartes du trajet sont chargées d'abord (16 points du film) : moins de tuiles floues.
       const precharger = async () => {
@@ -212,7 +232,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       let blob: Blob, couverture: Promise<ImageBitmap> | null = null;
       if (codec) {
         // Image par image : chaque image attend ses cartes, puis est encodée à sa place exacte dans le film.
-        const son = musique ? await preparerSon(musique, duree).catch(() => null) : null;
+        const son = musique ? await preparerSon(musique, dureeFilmee).catch(() => null) : null;
         if (musique && !son) onToast('Morceau illisible : film sans musique');
         const enc = await creerFilm(cadre.ow, cadre.oh, codec, son);
         if (enc.sansSon) onToast('Ce téléphone ne sait pas ajouter la musique : film sans musique');
@@ -222,7 +242,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         const toile = toileFilm(map, r.vertical, texte);
         setEtape('tournage');
         try {
-          const N = Math.round(duree * IPS);
+          const N = Math.round(dureeFilmee * IPS);
           placer(0);
           await attendreCarte(map, 5000);
           let attente = 2000;
@@ -245,9 +265,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         poser(map, cameraA(track, 0));
         await attendreCarte(map, 800);
         setEtape('tournage');
-        const son = musique ? await jouerMusique(musique, duree) : null;
+        const son = musique ? await jouerMusique(musique, dureeFilmee) : null;
         const rec = enregistrer(map, r.vertical, texte, son?.piste);
-        const D = duree * 1000;
+        const D = dureeFilmee * 1000;
         const t0 = performance.now();
         await new Promise<void>((fin) => {
           const pas = (now: number) => {
@@ -266,7 +286,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       const image = await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null;
       setFilm({ blob, url: URL.createObjectURL(blob), couverture: image });
       // 📁 Gardé tout de suite parmi les derniers films.
-      setFilmId(await garderFilm(blob, { nom: trail.name || 'Survol', secondes: duree, vertical: r.vertical,
+      setFilmId(await garderFilm(blob, { nom: trail.name || 'Survol', secondes: dureeFilmee, vertical: r.vertical,
         couverture: image ? await reduire(image, PX.grande, 0.8).catch(() => null) : null }));
       void lireFilms().then(setGarde);
       setRange(null); setTelecharge(null);
@@ -418,6 +438,15 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         {etape === 'reglages' && <>
           {ouvert === 'duree' ? (
             <div className="survol-choix">{VITESSES.map((v) => <button key={v} className={r.vitesse === v ? 'on' : ''} onClick={() => { maj({ vitesse: v }); setOuvert(null); }}>{v} km/h<br /><small>≈ {minutes(dureeFilm(line, v).corps)}</small></button>)}</div>
+          ) : ouvert === 'photos' ? (
+            <div className="survol-styles">
+              <p className="survol-dit">Chaque photo cochée s'ouvre dans le film là où elle a été prise.</p>
+              <div className="survol-photos">{photos.map((p) => (
+                <button key={p.id} className={sans.has(p.id) ? '' : 'on'} aria-label={sans.has(p.id) ? 'Mettre cette photo dans le film' : 'Retirer cette photo du film'}
+                  onClick={() => setSans((x) => { const y = new Set(x); if (!y.delete(p.id)) y.add(p.id); return y; })}>
+                  <Vignette p={p} />{!sans.has(p.id) && <span>✓</span>}</button>))}</div>
+              <div className="survol-bas"><button className="pastille ok" onClick={() => setOuvert(null)}>OK</button></div>
+            </div>
           ) : ouvert === 'hauteur' ? (
             <div className="survol-choix">{(['bas', 'moyen', 'haut'] as Hauteur[]).map((h) => (
               <button key={h} className={r.hauteur === h ? 'on' : ''} onClick={() => { maj({ hauteur: h }); setOuvert(null); }}><HauteurIcon h={h} size={26} /> {NOMS[h]}</button>))}</div>
@@ -468,6 +497,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
                 aria-label="La trace se dessine pendant le film">✏ se dessine</button>
               <button className={`bascule ${r.infos ? 'on' : ''}`} onClick={() => maj({ infos: !r.infos })}>km · alt.</button>
               <button className={`bascule ${r.ombres ? 'on' : ''}`} onClick={() => maj({ ombres: !r.ombres })}>🌗 ombres</button>
+              {photos.length > 0 && <button className={`bascule ${sans.size < photos.length ? 'on' : ''}`} onClick={() => setOuvert('photos')}
+                aria-label="Photos de la sortie dans le film">📷 {photos.length - sans.size} photo{photos.length - sans.size > 1 ? 's' : ''}</button>}
             </div>
           )}
           {ouvert === 'plage' && (
