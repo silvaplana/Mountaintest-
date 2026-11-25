@@ -20,6 +20,7 @@
     "livekit-client": "2.23.0",
     "maplibre-gl": "^6.16.0",
     "mp4-muxer": "^5.2.2",
+    "photoswipe": "5.4.4",
     "qrcode-generator": "^2.0.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

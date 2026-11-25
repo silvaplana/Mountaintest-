@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TracesAssociees } from './Associer';
 import { Capacitor } from '@capacitor/core';
 import { nomAffiche } from '../compte/auth';
-import { Image, Visionneuse } from './Album';
+import { Defile, Image, Visionneuse } from './Album';
 import { dates, Natif, Visage } from './Buddies';
 import { MicIcon, Onde, useDictee } from './Dictee';
 import {
@@ -129,7 +129,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
   const reliefs = useReliefs(tc);
   const choix = choixPhotos(photos);
   const nFilms = photos.filter((p) => p.video).length, nChoisies = choix.photos.length - nFilms;
-  // Une photo touchée s'ouvre en grand, plein écran ; on glisse vers les autres photos choisies.
+  // Une photo touchée ouvre les photos choisies à la suite, comme dans WhatsApp ; de là, une photo s'ouvre en plein écran.
   const [ouverte, setOuverte] = useState<number | null>(null);
   const fs = fichesDe(x, tc, reliefs);
   const tuiles = chiffres(x, tc, reliefs, fs);
@@ -179,7 +179,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
     <TracesAssociees x={x} traces={traces} onVoir={() => onCarte()} onToast={onToast} />
     {c.conditions && <p className="bd-conditions"><b>Conditions</b> {c.conditions}</p>}
     {fs.map((f) => <FicheJour key={f.jour} f={f} photos={(choix.auto ? photos : choix.photos).filter((p) => p.prise_le.startsWith(f.jour))} />)}
-    {ouverte != null && choix.photos[ouverte] && <Visionneuse l={choix.photos} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
+    {ouverte != null && choix.photos[ouverte] && <Defile titre={x.nom} l={choix.photos} i={ouverte} onFermer={() => setOuverte(null)} />}
     <button className="bd-pratique" onClick={() => setPratique(!pratique)} aria-expanded={pratique}>
       <span>📍 💶 〰</span><b>Le pratique</b><span>{pratique ? '▾' : '▸'}</span></button>
     {pratique && <div className="bd-pratique-corps">

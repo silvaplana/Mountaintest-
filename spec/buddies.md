@@ -422,7 +422,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   « n photos dans … · Annuler », 8 s), ou l'appli demande l'album s'il y en a plusieurs ou aucun
   (« Ne pas ranger »). Heure lue dans la photo ; lieu lu dans la photo, sinon position du téléphone.
   Android : accès aux photos demandé une fois (30 photos au plus par retour).
-- **Photo en grand, cadrée au mieux** (Seb, 25/11) : la photo s'ouvre entière dans l'écran, debout comme couché ; à deux doigts on zoome et on déplace, le point sous les doigts reste sous les doigts ; deux touchers zooment là où on touche.
+- **Consultation comme WhatsApp** (Seb, 25/11 : « exactement comme ils font ») : dans le carnet, toucher une photo ouvre les photos choisies à la suite, en pleine largeur, avec l'heure, qu'on fait défiler de bas en haut (titre du Buddy Time, « n photos · jour » en haut). Une photo touchée (là, dans l'album ou sur la carte) s'ouvre en plein écran, entière ; on glisse à gauche ou à droite pour changer, deux doigts ou deux touchers pour zoomer, on la tire vers le bas pour fermer. Les gestes viennent de la bibliothèque PhotoSwipe (MIT), pas de code maison ; nos barres (auteur, Partager, ⭐, Retirer) sont posées dessus, un toucher les cache.
 - **Photo en grand, téléphone couché** (Seb, 25/11) : flèches et boutons sont rentrés de 72 px au moins, pour ne pas tomber sous les touches du téléphone.
 - **Films en premier** (Seb, 25/11) : dans l'album, les films (celui du parcours surtout) forment un groupe « Film » avant les jours ; dans le carnet ils sont toujours là, en tête de la mosaïque, sans avoir besoin de ⭐.
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
