@@ -14,6 +14,7 @@ import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
 import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
 import type { Trail } from './trails/osmTrails';
 import { useSheet } from './useSheet';
+import { TrashIcon } from './icones';
 
 /** Réglages du film, gardés d'une fois sur l'autre. */
 /** rapide : ⚡ les images n'attendent pas leurs cartes (tournage ≈ durée du film) ; sinon ✨ soigné, chaque image attend.
@@ -43,7 +44,7 @@ const STYLES: Record<Style, { i: string; nom: string; dit: string }> = {
   cine: { i: '🎬', nom: 'Ciné', dit: 'Monté tout seul : bas dans les vallées, haut aux crêtes, arrêts sur les beaux points de vue, grand recul à la fin.' },
 };
 /** Couches de la trace cachées quand « trace » n'est pas coché. */
-const COUCHES_TRACE = ['trails', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
+const COUCHES_TRACE = ['trails', 'trail-sel-halo', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
 
 type Etape = 'reglages' | 'preparation' | 'tournage' | 'pret';
 
@@ -414,7 +415,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
             <span className="gros">📸</span>{range ? `✓ Dans « ${range} »` : sortie ? `Album « ${sortie.nom} »` : 'Ranger dans un album'}</button>}
           <button onClick={() => void partager()}><ShareIcon />Partager</button>
           <button onClick={() => { setFilm(null); setEtape('reglages'); }}><span className="gros">🔁</span>Refaire</button>
-          <button className="danger" onClick={onClose}><TrashIcon />Jeter</button>
+          <button className="danger" onClick={onClose}><TrashIcon size={30} />Jeter</button>
         </div>}
       </section>
     </>
@@ -525,10 +526,3 @@ function ShareIcon() {
   );
 }
 
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true" fill="none" stroke="#c62828" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18M9 6V4h6v2M5.5 6l1 14h11l1-14M10 10v6M14 10v6" />
-    </svg>
-  );
-}

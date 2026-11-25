@@ -79,31 +79,41 @@ export function snapToWays(seg: LonLat[], ways: LonLat[][], nearM = 40): Snap {
 }
 
 /**
- * Enlève les « houppettes » d'un tracé recollé : un aller-retour en pointe qui part loin du dessin
- * puis revient au même endroit (le calcul d'itinéraire a accroché un point sur un chemin voisin).
- * Un aller-retour que le dessin `ref` fait lui-même (un sommet, un cul-de-sac voulu) est gardé.
+ * Enlève les « houppettes » d'un tracé recollé : un aller-retour en pointe (le calcul d'itinéraire a accroché un point
+ * sur un chemin voisin, ou un cul-de-sac, puis revient au même endroit). Un aller-retour que le dessin `ref` fait
+ * lui-même (vers un sommet, un point de vue) est gardé : le dessin va jusqu'au bout de la pointe.
  */
-export function cutSpurs(line: LonLat[], ref: LonLat[], maxM = 400): LonLat[] {
-  const out = line.slice();
+export function cutSpurs(line: LonLat[], ref: LonLat[], maxM = 3000): LonLat[] {
+  return keptAfterSpurs(line, ref, maxM).map((k) => line[k]);
+}
+
+/** Indices des points gardés par `cutSpurs`, pour garder en face d'autres valeurs (sur chemin ou non). */
+export function keptAfterSpurs(line: LonLat[], ref: LonLat[], maxM = 3000): number[] {
+  const idx = line.map((_, k) => k);
+  const pt = (k: number) => line[idx[k]];
   const dessin = densify(ref, 5);
   let i = 0;
-  while (i < out.length - 2) {
+  while (i < idx.length - 2) {
     let len = 0, best = -1;
-    for (let j = i + 1; j < out.length; j++) {
-      len += distanceM(out[j - 1], out[j]);
+    for (let j = i + 1; j < idx.length; j++) {
+      len += distanceM(pt(j - 1), pt(j));
       if (len > maxM) break;
       // Revenu à moins de 8 m du point de départ après au moins 15 m de pointe : un aller-retour.
-      const c = distanceM(out[i], out[j]);
+      const c = distanceM(pt(i), pt(j));
       if (j > i + 1 && c < 8 && len > 2 * c + 30) best = j;
     }
     if (best > 0) {
-      let pointe = out[i], dp = 0;
-      for (let k = i + 1; k < best; k++) { const d = distanceM(out[i], out[k]); if (d > dp) { dp = d; pointe = out[k]; } }
-      if (nearestIndex(dessin, pointe).d > 15) { out.splice(i + 1, best - i - 1); continue; }
+      let pointe = pt(i), dp = 0;
+      for (let k = i + 1; k < best; k++) { const d = distanceM(pt(i), pt(k)); if (d > dp) { dp = d; pointe = pt(k); } }
+      // Voulu si le dessin passe au bout de la pointe ET y va depuis la base (il fait lui-même le chemin).
+      const base = nearestIndex(dessin, pt(i)).i, bout = nearestIndex(dessin, pointe);
+      let le = 0;
+      for (let k = Math.min(base, bout.i) + 1; k <= Math.max(base, bout.i); k++) le += distanceM(dessin[k - 1], dessin[k]);
+      if (!(bout.d <= 15 && le >= 0.7 * dp)) { idx.splice(i + 1, best - i - 1); continue; }
     }
     i++;
   }
-  return out;
+  return idx;
 }
 
 /** Coupe une ligne en morceaux d'au plus `maxM` mètres (indices [a, b], les bouts partagés). */

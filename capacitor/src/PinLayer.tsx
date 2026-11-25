@@ -3,6 +3,7 @@ import type { Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import type { Pin } from './trails/edit';
 import { decalage } from './doigt';
+import { TRASH_SVG } from './icones';
 import type { Trail } from './trails/osmTrails';
 
 /** Appui long : le point se déplace ; très long : 🗑 propose de l'enlever (règle de Seb, 25/11). */
@@ -75,7 +76,7 @@ export function PinLayer({ map, trails, pique, targetId, editing, onEditing, onP
       };
       if (del?.id === t.id && del.i === i) {
         const b = document.createElement('button');
-        b.className = 'pin-del'; b.textContent = '🗑'; b.setAttribute('aria-label', 'Enlever ce point');
+        b.className = 'pin-del'; b.innerHTML = TRASH_SVG; b.setAttribute('aria-label', 'Enlever ce point');
         b.addEventListener('pointerdown', (e) => e.stopPropagation());
         b.addEventListener('click', (e) => { e.stopPropagation(); setDel(null); cb.current.onEditing(null); set(null); });
         el.appendChild(b);

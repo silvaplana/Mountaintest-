@@ -12,6 +12,7 @@ import { PinIcon } from './PinLayer';
 import { PencilIcon } from './TraceEdit';
 import type { Pin } from './trails/edit';
 import { useSheet } from './useSheet';
+import { TrashIcon } from './icones';
 
 function hours(h: number) {
   const m = Math.round(h * 60);
@@ -153,11 +154,3 @@ function ShareTraceIcon() {
   );
 }
 
-/** Effacer : poubelle simple, couvercle, cuve, 2 rayures (même dessin que ic_delete_trace côté Kotlin). */
-function TrashIcon({ size = 26 }: { size?: number }) {
-  return (
-    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="#c62828" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18M9 6V4h6v2M5.5 6l1 14h11l1-14M10 10v6M14 10v6" />
-    </svg>
-  );
-}
