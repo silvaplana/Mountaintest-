@@ -1249,7 +1249,9 @@ export function App() {
       {modifier && !survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
         <TraceEdit key={selected.id} map={map} trail={selected} onToast={setToast}
           onLine={(l) => { setElevated(null); changeMine(selected.id, { line: l }); }}
-          onBack={() => { setModifier(false); void selectTrail(selected); }} />
+          onBack={() => { setModifier(false); void selectTrail(selected); }}
+          lien={selected.lien ? nomLien(selected.lien, vueBuddies(buddiesEtat).sorties, groupesBuddies(buddiesEtat)) : null}
+          onAssocier={() => setAssocier(true)} />
       )}
       {map && selection && <SelectBox map={map} depart={selection} trails={trails.filter((t) => isMine(t.id))}
         onFin={() => setSelection(null)} onEffacer={effacerPrise} />}

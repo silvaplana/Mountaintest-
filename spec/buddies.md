@@ -697,6 +697,7 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   la carte, déjà choisi, marqué « ouvert », puis les derniers ouverts, puis ceux à venir), puis « Ou chercher dans un
   Buddy Group » (les derniers ouverts d'abord, Me Time compris) ; un Buddy Group montre ses Buddy Times (à venir puis
   souvenirs) et « Le Buddy Group seulement ». « Enlever » défait le lien.
+- La même ligne est aussi en bas du panneau ✏ « Modifier » (Seb l'y cherchait, 25/11), tant qu'aucun outil n'est choisi.
 - **Depuis le Buddy Time** : dans son bandeau sur la carte et dans son carnet, « 〰 Traces associées » (toucher = la
   voir sur la carte) et « ＋ Associer une de mes traces », qui ouvre 📂 Mes traces (celles enregistrées).
 - **Ce que fait le lien** : la trace est partagée dans le Buddy Time (op `partager_trace`, rien de neuf au serveur)

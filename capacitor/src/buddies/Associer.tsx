@@ -122,3 +122,15 @@ function ChoisirMaTrace({ x, onFermer, onToast }: { x: Sortie; onFermer: () => v
     })}
   </div></div>;
 }
+
+export type NomLien = ReturnType<typeof nomLien>;
+
+/** Ligne « 👥 Associer à un Buddy Time » (menu de la trace et panneau « Modifier »), ou le Buddy Time associé. */
+export function LigneLien({ lien, onClick }: { lien: NomLien | null; onClick: () => void }) {
+  return <button className={`trace-lien${lien ? ' oui' : ''}`} onClick={onClick}>
+    {lien?.sortie ? <Carre x={lien.sortie} taille={44} /> : <span className="trace-lien-ic">👥</span>}
+    <span className="bd-texte"><b>{lien ? lien.titre : 'Associer à un Buddy Time'}</b>
+      <small>{lien ? `${lien.sous} · changer` : 'ses photos iront dans le film'}</small></span>
+    <span className="bd-fleche">›</span>
+  </button>;
+}
