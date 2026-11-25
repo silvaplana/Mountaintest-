@@ -336,7 +336,6 @@ export function App() {
   const [navPos, setNavPos] = useState<{ lon: number; lat: number; acc: number } | null>(null);
   /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu. */
   const [traceOffline, setTraceOffline] = useState<{ id: number; msg: string } | null>(null);
-  // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
   /** Curseur de pente : distance le long de la rando affichée. */
   const [profCursor, setProfCursor] = useState<number | null>(null);
   const profile = useMemo(() => (elevated && typeof elevated === 'object' ? buildProfile(elevated.segments) : null), [elevated]);
@@ -381,8 +380,8 @@ export function App() {
   // Dès qu'une de mes traces s'affiche (dessinée, chargée, rouverte), ses types de chemin sont calculés en avance et gardés.
   useEffect(() => { for (const t of trails) if (isMine(t.id)) prefetchWays(t.segments.flat()); }, [trails]);
   const wayLines = useMemo(() => (selected && Array.isArray(selRuns) ? wayRunLines(selected.segments.flat(), selRuns) : []), [selected, selRuns]);
-  const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
-  const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
+  // « recaler sur sentiers » : toujours décoché quand on ouvre ✏, rien n'est retenu (Seb, 25/11).
+  const [onPaths, setOnPaths] = useState(false);
   const trailsAbort = useRef<AbortController | null>(null);
   // Randos trouvées sur le web par Claude (via le relais du VPS) : un point par rando.
   const [iaPassword, setIaPassword] = useState('');
@@ -861,7 +860,7 @@ export function App() {
     }
     // Nouveau tracé : les traces déjà affichées restent sur la carte (chacune sa couleur).
     setTraceMenu(false); setTraceList(null);
-    setDrawing(true); setOpen(false); setSearching(false);
+    setDrawing(true); setOnPaths(false); setOpen(false); setSearching(false);
   }
 
   async function drawDone(line: LonLat[]) {

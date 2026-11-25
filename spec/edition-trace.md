@@ -45,3 +45,6 @@ L'appui long sur la carte ne pose plus de « Point choisi » (gros repère rouge
 Barre en bas : « 2 traces · 3 📍 », poubelle dessinée (même trait que le micro), ✕. La poubelle efface : les traces
 quittent la carte (celles enregistrées restent dans 📂 Mes traces), les épingles sont enlevées ; « ↶ Annuler » 6 s.
 Pendant un appel, l'appui long montre toujours l'endroit aux autres. Trace choisie : halo jaune sous un liseré blanc.
+
+## Tracé au doigt ✏ (Seb, 25/11)
+« recaler sur sentiers » est toujours décoché quand on ouvre ✏ ; le dernier choix n'est pas retenu.
