@@ -1164,7 +1164,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .edit-rond.fin i { background: #d32f2f; }
 .edit-rond.souple i { width: 22px; height: 22px; background: #fff; border: 3px solid #1d2421; }
 .edit-rond.bout i { background: #fff; border: 2.5px solid #1d2421; font-size: 13px; }
-.edit-outils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.edit-outils { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .edit-outils button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 72px; font-size: 16px; padding: 4px; }
 .edit-outils button.on { background: #e7f5ec; border: 2px solid #2f9e5f; font-weight: 700; }
 .edit-aide { margin: 0; font-size: 17px; line-height: 1.35; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

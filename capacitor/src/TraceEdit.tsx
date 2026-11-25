@@ -15,7 +15,9 @@ type Outil = 'snap' | 'add' | 'spline';
 /** Mode souple : écart entre deux ronds à l'écran (Peu, Moyen, Beaucoup), en pixels ; recalculé quand on zoome. */
 const ECART_PX = [110, 70, 45];
 /** Couches de la trace dessinée par la carte, cachées pendant qu'un rond glisse (l'ancien tracé ne reste pas). */
-const COUCHES_TRACE = ['trail-sel-halo', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
+const COUCHES_TRACE = ['trail-sel-halo', 'trail-sel-casing', 'trail-sel', 'trail-sel-sens', 'way-types-casing', 'way-types', 'way-gr'];
+/** Couches de toutes les traces (trait, flèches, départ et arrivée), filtrées pendant qu'un rond glisse. */
+const TRAIT_TRACES = ['trails', 'trails-casing', 'trails-sens', 'trail-ends'];
 /** Un chemin plus loin que ça d'un point de la trace ne compte pas pour le recoller. */
 const NEAR_M = 40;
 /** Toucher la trace : à moins de tant de pixels. */
@@ -47,6 +49,15 @@ function Fleche() {
     <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.8"
       strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  );
+}
+
+/** ⇄ Inverser : deux flèches opposées, le départ vert et l'arrivée foncée. */
+function Inverse() {
+  return (
+    <svg width="34" height="30" viewBox="0 0 34 30" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 10h22m-5-5 5 5-5 5" stroke="#1f9d55" strokeWidth="2.6" /><path d="M29 21H7m5-5-5 5 5 5" stroke="#7b3fe4" strokeWidth="2.6" />
     </svg>
   );
 }
@@ -166,10 +177,10 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   useEffect(() => {
     if (!glisse) return;
     for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'none');
-    for (const l of ['trails', 'trails-casing']) if (map.getLayer(l)) map.setFilter(l, ['!=', ['get', 'id'], trail.id]);
+    for (const l of TRAIT_TRACES) if (map.getLayer(l)) map.setFilter(l, ['!=', ['get', 'id'], trail.id]);
     return () => {
       for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'visible');
-      for (const l of ['trails', 'trails-casing']) if (map.getLayer(l)) map.setFilter(l, null);
+      for (const l of TRAIT_TRACES) if (map.getLayer(l)) map.setFilter(l, null);
     };
   }, [map, glisse, trail.id]);
 
@@ -253,13 +264,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     return () => mks.forEach((m) => m.remove());
   }, [map, outil, densite, line, zoom]);
 
-  // 🏁 Prolonger : le bout de la trace.
-  useEffect(() => {
-    if (outil !== 'add') return;
-    const f = line[line.length - 1];
-    const mk = new maplibregl.Marker({ element: rond('bout', '🏁') }).setLngLat([f.lon, f.lat]).addTo(map);
-    return () => { mk.remove(); };
-  }, [map, outil, line]);
+  // Prolonger : le bout de la trace est déjà marqué par le rond à damier de la carte (arrivée).
 
   // Toucher la carte : borne du morceau (Recoller) ou nouveau bout de trace (Prolonger).
   const etat = useRef({ outil, A, B, line, prolonge });
@@ -308,6 +313,8 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
 
   const km = lineLengthM(line), dk = (km - lineLengthM(depart.current)) / 1000;
   const choisir = (o: Outil) => { viderBornes(); setOutil(outil === o ? null : o); };
+  // ⇄ Inverser (Seb, 25/11) : quand on a tracé à l'envers ; le départ passe à l'autre bout. « Annuler » revient.
+  const inverser = () => { viderBornes(); ronds.current = null; garder([...line].reverse()); onToast('⇄ Trace inversée : le départ est à l’autre bout'); };
 
   let aide: ReactNode;
   if (!outil) aide = <p className="edit-aide muted">Choisis un outil. Tout s’annule avec « Annuler ».</p>;
@@ -359,6 +366,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
         {(Object.keys(NOMS) as Outil[]).map((o) => (
           <button key={o} className={outil === o ? 'on' : ''} onClick={() => choisir(o)}>{ICONS[o]}<span>{NOMS[o]}</span></button>
         ))}
+        <button className="edit-inverser" onClick={inverser} disabled={line.length < 2}><Inverse /><span>Inverser</span></button>
       </div>
       {aide}
     </section>

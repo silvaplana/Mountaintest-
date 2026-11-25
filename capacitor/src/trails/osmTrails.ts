@@ -138,6 +138,19 @@ export function trailsGeoJson(trails: Trail[]): GeoJSON.FeatureCollection {
   };
 }
 
+/** Départ (k = 'd') et arrivée (k = 'a') de chaque trace : premier point du premier morceau, dernier du dernier. */
+export function trailEndsGeoJson(trails: Trail[]): GeoJSON.FeatureCollection {
+  const features: GeoJSON.Feature[] = [];
+  for (const t of trails) {
+    const pts = t.segments.flat();
+    if (pts.length < 2) continue;
+    const [d, a] = [pts[0], pts[pts.length - 1]];
+    features.push({ type: 'Feature', properties: { id: t.id, k: 'a' }, geometry: { type: 'Point', coordinates: [a.lon, a.lat] } });
+    features.push({ type: 'Feature', properties: { id: t.id, k: 'd' }, geometry: { type: 'Point', coordinates: [d.lon, d.lat] } });
+  }
+  return { type: 'FeatureCollection', features };
+}
+
 export function bboxPolygon(b: Bbox): GeoJSON.Feature<GeoJSON.Polygon> {
   const [w, s, e, n] = b;
   return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] } };
