@@ -6,7 +6,7 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, NUAGES, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Style } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { dessinerNuages } from './survol/nuages';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
@@ -111,7 +111,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       if (ctl.signal.aborted) { setEtape('reglages'); return; }
       if (!relief) onToast('Relief indisponible ici : film en suivi');
     }
-    const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee, { style: r.style, descente: r.descente, relief });
+    const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee ? partPlongee(r.duree) : false, { style: r.style, descente: r.descente, relief });
     const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
     if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
     const pitchAvant = map.getMaxPitch();
@@ -124,7 +124,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     try {
       if (r.ombres) {
         setAvance('Calcul des ombres…');
-        ombres = await preparerOmbres(map, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`));
+        ombres = await preparerOmbres(map, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`), !r.rapide);
         if (!ombres && !ctl.signal.aborted) onToast('Relief indisponible ici : film sans les ombres');
       }
       const dessin = { heure: r.ombres && ombres ? heureTexte(heures[0]) : undefined, infos: '', nuages: r.plongee ? 0 : undefined } as Incrustation;
@@ -149,7 +149,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           dessin.infos = `${(cam.d / 1000).toFixed(1).replace('.', ',')} km${alt != null ? ` · ${Math.round(alt)} m` : ''}`;
         }
         if (dessin.nuages != null) {
-          dessin.nuages = t / NUAGES;
+          dessin.nuages = t / partPlongee(r.duree);
           if (ciel && voile.current) { ciel.clearRect(0, 0, voile.current.width, voile.current.height); dessinerNuages(ciel, voile.current.width, voile.current.height, dessin.nuages); }
         }
         setAvance(`${Math.round(t * 100)} %`);
@@ -313,7 +313,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
               {r.style === 'alpi' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
                 <button key={k} className={r.descente === k ? 'on' : ''} onClick={() => maj({ descente: k })}>{t}</button>))}</div>}
               <div className="survol-bas">
-                <button className={`bascule ${r.plongee ? 'on' : ''}`} onClick={() => maj({ plongee: !r.plongee })} aria-label="Intro plongée depuis les nuages">☁ plongée</button>
+                <button className={`bascule ${r.plongee ? 'on' : ''}`} onClick={() => maj({ plongee: !r.plongee })} aria-label="Intro plongée depuis les nuages">☁ plongée nuages</button>
                 <button className={`bascule ${musique ? 'on' : ''}`} aria-label="Musique du film"
                   onClick={() => { if (musique) setMusique(null); else choixMusique.current?.click(); }}>🎵 {musique ? musique.name.replace(/\.[^.]+$/, '').slice(0, 10) : 'musique'}</button>
                 <button className="pastille ok" onClick={() => setOuvert(null)}>OK</button>
