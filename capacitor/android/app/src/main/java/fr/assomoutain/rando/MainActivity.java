@@ -19,6 +19,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(TraceSharePlugin.class);
         registerPlugin(BuddiesPlugin.class);
         super.onCreate(savedInstanceState);
+        // ⛶ Plein écran des vidéos (Capacitor le refuse par défaut).
+        getBridge().getWebView().setWebChromeClient(new PleinEcranVideo(getBridge(), this));
         // Propose les nouvelles versions publiées par GitHub Actions (et notifie en arrière-plan).
         Updater.init(this, "capacitor");
         // Mode poche : écran noir dans la poche, rallumage à plat ou par deux secousses.
