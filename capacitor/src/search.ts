@@ -1,7 +1,7 @@
 // Recherche de lieux : service d'autocomplétion de la Géoplateforme IGN (gratuit, sans clé).
 // Communes, départements, régions, sommets, lieux-dits, adresses… (même service côté Kotlin, Search.kt).
 
-export interface Place { label: string; detail: string; lon: number; lat: number; zoom: number }
+export interface Place { label: string; detail: string; lon: number; lat: number; zoom: number; /** Trouvé dans les noms gardés sur le téléphone. */ local?: boolean }
 
 const URL_COMPLETION = 'https://data.geopf.fr/geocodage/completion/';
 
@@ -31,9 +31,15 @@ export function parseCompletion(json: { results?: CompletionResult[] }): Place[]
     });
 }
 
-export async function searchPlaces(text: string, signal?: AbortSignal): Promise<Place[]> {
+/**
+ * near : centre de la carte, pour que les lieux proches sortent en premier (paramètre lonlat du service).
+ * Si le service refuse ce paramètre, on redemande sans, pour ne jamais casser la recherche.
+ */
+export async function searchPlaces(text: string, signal?: AbortSignal, near?: { lon: number; lat: number }): Promise<Place[]> {
   const q = new URLSearchParams({ text, maximumResponses: '8' });
-  const res = await fetch(`${URL_COMPLETION}?${q}`, { signal });
+  if (near) q.set('lonlat', `${near.lon.toFixed(5)},${near.lat.toFixed(5)}`);
+  let res = await fetch(`${URL_COMPLETION}?${q}`, { signal });
+  if (near && res.status === 400) { q.delete('lonlat'); res = await fetch(`${URL_COMPLETION}?${q}`, { signal }); }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return parseCompletion(await res.json());
 }
