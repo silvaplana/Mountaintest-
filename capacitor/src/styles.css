@@ -1314,6 +1314,14 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-vis-fleche { position: absolute; z-index: 1; top: 50%; left: 6px; transform: translateY(-50%); width: 48px; height: 48px; min-height: 48px; border: 0; border-radius: 24px; background: #0006; color: #fff; font-size: 26px; }
 .bd-vis-fleche.droite { left: auto; right: 6px; }
 .bd-visionneuse.plein .bd-vis-fleche { display: none; }
+/* En paysage, les touches du téléphone (retour, accueil) sont sur un bord : flèches et boutons rentrent dans l'écran (Seb, 25/11). */
+.bd-vis-fleche { left: calc(env(safe-area-inset-left, 0px) + 6px); }
+.bd-vis-fleche.droite { left: auto; right: calc(env(safe-area-inset-right, 0px) + 6px); }
+@media (orientation: landscape) {
+  .bd-visionneuse .bd-vis-haut, .bd-visionneuse .bd-vis-bas { padding-left: max(72px, calc(env(safe-area-inset-left, 0px) + 16px)); padding-right: max(72px, calc(env(safe-area-inset-right, 0px) + 16px)); }
+  .bd-vis-fleche { left: max(72px, calc(env(safe-area-inset-left, 0px) + 16px)); }
+  .bd-vis-fleche.droite { left: auto; right: max(72px, calc(env(safe-area-inset-right, 0px) + 16px)); }
+}
 .bd-vignette { -webkit-touch-callout: none; user-select: none; }
 /* 📷 Photos qu'on vient de prendre, rangées dans l'album du jour : bandeau avec « Annuler ». */
 .bd-prises { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); display: flex; gap: 8px; padding: 8px; border-radius: 14px; background: #1d2421f2; box-shadow: 0 2px 10px #0006; }

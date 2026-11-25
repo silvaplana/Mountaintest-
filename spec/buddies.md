@@ -422,6 +422,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   « n photos dans … · Annuler », 8 s), ou l'appli demande l'album s'il y en a plusieurs ou aucun
   (« Ne pas ranger »). Heure lue dans la photo ; lieu lu dans la photo, sinon position du téléphone.
   Android : accès aux photos demandé une fois (30 photos au plus par retour).
+- **Photo en grand, téléphone couché** (Seb, 25/11) : flèches et boutons sont rentrés de 72 px au moins, pour ne pas tomber sous les touches du téléphone.
 - **Films en premier** (Seb, 25/11) : dans l'album, les films (celui du parcours surtout) forment un groupe « Film » avant les jours ; dans le carnet ils sont toujours là, en tête de la mosaïque, sans avoir besoin de ⭐.
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
   les ⭐ d'abord) s'ouvrent dans le film là où elles ont été prises, 3 s chacune ; on les décoche
