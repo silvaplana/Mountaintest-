@@ -425,6 +425,13 @@ describe('survol 3D : ❄ neige posée sur les photos', () => {
     const rouge = (d: Float32Array) => pixelsNeige(d, 40, 40, 10, 1000)[(20 * 40 + 20) * 4];
     expect(rouge(plan(2600, 0.5, 'sud'))).toBeGreaterThan(rouge(plan(2600, 0.5, 'nord')) + 40);
   });
+  it('pas de stries sur un relief en marches d\'escalier (relief IGN plus grossier que la maille)', () => {
+    // Pente régulière de 27° vers le sud, donnée par paliers de 3,5 mailles.
+    const marches = Float32Array.from({ length: 3600 }, (_, k) => 2600 + 0.5 * 10 * 3.5 * Math.floor(Math.floor(k / 60) / 3.5));
+    const px = pixelsNeige(marches, 60, 60, 10, 1000);
+    const rouges = Array.from({ length: 30 }, (_, n) => px[((15 + n) * 60 + 30) * 4]);
+    expect(Math.max(...rouges) - Math.min(...rouges)).toBeLessThan(12);
+  });
 });
 
 describe('survol 3D : 📷 photos de la sortie dans le film', () => {
