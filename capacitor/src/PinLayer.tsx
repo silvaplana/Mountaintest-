@@ -25,21 +25,23 @@ const PIN_SVG = '<svg viewBox="0 0 30 30" width="30" height="30" aria-hidden="tr
   + '<circle cx="20" cy="10" r="7.5" stroke="#1d2421" stroke-width="1.6"/><circle cx="17.5" cy="7.5" r="2.2" fill="#fff"/></svg>';
 
 /**
- * 📍 Épingles de mes traces sur la carte (maquette validée le 25/11). Un appui montre ou cache le mot,
+ * 📍 Épingles de mes traces sur la carte (maquette validée le 25/11). Un appui choisit l'épingle (son mot à modifier),
  * appui long : on la fait glisser, très long : une 🗑 apparaît au-dessus. Quand 📍 est allumé dans le
  * menu de la trace, toucher la carte pique un nouveau point sur cette trace.
  */
-export function PinLayer({ map, trails, pique, targetId, editing, onEditing, onPins }: {
+export function PinLayer({ map, trails, pique, targetId, editing, onEditing, onPins, onSelect }: {
   map: MlMap; trails: Trail[];
   /** 📍 allumé : toucher la carte pique un point sur la trace `targetId`. */
   pique: boolean; targetId: number | null;
   /** Point dont on écrit le mot dans le menu de la trace (tête verte). */
   editing: { id: number; i: number } | null; onEditing: (v: { id: number; i: number } | null) => void;
   onPins: (id: number, pins: Pin[]) => void;
+  /** Un appui sur une épingle : on ouvre sa trace et on écrit son mot. */
+  onSelect: (id: number, i: number) => void;
 }) {
   const [del, setDel] = useState<{ id: number; i: number } | null>(null);
-  const cb = useRef({ onPins, onEditing, targetId, pique });
-  cb.current = { onPins, onEditing, targetId, pique };
+  const cb = useRef({ onPins, onEditing, onSelect, targetId, pique });
+  cb.current = { onPins, onEditing, onSelect, targetId, pique };
 
   // Toucher la carte : 📍 allumé, on pique un point ; sinon on range la 🗑.
   useEffect(() => {
@@ -115,10 +117,10 @@ export function PinLayer({ map, trails, pique, targetId, editing, onEditing, onP
         stop(); t0 = null; el.classList.remove('leve');
         if (mode === 'move' && bouge) { const ll = mk.getLngLat(); set({ lon: ll.lng, lat: ll.lat }); return; }
         if (mode !== 'tap' || bouge) return;
-        // Un appui : on montre ou on cache le mot ; montré sur la trace ouverte, on peut l'écrire dans son menu.
-        const vu = !(p.vu && p.txt);
-        set({ vu });
-        cb.current.onEditing(vu && t.id === cb.current.targetId ? { id: t.id, i } : null);
+        // Un appui (sur la tête ou sur le mot) : l'épingle est choisie et son mot s'écrit dans le menu de sa trace
+        // (Seb, 25/11 : « sélectionner les épingles… cliquer sur le texte pour le modifier »).
+        if (!p.vu) set({ vu: true });
+        cb.current.onSelect(t.id, i);
       };
       el.addEventListener('pointerup', up);
       el.addEventListener('pointercancel', up);

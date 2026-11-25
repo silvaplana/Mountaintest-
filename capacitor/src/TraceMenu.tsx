@@ -70,12 +70,12 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
       </div></div>
       {pin ? (
         <div className="pin-mot-ligne">
-          <input value={pin.txt} maxLength={40} autoFocus={!pin.txt} placeholder="Petit mot : source, passage délicat…" onChange={(e) => onPinText(e.target.value)}
+          <input value={pin.txt} maxLength={40} autoFocus placeholder="Petit mot : source, passage délicat…" onChange={(e) => onPinText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') onPinDone(); }} aria-label="Mot du point" />
           <button className="close" onClick={onPinDelete} aria-label="Enlever ce point"><TrashIcon size={22} /></button>
           <button className="primary" onClick={onPinDone} aria-label="Valider le mot">✓</button>
         </div>
-      ) : pique && <span className="hint">📍 Touche la carte pour piquer un point. Sur un point : un appui montre ou cache son mot, appui long pour le déplacer, très long pour l’enlever.</span>}
+      ) : pique && <span className="hint">📍 Touche la carte pour piquer un point. Sur un point : un appui pour changer son mot, appui long pour le déplacer, très long pour l’enlever.</span>}
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}
         {el && (vtt ? ` · ${hours(bikeHours(trail.distanceM, el.gainM))} à VTT` : ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`)}</span>
       <LigneLien lien={lien} onClick={onAssocier} />
