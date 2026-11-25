@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { choisirMain, main, type Main } from './doigt';
+import { choisirIcones, choisirMain, iconesAGauche, main, type Main } from './doigt';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -72,10 +72,12 @@ function quand(ms?: number) {
 }
 
 /** Écran « Mon compte » (maquettes 2 et 3, /mnt/project-files/maquettes/comptes). Même écran côté Kotlin (AccountPanel.kt). */
-/** Main pour tracer (Seb, 25/11) : le point se pose au-dessus du doigt, du côté opposé à la main. */
+/** Main pour tracer (le point se pose au-dessus du doigt, du côté opposé) et côté des icônes : deux choix à part (Seb, 25/11). */
 function ChoixMain() {
   const [m, setM] = useState<Main>(main);
   const pose = (v: Main) => { choisirMain(v); setM(v); };
+  const [g, setG] = useState(iconesAGauche);
+  const icones = (v: boolean) => { choisirIcones(v); setG(v); };
   return (
     <div className="acc-main">
       <p className="acc-main-titre">Pour tracer, je suis…</p>
@@ -84,6 +86,11 @@ function ChoixMain() {
         <button className={m === 'droitier' ? 'on' : ''} onClick={() => pose('droitier')}>Droitier</button>
       </div>
       <p className="hint">Pour les traces : le point se pose un peu au-dessus de ton doigt, {m === 'gaucher' ? 'à droite' : 'à gauche'}, pour que tu le voies.</p>
+      <p className="acc-main-titre">Icônes de la carte</p>
+      <div className="acc-main-choix">
+        <button className={g ? 'on' : ''} onClick={() => icones(true)}>À gauche</button>
+        <button className={!g ? 'on' : ''} onClick={() => icones(false)}>À droite</button>
+      </div>
     </div>
   );
 }

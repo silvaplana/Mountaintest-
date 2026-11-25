@@ -14,11 +14,19 @@ export function main(): Main {
 }
 export function choisirMain(m: Main) {
   try { localStorage.setItem('main', m); } catch { /* rien : on reste droitier */ }
-  appliquerMain();
 }
-/** Gaucher : la colonne d'icônes passe à gauche et le reste à droite (classe `gaucher` sur la page, voir styles.css). */
-export function appliquerMain() {
-  document.documentElement.classList.toggle('gaucher', main() === 'gaucher');
+
+/** Colonne d'icônes à droite (par défaut) ou à gauche : réglage à part de la main (Seb, 25/11). */
+export function iconesAGauche(): boolean {
+  try { return localStorage.getItem('icones') === 'gauche'; } catch { return false; }
+}
+export function choisirIcones(gauche: boolean) {
+  try { localStorage.setItem('icones', gauche ? 'gauche' : 'droite'); } catch { /* rien : à droite */ }
+  appliquerIcones();
+}
+/** Icônes à gauche : la colonne passe à gauche et le reste à droite (classe `icones-gauche` sur la page, voir styles.css). */
+export function appliquerIcones() {
+  document.documentElement.classList.toggle('icones-gauche', iconesAGauche());
 }
 
 /** Décalage [x, y] en px du point par rapport au doigt. */

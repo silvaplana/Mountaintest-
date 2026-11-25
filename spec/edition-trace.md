@@ -28,5 +28,6 @@ Même place que le menu, ← pour y revenir, bouton « ↶ Annuler » pour reven
 ## Gaucher / droitier (Seb, 25/11)
 Dans 👤 Mon compte (avec ou sans connexion) : « Pour tracer, je suis… Gaucher / Droitier », droitier par défaut,
 gardé sur le téléphone. Le point tracé ou glissé se pose 1 cm au-dessus du doigt et un peu de côté, à l'opposé
-de la main (en haut à gauche pour un droitier, en haut à droite pour un gaucher). Pour un gaucher, la colonne
-d'icônes passe à gauche (bulles d'aide et variantes à sa droite), l'échelle et les bandeaux du haut à droite.
+de la main (en haut à gauche pour un droitier, en haut à droite pour un gaucher).
+Réglage à part (Seb : la colonne à gauche d'office « fait bizarre ») : « Icônes de la carte : À gauche / À droite »,
+à droite par défaut. À gauche : bulles d'aide et variantes à sa droite, l'échelle et les bandeaux du haut à droite.
