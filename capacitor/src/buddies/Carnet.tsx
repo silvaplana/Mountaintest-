@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TracesAssociees } from './Associer';
 import { Capacitor } from '@capacitor/core';
 import { nomAffiche } from '../compte/auth';
-import { Image } from './Album';
+import { Image, Visionneuse } from './Album';
 import { dates, Natif, Visage } from './Buddies';
 import { MicIcon, Onde, useDictee } from './Dictee';
 import {
@@ -128,6 +128,8 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
   const tc = useMemo(() => tracesDuCarnet(traces, jours), [traces, jours.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const reliefs = useReliefs(tc);
   const choix = choixPhotos(photos);
+  // Une photo touchée s'ouvre en grand, plein écran ; on glisse vers les autres photos choisies.
+  const [ouverte, setOuverte] = useState<number | null>(null);
   const fs = fichesDe(x, tc, reliefs);
   const tuiles = chiffres(x, tc, reliefs, fs);
   const [pratique, setPratique] = useState(false);
@@ -152,8 +154,8 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
       <div className="bd-section bd-entre"><b>{choix.auto ? '✨' : '⭐'} {choix.photos.length} photo{choix.photos.length > 1 ? 's' : ''} choisie{choix.photos.length > 1 ? 's' : ''} sur {photos.length}</b>
         <button className="bd-lien" onClick={onChanger}>Changer</button></div>
       <div className="bd-mosaique">
-        {choix.photos.slice(0, 3).map((p, i) => <span key={p.id} className={i === 0 ? 'grande' : ''}>
-          <Image p={p} taille={i === 0 ? 'grande' : 'petite'} />
+        {choix.photos.slice(0, 3).map((p, i) => <span key={p.id} className={i === 0 ? 'grande' : ''} onClick={() => setOuverte(i)}>
+          <Image p={p} taille="grande" />
           {i === 2 && choix.photos.length > 3 && <b>+{choix.photos.length - 3}</b>}</span>)}
       </div>
     </>}
@@ -171,6 +173,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
     <TracesAssociees x={x} traces={traces} onVoir={() => onCarte()} onToast={onToast} />
     {c.conditions && <p className="bd-conditions"><b>Conditions</b> {c.conditions}</p>}
     {fs.map((f) => <FicheJour key={f.jour} f={f} photos={(choix.auto ? photos : choix.photos).filter((p) => p.prise_le.startsWith(f.jour))} />)}
+    {ouverte != null && choix.photos[ouverte] && <Visionneuse l={choix.photos} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
     <button className="bd-pratique" onClick={() => setPratique(!pratique)} aria-expanded={pratique}>
       <span>📍 💶 〰</span><b>Le pratique</b><span>{pratique ? '▾' : '▸'}</span></button>
     {pratique && <div className="bd-pratique-corps">
@@ -188,10 +191,12 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
 }
 
 function FicheJour({ f, photos }: { f: FicheAffichee; photos: PhotoBuddy[] }) {
+  const [ouverte, setOuverte] = useState<number | null>(null);
   return <div className="bd-fiche">
     <div className="bd-fiche-titre"><span className="bd-jour" style={{ background: f.couleur }}>Jour {f.n}</span><b>{f.nom || jourLong(f.jour)}</b></div>
     <Tuiles l={chiffresFiche(f)} />
-    {photos.length > 0 && <div className="bd-fiche-photos">{photos.slice(0, 3).map((p) => <Image key={p.id} p={p} />)}</div>}
+    {photos.length > 0 && <div className="bd-fiche-photos">{photos.slice(0, 3).map((p, i) => <span key={p.id} onClick={() => setOuverte(i)}><Image p={p} /></span>)}</div>}
+    {ouverte != null && photos[ouverte] && <Visionneuse l={photos} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
   </div>;
 }
 
