@@ -399,7 +399,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   ‹ ›, « ☆ Pour le carnet » (n'importe quel participant), « Retirer » (l'auteur seulement).
 - **Écran 7** : sur la carte, chaque photo là où elle a été prise (vignette bordée de blanc) ; un
   toucher l'ouvre en grand. Sans trace partagée, la carte se cadre sur les photos.
-- **En grand** : un toucher met la photo en plein écran, deux doigts l'agrandissent (jusqu'à ×6), deux touchers rapides : ×2,5.
+- **En grand** (Seb, 25/11 : « chaque fois la photo doit être à son mieux ») : la photo prend tout
+  l'écran, les barres sont posées dessus et un toucher les cache ; deux doigts l'agrandissent
+  (jusqu'à ×6), deux touchers rapides : ×2,5 ; on glisse vers la suivante. Les photos du carnet
+  (mosaïque, fiches des jours) s'ouvrent pareil. Bouton « Partager » (WhatsApp, mail…).
+- **Appui long** sur une vignette de l'album : Partager, garder pour le carnet, retirer.
 - **📍 Placer une photo** (Seb, 25/11 : les photos passées par WhatsApp n'ont plus de position) : sur
   l'écran 7, « 📍 n photos à placer » ouvre les photos sans position ; on en choisit une puis on
   touche la carte. Une photo déjà placée se déplace depuis sa vue en grand (« 📍 Déplacer »). Tout

@@ -3,7 +3,9 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { adresse, garder, preparer } from './album';
 import { aujourdhui, deposerPhotos, lire, mettreEtoile, parJour, placerPhoto, retirerPhoto, uuid, type PhotoBuddy, type Sortie } from './store';
-import { Visage } from './Buddies';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Natif, Visage } from './Buddies';
 
 /**
  * Album d'un Buddy Time (spec/buddies.md §5.8, écrans 7 et 11) : chacun dépose ses photos, rangées par jour avec
@@ -55,8 +57,41 @@ export function Image({ p, taille = 'petite', className }: { p: PhotoBuddy; tail
   return src ? <img className={className} src={src} alt="" /> : <span className={`${className ?? ''} bd-img-vide`}>🕓</span>;
 }
 
-function Vignette({ p, onClick }: { p: PhotoBuddy; onClick: () => void }) {
-  return <button className={`bd-vignette${p.attente ? ' attente' : ''}`} onClick={onClick}>
+/** Partager, au trait fin (comme les autres icônes de la vue en grand). */
+const ShareIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+    <path d="M8.2 10.9l7.6-4.3M8.2 13.1l7.6 4.3" /><circle cx="18" cy="5.5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="18.5" r="2.5" />
+  </svg>
+);
+
+/** Partage une photo (ou un film) de l'album avec l'appli choisie : WhatsApp, mail… (Seb, 25/11). */
+export async function partagerPhoto(p: PhotoBuddy, onToast?: (m: string) => void) {
+  try {
+    const u = await adresse(p.id, p.video ? 'video' : 'grande', p.envoyee);
+    if (!u) throw new Error('pas encore arrivée');
+    const b = await (await fetch(u)).blob(), mime = b.type || (p.video ? 'video/mp4' : 'image/jpeg');
+    const nom = `mountain-buddies-${p.prise_le.slice(0, 10)}-${p.id.slice(0, 6)}.${p.video ? (mime.includes('webm') ? 'webm' : 'mp4') : 'jpg'}`;
+    if (Capacitor.isNativePlatform()) {
+      const data = await new Promise<string>((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] ?? ''); fr.readAsDataURL(b); });
+      await Filesystem.writeFile({ path: `partage/${nom}`, data, directory: Directory.Cache, recursive: true });
+      await Natif.partagerFichier({ chemin: `partage/${nom}`, mime, titre: 'Partager' });
+    } else {
+      const f = new File([b], nom, { type: mime });
+      if (navigator.canShare?.({ files: [f] })) await navigator.share({ files: [f] });
+      else { const a = document.createElement('a'); a.href = u; a.download = nom; a.click(); }
+    }
+  } catch (e) {
+    if ((e as Error).name !== 'AbortError') onToast?.(`Partage impossible : ${(e as Error).message}`);
+  }
+}
+
+function Vignette({ p, onClick, onLong }: { p: PhotoBuddy; onClick: () => void; onLong?: () => void }) {
+  // Appui long : le menu de la photo (partager…) ; le toucher qui suit ne l'ouvre pas en grand.
+  const appui = useRef<{ t: number; long: boolean }>({ t: 0, long: false });
+  const lacher = () => window.clearTimeout(appui.current.t);
+  return <button className={`bd-vignette${p.attente ? ' attente' : ''}`} onClick={() => { if (!appui.current.long) onClick(); }}
+    onContextMenu={(ev) => ev.preventDefault()} onPointerUp={lacher} onPointerLeave={lacher} onPointerCancel={lacher}
+    onPointerDown={() => { appui.current.long = false; lacher(); if (onLong) appui.current.t = window.setTimeout(() => { appui.current.long = true; onLong(); }, 500); }}>
     <Image p={p} />
     {p.video && <span className="bd-film">▶</span>}
     {p.etoile && <span className="bd-etoile">⭐</span>}
@@ -92,6 +127,7 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
 }) {
   const [vue, setVue] = useState<'toutes' | 'carnet'>(carnet ? 'carnet' : 'toutes');
   const [ouverte, setOuverte] = useState<number | null>(null);
+  const [menu, setMenu] = useState<PhotoBuddy | null>(null);
   const l = vue === 'carnet' ? photos.filter((p) => p.etoile) : photos;
   const auteurs = new Set(photos.map((p) => p.par.id)).size;
   const miennes = photos.filter((p) => p.attente).length;
@@ -108,13 +144,21 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
     </div>
     {parJour(l, x).map((j) => <div key={j.jour} className="bd-jour-album">
       <h3 className="bd-section">{j.n >= 1 ? `Jour ${j.n} · ` : ''}{jourLong(j.jour)}<small>{j.photos.length} photo{j.photos.length > 1 ? 's' : ''}</small></h3>
-      <div className="bd-grille-photos">{j.photos.map((p) => <Vignette key={p.id} p={p} onClick={() => setOuverte(l.indexOf(p))} />)}</div>
+      <div className="bd-grille-photos">{j.photos.map((p) => <Vignette key={p.id} p={p} onClick={() => setOuverte(l.indexOf(p))} onLong={() => setMenu(p)} />)}</div>
     </div>)}
     {!l.length && <p className="bd-vide">{vue === 'carnet' ? 'Touche ⭐ sur une photo pour la garder pour le carnet.' : 'Pas encore de photo : dépose les tiennes, chacun ajoute les siennes.'}</p>}
     {miennes > 0 && <p className="hint">🕓 {miennes} photo{miennes > 1 ? 's' : ''} à toi {miennes > 1 ? 'partiront' : 'partira'} au retour du réseau.</p>}
     <span style={{ flex: 1 }} />
     <BoutonDeposer x={x} onToast={onToast} texte="📷 Déposer mes photos" />
     {ouverte != null && l[ouverte] && <Visionneuse l={l} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
+    {menu && <div className="bd-recues-fond" onClick={() => setMenu(null)}>
+      <div className="bd-recues" onClick={(ev) => ev.stopPropagation()}>
+        <button onClick={() => { void partagerPhoto(menu, onToast); setMenu(null); }}>Partager</button>
+        <button onClick={() => { mettreEtoile(menu.id, !menu.etoile); setMenu(null); }}>{menu.etoile ? 'Retirer du carnet' : '⭐ Garder pour le carnet'}</button>
+        {menu.par.id === (lire().moi ?? 'moi') && <button onClick={() => { retirerPhoto(menu.id); setMenu(null); }}>Retirer de l'album</button>}
+        <button onClick={() => setMenu(null)}>Annuler</button>
+      </div>
+    </div>}
   </div>;
 }
 
@@ -134,16 +178,17 @@ function Film({ p }: { p: PhotoBuddy }) {
  * Photo qu'on agrandit avec deux doigts et qu'on déplace quand elle est agrandie ; deux touchers rapides : ×2,5 ou
  * retour à l'écran. Un toucher simple appelle onToucher (plein écran).
  */
-export function Zoom({ children, onToucher }: { children: React.ReactNode; onToucher?: () => void }) {
+export function Zoom({ children, onToucher, onGlisser }: { children: React.ReactNode; onToucher?: () => void; onGlisser?: (sens: 1 | -1) => void }) {
   const [v, setV] = useState({ k: 1, x: 0, y: 0 });
   const doigts = useRef(new Map<number, { x: number; y: number }>());
-  const geste = useRef({ d: 0, k: 1, bouge: false, dernier: 0 });
+  const geste = useRef({ d: 0, k: 1, bouge: false, dernier: 0, x0: 0, deux: false });
   const borner = (k: number, x: number, y: number, el: HTMLElement) => {
     const mx = (el.clientWidth * (k - 1)) / 2, my = (el.clientHeight * (k - 1)) / 2;
     return { k, x: Math.max(-mx, Math.min(mx, x)), y: Math.max(-my, Math.min(my, y)) };
   };
   return <div className="bd-zoom"
-    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); geste.current.bouge = doigts.current.size > 1; geste.current.d = 0; }}
+    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); geste.current.bouge = doigts.current.size > 1; geste.current.d = 0;
+      if (doigts.current.size === 1) { geste.current.x0 = ev.clientX; geste.current.deux = false; } else geste.current.deux = true; }}
     onPointerMove={(ev) => {
       const a = doigts.current.get(ev.pointerId); if (!a) return;
       const dx = ev.clientX - a.x, dy = ev.clientY - a.y, el = ev.currentTarget;
@@ -158,7 +203,10 @@ export function Zoom({ children, onToucher }: { children: React.ReactNode; onTou
     }}
     onPointerUp={(ev) => {
       doigts.current.delete(ev.pointerId); geste.current.d = 0;
-      if (doigts.current.size || geste.current.bouge) return;
+      if (doigts.current.size) return;
+      // Photo à sa taille : glisser d'un doigt vers la gauche ou la droite passe à la suivante ou à la précédente.
+      const dx = ev.clientX - geste.current.x0;
+      if (geste.current.bouge) { if (v.k === 1 && !geste.current.deux && Math.abs(dx) > 60) onGlisser?.(dx < 0 ? 1 : -1); return; }
       const t = Date.now(), el = ev.currentTarget;
       if (t - geste.current.dernier < 300) { geste.current.dernier = 0; setV((o) => (o.k > 1 ? { k: 1, x: 0, y: 0 } : borner(2.5, 0, 0, el))); }
       else { geste.current.dernier = t; onToucher?.(); }
@@ -169,10 +217,11 @@ export function Zoom({ children, onToucher }: { children: React.ReactNode; onTou
 }
 
 /** Une photo en grand : ‹ ›, ⭐ pour le carnet, « Retirer » pour l'auteur. */
-function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void; onPlacer?: (p: PhotoBuddy) => void }) {
+export function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void; onPlacer?: (p: PhotoBuddy) => void }) {
   const p = l[i];
   const moi = p.par.id === (lire().moi ?? 'moi');
-  // Un toucher sur la photo la met en plein écran (sans les barres) ; deux doigts pour zoomer.
+  // La photo prend tout l'écran, les barres sont posées dessus : un toucher les cache ou les ramène ; deux doigts pour
+  // zoomer ; glisser pour la suivante (Seb, 25/11 : « chaque fois la photo doit être à son mieux »).
   const [plein, setPlein] = useState(false);
   return <div className={`bd-visionneuse${plein ? ' plein' : ''}`}>
     <div className="bd-vis-haut" onClick={(ev) => ev.stopPropagation()}>
@@ -180,13 +229,14 @@ function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]; i: nu
       <span className="bd-texte"><b>{p.par.pseudo}</b><small>{jourLong(p.prise_le.slice(0, 10))} · {p.prise_le.slice(11, 16).replace(':', ' h ')}</small></span>
       <button aria-label="Fermer" onClick={onFermer}>✕</button>
     </div>
-    {p.video ? <Film p={p} /> : <Zoom key={p.id} onToucher={() => setPlein((v) => !v)}><Image p={p} taille="grande" className="bd-vis-image" /></Zoom>}
+    {i > 0 && <button className="bd-vis-fleche" aria-label="Précédente" onClick={() => onI(i - 1)}>‹</button>}
+    {i < l.length - 1 && <button className="bd-vis-fleche droite" aria-label="Suivante" onClick={() => onI(i + 1)}>›</button>}
+    {p.video ? <Film p={p} /> : <Zoom key={p.id} onToucher={() => setPlein((v) => !v)} onGlisser={(d) => { if (i + d >= 0 && i + d < l.length) onI(i + d); }}><Image p={p} taille="grande" className="bd-vis-image" /></Zoom>}
     <div className="bd-vis-bas" onClick={(ev) => ev.stopPropagation()}>
-      <button aria-label="Précédente" disabled={i === 0} onClick={() => onI(i - 1)}>‹</button>
+      <button aria-label="Partager" className="bd-vis-icone" onClick={() => void partagerPhoto(p)}><ShareIcon /></button>
       <button className={p.etoile ? 'oui' : ''} onClick={() => mettreEtoile(p.id, !p.etoile)}>{p.etoile ? '⭐ Dans le carnet' : '☆ Pour le carnet'}</button>
       {onPlacer && !p.video && <button onClick={() => onPlacer(p)}>📍 Déplacer</button>}
       {moi && <button onClick={() => { retirerPhoto(p.id); onFermer(); }}>Retirer</button>}
-      <button aria-label="Suivante" disabled={i === l.length - 1} onClick={() => onI(i + 1)}>›</button>
     </div>
   </div>;
 }
