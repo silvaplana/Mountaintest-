@@ -782,7 +782,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-signe { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--muted); }
 .bd-recit.vide { border: 2px dashed #d9dfdc; background: none; border-radius: 14px; padding: 14px; font-size: 17px; color: var(--muted); text-align: left; min-height: 56px; }
 .bd-petit-plan { flex: none; position: relative; border: 1px solid #d9dfdc; border-radius: 16px; background: #efebe3; padding: 0; height: 200px; overflow: hidden; }
-.bd-petit-plan svg { width: 100%; height: 100%; }
+.bd-petit-plan svg { width: 100%; height: 100%; overflow: visible; }
 .bd-petit-plan path { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .bd-agrandir { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; }
 .bd-legende { position: absolute; left: 10px; bottom: 10px; background: #fff; border-radius: 12px; padding: 4px 10px; display: flex; gap: 10px; font-size: 15px; font-weight: 700; }
