@@ -1128,6 +1128,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .survol-film.plein { position: fixed; inset: 0; z-index: 60; }
 .survol-film.plein video { width: 100%; height: 100%; object-fit: contain; }
 .survol-fin.deux { grid-template-columns: 1fr 1fr; }
+.survol-fin .survol-dl { grid-column: 1 / -1; flex-direction: row; gap: 10px; min-height: 60px; }
 .survol-fin button.primary { color: #fff; }
 .survol-albums { display: flex; flex-direction: column; gap: 6px; }
 .survol-albums button { min-height: 48px; text-align: left; padding: 0 12px; font-size: 17px; }
