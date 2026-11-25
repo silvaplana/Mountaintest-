@@ -1,4 +1,5 @@
 import * as maplibregl from 'maplibre-gl';
+import { LigneLien, type NomLien } from './buddies/Associer';
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { distanceM } from './gps/adaptive';
@@ -105,8 +106,10 @@ function glissable(map: MlMap, mk: maplibregl.Marker, onDrag: (ll: maplibregl.Ln
  * chemins (bornes ▶ ■ posées sur la trace), Prolonger la fin (tout droit ou par les chemins), Souple (ronds
  * qu'on fait glisser). Chaque changement est gardé tout de suite dans la trace.
  */
-export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
+export function TraceEdit({ map, trail, onLine, onBack, onToast, lien, onAssocier }: {
   map: MlMap; trail: Trail; onLine: (line: LonLat[]) => void; onBack: () => void; onToast: (t: string) => void;
+  /** 👥 Buddy Time associé : Seb le cherche aussi ici (25/11). */
+  lien: NomLien | null; onAssocier: () => void;
 }) {
   const sheet = useSheet('modifier');
   const depart = useRef(trail.segments.flat());
@@ -369,6 +372,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
         <button className="edit-inverser" onClick={inverser} disabled={line.length < 2}><Inverse /><span>Inverser</span></button>
       </div>
       {aide}
+      {!outil && <LigneLien lien={lien} onClick={onAssocier} />}
     </section>
   );
 }

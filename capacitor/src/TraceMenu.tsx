@@ -13,8 +13,7 @@ import { PencilIcon } from './TraceEdit';
 import type { Pin } from './trails/edit';
 import { useSheet } from './useSheet';
 import { TrashIcon } from './icones';
-import { Carre } from './buddies/Buddies';
-import type { Sortie } from './buddies/store';
+import { LigneLien, type NomLien } from './buddies/Associer';
 
 function hours(h: number) {
   const m = Math.round(h * 60);
@@ -32,7 +31,7 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
   /** ✏ Écran « Modifier » de la trace. */
   onEdit: () => void;
   /** 👥 Buddy Time (ou Buddy Group) associé, et ouvrir le choix (Seb, 25/11). */
-  lien: { titre: string; sous: string; sortie?: Sortie } | null; onAssocier: () => void;
+  lien: NomLien | null; onAssocier: () => void;
   /** 📍 allumé : toucher la carte pique un point (pas d'écran à part, demande de Seb). */
   pique: boolean; onPique: () => void;
   /** Point dont on écrit le mot (après l'avoir piqué ou touché). */
@@ -79,12 +78,7 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
       ) : pique && <span className="hint">📍 Touche la carte pour piquer un point. Sur un point : un appui montre ou cache son mot, appui long pour le déplacer, très long pour l’enlever.</span>}
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}
         {el && (vtt ? ` · ${hours(bikeHours(trail.distanceM, el.gainM))} à VTT` : ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`)}</span>
-      <button className={`trace-lien${lien ? ' oui' : ''}`} onClick={onAssocier}>
-        {lien?.sortie ? <Carre x={lien.sortie} taille={44} /> : <span className="trace-lien-ic">👥</span>}
-        <span className="bd-texte"><b>{lien ? lien.titre : 'Associer à un Buddy Time'}</b>
-          <small>{lien ? `${lien.sous} · changer` : 'ses photos iront dans le film'}</small></span>
-        <span className="bd-fleche">›</span>
-      </button>
+      <LigneLien lien={lien} onClick={onAssocier} />
       <div className="checks">
         <label><input type="checkbox" checked={slopes} onChange={(e) => onSlopes(e.target.checked)} /> Afficher la pente</label>
         <label><input type="checkbox" checked={showProfile} onChange={(e) => onShowProfile(e.target.checked)} /> Afficher le profil</label>
