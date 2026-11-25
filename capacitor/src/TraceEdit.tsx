@@ -351,6 +351,8 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
         <button className="retour" onClick={onBack} aria-label="Retour au menu de la trace">←</button>
         <b><span style={{ color: trail.color, display: 'flex' }}><PencilIcon size={24} /></span> Modifier</b>
         <button className="annuler" disabled={hist.i === 0} onClick={() => aller(hist.i - 1)}><Fleche />Annuler</button>
+        {/* ✓ Terminer : on sort de la modification (tout est déjà gardé à chaque geste) ; Seb, 25/11. */}
+        <button className="primary edit-fini" onClick={onBack} aria-label="Terminer la modification">✓</button>
       </div></div>
       <span className="hint">{formatKm(km)}{Math.abs(dk) >= 0.05 && <b className={dk < 0 ? 'edit-moins' : 'edit-plus'}> ({dk > 0 ? '+' : ''}{dk.toFixed(1).replace('.', ',')} km)</b>}</span>
       <div className="edit-outils">
