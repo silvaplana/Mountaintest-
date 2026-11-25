@@ -309,6 +309,20 @@ public class BuddiesPlugin extends Plugin {
         }
     }
 
+    /** Partage un fichier du cache de l'appli (film du survol 3D) avec l'appli choisie : WhatsApp, mail… */
+    @PluginMethod
+    public void partagerFichier(PluginCall call) {
+        try {
+            java.io.File f = new java.io.File(getContext().getCacheDir(), call.getString("chemin", ""));
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+            Intent i = new Intent(Intent.ACTION_SEND).setType(call.getString("mime", "video/*"))
+                .putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            ouvrir(call, Intent.createChooser(i, call.getString("titre", "")));
+        } catch (Exception e) {
+            call.reject("Fichier illisible");
+        }
+    }
+
     @PluginMethod
     public void partager(PluginCall call) {
         Intent i = new Intent(Intent.ACTION_SEND);

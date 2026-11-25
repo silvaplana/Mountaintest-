@@ -70,6 +70,7 @@ import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { Usage } from './Usage';
 import { ShadeFilm } from './ShadeFilm';
+import { Survol } from './Survol';
 import { WeatherLayer } from './WeatherLayer';
 import { MNT_LAYER, mntTileUrl, mntTilesForZone } from './shade/dem';
 import { BatteryShortcuts } from './BatteryShortcuts';
@@ -226,6 +227,9 @@ export function App() {
   const [tilted, setTilted] = useState(false);
   /** Menu du bas de la trace violette, liste 📂 des traces enregistrées (null : fermée). */
   const [traceMenu, setTraceMenu] = useState(false);
+  /** 🎥 Survol 3D de la trace choisie : remplace son menu tant qu'il est ouvert. */
+  const [survol, setSurvol] = useState(false);
+  useEffect(() => { if (!traceMenu) setSurvol(false); }, [traceMenu]);
   const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
   const [drawnSlopes, setDrawnSlopes] = useState(false);
   const [drawnProfile, setDrawnProfile] = useState(false);
@@ -1143,8 +1147,11 @@ export function App() {
           onResume: () => { setNavPaused(false); setFollow(true); gpsOn(); void resumeRecording(); setDrawing(false); },
           onStop: () => { setNavPaused(false); setDrawing(false); void stopFree(); } } : null} />}
       {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} paused={navPaused} nextJunctionM={nextJunction} onOpen={startDrawing} />}
-      {traceMenu && selected && isMine(selected.id) && !drawing && (
-        <TraceMenu trail={selected} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
+      {survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
+        <Survol map={map} trail={selected} onClose={() => setSurvol(false)} onToast={setToast} />
+      )}
+      {!survol && traceMenu && selected && isMine(selected.id) && !drawing && (
+        <TraceMenu trail={selected} onFilm={() => { setShowShade(false); setSurvol(true); }} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
           savedId={selected.savedId ?? null} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)}
           onShare={() => {

@@ -41,6 +41,8 @@ export const Natif = registerPlugin<{
   addListener(e: 'dicteeNiveau', f: (x: { niveau: number }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'dicteeFin', f: (x: { erreur?: number }) => void): Promise<{ remove: () => Promise<void> }>;
   partager(o: { titre: string; texte: string }): Promise<void>;
+  /** Partage un fichier du cache de l'appli (film du survol 3D) : WhatsApp, mail… */
+  partagerFichier(o: { chemin: string; mime: string; titre: string }): Promise<void>;
   sms(o: { numero: string; texte: string }): Promise<void>;
   mail(o: { adresse: string; sujet: string; texte: string }): Promise<void>;
   /** 📍 Service de position (EpingleService.java) : une position toutes les 5 minutes jusqu'à `jusqu` (ms). */
