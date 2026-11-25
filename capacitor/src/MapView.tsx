@@ -96,6 +96,8 @@ function rasterSource(layerId: string): maplibregl.RasterSourceSpecification {
 export function MapView(props: MapViewProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MlMap | null>(null);
+  /** Trace sur laquelle la carte a été cadrée en dernier. */
+  const cadree = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
   const onTrailClick = useRef(props.onTrailClick);
   onTrailClick.current = props.onTrailClick;
@@ -350,7 +352,11 @@ export function MapView(props: MapViewProps) {
     const m = map.current!;
     const t = props.selectedTrail;
     (m.getSource('trailSel') as GeoJSONSource).setData(t ? trailsGeoJson([t]) : EMPTY);
-    if (t) {
+    // On cadre seulement quand on choisit une AUTRE trace : pendant qu'on la modifie (ronds, prolonger, recoller),
+    // la carte ne bouge pas toute seule (Seb, 25/11 : « il ne doit pas dézoomer »).
+    const nouvelle = t?.id !== cadree.current;
+    cadree.current = t?.id ?? null;
+    if (t && nouvelle) {
       const b = new maplibregl.LngLatBounds();
       t.segments.forEach((s) => s.forEach((p) => b.extend([p.lon, p.lat])));
       // Haut : barres « fond de carte » et « Y aller » ; bas : le panneau ouvert.

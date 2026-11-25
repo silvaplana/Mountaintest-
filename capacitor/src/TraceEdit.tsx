@@ -108,7 +108,8 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   /** Recoller : avancement du suivi des chemins (morceaux faits / à faire) ; `essai` relance après une panne. */
   const [etape, setEtape] = useState<{ fait: number; total: number } | null>(null);
   const [essai, setEssai] = useState(0);
-  const [prolonge, setProlonge] = useState<'droit' | 'chemin'>(() => (localStorage.getItem('prolonge') === 'droit' ? 'droit' : 'chemin'));
+  // Prolonger : tout droit depuis le dernier point par défaut, à chaque ouverture (Seb, 25/11).
+  const [prolonge, setProlonge] = useState<'droit' | 'chemin'>('droit');
   const [densite, setDensite] = useState(1);
   /** Zoom de la carte (au demi-cran) : les ronds se replacent quand il change. */
   const [zoom, setZoom] = useState(() => Math.round(map.getZoom() * 2) / 2);
@@ -282,6 +283,14 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     if (etat.current.prolonge === 'droit') { garder([...l, p]); return; }
     try {
       const r = await routeOnPaths([fin, p]);
+      // Garde-fou (Seb, 25/11 : 99 km de routes autour de la Meije pour 1 km à vol d'oiseau) : un chemin bien plus
+      // long que le trajet direct veut dire qu'il n'y a pas de passage par là ; on prolonge alors tout droit.
+      const direct = distanceM(fin, p);
+      if (lineLengthM(r) > Math.max(3 * direct, direct + 1500)) {
+        onToast('Pas de chemin direct par là : ajouté tout droit');
+        garder([...l, p]);
+        return;
+      }
       garder([...l, ...r.slice(distanceM(r[0], fin) < 1 ? 1 : 0), p]);
     } catch {
       onToast('Pas de chemin trouvé (pas de réseau ?) : ajouté tout droit');
@@ -325,7 +334,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     <p className="edit-aide">Touche la carte : la trace s’allonge jusque-là 🏁</p>
     <div className="survol-choix">
       {(['droit', 'chemin'] as const).map((v) => <button key={v} className={prolonge === v ? 'on' : ''}
-        onClick={() => { setProlonge(v); try { localStorage.setItem('prolonge', v); } catch { /* ignoré */ } }}>{v === 'droit' ? '📏 Tout droit' : '🥾 Par les chemins'}</button>)}
+        onClick={() => setProlonge(v)}>{v === 'droit' ? '📏 Tout droit' : '🥾 Par les chemins'}</button>)}
     </div></>;
   else aide = <>
     <p className="edit-aide">Fais glisser un rond : la trace suit en douceur</p>
