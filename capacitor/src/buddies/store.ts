@@ -419,6 +419,9 @@ export function appliquer(e: Etat): Groupe[] {
         if (!g) gs.push({ id: String(op.groupe), nom: '', nature: 'duo', photo: null, modifie_le: quand(op), invitations: [], attente: true,
           membres: [moiBuddy(e), { id: String(op.buddy), pseudo: String(op.pseudo ?? ''), photo: (op.photo as string) ?? null, role: 'membre' }] });
         break;
+      case 'renommer_groupe':
+        if (g) { g.nom = String(op.nom); g.attente = true; }
+        break;
       case 'nommer_admin':
         if (g) g.membres = g.membres.map((m) => m.id === op.buddy ? { ...m, role: 'admin' } : m);
         break;
@@ -585,6 +588,13 @@ export function renommerSortie(sortie: string, nom: string) {
   const n = nom.replace(/\s+/g, ' ').trim().slice(0, 80);
   if (!n) throw new Error('Donne un nom au Buddy Time');
   ajouter({ type: 'renommer_sortie', sortie, nom: n });
+  return n;
+}
+/** ✏ Changer le nom d'un Buddy Group (tout membre) ou de mon Me Time (« Mes sorties solo »…). */
+export function renommerGroupe(groupe: string, nom: string) {
+  const n = nom.replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (!n) throw new Error('Il faut un nom');
+  ajouter({ type: 'renommer_groupe', groupe, nom: n });
   return n;
 }
 /** 🐻 Bud supprime un Buddy Time (§7.12) : caché de tous ; le serveur refuse si je ne l'ai pas créé ni n'administre la bande. */

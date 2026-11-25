@@ -754,6 +754,18 @@ def test_bud_supprime_un_buddy_time(client, photos):
     assert so["sortie"] in sync(client, sub="julie")["ids_sorties"]
 
 
+def test_renommer_un_buddy_group_et_le_me_time(client):
+    gid, julie = bande_avec_julie(client)
+    assert sync(client, sub="julie", ops=[{"id": "v", "type": "renommer_groupe", "groupe": gid, "nom": " "}])["refus"]
+    sync(client, sub="julie", ops=[{"id": "n", "type": "renommer_groupe", "groupe": gid, "nom": "La Ciotat  ski club"}])
+    assert next(g for g in sync(client)["groupes"] if g["id"] == gid)["nom"] == "La Ciotat ski club"
+    assert sync(client, sub="luc", ops=[{"id": "l", "type": "renommer_groupe", "groupe": gid, "nom": "Pirate"}])["refus"]
+    # Mon Me Time, à mon nom, sans toucher celui des autres.
+    sync(client, ops=[{"id": "m", "type": "renommer_groupe", "groupe": "me-time", "nom": "Mes sorties solo"}])
+    noms = lambda sub: {g["nature"]: g["nom"] for g in sync(client, sub=sub)["groupes"]}  # noqa: E731
+    assert noms("seb")["me_time"] == "Mes sorties solo" and noms("julie")["me_time"] == "Me Time"
+
+
 def test_renommer_un_buddy_time(client):
     gid, julie = bande_avec_julie(client)
     so = nouvelle_sortie(gid, participants=[julie])
