@@ -144,7 +144,8 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
       <button className={vue === 'carnet' ? 'oui' : ''} onClick={() => setVue('carnet')}>⭐ Carnet</button>
     </div>
     {parJour(l, x).map((j) => <div key={j.jour} className="bd-jour-album">
-      <h3 className="bd-section">{j.n >= 1 ? `Jour ${j.n} · ` : ''}{jourLong(j.jour)}<small>{j.photos.length} photo{j.photos.length > 1 ? 's' : ''}</small></h3>
+      <h3 className="bd-section">{j.jour ? <>{j.n >= 1 ? `Jour ${j.n} · ` : ''}{jourLong(j.jour)}<small>{j.photos.length} photo{j.photos.length > 1 ? 's' : ''}</small></>
+        : <>Film{j.photos.length > 1 ? 's' : ''}<small>{j.photos.length} film{j.photos.length > 1 ? 's' : ''}</small></>}</h3>
       <div className="bd-grille-photos">{j.photos.map((p) => <Vignette key={p.id} p={p} onClick={() => setOuverte(l.indexOf(p))} onLong={() => setMenu(p)} />)}</div>
     </div>)}
     {!l.length && <p className="bd-vide">{vue === 'carnet' ? 'Touche ⭐ sur une photo pour la garder pour le carnet.' : 'Pas encore de photo : dépose les tiennes, chacun ajoute les siennes.'}</p>}

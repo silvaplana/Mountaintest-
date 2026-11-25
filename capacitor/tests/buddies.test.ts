@@ -295,6 +295,10 @@ describe('Carnet (bloc 5)', () => {
     expect(auto.photos.length).toBe(12);
     expect([auto.photos[0].id, auto.photos[11].id]).toEqual(['p0', 'p29']);
     expect(choixPhotos([...l, photo('et', '2026-10-19T10:00:00', true)])).toEqual({ photos: [expect.objectContaining({ id: 'et' })], auto: false });
+    // Le film du parcours passe toujours en premier, sans ⭐ (Seb, 25/11).
+    const film = { ...photo('film', '2026-11-25T22:00:00'), video: true };
+    expect(choixPhotos([...l, photo('et', '2026-10-19T10:00:00', true), film]).photos.map((p) => p.id)).toEqual(['film', 'et']);
+    expect(choixPhotos([...l, film]).photos.map((p) => p.id).slice(0, 2)).toEqual(['film', 'p0']);
   });
 
   it('une couleur par jour quand il y a une trace par jour ; fiches et chiffres depuis la trace', () => {

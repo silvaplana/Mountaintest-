@@ -128,6 +128,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
   const tc = useMemo(() => tracesDuCarnet(traces, jours), [traces, jours.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const reliefs = useReliefs(tc);
   const choix = choixPhotos(photos);
+  const nFilms = photos.filter((p) => p.video).length, nChoisies = choix.photos.length - nFilms;
   // Une photo touchée s'ouvre en grand, plein écran ; on glisse vers les autres photos choisies.
   const [ouverte, setOuverte] = useState<number | null>(null);
   const fs = fichesDe(x, tc, reliefs);
@@ -151,10 +152,11 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
       <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)} · {x.participants.map((p) => p.pseudo).join(', ')}</small></span>
     </div>
     {photos.length > 0 && <>
-      <div className="bd-section bd-entre"><b>{choix.auto ? '✨' : '⭐'} {choix.photos.length} photo{choix.photos.length > 1 ? 's' : ''} choisie{choix.photos.length > 1 ? 's' : ''} sur {photos.length}</b></div>
+      <div className="bd-section bd-entre"><b>{choix.auto ? '✨' : '⭐'} {nChoisies} photo{nChoisies > 1 ? 's' : ''} choisie{nChoisies > 1 ? 's' : ''} sur {photos.length - nFilms}{nFilms ? ` · ${nFilms} film${nFilms > 1 ? 's' : ''}` : ''}</b></div>
       <div className="bd-mosaique">
         {choix.photos.slice(0, 3).map((p, i) => <span key={p.id} className={i === 0 ? 'grande' : ''} onClick={() => setOuverte(i)}>
           <Image p={p} taille="grande" />
+          {p.video && !(i === 2 && choix.photos.length > 3) && <i className="bd-film" style={{ fontStyle: 'normal' }}>▶</i>}
           {i === 2 && choix.photos.length > 3 && <b>+{choix.photos.length - 3}</b>}</span>)}
       </div>
       {/* « Changer » n'était pas compris (Seb, 25/11) : le bouton dit ce qu'il fait. */}
