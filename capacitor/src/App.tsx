@@ -117,7 +117,7 @@ export function App() {
   // Menu du bas réglé par la poignée (useSheet) : réduit = fermé ; l'appli démarre menu fermé.
   const sheet = useSheet('menu', { depart: 0, masque: false });
   const open = sheet.cran > 0;
-  const setOpen = (v: boolean) => sheet.setCran((c) => (!v ? 0 : c === 0 ? 1 : c));
+  const setOpen = (v: boolean) => { if (v) setBandeau(true); sheet.setCran((c) => (!v ? 0 : c === 0 ? 1 : c)); };
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   /** Film des ombres du relief (8 h → midi). */
@@ -189,6 +189,8 @@ export function App() {
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
   // L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰ (demande de Seb).
   const [nature, setNature] = useState(true);
+  // Bandeau du bas : seulement après ☰, pas quand la loupe 🔍 fait revenir l'interface (Seb 25/11).
+  const [bandeau, setBandeau] = useState(false);
   const [geo, setGeo] = useState<GeolocateControl | null>(null);
   /** Petit message passager, visible même en mode nature. */
   const [toast, setToast] = useState('');
@@ -1146,7 +1148,7 @@ export function App() {
 
   return (
     <div className={`app ${nature ? 'nature' : ''}`}>
-      {nature && <button className="restore" onClick={() => setNature(false)} aria-label="Afficher les boutons">☰</button>}
+      {nature && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
@@ -1361,10 +1363,10 @@ export function App() {
         </div>
       )}
 
-      <section className={`sheet ${open ? 'open' : ''}${sheet.classe}`}>
+      <section className={`sheet ${open ? 'open' : ''}${sheet.classe}`} hidden={!bandeau}>
         <div {...sheet.prise}><div className="handle" />
         <nav className="tabs">
-          <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
+          <button className="close" onClick={() => { setNature(true); setBandeau(false); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
           <button className={`icon ${tab === 'usage' ? 'active' : ''}`} onClick={() => { setTab('usage'); setOpen(true); }}
             aria-label="Usage IA et mémoire" title="Usage IA et mémoire">📊</button>
           {(['sortie', 'randos', 'forets', 'horsligne', 'mesures', 'versions'] as Exclude<Tab, 'usage'>[]).map((t) => (
