@@ -1263,7 +1263,11 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* 📍 Placer sur la carte une photo sans position (album « Sur la carte »). */
 .bd-placer { position: fixed; z-index: 30; top: calc(env(safe-area-inset-top, 0px) + 70px); left: 76px; right: 76px; display: flex; align-items: center; gap: 8px;
   padding: 8px; border-radius: 14px; background: #fffffff0; box-shadow: 0 2px 10px #0004; font-size: 17px; }
-.bd-placer > img, .bd-placer > .bd-img-vide { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex: 0 0 48px; }
+.bd-placer-vignette { flex: 0 0 48px; width: 48px; height: 48px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; }
+.bd-placer-vignette img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bd-placer-grande { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding: 12px; border: 0; border-radius: 0; background: #000d; color: #fff; font-size: 17px; }
+.bd-placer-grande img { max-width: 100%; max-height: 80%; object-fit: contain; border-radius: 8px; }
 .bd-placer b { flex: 1; font-weight: 600; line-height: 1.25; }
 .bd-placer button { min-height: 48px; }
 .bd-placer-ouvrir { flex: 1; }

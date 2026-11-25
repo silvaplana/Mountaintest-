@@ -248,14 +248,16 @@ export function PhotosSurCarte({ map, photos }: { map: MlMap | null; photos: Pho
   // 📍 Photos sans position (vieilles photos, position retirée par le téléphone) : on en choisit une, puis on touche la carte.
   const [liste, setListe] = useState(false);
   const [aPlacer, setAPlacer] = useState<PhotoBuddy | null>(null);
+  // La photo choisie s'ouvre d'abord en grand, pour voir ce que c'est ; un toucher la réduit, puis on touche la carte.
+  const [grande, setGrande] = useState(false);
   const placees = photos.filter((p) => p.lon != null && p.lat != null);
   const sansPlace = photos.filter((p) => !p.video && (p.lon == null || p.lat == null));
   useEffect(() => {
-    if (!map || !aPlacer) return;
+    if (!map || !aPlacer || grande) return;
     const poser = (ev: maplibregl.MapMouseEvent) => { placerPhoto(aPlacer.id, ev.lngLat.lng, ev.lngLat.lat); setAPlacer(null); };
     map.once('click', poser);
     return () => { map.off('click', poser); };
-  }, [map, aPlacer]);
+  }, [map, aPlacer, grande]);
   const cle = placees.map((p) => `${p.id}${p.envoyee}`).join();
   useEffect(() => {
     if (!map || !placees.length) return;
@@ -271,13 +273,17 @@ export function PhotosSurCarte({ map, photos }: { map: MlMap | null; photos: Pho
   }, [map, cle]);
   return <>
     {aPlacer ? <div className="bd-placer">
-      <Image p={aPlacer} /><b>Touche la carte là où la photo a été prise</b>
+      <button className="bd-placer-vignette" aria-label="Agrandir la photo" onClick={() => setGrande(true)}><Image p={aPlacer} /></button>
+      <b>Touche la carte là où la photo a été prise</b>
       <button onClick={() => setAPlacer(null)}>Annuler</button>
     </div> : sansPlace.length > 0 && <div className="bd-placer">
-      {liste ? <><div className="bd-placer-photos">{sansPlace.map((p) => <button key={p.id} aria-label="Placer cette photo" onClick={() => setAPlacer(p)}><Image p={p} /></button>)}</div>
+      {liste ? <><div className="bd-placer-photos">{sansPlace.map((p) => <button key={p.id} aria-label="Placer cette photo" onClick={() => { setAPlacer(p); setGrande(true); }}><Image p={p} /></button>)}</div>
         <button onClick={() => setListe(false)}>Fermer</button></>
         : <button className="bd-placer-ouvrir" onClick={() => setListe(true)}>📍 {sansPlace.length} photo{sansPlace.length > 1 ? 's' : ''} à placer</button>}
     </div>}
+    {aPlacer && grande && <button className="bd-placer-grande" aria-label="Réduire la photo" onClick={() => setGrande(false)}>
+      <Image p={aPlacer} taille="grande" /><b>Touche la photo pour la réduire, puis la carte pour la placer</b>
+    </button>}
     {ouverte != null && placees[ouverte] && <Visionneuse l={placees} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)}
       onPlacer={(p) => { setOuverte(null); setAPlacer(p); }} />}
   </>;
