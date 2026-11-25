@@ -377,34 +377,27 @@ describe('survol 3D : 🧗 caméra au sol, sommet en drone, regard final', () =>
   });
 });
 
-describe('survol 3D : 🧗 montée seule, descente seule', () => {
+describe('survol 3D : 🧗 aller, retour (Seb, 25/11 : un film a un début et une fin)', () => {
   const pic = { alt: (p: { lon: number; lat: number }) => { const y = (p.lat - 45.0) * 110_540; return 3000 - Math.abs(y - 2000) * 0.3; }, sommets: [] };
   const droite = Array.from({ length: 41 }, (_, i) => ({ lon: 6, lat: 45 + (i * 100) / 110_540 }));
-  it('montée seule : finit au sommet ; descente seule : part du sommet', () => {
-    const m = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'montee' });
-    const d = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'descente' });
-    const y = (c: { lat: number }) => (c.lat - 45) * 110_540;
-    expect(Math.abs(y(m[600].point) - 2000)).toBeLessThan(200);
-    expect(Math.abs(y(d[120].point) - 2000)).toBeLessThan(250);
-    expect(y(d[600].point)).toBeGreaterThan(3600);
-  });
-});
-
-describe('survol 3D : 🧗 trace qui part du sommet', () => {
-  // Le sommet est au départ : la trace ne fait que descendre vers le nord.
-  const pente = { alt: (p: { lon: number; lat: number }) => 3000 - (p.lat - 45.0) * 110_540 * 0.3, sommets: [] };
-  const droite = Array.from({ length: 41 }, (_, i) => ({ lon: 6, lat: 45 + (i * 100) / 110_540 }));
   const y = (c: { lat: number }) => (c.lat - 45) * 110_540;
-  it('« les deux » remonte depuis le bas puis redescend (la caméra ne reste pas plantée)', () => {
-    const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pente, sens: 'deux' });
-    expect(y(t[150].point)).toBeGreaterThan(2000);   // en train de remonter depuis le bas (4 km)
-    expect(y(t[320].point)).toBeLessThan(600);       // au sommet
-    expect(y(t[590].point)).toBeGreaterThan(3300);   // redescendu
+  it('aller : toute la trace, du début à la fin, avec le tour au point haut en chemin', () => {
+    const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'montee' });
+    expect(Math.abs(y(t.filter((c) => c.sommet != null)[0].point) - 2000)).toBeLessThan(200);
+    expect(y(t[600].point)).toBeGreaterThan(3600);
   });
-  it('« descente » part du sommet', () => {
-    const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pente, sens: 'descente' });
-    expect(y(t[130].point)).toBeLessThan(600);
-    expect(y(t[590].point)).toBeGreaterThan(3300);
+  it('retour : toute la trace, de la fin au début', () => {
+    const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'descente' });
+    expect(y(t[90].point)).toBeGreaterThan(3000);
+    expect(y(t[600].point)).toBeLessThan(400);
+  });
+  it('aller-retour : va au bout de la trace, y tourne, et revient au départ, même si la trace ne fait que descendre', () => {
+    const pente = { alt: (p: { lon: number; lat: number }) => 3000 - (p.lat - 45.0) * 110_540 * 0.3, sommets: [] };
+    for (const relief of [pic, pente]) {
+      const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief, sens: 'deux' });
+      expect(y(t.filter((c) => c.sommet != null)[0].point)).toBeGreaterThan(3800);
+      expect(y(t[600].point)).toBeLessThan(400);
+    }
   });
 });
 
@@ -470,5 +463,38 @@ describe('survol 3D : 📷 photos de la sortie dans le film', () => {
     expect(momentPhoto(track, { lon: 6 + 40 * 0.0005, lat: 45.0005 }, 0.2)).toBeCloseTo(0.6, 2);
     expect(momentPhoto(track, { lon: 6, lat: 45.0005 }, 0.2)).toBeCloseTo(0.21, 2);
     expect(momentPhoto(track, { lon: 7, lat: 45 }, 0.2)).toBeNull();
+  });
+});
+
+describe('jour des ombres du film', () => {
+  it('prend le jour du Buddy Time, ou celui de sa première photo sur la trace', async () => {
+    const { jourDesOmbres } = await import('../src/survol/photos-film');
+    const bt = { debut: '2026-04-25', fin: '2026-04-26' };
+    expect(jourDesOmbres(null, [])).toBeNull();
+    expect(jourDesOmbres(bt, [])).toBe('2026-04-25');
+    expect(jourDesOmbres(bt, [{ prise_le: '2026-04-26T10:12:00' }])).toBe('2026-04-26');
+    expect(jourDesOmbres(bt, [{ prise_le: '2026-11-25T21:00:00' }])).toBe('2026-04-25');
+  });
+});
+
+describe('alpiniste : aller-retour vers un refuge', () => {
+  // 4,4 km vers le nord : monte de 1000 à 2400 m aux 70 %, puis redescend de 130 m jusqu'au refuge (le bout).
+  const line = Array.from({ length: 41 }, (_, i) => ({ lon: 6.0, lat: 45.0 + i * 0.001 }));
+  const relief = { alt: (p: { lat: number }) => { const k = (p.lat - 45.0) / 0.04; return k < 0.7 ? 1000 + 2000 * k : 2400 - (k - 0.7) * 433; }, sommets: [] };
+  it('« les deux » monte jusqu\'au refuge puis redescend toute la trace', async () => {
+    const { sommetTrace, chemin: ch, trajectoire: tr } = await import('../src/survol/camera');
+    const c = ch(line), s = sommetTrace(c, relief);
+    expect(s.d).toBeCloseTo(c.total, 0);
+    expect(s.retour).toBe(true);
+    const t = tr(line, 'moyen', { center: { lon: 6.0, lat: 45.02 }, zoom: 12 }, 600, false, { style: 'alpi', relief, sens: 'deux' });
+    expect(Math.abs(t.filter((x) => x.sommet != null)[0].point.lat - 45.04)).toBeLessThan(0.0005);
+    expect(Math.abs(t[t.length - 1].point.lat - 45.0)).toBeLessThan(0.0005);
+  });
+  it('aller d\'une traversée : le tour se fait au point haut, en chemin', async () => {
+    const { sommetTrace, chemin: ch } = await import('../src/survol/camera');
+    const traverse = { alt: (p: { lat: number }) => 2400 - Math.abs((p.lat - 45.0) / 0.04 - 0.5) * 2800, sommets: [] };
+    const c = ch(line), s = sommetTrace(c, traverse, 'montee');
+    expect(s.d / c.total).toBeCloseTo(0.5, 1);
+    expect(s.retour).toBe(false);
   });
 });

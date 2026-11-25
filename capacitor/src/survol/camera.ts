@@ -116,7 +116,8 @@ function flou(v: number[], sigma: number): number[] {
 /** 🎬 Styles de prise de vue (maquette validée par Seb le 25/11). */
 export type Style = 'suivi' | 'cote' | 'alpi' | 'cine';
 export type Descente = 'gopro' | 'large';
-/** 🧗 Ce que le film raconte : la montée seule, la descente seule (depuis le sommet), ou les deux. */
+/** 🧗 Ce que le film raconte : l'aller ('montee', du début à la fin de la trace), le retour ('descente', de la fin au
+ * début) ou l'aller-retour ('deux'). Les noms datent d'avant (réglages gardés sur le téléphone). */
 export type Sens = 'deux' | 'montee' | 'descente';
 /** Relief lu dans le MNT IGN (relief.ts) : altitude d'un point, et les sommets marquants de la zone. */
 export interface Relief { alt: (p: LonLat) => number | null; sommets: (LonLat & { alt: number })[];
@@ -198,18 +199,28 @@ export function beaute(c: ReturnType<typeof chemin>, relief: Relief) {
   return { crete, regard, devant, distA, vues: choisis, alt };
 }
 
-/** Point le plus haut de la trace (🧗) ; retour = la trace finit au sommet, on redescend par le même chemin. */
-export function sommetTrace(c: ReturnType<typeof chemin>, relief: Relief) {
+/** Trace prise dans le sens du film : « Retour » la parcourt de la fin au début. */
+export const dansLeSens = (line: LonLat[], sens?: Sens) => (sens === 'descente' ? [...line].reverse() : line);
+
+/**
+ * 🧗 Où le film s'arrête pour tourner comme un drone (Seb, 25/11 : un film a un début et une fin, c'est un aller et un
+ * retour, pas une montée et une descente). `c` est la trace dans le sens du film (dansLeSens).
+ * Aller-retour : toute la trace, le tour au bout, puis retour par le même chemin (retour = true).
+ * Aller (ou Retour, trace retournée) : toute la trace ; le tour se fait au point le plus haut s'il est en chemin,
+ * sinon au départ ou à l'arrivée. `mode` dit ce que la caméra enchaîne : avant le tour, après, ou les deux.
+ */
+export function sommetTrace(c: ReturnType<typeof chemin>, relief: Relief, sens: Sens = 'deux') {
+  const alt = (x: number) => relief.alt(c.pr.depuis(c.at(x))) ?? -Infinity;
+  if (sens === 'deux') return { d: c.total, alt: alt(c.total), retour: true, depart: false, fin: 0, mode: 'deux' as Sens };
   let d = 0, h = -Infinity;
-  for (let i = 0; i <= 200; i++) { const x = (c.total * i) / 200, a = relief.alt(c.pr.depuis(c.at(x))) ?? -Infinity; if (a > h) { h = a; d = x; } }
-  const retour = c.total - d < c.total * 0.2;
-  // Trace qui part du sommet (Seb, 25/11) : pas de montée dans le sens de la trace ; on monte en la remontant.
-  const depart = d < c.total * 0.2 && !retour;
-  return { d, alt: h, retour, depart, fin: retour ? 0 : c.total };
+  for (let i = 0; i <= 200; i++) { const x = (c.total * i) / 200, a = alt(x); if (a > h) { h = a; d = x; } }
+  if (d < c.total * 0.2) return { d: 0, alt: alt(0), retour: false, depart: false, fin: c.total, mode: 'descente' as Sens };
+  if (d > c.total * 0.8) return { d: c.total, alt: alt(c.total), retour: false, depart: false, fin: c.total, mode: 'montee' as Sens };
+  return { d, alt: h, retour: false, depart: false, fin: c.total, mode: 'deux' as Sens };
 }
 
 /** Vitesses du film au choix (km/h le long de la trace) : on choisit une allure, pas une durée (Seb, 25/11). */
-export const VITESSES = [100, 200, 400];
+export const VITESSES = [200, 400, 800];
 /** Durées fixes (s) : au sommet (s'élever, tourner, replonger, attendre), regard final, intro simple ou plongée. */
 const T_SOMMET = 12, T_FINAL = 5;
 export const T_INTRO = 4, T_PLONGEE = 8;
@@ -222,9 +233,10 @@ export const SURVOL_MIN = 12, SURVOL_MAX = 240;
  * moments où finissent la montée, le sommet et la descente.
  */
 export function dureeFilm(line: LonLat[], kmh: number, o: Options = {}): { corps: number; temps?: [number, number, number] } {
-  const c = chemin(line), v = kmh / 3.6;
-  if (o.style !== 'alpi' || !o.relief) return { corps: Math.round(Math.max(SURVOL_MIN, Math.min(SURVOL_MAX, c.total / v + T_FINAL))) };
-  const s = sommetTrace(c, o.relief);
+  const v = kmh / 3.6;
+  if (o.style !== 'alpi' || !o.relief) return { corps: Math.round(Math.max(SURVOL_MIN, Math.min(SURVOL_MAX, chemin(line).total / v + T_FINAL))) };
+  const c = chemin(dansLeSens(line, o.sens)), s = sommetTrace(c, o.relief, o.sens);
+  o = { ...o, sens: s.mode };
   const lm = o.sens === 'descente' ? 0 : s.depart ? c.total - s.d : s.d, ld = o.sens === 'montee' ? 0 : Math.abs(s.fin - s.d);
   const fixe = T_SOMMET + (ld ? T_FINAL : 0);
   let tm = lm / v, td = ld / (1.5 * v);
@@ -243,15 +255,16 @@ export function dureeFilm(line: LonLat[], kmh: number, o: Options = {}): { corps
  * Sans relief, alpiniste et ciné font un suivi.
  */
 export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center: LonLat; zoom: number }, n = IMAGES, plongee: boolean | number = false, o: Options = {}): Cam[] {
-  const c = chemin(line);
-  const h = HAUTEURS[hauteur];
   const style: Style = (o.style === 'alpi' || o.style === 'cine') && !o.relief ? 'suivi' : o.style ?? 'suivi';
+  const c = chemin(style === 'alpi' ? dansLeSens(line, o.sens) : line);
+  const h = HAUTEURS[hauteur];
   // plongee : true (part par défaut) ou la part du film prise par l'intro (partPlongee).
   const debut = o.debut != null ? o.debut : typeof plongee === 'number' ? plongee : plongee ? DEBUT_PLONGEE : style === 'cine' ? 0.12 : DEBUT;
   const fin = style === 'alpi' ? 1 : style === 'cine' ? 0.82 : FIN;
   const vue = { ...c.pr.vers(ensemble.center), zoom: ensemble.zoom, pitch: 45, bearing: 0 };
   const b = o.relief ? beaute(c, o.relief) : null;
-  const som = o.relief && style === 'alpi' ? sommetTrace(c, o.relief) : null;
+  const som = o.relief && style === 'alpi' ? sommetTrace(c, o.relief, o.sens) : null;
+  if (som) o = { ...o, sens: som.mode };
   const gopro = o.descente !== 'large';
   /** Pente (°, positive en montée) devant soi à la distance d, en avançant dans le sens `sens` (+1 ou −1). */
   const pente = (d: number, sens: number) => {
