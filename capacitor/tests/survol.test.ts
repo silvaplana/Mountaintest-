@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cameraA, capAutour, chemin, distanceCamera, ecartAngle, heuresOmbres, heureTexte, partPlongee, PITCH_MAX, PLONGEE_NUAGES_S, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
+import { pixelsNeige } from '../src/survol/neige';
 import { cameraCiel } from '../src/survol/ciel-gl';
 import { CIEL } from '../src/survol/nuages';
 import { cadrage } from '../src/survol/enregistreur';
@@ -376,5 +377,31 @@ describe('survol 3D : 🧗 trace qui part du sommet', () => {
     const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pente, sens: 'descente' });
     expect(y(t[130].point)).toBeLessThan(600);
     expect(y(t[590].point)).toBeGreaterThan(3300);
+  });
+});
+
+describe('survol 3D : ❄ neige posée sur les photos', () => {
+  // Grille de 40 × 40 mailles de 10 m : pente régulière de `pente` (m/m) qui descend vers `vers`, altitude `z0` au centre.
+  const plan = (z0: number, pente: number, vers: 'nord' | 'sud') => Float32Array.from({ length: 1600 }, (_, k) => {
+    const j = Math.floor(k / 40); return z0 + pente * 10 * (j - 20) * (vers === 'sud' ? -1 : 1);
+  });
+  const alpha = (dem: Float32Array, limite = 2000) => pixelsNeige(dem, 40, 40, 10, limite)[(20 * 40 + 20) * 4 + 3];
+
+  it('blanc au-dessus de la limite, rien en dessous, fondu entre les deux', () => {
+    expect(alpha(plan(2600, 0.1, 'sud'))).toBeGreaterThan(230);
+    expect(alpha(plan(1500, 0.1, 'sud'))).toBe(0);
+    const a = alpha(plan(2000, 0, 'sud'));
+    expect(a).toBeGreaterThan(60); expect(a).toBeLessThan(190);
+  });
+  it('les pentes très raides restent en rocher', () => {
+    expect(alpha(plan(2600, Math.tan((60 * Math.PI) / 180), 'sud'))).toBe(0);
+    expect(alpha(plan(2600, Math.tan((30 * Math.PI) / 180), 'sud'))).toBeGreaterThan(230);
+  });
+  it('la neige descend plus bas en versant nord', () => {
+    expect(alpha(plan(2000, 0.4, 'nord'))).toBeGreaterThan(alpha(plan(2000, 0.4, 'sud')) + 100);
+  });
+  it('le versant au soleil est plus clair que le versant à l\'ombre', () => {
+    const rouge = (d: Float32Array) => pixelsNeige(d, 40, 40, 10, 1000)[(20 * 40 + 20) * 4];
+    expect(rouge(plan(2600, 0.5, 'sud'))).toBeGreaterThan(rouge(plan(2600, 0.5, 'nord')) + 40);
   });
 });

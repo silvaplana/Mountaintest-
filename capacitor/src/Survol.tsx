@@ -12,6 +12,7 @@ import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } 
 import { dessinerNuages } from './survol/nuages';
 import { ambianceCiel, type Ambiance } from './survol/ciel-gl';
 import { CREDIT_PHOTO, poserPhoto } from './survol/photo';
+import { LIMITES_NEIGE, poserNeige } from './survol/neige';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
 import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
@@ -29,11 +30,13 @@ interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: 
   ciel: Ambiance;
   /** Fond du film : la carte affichée, ou les 📷 photos aériennes (chargées pendant le tournage seulement). */
   fond: 'carte' | 'photo';
+  /** ❄ Neige posée sur les photos (prises en été) au-dessus de cette altitude, en mètres ; 0 = sans. */
+  neige: number;
   /** 🎬 style de prise de vue, descente du style alpiniste, ◭ pentes dans le film (la carte ne change pas). */
   style: Style; descente: Descente; sens: Sens; pentes: boolean }
 type Plongee = 'non' | 'simple' | 'nuages';
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', fond: 'carte', rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
+const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', fond: 'carte', neige: 0, rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
 function lire(): Reglages {
   try {
     const r = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') };
@@ -154,8 +157,12 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', r.trace && !dessine ? 'visible' : 'none');
     const progression = dessine ? traceQuiAvance(map, trail.color) : null;
     const heures = heuresOmbres(r.h0, r.h1);
-    let ombres: OmbresSurvol | null = null;
+    let ombres: OmbresSurvol | null = null, retirerNeige: (() => void) | null = null;
     try {
+      if (photo && r.neige) {
+        setAvance('Neige…');
+        retirerNeige = await poserNeige(map, zone, r.neige, ctl.signal).catch(() => null);
+      }
       if (r.ombres) {
         setAvance('Calcul des ombres…');
         ombres = await preparerOmbres(map, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`), !r.rapide);
@@ -266,6 +273,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       setEtape('reglages');
     } finally {
       ombres?.retirer();
+      retirerNeige?.();
       retirerPhoto?.();
       retirerTraceQuiAvance(map);
       if (pentesAvant !== undefined && map.getLayer('slopes')) map.setLayoutProperty('slopes', 'visibility', pentesAvant);
@@ -422,6 +430,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
               <p className="survol-dit">{STYLES[r.style].dit}</p>
               <div className="survol-choix">{([['carte', '🗺 Carte'], ['photo', '📷 Photo aérienne']] as [Reglages['fond'], string][]).map(([k, t]) => (
                 <button key={k} className={r.fond === k ? 'on' : ''} onClick={() => maj({ fond: k })}>{t}</button>))}</div>
+              {r.fond === 'photo' && <div className="survol-choix">
+                <button className={r.neige ? '' : 'on'} onClick={() => maj({ neige: 0 })}>Sans neige</button>
+                {LIMITES_NEIGE.map((m) => <button key={m} className={r.neige === m ? 'on' : ''} onClick={() => maj({ neige: m })}>❄ {m} m</button>)}</div>}
               {r.style === 'alpi' && <div className="survol-choix">{([['montee', '↗ Montée'], ['deux', '↗↘ Les deux'], ['descente', '↘ Descente']] as [Sens, string][]).map(([k, t]) => (
                 <button key={k} className={r.sens === k ? 'on' : ''} onClick={() => maj({ sens: k })}>{t}</button>))}</div>}
               {r.style === 'alpi' && r.sens !== 'montee' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
