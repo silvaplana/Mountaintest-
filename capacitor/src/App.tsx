@@ -509,7 +509,7 @@ export function App() {
     // Pendant un appel, l'appui long montre l'endroit aux autres (👉, spec §5.7) au lieu d'y aller.
     const onLong = (e: maplibregl.MapMouseEvent) => {
       // Pas sur une épingle ou un rond de « Modifier » (on les déplace par appui long), ni pendant « Modifier ».
-      if ((e.originalEvent?.target as Element | null)?.closest?.('.pin, .edit-rond') || document.querySelector('.trace-edit')) return;
+      if ((e.originalEvent?.target as Element | null)?.closest?.('.pin, .edit-rond') || document.querySelector('.trace-edit, .draw-banner')) return;
       // Sinon : rectangle de sélection des traces et épingles (Seb, 25/11, à la place du « Point choisi »).
       if (!montrer(e.lngLat.lng, e.lngLat.lat)) setSelection({ x: e.point.x, y: e.point.y });
     };
@@ -1210,7 +1210,7 @@ export function App() {
         onSkiOpen={(i) => { setSkiSel(i); const o = skiOutings[i]; if (o) setSkiSheet(rowOf(o)); }}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} top={10} />}
-      {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths}
+      {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths} onSelect={setSelection}
         onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} onStart={() => void startFree()}
         rec={freeRec ? { paused: navPaused,
           onPause: () => { setNavPaused(true); void pauseRecording(); setDrawing(false); },

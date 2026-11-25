@@ -149,9 +149,11 @@ export function MapView(props: MapViewProps) {
           { id: 'forests', type: 'fill', source: 'forests', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 } },
           { id: 'forests-line', type: 'line', source: 'forests', paint: { 'line-color': ['get', 'color'], 'line-width': 1.2 } },
           { id: 'frame', type: 'line', source: 'frame', paint: { 'line-color': '#1d2421', 'line-width': 2, 'line-dasharray': [3, 2] } },
-          { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': 0.75 } },
+          // Toutes les traces au même trait, net, avec un liseré blanc (Seb, 25/11 : épaisseurs qui varient, trait trop fin).
+          { id: 'trails-casing', type: 'line', source: 'trails', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 6.5, 'line-opacity': 0.9 } },
+          { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 4 } },
           // Couche invisible plus large : le doigt n'a pas besoin de tomber pile sur le trait.
-          { id: 'trails-hit', type: 'line', source: 'trails', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
+          { id: 'trails-hit', type: 'line', source: 'trails', paint: { 'line-color': '#000', 'line-width': 28, 'line-opacity': 0 } },
           { id: 'c2c-lines-casing', type: 'line', source: 'c2cLines', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 5 } },
           { id: 'c2c-lines', type: 'line', source: 'c2cLines', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00897b', 'line-width': 3 } },
           { id: 'c2c-lines-hit', type: 'line', source: 'c2cLines', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },

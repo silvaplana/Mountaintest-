@@ -48,3 +48,5 @@ Pendant un appel, l'appui long montre toujours l'endroit aux autres. Trace chois
 
 ## Tracé au doigt ✏ (Seb, 25/11)
 « recaler sur sentiers » est toujours décoché quand on ouvre ✏ ; le dernier choix n'est pas retenu.
+Avec ✏ ouvert, la carte se déplace et se zoome normalement ; un APPUI LONG d'un doigt (0,45 s, une vibration) démarre
+le trait, on glisse sans lever ; un appui TRÈS LONG sans bouger (1,4 s, deux vibrations) ouvre le rectangle de sélection.

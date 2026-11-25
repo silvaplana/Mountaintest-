@@ -165,10 +165,10 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   useEffect(() => {
     if (!glisse) return;
     for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'none');
-    if (map.getLayer('trails')) map.setFilter('trails', ['!=', ['get', 'id'], trail.id]);
+    for (const l of ['trails', 'trails-casing']) if (map.getLayer(l)) map.setFilter(l, ['!=', ['get', 'id'], trail.id]);
     return () => {
       for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'visible');
-      if (map.getLayer('trails')) map.setFilter('trails', null);
+      for (const l of ['trails', 'trails-casing']) if (map.getLayer(l)) map.setFilter(l, null);
     };
   }, [map, glisse, trail.id]);
 
