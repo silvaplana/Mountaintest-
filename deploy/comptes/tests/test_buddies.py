@@ -25,13 +25,32 @@ def par_nom(r, nom):
     return next(g for g in r["groupes"] if g["nom"] == nom)
 
 
-def test_me_time_cree_a_la_premiere_synchro(client):
-    r = sync(client)
-    assert [g["nature"] for g in r["groupes"]] == ["me_time"]
-    me = r["groupes"][0]
-    assert me["nom"] == "Me Time" and me["membres"][0]["role"] == "admin"
-    # Même Me Time à la synchro suivante (et sur un autre téléphone de la même personne).
-    assert sync(client)["ids"] == [me["id"]]
+def ancien_me_time(sub, avec_sortie):
+    """Un Me Time d'avant le 25 novembre, posé directement en base (le serveur n'en crée plus)."""
+    import buddies
+    import serveur
+    from modeles import Groupe, Membre, Sortie, Utilisateur
+    with serveur.Sessions() as s:
+        u = s.scalar(buddies.select(Utilisateur).where(Utilisateur.logto_id == sub))
+        gid = uuid.uuid5(buddies.ESPACE_ME_TIME, str(u.id))
+        s.add(Groupe(id=gid, nom="Me Time", nature="me_time", cree_par=u.id))
+        s.flush()
+        s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role="admin"))
+        if avec_sortie:
+            s.add(Sortie(id=uuid.uuid4(), groupe_id=gid, nom="Sainte-Victoire", debut="2026-11-29", fin="2026-11-29", cree_par=u.id))
+        s.commit()
+        return str(gid)
+
+
+def test_plus_de_me_time(client):
+    """Seb, 25 novembre : le Me Time disparaît, effacé avec ses Buddy Times (choix « Tout effacer »)."""
+    assert sync(client)["groupes"] == []
+    vide = ancien_me_time("seb", avec_sortie=False)
+    assert vide not in sync(client)["ids"]
+    sync(client, sub="julie")
+    ancien_me_time("julie", avec_sortie=True)
+    r = sync(client, sub="julie")
+    assert r["ids"] == [] and r["ids_sorties"] == []
 
 
 def test_creer_un_groupe_hors_ligne_puis_renvoyer(client):
@@ -41,7 +60,7 @@ def test_creer_un_groupe_hors_ligne_puis_renvoyer(client):
     assert g["id"] == op["groupe"] and g["nature"] == "bande"
     # Réponse perdue : le téléphone renvoie la même opération, rien n'est créé deux fois.
     r = sync(client, ops=[op])
-    assert len(r["ids"]) == 2 and r["refus"] == []
+    assert len(r["ids"]) == 1 and r["refus"] == []
 
 
 def test_inviter_puis_rejoindre_par_le_lien(client):
@@ -76,7 +95,7 @@ def test_nouveautes_depuis(client):
     curseur = r["curseur"]
     # Rien de neuf : liste vide, mais les ids disent toujours quels groupes garder.
     r2 = sync(client, depuis=curseur)
-    assert len(r2["ids"]) == 2
+    assert len(r2["ids"]) == 1
     # Après la marge de 5 s le même curseur ne renverrait plus rien ; ici on vérifie seulement le format.
     assert all("membres" in g for g in r2["groupes"])
 
@@ -123,10 +142,6 @@ def test_operations_refusees(client, op):
     assert r["refus"][0]["id"] == "o"
 
 
-def test_pas_d_invitation_dans_me_time_et_on_ne_le_quitte_pas(client):
-    me = sync(client)["ids"][0]
-    r = sync(client, ops=[invitation(me), {"id": "q", "type": "quitter", "groupe": me}])
-    assert len(r["refus"]) == 2 and r["ids"] == [me]
 
 
 def test_groupe_d_un_autre_invisible(client):
@@ -190,23 +205,23 @@ def test_buddy_time_dans_un_groupe(client):
     assert sync(client, sub="luc")["ids_sorties"] == []
 
 
-def test_buddy_time_dans_me_time_avant_la_premiere_synchro(client):
-    op = nouvelle_sortie("me-time", nom="Sainte-Victoire", debut="2026-11-29", fin="2026-11-29")
-    r = sync(client, ops=[op])
-    me = next(g for g in r["groupes"] if g["nature"] == "me_time")
-    assert r["sorties"][0]["groupe"] == me["id"]
+def test_ancien_telephone_range_dans_me_time(client):
+    """Un téléphone pas encore à jour range une sortie dans « me-time » : refusé, il dit de choisir un Buddy Group."""
+    r = sync(client, ops=[nouvelle_sortie("me-time")])
+    assert "Buddy Group" in r["refus"][0]["raison"] and r["ids_sorties"] == []
 
 
-def test_inviter_un_copain_a_une_sortie_de_me_time(client):
-    op = nouvelle_sortie("me-time")
+def test_inviter_un_copain_a_une_seule_sortie(client):
+    g = nouveau_groupe()
+    op = nouvelle_sortie(g["groupe"])
     inv = {**invitation(None, code="SortieCode0123456789"), "groupe": None, "sortie": op["sortie"]}
-    r = sync(client, ops=[op, inv])
+    r = sync(client, ops=[g, op, inv])
     assert r["refus"] == [] and r["sorties"][0]["invitations"][0]["nom"] == "Julie"
     assert client.get("/invitations/SortieCode0123456789").json()["sortie"] is True
-    # Paul rejoint la sortie, sans entrer dans le Me Time de Seb.
+    # Paul rejoint la sortie, sans entrer dans le Buddy Group de Seb.
     rp = sync(client, sub="paul", ops=[{"id": "p", "type": "rejoindre", "code": "SortieCode0123456789"}])
     assert rp["ids_sorties"] == [op["sortie"]]
-    assert len(rp["ids"]) == 1  # seulement son propre Me Time
+    assert rp["ids"] == []
     assert len(sync(client)["sorties"][0]["participants"]) == 2
 
 
@@ -232,16 +247,19 @@ def test_partager_une_trace_dans_un_buddy_time_et_un_groupe(client):
     {"nom": "  "},
 ])
 def test_buddy_time_refuse(client, mauvais):
-    op = {**nouvelle_sortie("me-time"), **mauvais}
-    assert sync(client, ops=[op])["refus"]
+    g = nouveau_groupe()
+    op = {**nouvelle_sortie(g["groupe"]), **mauvais}
+    assert sync(client, ops=[g, op])["refus"]
 
 
 def test_trace_refusee(client):
-    op = {"id": "t", "type": "partager_trace", "trace": str(uuid.uuid4()), "groupe": "me-time", "nom": "x", "ligne": [[1, 2]]}
-    assert sync(client, ops=[op])["refus"]
+    g = nouveau_groupe()
+    op = {"id": "t", "type": "partager_trace", "trace": str(uuid.uuid4()), "groupe": g["groupe"], "nom": "x", "ligne": [[1, 2]]}
+    assert sync(client, ops=[g, op])["refus"]
     # Buddy Time d'un autre : invisible
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     op = {**op, "ligne": [[1, 2], [3, 4]], "groupe": None, "sortie": so["sortie"]}
     assert sync(client, sub="luc", ops=[op])["refus"]
 
@@ -279,7 +297,6 @@ def test_planning_de_saison(client):
 
 
 @pytest.mark.parametrize("mauvais", [
-    {"groupe": "me-time"},
     {"dates": []},
     {"dates": [["2026-12-06", "2026-12-05"]]},
     {"limite": "30/11"},
@@ -376,8 +393,9 @@ def test_album_film_du_survol(client, photos):
 
 
 def test_photo_refusee(client, photos):
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     assert sync(client, ops=[nouvelle_photo(so["sortie"], prise_le="hier")])["refus"]
     assert sync(client, sub="luc", ops=[nouvelle_photo(so["sortie"])])["refus"]  # Buddy Time d'un autre
     # Sans position (photo sans GPS) : acceptée.
@@ -426,14 +444,16 @@ def test_carnet_recits_fiches_conditions(client):
     {"type": "fiche", "jour": "2026-12-12", "distance": "loin"},
 ])
 def test_fiche_refusee(client, mauvais):
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     assert sync(client, ops=[op(sortie=so["sortie"], **mauvais)])["refus"]
 
 
 def test_carnet_d_un_autre_refuse(client):
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     for o in (op("recit", sortie=so["sortie"], texte="intrus"), op("carnet", sortie=so["sortie"], meteo="pluie")):
         assert sync(client, sub="luc", ops=[o])["refus"]
     c = sync(client)["sorties"][0]["carnet"]
@@ -527,10 +547,9 @@ def test_position_partagee_avec_un_buddy_group_hors_buddy_time(client):
                       op("position", groupe=gid, lat=45, lon=7, prise_le=T0 + 600_000)])
     p, = sync(client, sub="julie")["positions"]
     assert p["jusqu"] == T0 + 120_000 and p["lat"] == 44.61
-    # Luc, hors du groupe, ne voit rien et ne peut pas s'y épingler ; le Me Time est refusé.
+    # Luc, hors du groupe, ne voit rien et ne peut pas s'y épingler.
     assert sync(client, sub="luc")["positions"] == []
     assert sync(client, sub="luc", ops=[op("epingle", groupe=gid, enfoncee=True, quand=T0, jusqu=T0 + 1000)])["refus"]
-    assert sync(client, ops=[op("epingle", groupe="me-time", enfoncee=True, quand=T0, jusqu=T0 + 1000)])["refus"]
 
 
 def nouvel_hebergement(sid, nom="Gîte Les Baladins", **k):
@@ -754,16 +773,12 @@ def test_bud_supprime_un_buddy_time(client, photos):
     assert so["sortie"] in sync(client, sub="julie")["ids_sorties"]
 
 
-def test_renommer_un_buddy_group_et_le_me_time(client):
+def test_renommer_un_buddy_group(client):
     gid, julie = bande_avec_julie(client)
     assert sync(client, sub="julie", ops=[{"id": "v", "type": "renommer_groupe", "groupe": gid, "nom": " "}])["refus"]
     sync(client, sub="julie", ops=[{"id": "n", "type": "renommer_groupe", "groupe": gid, "nom": "La Ciotat  ski club"}])
     assert next(g for g in sync(client)["groupes"] if g["id"] == gid)["nom"] == "La Ciotat ski club"
     assert sync(client, sub="luc", ops=[{"id": "l", "type": "renommer_groupe", "groupe": gid, "nom": "Pirate"}])["refus"]
-    # Mon Me Time, à mon nom, sans toucher celui des autres.
-    sync(client, ops=[{"id": "m", "type": "renommer_groupe", "groupe": "me-time", "nom": "Mes sorties solo"}])
-    noms = lambda sub: {g["nature"]: g["nom"] for g in sync(client, sub=sub)["groupes"]}  # noqa: E731
-    assert noms("seb")["me_time"] == "Mes sorties solo" and noms("julie")["me_time"] == "Me Time"
 
 
 def test_renommer_un_buddy_time(client):

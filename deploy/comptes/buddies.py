@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
@@ -68,17 +68,25 @@ def photo_valide(p: Any) -> str | None:
     return p
 
 
-def me_time(s: Session, u: Utilisateur) -> Groupe:
-    """Le Me Time de la personne, créé à la première synchro."""
-    gid = uuid.uuid5(ESPACE_ME_TIME, str(u.id))
-    g = s.get(Groupe, gid)
-    if g is None:
-        g = Groupe(id=gid, nom="Me Time", nature="me_time", cree_par=u.id)
-        s.add(g)
-        s.flush()
-        s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role="admin"))
-        s.flush()
-    return g
+def ranger_me_time(s: Session, u: Utilisateur) -> None:
+    """Le Me Time n'existe plus (Seb, 25 novembre : « celui qui veut ses sorties perso se crée un Buddy Group »).
+    À la synchro, l'ancien Me Time de la personne est effacé avec tout ce qu'il contient, pour tout le monde
+    (choix de Seb : « Tout effacer ») : ses Buddy Times et, par cascade de la base, leurs traces, photos (fichiers
+    compris), dépenses, messages, hébergements, positions, carnets."""
+    g = s.get(Groupe, uuid.uuid5(ESPACE_ME_TIME, str(u.id)))
+    if g is None or g.nature != "me_time":
+        return
+    sids = list(s.scalars(select(Sortie.id).where(Sortie.groupe_id == g.id)))
+    photos = list(s.scalars(select(Photo.id).where(Photo.sortie_id.in_(sids)))) if sids else []
+    s.execute(delete(Sortie).where(Sortie.groupe_id == g.id))
+    s.execute(delete(Groupe).where(Groupe.id == g.id))
+    s.expire_all()
+    for pid in photos:
+        for taille in TAILLES:
+            try:
+                os.remove(fichier_photo(pid, taille))
+            except OSError:
+                pass
 
 
 def duo(s: Session, u: Utilisateur, op: dict) -> None:
@@ -105,8 +113,9 @@ def toucher(g: Groupe) -> None:
 
 
 def groupe_de(s: Session, u: Utilisateur, gid: Any, admin: bool = False) -> Groupe:
-    # « me-time » : le téléphone n'avait pas encore reçu l'identifiant de son Me Time.
-    g = me_time(s, u) if gid == "me-time" else s.get(Groupe, uuid.UUID(str(gid)))
+    if gid == "me-time":  # ancien téléphone : le Me Time n'existe plus
+        raise Refus("Choisis un Buddy Group (le Me Time n'existe plus)")
+    g = s.get(Groupe, uuid.UUID(str(gid)))
     m = membre(s, g.id, u.id) if g else None
     if g is None or m is None:
         raise Refus("Buddy Group inconnu")
@@ -130,7 +139,7 @@ def creer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def renommer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
-    """Changer le nom d'un Buddy Group (tout membre, comme un groupe WhatsApp) ou de son Me Time (Seb, 25 novembre)."""
+    """Changer le nom d'un Buddy Group (tout membre, comme un groupe WhatsApp ; Seb, 25 novembre)."""
     g = groupe_de(s, u, op["groupe"])
     if g.nature == "duo":
         raise Refus("Une discussion à deux n'a pas de nom")
@@ -949,7 +958,7 @@ def vue_groupe(s: Session, g: Groupe) -> dict[str, Any]:
 
 def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None) -> dict[str, Any]:
     debut = maintenant()
-    me_time(s, u)
+    ranger_me_time(s, u)
     refus = []
     nouveaux = []
     for op in ops:

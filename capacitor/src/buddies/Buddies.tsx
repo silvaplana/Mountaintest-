@@ -412,7 +412,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
-  const meTime = groupes.find((x) => x.nature === 'me_time')!;
+  // Ancien Me Time (retiré, Seb 25 novembre) : tant qu'un téléphone en garde un avant la synchro, on l'écarte comme avant.
+  const meTime = groupes.find((x) => x.nature === 'me_time');
   // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
   const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' || vue.ecran === 'conv' ? vue.id : undefined;
   // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
@@ -420,14 +421,14 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // 🏨 : « Où on dort ? » du Buddy Time ouvert, sinon la recherche d'hébergement.
   const colonne = <Colonne onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
-    onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
+    onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
-    onPosition={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime.id ? ici : undefined, sortie: sortieIci })}
+    onPosition={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
     onMessages={() => {
       // 💬 : la conversation du Buddy Time ouvert (sur sa carte), sinon celle du Buddy Group ouvert, sinon toutes.
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
       if (x) ouvrir(x, true);
-      else if (vue.ecran === 'groupe' && vue.id !== meTime.id) setVue({ ecran: 'conv', id: vue.id });
+      else if (vue.ecran === 'groupe' && vue.id !== meTime?.id) setVue({ ecran: 'conv', id: vue.id });
       else setVue({ ecran: 'messages', groupe: ici });
     }}
     onAppel={() => {
@@ -498,14 +499,37 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onSortie={ouvrir} onRemplir={() => setVue({ ecran: 'dispos', id: pl.id, groupe: vue.groupe })} onRetour={() => retourPlannings(vue.groupe)} />
       : vue.ecran === 'dispos' && pl ? <MesDispos p={pl} onClose={onClose} onRetour={() => setVue({ ecran: 'planning', id: pl.id, groupe: vue.groupe })} />
       : vue.ecran === 'nouveau' ? <Nouveau onToast={onToast} onFini={(id) => setVue({ ecran: 'groupe', id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-      : vue.ecran === 'sortie' ? <NouvelleSortie g={groupes.find((x) => x.id === vue.groupe) ?? meTime} onToast={onToast} onClose={onClose}
-        onRetour={() => setVue(vue.groupe === meTime.id ? { ecran: 'liste' } : { ecran: 'groupe', id: vue.groupe })}
+      : vue.ecran === 'sortie' && !groupes.some((x) => x.id === vue.groupe)
+        ? <ChoixGroupe groupes={groupes.filter((x) => x.nature === 'bande')} onChoix={(id) => setVue({ ecran: 'sortie', groupe: id })}
+          onNouveau={() => setVue({ ecran: 'nouveau' })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
+      : vue.ecran === 'sortie' ? <NouvelleSortie g={groupes.find((x) => x.id === vue.groupe)!} onToast={onToast} onClose={onClose}
+        onRetour={() => setVue({ ecran: 'groupe', id: vue.groupe })}
         onFini={(id) => { const x = vueSorties(lire()).sorties.find((y) => y.id === id); if (x) ouvrir(x); }} />
       : g ? <UnGroupe g={g} plannings={plannings.filter((x) => x.groupe === g.id)} onRemplir={remplir} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
         onToast={onToast} onOuvrir={voir} onTrace={(t) => onCarte({ traces: [t] })}
         onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
         : <Liste e={e} groupes={groupes.filter((x) => x.nature !== 'duo')} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
-          onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: meTime.id })} onClose={onClose} onToast={onToast} />}
+          onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: '' })} onClose={onClose} onToast={onToast} />}
+  </div>;
+}
+
+/** ＋ Buddy Time depuis la liste : dans quel Buddy Group ? (plus de Me Time : Seb, 25 novembre). */
+function ChoixGroupe({ groupes, onChoix, onNouveau, onRetour, onClose }: {
+  groupes: Groupe[]; onChoix: (id: string) => void; onNouveau: () => void; onRetour: () => void; onClose: () => void;
+}) {
+  return <div className="bd-corps">
+    <div className="xp-head">
+      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau Buddy Time</h2>
+      <button onClick={onClose} aria-label="Fermer">✕</button>
+    </div>
+    <h3 className="bd-section">Dans quel Buddy Group ?</h3>
+    {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onChoix(g.id)}>
+      <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} />
+      <span className="bd-texte"><b>{g.nom}</b><small>{resume(g)}</small></span>
+    </button>)}
+    {!groupes.length && <p className="bd-vide">Crée d'abord un Buddy Group : une bande de copains, ou rien que toi pour tes sorties perso.</p>}
+    <span style={{ flex: 1 }} />
+    <button className={groupes.length ? 'bd-grand' : 'primary bd-grand'} onClick={onNouveau}>＋ Buddy Group</button>
   </div>;
 }
 

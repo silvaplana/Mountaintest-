@@ -24,7 +24,7 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 | **Buddies** | L'espace entier, ouvert par 👥 dans la barre étendue de la carte. |
 | **Buddy Group** | Une bande de copains (comme une conversation de groupe). |
 | **Buddy Time** | Une sortie ou un week-end passé ensemble. |
-| **Me Time** | Le Buddy Group par défaut de chacun : ses sorties à lui, où il peut inviter des copains à une sortie. Nom accepté du bout des lèvres, modifiable. |
+| ~~Me Time~~ | **Retiré** (Seb, 25 novembre 2026 : « il vaudrait mieux qu'il n'existe pas ; celui qui veut se créer un Buddy Group avec ses sorties perso, il le fait »). Voir §5.4. |
 | **Buddy count** | Le partage des frais (l'actuel « partage des frais » du menu Voyage). |
 | **Carnet** | Le compte rendu final d'un Buddy Time. |
 | **buddy** | Une personne d'un de mes Buddy Groups ou Buddy Times. |
@@ -169,7 +169,8 @@ sa gauche, on en choisit une.
   depuis une ligne du planning (§5.5), ou par « ＋ Buddy Time ». La préparation peut donc se
   faire hors du Buddy Time (dans le planning du groupe) ou dedans. **(Seb)**
 - Créé dans un Buddy Group, il appartient à ce groupe ; on décoche ceux qui ne viennent pas.
-  Créé depuis la liste, sans groupe choisi, il va dans Me Time. **(Seb)**
+  Créé depuis la liste (« ＋ Buddy Time »), on choisit d'abord son Buddy Group ; sans Buddy Group, on en crée un
+  (même rien que pour soi). **(Seb, 25 novembre 2026 : plus de Me Time)**
 - Dans Me Time, on peut inviter un ou plusieurs copains à une sortie sans créer de Buddy
   Group. **(Seb)**
 - Création : photo, nom, dates, lieu facultatif.
@@ -180,8 +181,12 @@ sa gauche, on en choisit une.
   seulement à celui qui l'a créé et aux admins du Buddy Group. Supprimé tout de suite, « Annuler » 10 secondes, puis
   retour aux Buddies. Rien n'est effacé sur le serveur (même opération que Bud, §7.12).
 - **Renommer un Buddy Group** (Seb, 25 novembre 2026) : crayon au trait en haut de l'écran du Buddy Group (ou toucher
-  son nom), feuille « Nom du Buddy Group ». Tout membre peut le faire (opération `renommer_groupe`). Le Me Time aussi,
-  pour soi seul, en attendant sa disparition (Seb : « il vaudrait mieux qu'il n'existe pas »).
+  son nom), feuille « Nom du Buddy Group ». Tout membre peut le faire (opération `renommer_groupe`).
+- **Plus de Me Time** (Seb, 25 novembre 2026) : le serveur n'en crée plus. À la synchro, l'ancien Me Time de chacun
+  est **effacé avec tout ce qu'il contient**, pour tout le monde (choix de Seb : « Tout effacer ») : ses Buddy Times
+  et leurs traces, photos (fichiers compris), dépenses, messages, hébergements, carnets. Un téléphone pas encore à
+  jour qui range une sortie dans « me-time » est refusé (« Choisis un Buddy Group »). Le paragraphe suivant (inviter
+  à une seule sortie sans Buddy Group) ne vaut plus.
 - Crayon et poubelle aussi **à côté de chaque Buddy Time** des listes (Seb, 25 novembre 2026) : la liste des Buddies
   (l'heure de la ligne laisse sa place) et les affiches d'un Buddy Group (en haut à droite de l'image). Le crayon
   ouvre une feuille « Nom du Buddy Time » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.
@@ -755,7 +760,7 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
 ## 9. Points ouverts
 
-1. Le nom « Me Time » : accepté « pourquoi pas », à confirmer.
+1. ~~Le nom « Me Time »~~ : Me Time retiré (25 novembre 2026).
 2. La portée de la colonne dans la liste (tous mes buddies à la fois) : à confirmer.
 3. ~~📍 dans la colonne~~ : faite pour tout Buddies (§7.14). L'icône 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
    haut de la liste : à confirmer.
