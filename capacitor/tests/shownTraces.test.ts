@@ -14,6 +14,11 @@ describe('traces gardées à la fermeture', () => {
     expect(st.navId).toBe(-2);
     expect(st.navPaused).toBe(true);
   });
+  it('garde le Buddy Time associé 👥', () => {
+    const lien = { groupe: 'g1', sortie: 's1' };
+    expect(decodeShown(encodeShown([{ ...mine, lien }], null, false)).trails[0].lien).toEqual(lien);
+    expect(decodeShown(encodeShown([mine], null, false)).trails[0].lien).toBeNull();
+  });
   it('garde les points piqués 📍 et leur mot', () => {
     const pins = [{ lon: 5.605, lat: 43.2, txt: 'Source', vu: true }, { lon: 5.606, lat: 43.2, txt: '', vu: false }];
     const st = decodeShown(encodeShown([{ ...mine, pins }], null, false));

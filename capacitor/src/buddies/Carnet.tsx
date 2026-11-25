@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { TracesAssociees } from './Associer';
 import { Capacitor } from '@capacitor/core';
 import { nomAffiche } from '../compte/auth';
 import { Image } from './Album';
@@ -130,6 +131,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
       <ProfilCarnet traces={tc} reliefs={reliefs} />
     </>}
     <Tuiles l={tuiles.map((t) => t.vide ? { ...t, v: '+' } : t)} />
+    <TracesAssociees x={x} traces={traces} onVoir={() => onCarte()} onToast={onToast} />
     {c.conditions && <p className="bd-conditions"><b>Conditions</b> {c.conditions}</p>}
     {fs.map((f) => <FicheJour key={f.jour} f={f} photos={(choix.auto ? photos : choix.photos).filter((p) => p.prise_le.startsWith(f.jour))} />)}
     <button className="bd-pratique" onClick={() => setPratique(!pratique)} aria-expanded={pratique}>
@@ -138,7 +140,6 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
       {x.lieu && <p>📍 {x.lieu}</p>}
       <p>👥 {x.participants.map((p) => p.pseudo).join(', ')}</p>
       <button className="bd-lien" onClick={onCount}>💶 {depenses.length ? `${euros(depenses.reduce((n, d) => n + d.montant, 0))} à ${x.participants.length} · les comptes ›` : 'Buddy count ›'}</button>
-      {traces.map((t) => <p key={t.id}>〰 {t.nom} <small>par {t.par.pseudo}</small></p>)}
       <p className="hint">L’hébergement et les messages s’ajouteront ici.</p>
     </div>}
     <span style={{ flex: 1 }} />

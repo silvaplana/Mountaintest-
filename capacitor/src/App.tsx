@@ -24,7 +24,9 @@ import { PointSurCarte } from './buddies/Messages';
 import { PositionsBuddiesSurCarte, useEpingle } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { montrer } from './buddies/appel';
-import { lire as lireBuddies, nouveautes, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
+import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
+import { AssocierPanel } from './buddies/Associer';
+import { nomLien, noterOuvert } from './buddies/recents';
 import { useNotifMessages } from './buddies/notifs';
 import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
 import { LodgingsOnMap } from './LodgingMap';
@@ -50,7 +52,7 @@ import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { TraceList, TraceMenu } from './TraceMenu';
-import { defaultTraceName, deleteTrace, listTraces, readPins, saveTrace, traceLine, updateTrace, type SavedTrace } from './trails/savedTraces';
+import { defaultTraceName, deleteTrace, listTraces, readLien, readPins, saveTrace, traceLine, updateTrace, type SavedTrace } from './trails/savedTraces';
 import { TraceEdit } from './TraceEdit';
 import { PinLayer } from './PinLayer';
 import { SelectBox, type Prise } from './SelectBox';
@@ -250,7 +252,9 @@ export function App() {
   const [selection, setSelection] = useState<{ x: number; y: number } | null>(null);
   const [pique, setPique] = useState(false);
   const [pinEdit, setPinEdit] = useState<{ id: number; i: number } | null>(null);
-  useEffect(() => { if (!traceMenu) { setSurvol(false); setModifier(false); setPique(false); setPinEdit(null); } }, [traceMenu]);
+  /** 👥 Panneau « Associer à un Buddy Time » de la trace choisie. */
+  const [associer, setAssocier] = useState(false);
+  useEffect(() => { if (!traceMenu) { setAssocier(false); setSurvol(false); setModifier(false); setPique(false); setPinEdit(null); } }, [traceMenu]);
   const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
   const [drawnSlopes, setDrawnSlopes] = useState(false);
   const [drawnProfile, setDrawnProfile] = useState(false);
@@ -879,10 +883,10 @@ export function App() {
   }
 
   /** Ajoute une de mes traces (dessinée, enregistrée ou chargée), avec sa propre couleur, et ouvre son menu en bas. */
-  function showMine(line: LonLat[], o: { onPaths: boolean; name?: string; savedId?: number | null; kind?: string; pins?: Pin[] }) {
+  function showMine(line: LonLat[], o: { onPaths: boolean; name?: string; savedId?: number | null; kind?: string; pins?: Pin[]; lien?: Trail['lien'] }) {
     const { id, color } = nextMine(trails);
     const base = drawnTrail(line, o.onPaths, id, color);
-    const t: Trail = { ...base, name: o.name ?? base.name, kind: o.kind ?? base.kind, savedId: o.savedId ?? null, pins: o.pins ?? [] };
+    const t: Trail = { ...base, name: o.name ?? base.name, kind: o.kind ?? base.kind, savedId: o.savedId ?? null, pins: o.pins ?? [], lien: o.lien ?? null };
     setTrails((prev) => [t, ...prev]);
     void selectTrail(t);
     return t;
@@ -897,12 +901,15 @@ export function App() {
     setCarteSortie(x.sortie ? { sortie: x.sortie, traces: x.traces, parler: x.parler } : null);
     setPointBuddy(x.point ?? null);
     setPositionsBuddy(x.positions ?? null);
+    if (x.sortie) noterOuvert('sorties', x.sortie.id);
     const pts: LonLat[] = [];
     for (const t of x.traces) {
       const line = t.ligne.map(([lon, lat]) => ({ lon, lat }));
       pts.push(...line);
       const kind = `Partagée par ${t.par.pseudo}`;
-      if (!trails.some((y) => isMine(y.id) && y.name === t.nom && y.kind === kind)) showMine(line, { onPaths: false, name: t.nom, kind });
+      // Elle arrive déjà associée à son Buddy Time (ou à son Buddy Group).
+      const lien = t.sortie ? { groupe: x.sortie?.groupe ?? t.groupe ?? '', sortie: t.sortie } : t.groupe ? { groupe: t.groupe, sortie: null } : null;
+      if (!trails.some((y) => isMine(y.id) && y.name === t.nom && y.kind === kind)) showMine(line, { onPaths: false, name: t.nom, kind, lien });
     }
     if (x.sortie) setTraceMenu(false);
     if (map && pts.length) {
@@ -910,6 +917,21 @@ export function App() {
       map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 70, maxZoom: 15, duration: 600 });
     }
   }
+
+  // 👥 Une trace associée au Buddy Time ouvert (depuis son bandeau, ou par un buddy) : elle s'ajoute à sa carte.
+  useEffect(() => {
+    if (!carteSortie) return;
+    const id = carteSortie.sortie.id;
+    const nouvelles = vueBuddies(buddiesEtat).traces.filter((t) => t.sortie === id && !carteSortie.traces.some((y) => y.id === t.id));
+    if (!nouvelles.length) return;
+    setCarteSortie({ ...carteSortie, traces: [...carteSortie.traces, ...nouvelles] });
+    for (const t of nouvelles) {
+      // Déjà sur la carte : la mienne, associée depuis son menu.
+      if (trails.some((y) => isMine(y.id) && y.name === t.nom && y.lien?.sortie === id)) continue;
+      const line = t.ligne.map(([lon, lat]) => ({ lon, lat }));
+      showMine(line, { onPaths: false, name: t.nom, kind: `Partagée par ${t.par.pseudo}`, lien: { groupe: carteSortie.sortie.groupe, sortie: id } });
+    }
+  }, [buddiesEtat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone : il s'ajoute aux traces affichées. */
   async function openTraceFile() {
@@ -949,20 +971,21 @@ export function App() {
     // Déjà affichée : on la sélectionne simplement.
     const shown = trails.find((x) => isMine(x.id) && x.savedId === st.id);
     if (shown) { void selectTrail(shown); return; }
-    showMine(traceLine(st), { onPaths: st.onPaths, name: st.name, savedId: st.id, pins: readPins(st.pins) });
+    showMine(traceLine(st), { onPaths: st.onPaths, name: st.name, savedId: st.id, pins: readPins(st.pins), lien: readLien(st.lien) });
   }
 
   /**
    * ✏ / 📍 Une de mes traces change (forme ou points) : sur la carte tout de suite, et dans 📂 Mes traces si
    * elle y est enregistrée (son fichier GPX suit la nouvelle forme).
    */
-  function changeMine(id: number, patch: { line?: LonLat[]; pins?: Pin[] }) {
+  function changeMine(id: number, patch: { line?: LonLat[]; pins?: Pin[]; lien?: Trail['lien'] }) {
     const cur = trails.find((x) => x.id === id);
     if (!cur) return;
-    const t: Trail = { ...cur, ...(patch.line ? { segments: [patch.line], distanceM: lineLengthM(patch.line) } : {}), ...(patch.pins ? { pins: patch.pins } : {}) };
+    const t: Trail = { ...cur, ...(patch.line ? { segments: [patch.line], distanceM: lineLengthM(patch.line) } : {}), ...(patch.pins ? { pins: patch.pins } : {}),
+      ...('lien' in patch ? { lien: patch.lien ?? null } : {}) };
     setTrails((prev) => prev.map((x) => (x.id === id ? t : x)));
     setSelected((s) => (s?.id === id ? t : s));
-    if (t.savedId != null) void updateTrace(t.savedId, t.segments.flat(), t.pins ?? []).then((st) => { if (st && patch.line) void writeTraceFile(st); });
+    if (t.savedId != null) void updateTrace(t.savedId, t.segments.flat(), t.pins ?? [], t.lien ?? null).then((st) => { if (st && patch.line) void writeTraceFile(st); });
   }
 
   async function saveDrawn() {
@@ -970,7 +993,7 @@ export function App() {
     const name = window.prompt('Nom de la trace', defaultTraceName())?.trim();
     if (name == null) return;
     try {
-      const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), selected.onPaths ?? false, selected.pins ?? []);
+      const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), selected.onPaths ?? false, selected.pins ?? [], selected.lien ?? null);
       void writeTraceFile(st);
       const t = { ...selected, name: st.name, savedId: st.id };
       setSelected(t);
@@ -999,7 +1022,7 @@ export function App() {
     setPinEdit(null);
     return () => {
       setTrails((prev) => [...avant.filter((x) => p.traces.includes(x.id)), ...prev.map((x) => avant.find((y) => y.id === x.id) ?? x)]);
-      for (const id of pins.keys()) { const t = avant.find((x) => x.id === id); if (t?.savedId != null) void updateTrace(t.savedId, t.segments.flat(), t.pins ?? []); }
+      for (const id of pins.keys()) { const t = avant.find((x) => x.id === id); if (t?.savedId != null) void updateTrace(t.savedId, t.segments.flat(), t.pins ?? [], t.lien ?? null); }
     };
   }
 
@@ -1221,7 +1244,7 @@ export function App() {
           onStop: () => { setNavPaused(false); setDrawing(false); void stopFree(); } } : null} />}
       {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} paused={navPaused} nextJunctionM={nextJunction} onOpen={startDrawing} />}
       {survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
-        <Survol map={map} trail={selected} sortie={carteSortie?.sortie ?? null} sorties={lireBuddies().sorties} onClose={() => setSurvol(false)} onToast={setToast} />
+        <Survol map={map} trail={selected} sortie={(selected.lien?.sortie && vueBuddies(buddiesEtat).sorties.find((x) => x.id === selected.lien?.sortie)) || (carteSortie?.sortie ?? null)} sorties={lireBuddies().sorties} onClose={() => setSurvol(false)} onToast={setToast} />
       )}
       {modifier && !survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
         <TraceEdit key={selected.id} map={map} trail={selected} onToast={setToast}
@@ -1236,6 +1259,8 @@ export function App() {
       {!survol && !modifier && traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} onFilm={() => { setShowShade(false); setSurvol(true); }}
           onEdit={() => { setPique(false); setPinEdit(null); setModifier(true); }}
+          lien={selected.lien ? nomLien(selected.lien, vueBuddies(buddiesEtat).sorties, groupesBuddies(buddiesEtat)) : null}
+          onAssocier={() => setAssocier(true)}
           pique={pique} onPique={() => { setPinEdit(null); setPique((v) => !v); }}
           pin={pinEdit?.id === selected.id ? selected.pins?.[pinEdit.i] ?? null : null}
           onPinText={(txt) => { if (pinEdit) changeMine(pinEdit.id, { pins: (selected.pins ?? []).map((p, i) => (i === pinEdit.i ? { ...p, txt, vu: true } : p)) }); }}
@@ -1353,6 +1378,16 @@ export function App() {
         onCount={() => { setBuddiesDepart({ ecran: 'count', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onDodo={() => { setBuddiesDepart({ ecran: 'dodo', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onToast={setToast} map={map} />}
+      {associer && traceMenu && selected && isMine(selected.id) && <AssocierPanel nom={selected.name} lien={selected.lien ?? null}
+        ouverte={carteSortie?.sortie ?? null} onFermer={() => setAssocier(false)}
+        onChoisir={(l) => {
+          changeMine(selected.id, { lien: l });
+          if (!l) { setToast(`« ${selected.name} » n'est plus associée`); return; }
+          // Associée = partagée là-bas : elle apparaît sur la carte du Buddy Time pour mes buddies.
+          partagerTrace(selected.name, selected.segments.flat().map((p) => [p.lon, p.lat]), '', l.sortie ? { sorties: [l.sortie], groupes: [] } : { sorties: [], groupes: [l.groupe] });
+          const n = nomLien(l, vueBuddies(buddiesEtat).sorties, groupesBuddies(buddiesEtat));
+          setToast(navigator.onLine ? `✓ « ${selected.name} » est dans « ${n.titre} »` : `« ${selected.name} » ira dans « ${n.titre} » au retour du réseau 🕓`);
+        }} />}
       {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} hebergement={partage.hebergement} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
       {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
