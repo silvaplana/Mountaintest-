@@ -446,6 +446,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   marquée vidéo (colonne `photos.video`) : petite et grande = image de couverture, le film (MP4 ou
   WebM, 100 Mo au plus) part en plus (`PUT /buddies/photos/<id>/video`). Vignette avec ▶ ; en grand,
   le film se lit. Il compte comme arrivé quand le film est arrivé.
+- **Nom d'un film** (Seb, 26/11) : « Filmer » demande d'abord un nom, facultatif (sans nom : celui de la trace), puis
+  on touche « Filmer » à nouveau ; dans 📁 les derniers films, un crayon change le nom d'un film.
 - **Heure et lieu** : lus dans la photo (EXIF). Sans heure, celle du fichier ; sans lieu (le choix de
   photos d'Android retire parfois la position), la photo n'est pas sur la carte. Vidéos : plus tard.
 - **Serveur** : table `photos` (Buddy Time, auteur, heure, lieu, ⭐, arrivée) et opérations
