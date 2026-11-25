@@ -5,6 +5,7 @@ import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { ICON_HELP, SLOPE_LEGEND, SLOPE_TAGS_HELP, type IconKey } from './iconHelp';
+import { main } from './doigt';
 
 /** Plugins natifs (android/.../PocketMode.java et BatterySettings.java, identiques côté Kotlin). */
 const PocketMode = registerPlugin<{
@@ -224,7 +225,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
   const all = help || wide;
   const wx = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
   // Appui long sur une icône : bulle d'aide à sa gauche (pour ⛰, la légende des couleurs en degrés) ; toucher ailleurs la ferme.
-  const [tip, setTip] = useState<{ key: IconKey; top: number; right: number; maxWidth: number } | null>(null);
+  const [tip, setTip] = useState<{ key: IconKey; top: number; right?: number; left?: number; maxWidth: number } | null>(null);
   const tipPress = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
   const lp = (key: IconKey) => {
     const stop = () => { if (tipPress.current.timer) { clearTimeout(tipPress.current.timer); tipPress.current.timer = null; } };
@@ -235,7 +236,9 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         tipPress.current.timer = setTimeout(() => {
           tipPress.current.long = true;
           const r = el.getBoundingClientRect();
-          setTip({ key, top: Math.max(8, Math.min(r.top, window.innerHeight - 260)), right: window.innerWidth - r.left + 8, maxWidth: Math.max(160, r.left - 16) });
+          setTip({ key, top: Math.max(8, Math.min(r.top, window.innerHeight - 260)), ...(main() === 'gaucher'
+            ? { left: r.right + 8, maxWidth: Math.max(160, window.innerWidth - r.right - 16) }
+            : { right: window.innerWidth - r.left + 8, maxWidth: Math.max(160, r.left - 16) }) });
         }, 550);
       },
       onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop,
@@ -246,7 +249,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
   };
   // Règle générale (Seb, 24/11) : appui long sur un bouton qui a des variantes = elles s'ouvrent à sa gauche,
   // on en touche une (une seule à la fois) ; toucher ailleurs ferme.
-  const [pick, setPick] = useState<{ kind: 'activity' | 'layer' | 'locate'; top: number; right: number } | null>(null);
+  const [pick, setPick] = useState<{ kind: 'activity' | 'layer' | 'locate'; top: number; right?: number; left?: number } | null>(null);
   const lpPick = (kind: 'activity' | 'layer' | 'locate') => ({
     ...lp(kind === 'activity' ? 'skiText' : kind === 'locate' ? 'locate' : 'layer'),
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
@@ -257,14 +260,14 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         tipPress.current.long = true;
         const r = el.getBoundingClientRect();
         setPairOpen(null);
-        setPick({ kind, top: r.top + r.height / 2, right: window.innerWidth - r.left + 6 });
+        setPick({ kind, top: r.top + r.height / 2, ...(main() === 'gaucher' ? { left: r.right + 6 } : { right: window.innerWidth - r.left + 6 }) });
       }, 550);
     },
   });
   return (
     <>
     {tip && <div className="tip-close" onPointerDown={() => setTip(null)} onContextMenu={(e) => e.preventDefault()}>
-      <div className="icon-tip" style={{ top: tip.top, right: tip.right, maxWidth: tip.maxWidth }}>
+      <div className="icon-tip" style={{ top: tip.top, right: tip.right, left: tip.left, maxWidth: tip.maxWidth }}>
         <b>{ICON_HELP[tip.key].title}</b>
         <p>{ICON_HELP[tip.key].text}</p>
         {tip.key === 'slopes' && <>
@@ -276,7 +279,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
       </div>
     </div>}
     {pick && <div className="tip-close" onPointerDown={(e) => { if (e.target === e.currentTarget) setPick(null); }} onContextMenu={(e) => e.preventDefault()}>
-      <div className="variants" style={{ top: pick.top, right: pick.right }}>
+      <div className="variants" style={{ top: pick.top, right: pick.right, left: pick.left }}>
         {pick.kind === 'locate'
           ? <button aria-label="Rechercher un lieu" onClick={() => { setPick(null); onSearch(); }}>🔍</button>
           : pick.kind === 'activity'
