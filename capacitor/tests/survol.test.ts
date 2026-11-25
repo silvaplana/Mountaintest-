@@ -165,7 +165,7 @@ describe('survol 3D : styles de prise de vue', () => {
     for (let i = 1; i < t.length; i++) expect(t[i].d).toBeGreaterThanOrEqual(t[i - 1].d - 1e-6);
     const fin = t[t.length - 1];
     expect(Math.abs(fin.point.lat - 45.0)).toBeLessThan(0.0005); // retour au départ
-    expect(cameraA(t, 0.9).pitch).toBeGreaterThan(70); // descente GoPro, au ras de la pente
+    expect(cameraA(t, 0.9).pitch).toBeGreaterThan(60); // descente GoPro, regard penché dans la pente
   });
 
   it('sans relief, alpiniste et ciné font un simple suivi', () => {
@@ -259,5 +259,24 @@ describe('survol 3D : jamais dans la montagne, mouvements lissés', () => {
     for (let i = 100; i < 500; i++) { const a = Math.abs(ecartAngle(track[i - 1].bearing, track[i].bearing)); max = Math.max(max, a); total += a; }
     expect(max).toBeLessThan(0.6);
     expect(total).toBeLessThan(100); // le virage de 90° et presque rien d'autre
+  });
+});
+
+describe('survol 3D : 🧗 la caméra se penche dans la pente', () => {
+  it('regard levé en montée, plongé en descente, dans les bornes', async () => {
+    const { dansLaPente, PITCH_GOPRO } = await import('../src/survol/camera');
+    expect(dansLaPente(60, 20)).toBe(70);
+    expect(dansLaPente(76, -30)).toBeCloseTo(53.5);
+    expect(dansLaPente(76, 30)).toBe(PITCH_GOPRO);
+    expect(dansLaPente(40, -40)).toBe(30);
+  });
+  it('en descente raide, la caméra regarde plus bas qu\'en descente douce', () => {
+    // Sommet au milieu de la trace ; descente raide (40 %) ou douce (5 %) après.
+    const s = (raide: number) => ({ alt: (p: { lon: number; lat: number }) => { const y = (p.lat - 45.0) * 110_540; return y < 2000 ? 1000 + y * 0.2 : 1400 - (y - 2000) * raide; }, sommets: [] });
+    const droite = Array.from({ length: 41 }, (_, i) => ({ lon: 6, lat: 45 + (i * 100) / 110_540 }));
+    const raide = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: s(0.4) });
+    const douce = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: s(0.05) });
+    const i = Math.round(600 * (0.15 + 0.85 * 0.85));
+    expect(raide[i].pitch).toBeLessThan(douce[i].pitch - 5);
   });
 });
