@@ -135,7 +135,8 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
   const tuiles = chiffres(x, tc, reliefs, fs);
   const [pratique, setPratique] = useState(false);
   const dist = tuiles.find((t) => t.l === 'distance'), montee = tuiles.find((t) => t.l === 'montée');
-  const couverture = choix.photos[0];
+  // En couverture : la première photo (pas le film) ; la toucher l'ouvre en grand, comme toutes les photos (Seb, 25/11).
+  const couverture = choix.photos.find((p) => !p.video) ?? choix.photos[0];
   const partager = async () => {
     const texte = texteCarnet(x, dates(x), tuiles, fs);
     try {
@@ -146,7 +147,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
   };
   return <div className="bd-corps bd-carnet">
     <div className="bd-couverture" style={x.photo ? { background: `linear-gradient(#0000 35%, #000a), center/cover url("${x.photo}")` } : undefined}>
-      {!x.photo && couverture && <Image p={couverture} taille="grande" className="bd-couverture-image" />}
+      {!x.photo && couverture && <span className="bd-couverture-image" role="button" aria-label="Voir la photo en grand" onClick={() => setOuverte(choix.photos.indexOf(couverture))}><Image p={couverture} taille="grande" className="bd-couverture-image" /></span>}
       <button onClick={onRetour} aria-label="Retour">‹</button>
       <button className="bd-fermer" onClick={onClose} aria-label="Fermer">✕</button>
       <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)} · {x.participants.map((p) => p.pseudo).join(', ')}</small></span>
