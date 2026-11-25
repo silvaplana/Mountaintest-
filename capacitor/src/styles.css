@@ -1166,17 +1166,17 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .account .acc-main-choix button { flex: 1; min-height: 48px; font-size: 17px; border-radius: 12px; }
 .account .acc-main-choix button.on { background: #2f9e5f; border-color: #2f9e5f; color: #fff; font-weight: 600; }
 
-/* Gaucher (👤 Mon compte, Seb 25/11) : la colonne d'icônes à gauche, sous la main ; le reste passe à droite. */
-.gaucher .quick { right: auto; left: 10px; align-items: flex-start; }
-.gaucher .quick .pair { flex-direction: row; }
-.gaucher .quick.help .pair { align-items: flex-start; }
-.gaucher .quick.help button::before { right: auto; left: 52px; }
-.gaucher .quick > button:not(.arrow), .gaucher .quick > .pair { margin-right: 0; margin-left: 6px; }
-.gaucher .layers, .gaucher .scale-bar { left: auto; right: 10px; }
-.gaucher .search, .gaucher .target, .gaucher .frame-banner, .gaucher .nav-bar { left: 64px; right: 10px; }
-.gaucher .shade-bar { left: 68px; right: 10px; }
-.gaucher .c2c-bar { left: 70px; right: 10px; }
-.gaucher .bd-carte-haut { left: 72px; right: 10px; }
-.gaucher .restore { right: auto; left: 12px; }
-.gaucher .frame-banner.draw-banner { left: 10px; right: 10px; }
-.gaucher .quick button.toggle.arrow { transform: scaleX(-1); }
+/* Icônes à gauche (👤 Mon compte, Seb 25/11) : la colonne d'icônes à gauche ; le reste passe à droite. */
+.icones-gauche .quick { right: auto; left: 10px; align-items: flex-start; }
+.icones-gauche .quick .pair { flex-direction: row; }
+.icones-gauche .quick.help .pair { align-items: flex-start; }
+.icones-gauche .quick.help button::before { right: auto; left: 52px; }
+.icones-gauche .quick > button:not(.arrow), .icones-gauche .quick > .pair { margin-right: 0; margin-left: 6px; }
+.icones-gauche .layers, .icones-gauche .scale-bar { left: auto; right: 10px; }
+.icones-gauche .search, .icones-gauche .target, .icones-gauche .frame-banner, .icones-gauche .nav-bar { left: 64px; right: 10px; }
+.icones-gauche .shade-bar { left: 68px; right: 10px; }
+.icones-gauche .c2c-bar { left: 70px; right: 10px; }
+.icones-gauche .bd-carte-haut { left: 72px; right: 10px; }
+.icones-gauche .restore { right: auto; left: 12px; }
+.icones-gauche .frame-banner.draw-banner { left: 10px; right: 10px; }
+.icones-gauche .quick button.toggle.arrow { transform: scaleX(-1); }

@@ -5,7 +5,7 @@ import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { ICON_HELP, SLOPE_LEGEND, SLOPE_TAGS_HELP, type IconKey } from './iconHelp';
-import { main } from './doigt';
+import { iconesAGauche } from './doigt';
 
 /** Plugins natifs (android/.../PocketMode.java et BatterySettings.java, identiques côté Kotlin). */
 const PocketMode = registerPlugin<{
@@ -236,7 +236,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         tipPress.current.timer = setTimeout(() => {
           tipPress.current.long = true;
           const r = el.getBoundingClientRect();
-          setTip({ key, top: Math.max(8, Math.min(r.top, window.innerHeight - 260)), ...(main() === 'gaucher'
+          setTip({ key, top: Math.max(8, Math.min(r.top, window.innerHeight - 260)), ...(iconesAGauche()
             ? { left: r.right + 8, maxWidth: Math.max(160, window.innerWidth - r.right - 16) }
             : { right: window.innerWidth - r.left + 8, maxWidth: Math.max(160, r.left - 16) }) });
         }, 550);
@@ -260,7 +260,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         tipPress.current.long = true;
         const r = el.getBoundingClientRect();
         setPairOpen(null);
-        setPick({ kind, top: r.top + r.height / 2, ...(main() === 'gaucher' ? { left: r.right + 6 } : { right: window.innerWidth - r.left + 6 }) });
+        setPick({ kind, top: r.top + r.height / 2, ...(iconesAGauche() ? { left: r.right + 6 } : { right: window.innerWidth - r.left + 6 }) });
       }, 550);
     },
   });
