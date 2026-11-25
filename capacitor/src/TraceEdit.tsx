@@ -308,7 +308,11 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     </div></>;
   else aide = <>
     <p className="edit-aide">Fais glisser un rond : la trace suit en douceur</p>
-    <div className="survol-choix">{['Peu', 'Moyen', 'Beaucoup'].map((n, i) => <button key={n} className={densite === i ? 'on' : ''} onClick={() => { ronds.current = null; setDensite(i); }}>{n}</button>)}</div></>;
+    {/* « Peu / Moyen / Beaucoup » ne disait pas que c'est le nombre de ronds (Seb, 25/11) : on les dessine. */}
+    <div className="survol-choix edit-ronds"><span>Ronds :</span>{['Peu', 'Moyen', 'Beaucoup'].map((n, i) => (
+      <button key={n} aria-label={`${n} de ronds`} className={densite === i ? 'on' : ''} onClick={() => { ronds.current = null; setDensite(i); }}>
+        {Array.from({ length: i + 1 }, (_, k) => <i key={k} />)}
+      </button>))}</div></>;
 
   return (
     <section className={`trace-menu survol trace-edit${sheet.classe}`}>

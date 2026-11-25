@@ -1181,3 +1181,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .icones-gauche .restore { right: auto; left: 12px; }
 .icones-gauche .frame-banner.draw-banner { left: 10px; right: 10px; }
 .icones-gauche .quick button.toggle.arrow { transform: scaleX(-1); }
+
+/* Mode souple : nombre de ronds dessiné (○ · ○○ · ○○○) au lieu de Peu / Moyen / Beaucoup (Seb, 25/11). */
+.edit-ronds { align-items: center; }
+.edit-ronds > span { font-size: 17px; font-weight: 600; flex: none; }
+.edit-ronds button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.edit-ronds button i { width: 14px; height: 14px; border-radius: 50%; border: 3px solid currentColor; background: #fff; box-sizing: border-box; }
