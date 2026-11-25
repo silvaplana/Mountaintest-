@@ -1259,3 +1259,17 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-recues-liste { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
 .bd-recues button { min-height: 48px; text-align: left; padding: 0 12px; font-size: 17px; }
 .bd-recues p { margin: 0; }
+
+/* 👥 Associer une trace à un Buddy Time (maquettes/trace-buddy-time, Seb 25/11). */
+.trace-lien { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 12px; margin: 6px 0;
+  border: 2px dashed var(--muted); border-radius: 14px; background: none; text-align: left; font-size: 17px; }
+.trace-lien.oui { border: 2px solid #7b3fe4; }
+.trace-lien-ic { font-size: 26px; }
+.bd-fleche { margin-left: auto; font-size: 24px; color: var(--muted); }
+.bd-assoc.oui { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 12px; }
+.bd-assoc.oui .bd-carre { box-shadow: 0 0 0 3px var(--accent); }
+.bd-coche { color: var(--accent); font-size: 22px; font-weight: 700; padding-right: 8px; }
+.bd-assoc-carre { position: relative; display: inline-block; }
+.bd-ouvert { position: absolute; right: -6px; bottom: -6px; background: var(--accent); color: #fff; border-radius: 10px; font-size: 12px;
+  font-style: normal; font-weight: 600; padding: 2px 7px; }
+.bd-carnet > * { flex-shrink: 0; }

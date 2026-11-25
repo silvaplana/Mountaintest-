@@ -14,6 +14,8 @@ export interface SavedTrace {
   line: [number, number][];
   /** 📍 Points piqués avec leur petit mot. */
   pins?: Pin[];
+  /** 👥 Buddy Group et Buddy Time associés. */
+  lien?: { groupe: string; sortie: string | null } | null;
 }
 
 const KEY = 'tracesEnregistrees';
@@ -32,18 +34,18 @@ async function write(all: SavedTrace[]) {
 
 const round = (line: LonLat[]) => line.map((p) => [+p.lon.toFixed(5), +p.lat.toFixed(5)] as [number, number]);
 
-export async function saveTrace(name: string, line: LonLat[], onPaths: boolean, pins: Pin[] = []): Promise<SavedTrace> {
-  const t: SavedTrace = { id: Date.now(), name, onPaths, line: round(line), pins };
+export async function saveTrace(name: string, line: LonLat[], onPaths: boolean, pins: Pin[] = [], lien: SavedTrace['lien'] = null): Promise<SavedTrace> {
+  const t: SavedTrace = { id: Date.now(), name, onPaths, line: round(line), pins, lien };
   await write([t, ...(await listTraces())]);
   return t;
 }
 
 /** ✏ / 📍 Trace enregistrée modifiée : on garde la nouvelle forme et ses points (même identifiant). */
-export async function updateTrace(id: number, line: LonLat[], pins: Pin[]): Promise<SavedTrace | null> {
+export async function updateTrace(id: number, line: LonLat[], pins: Pin[], lien: SavedTrace['lien'] = null): Promise<SavedTrace | null> {
   const all = await listTraces();
   const t = all.find((x) => x.id === id);
   if (!t) return null;
-  t.line = round(line); t.pins = pins;
+  t.line = round(line); t.pins = pins; t.lien = lien;
   await write(all);
   return t;
 }
@@ -53,6 +55,12 @@ export function readPins(v: unknown): Pin[] {
   if (!Array.isArray(v)) return [];
   return v.filter((p) => Number.isFinite(p?.lon) && Number.isFinite(p?.lat))
     .map((p) => ({ lon: Number(p.lon), lat: Number(p.lat), txt: String(p.txt ?? ''), vu: p.vu !== false }));
+}
+
+/** Lien 👥 lu d'un JSON : un Buddy Group, et peut-être un Buddy Time. */
+export function readLien(v: unknown): SavedTrace['lien'] {
+  const o = v as { groupe?: unknown; sortie?: unknown } | null;
+  return o && typeof o.groupe === 'string' ? { groupe: o.groupe, sortie: typeof o.sortie === 'string' ? o.sortie : null } : null;
 }
 
 export async function deleteTrace(id: number) {
