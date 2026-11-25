@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { AUTO_PLAN_UNTIL, AUTO_SCAN_FROM, DISPLAY_MAX_ZOOM, LA_CIOTAT_CENTER, LAYERS, type BaseMode } from './config';
 import { bench, metrics } from './metrics';
 import { toLineString, type TrackPoint } from './track/gpx';
-import { bboxPolygon, trailsGeoJson, type Trail } from './trails/osmTrails';
+import { bboxPolygon, trailEndsGeoJson, trailsGeoJson, type Trail } from './trails/osmTrails';
+import { ajouterImagesSens, SENS_LAYOUT } from './sensTrace';
 import { webHikesGeoJson, type WebHike } from './trails/webHikes';
 import type { Bbox } from './config';
 import { forestsGeoJson, type Forest } from './forests/bdForet';
@@ -138,7 +139,7 @@ export function MapView(props: MapViewProps) {
         version: 8,
         sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
-          trails: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
+          trails: { type: 'geojson', data: EMPTY }, trailEnds: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' }, relief: RELIEF_SOURCE },
         layers: [
@@ -154,6 +155,8 @@ export function MapView(props: MapViewProps) {
           // Toutes les traces au même trait, net, avec un liseré blanc (Seb, 25/11 : épaisseurs qui varient, trait trop fin).
           { id: 'trails-casing', type: 'line', source: 'trails', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 6.5, 'line-opacity': 0.9 } },
           { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 4 } },
+          // Petites flèches blanches le long des traces : le sens de marche (Seb, 25/11, maquette « Sens de la trace », B).
+          { id: 'trails-sens', type: 'symbol', source: 'trails', layout: SENS_LAYOUT },
           // Couche invisible plus large : le doigt n'a pas besoin de tomber pile sur le trait.
           { id: 'trails-hit', type: 'line', source: 'trails', paint: { 'line-color': '#000', 'line-width': 28, 'line-opacity': 0 } },
           { id: 'c2c-lines-casing', type: 'line', source: 'c2cLines', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 5 } },
@@ -164,11 +167,15 @@ export function MapView(props: MapViewProps) {
           { id: 'trail-sel-halo', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#ffd600', 'line-width': 20, 'line-opacity': 0.85, 'line-blur': 1 } },
           { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 10 } },
           { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 6 } },
+          { id: 'trail-sel-sens', type: 'symbol', source: 'trailSel', layout: SENS_LAYOUT },
           // Liseré sombre : le jaune (chemin) et le gris (hors chemin) restent lisibles sur le SCAN 25.
           { id: 'way-types-casing', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#222', 'line-width': ['+', ['get', 'w'], 2] } },
           { id: 'way-types', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'w'] } },
           // Portions sur GR : tireté rouge au milieu du trait, comme sur le SCAN 25.
           { id: 'way-gr', type: 'line', source: 'wayTypes', filter: ['==', ['get', 'gr'], true], paint: { 'line-color': GR_COLOR, 'line-width': 2, 'line-dasharray': [2, 2] } },
+          // Départ (rond vert ▶) et arrivée (damier) de chaque trace, au-dessus des traits.
+          { id: 'trail-ends', type: 'symbol', source: 'trailEnds', layout: { 'icon-image': ['case', ['==', ['get', 'k'], 'd'], 'sens-depart', 'sens-arrivee'],
+            'icon-allow-overlap': true, 'icon-ignore-placement': true, 'symbol-sort-key': ['case', ['==', ['get', 'k'], 'd'], 1, 0] } },
           { id: 'imported', type: 'line', source: 'imported', paint: { 'line-color': '#7b3fe4', 'line-width': 4, 'line-opacity': 0.8 } },
           { id: 'recorded', type: 'line', source: 'recorded', paint: { 'line-color': '#e4572e', 'line-width': 4 } },
           { id: 'web-hikes', type: 'circle', source: 'webHikes', paint: { 'circle-radius': 8, 'circle-color': '#f28c28', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } },
@@ -273,6 +280,7 @@ export function MapView(props: MapViewProps) {
     m.on('mouseenter', 'trails-hit', () => { m.getCanvas().style.cursor = 'pointer'; });
     m.on('mouseleave', 'trails-hit', () => { m.getCanvas().style.cursor = ''; });
     m.on('load', () => {
+      ajouterImagesSens(m);
       setReady(true);
       props.onMapReady?.(m);
     });
@@ -315,6 +323,7 @@ export function MapView(props: MapViewProps) {
     if (!ready) return;
     const m = map.current!;
     (m.getSource('trails') as GeoJSONSource).setData(trailsGeoJson(props.trails));
+    (m.getSource('trailEnds') as GeoJSONSource).setData(trailEndsGeoJson(props.trails));
     (m.getSource('frame') as GeoJSONSource).setData(props.frame ? bboxPolygon(props.frame) : EMPTY);
   }, [props.trails, props.frame, ready]);
 
