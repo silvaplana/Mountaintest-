@@ -375,12 +375,15 @@ export const sortieDeLigne = (sorties: Sortie[], p: Planning, debut: string) => 
 
 // ------------------------------------------------------------------ album (§5.8)
 
-/** Photos rangées par jour du Buddy Time : « Jour 1 », « Jour 2 »… (avant ou après : jour 0 ou au-delà). */
+/** Photos rangées par jour du Buddy Time : « Jour 1 », « Jour 2 »… (avant ou après : jour 0 ou au-delà).
+ * Les films passent devant, dans un groupe à part (jour '' ; Seb, 25/11 : le film du parcours en premier). */
 export function parJour(photos: PhotoBuddy[], x: Sortie) {
   const jours = new Map<string, PhotoBuddy[]>();
-  for (const p of photos) { const j = p.prise_le.slice(0, 10); jours.set(j, [...(jours.get(j) ?? []), p]); }
-  return [...jours.entries()].sort(([a], [b]) => a.localeCompare(b))
+  const films = photos.filter((p) => p.video).sort((a, b) => b.prise_le.localeCompare(a.prise_le));
+  for (const p of photos) { if (p.video) continue; const j = p.prise_le.slice(0, 10); jours.set(j, [...(jours.get(j) ?? []), p]); }
+  const l = [...jours.entries()].sort(([a], [b]) => a.localeCompare(b))
     .map(([jour, l]) => ({ jour, n: Math.round((Date.parse(jour) - Date.parse(x.debut)) / 86400e3) + 1, photos: l }));
+  return films.length ? [{ jour: '', n: 0, photos: films }, ...l] : l;
 }
 
 // ------------------------------------------------------------------ carnet (§5.8)

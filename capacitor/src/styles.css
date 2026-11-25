@@ -1299,21 +1299,33 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-ouvert { position: absolute; right: -6px; bottom: -6px; background: var(--accent); color: #fff; border-radius: 10px; font-size: 12px;
   font-style: normal; font-weight: 600; padding: 2px 7px; }
 .bd-carnet > * { flex-shrink: 0; }
-/* Photo en grand : plein écran d'un toucher, zoom à deux doigts (Album.tsx, Zoom). */
-.bd-zoom { flex: 1; min-height: 0; overflow: hidden; touch-action: none; display: flex; }
-.bd-zoom > div { flex: 1; min-height: 0; display: flex; will-change: transform; }
-.bd-visionneuse.plein .bd-vis-haut, .bd-visionneuse.plein .bd-vis-bas { display: none; }
-/* Photo en grand : elle prend tout l'écran, les barres sont posées dessus (un toucher les cache). */
-.bd-visionneuse { z-index: 40; }
-.bd-visionneuse .bd-vis-haut, .bd-visionneuse .bd-vis-bas { position: absolute; left: 0; right: 0; z-index: 1; }
-.bd-visionneuse .bd-vis-haut { top: 0; background: linear-gradient(#000a, #0000); }
-.bd-visionneuse .bd-vis-bas { bottom: 0; background: linear-gradient(#0000, #000a); }
+/* Photo en plein écran (Album.tsx, Visionneuse) : les gestes sont ceux de PhotoSwipe ; nos barres sont posées dessus, un toucher les cache. */
+.bd-vis-barres { position: fixed; inset: 0; z-index: 100001; pointer-events: none; color: #fff; font-size: 17px; }
+.bd-vis-barres.plein { display: none; }
+.bd-vis-barres .bd-vis-haut, .bd-vis-barres .bd-vis-bas { position: absolute; left: 0; right: 0; pointer-events: auto; }
+.bd-vis-barres .bd-vis-haut { top: 0; background: linear-gradient(#000a, #0000); }
+.bd-vis-barres .bd-vis-bas { bottom: 0; background: linear-gradient(#0000, #000a); }
+/* En paysage, les touches du téléphone (retour, accueil) sont sur un bord : les boutons rentrent dans l'écran (Seb, 25/11). */
+@media (orientation: landscape) {
+  .bd-vis-barres .bd-vis-haut, .bd-vis-barres .bd-vis-bas { padding-left: max(72px, calc(env(safe-area-inset-left, 0px) + 16px)); padding-right: max(72px, calc(env(safe-area-inset-right, 0px) + 16px)); }
+}
+.bd-pswp-film { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #fff; }
+.bd-pswp-film video { max-width: 100%; max-height: 100%; }
+/* Les photos à la suite, en pleine largeur, comme dans WhatsApp (Album.tsx, Defile). */
+.bd-defile { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; font-size: 17px; }
+.bd-defile-haut { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px; box-shadow: 0 1px 4px #0002; z-index: 1; }
+.bd-defile-haut button { width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0; font-size: 26px; background: var(--card); }
+.bd-defile-haut .bd-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.bd-defile-haut b { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bd-defile-haut small { font-size: 16px; color: #555; }
+.bd-defile-liste { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding: 10px 0 calc(env(safe-area-inset-bottom, 0px) + 10px); }
+.bd-defile-photo { position: relative; flex: none; display: block; width: 100%; padding: 0; border: 0; border-radius: 0; background: var(--card); overflow: hidden; }
+.bd-defile-photo img, .bd-defile-photo .bd-img-vide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: grid; place-items: center; font-size: 32px; }
+.bd-defile-photo small { position: absolute; right: 10px; bottom: 8px; color: #fff; font-size: 15px; text-shadow: 0 1px 3px #000c; }
+.bd-defile-photo .bd-film { font-style: normal; width: 56px; height: 56px; font-size: 24px; }
 .bd-fiche-photos span { display: flex; }
 .bd-fiche-photos span img, .bd-fiche-photos span .bd-img-vide { flex: 1; min-width: 0; }
 .bd-vis-icone svg { width: 24px; height: 24px; vertical-align: middle; }
-.bd-vis-fleche { position: absolute; z-index: 1; top: 50%; left: 6px; transform: translateY(-50%); width: 48px; height: 48px; min-height: 48px; border: 0; border-radius: 24px; background: #0006; color: #fff; font-size: 26px; }
-.bd-vis-fleche.droite { left: auto; right: 6px; }
-.bd-visionneuse.plein .bd-vis-fleche { display: none; }
 .bd-vignette { -webkit-touch-callout: none; user-select: none; }
 /* 📷 Photos qu'on vient de prendre, rangées dans l'album du jour : bandeau avec « Annuler ». */
 .bd-prises { position: fixed; z-index: 60; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); display: flex; gap: 8px; padding: 8px; border-radius: 14px; background: #1d2421f2; box-shadow: 0 2px 10px #0006; }

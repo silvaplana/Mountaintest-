@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import PhotoSwipe from 'photoswipe';
+import 'photoswipe/style.css';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { adresse, garder, preparer } from './album';
@@ -144,7 +147,8 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
       <button className={vue === 'carnet' ? 'oui' : ''} onClick={() => setVue('carnet')}>⭐ Carnet</button>
     </div>
     {parJour(l, x).map((j) => <div key={j.jour} className="bd-jour-album">
-      <h3 className="bd-section">{j.n >= 1 ? `Jour ${j.n} · ` : ''}{jourLong(j.jour)}<small>{j.photos.length} photo{j.photos.length > 1 ? 's' : ''}</small></h3>
+      <h3 className="bd-section">{j.jour ? <>{j.n >= 1 ? `Jour ${j.n} · ` : ''}{jourLong(j.jour)}<small>{j.photos.length} photo{j.photos.length > 1 ? 's' : ''}</small></>
+        : <>Film{j.photos.length > 1 ? 's' : ''}<small>{j.photos.length} film{j.photos.length > 1 ? 's' : ''}</small></>}</h3>
       <div className="bd-grille-photos">{j.photos.map((p) => <Vignette key={p.id} p={p} onClick={() => setOuverte(l.indexOf(p))} onLong={() => setMenu(p)} />)}</div>
     </div>)}
     {!l.length && <p className="bd-vide">{vue === 'carnet' ? 'Touche ⭐ sur une photo pour la garder pour le carnet.' : 'Pas encore de photo : dépose les tiennes, chacun ajoute les siennes.'}</p>}
@@ -163,82 +167,148 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
   </div>;
 }
 
-/** 🎥 Film d'un survol 3D : lu sur le serveur la première fois, puis gardé sur le téléphone. */
-function Film({ p }: { p: PhotoBuddy }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    let vivant = true;
-    void adresse(p.id, 'video', p.envoyee).then((u) => { if (vivant) setSrc(u); });
-    return () => { vivant = false; };
-  }, [p.id, p.envoyee]);
-  return src ? <video className="bd-vis-image" src={src} controls playsInline onClick={(ev) => ev.stopPropagation()} />
-    : <span className="bd-vis-image bd-img-vide">🕓</span>;
+/** Largeur et hauteur d'une photo, lues une fois sur sa petite image (le plein écran en a besoin pour la cadrer). */
+const tailles = new Map<string, { w: number; h: number }>();
+async function mesurer(p: PhotoBuddy): Promise<{ w: number; h: number }> {
+  const deja = tailles.get(p.id);
+  if (deja) return deja;
+  const u = await adresse(p.id, 'petite', p.envoyee).catch(() => null);
+  const t = await new Promise<{ w: number; h: number }>((ok) => {
+    if (!u) { ok({ w: 3, h: 4 }); return; }
+    const im = new window.Image();
+    im.onload = () => ok({ w: im.naturalWidth || 3, h: im.naturalHeight || 4 });
+    im.onerror = () => ok({ w: 3, h: 4 });
+    im.src = u;
+  });
+  if (u) tailles.set(p.id, t);
+  return t;
 }
+
+const heure = (p: PhotoBuddy) => p.prise_le.slice(11, 16).replace(':', ' h ');
 
 /**
- * Photo qu'on agrandit avec deux doigts et qu'on déplace quand elle est agrandie ; deux touchers rapides : ×2,5 ou
- * retour à l'écran. Un toucher simple appelle onToucher (plein écran).
+ * Une photo en plein écran, comme dans WhatsApp (Seb, 25/11 : « exactement comme ils font ») : la photo entière, on
+ * glisse à gauche ou à droite pour changer, deux doigts ou deux touchers pour zoomer, on la tire vers le bas pour
+ * fermer. Les gestes sont ceux de PhotoSwipe (bibliothèque éprouvée) ; nos barres (auteur, Partager, ⭐, Retirer)
+ * sont posées dessus, un toucher les cache ou les ramène.
  */
-export function Zoom({ children, onToucher, onGlisser }: { children: React.ReactNode; onToucher?: () => void; onGlisser?: (sens: 1 | -1) => void }) {
-  const [v, setV] = useState({ k: 1, x: 0, y: 0 });
-  const doigts = useRef(new Map<number, { x: number; y: number }>());
-  const geste = useRef({ d: 0, k: 1, bouge: false, dernier: 0, x0: 0, deux: false });
-  const borner = (k: number, x: number, y: number, el: HTMLElement) => {
-    const mx = (el.clientWidth * (k - 1)) / 2, my = (el.clientHeight * (k - 1)) / 2;
-    return { k, x: Math.max(-mx, Math.min(mx, x)), y: Math.max(-my, Math.min(my, y)) };
-  };
-  return <div className="bd-zoom"
-    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); geste.current.bouge = doigts.current.size > 1; geste.current.d = 0;
-      if (doigts.current.size === 1) { geste.current.x0 = ev.clientX; geste.current.deux = false; } else geste.current.deux = true; }}
-    onPointerMove={(ev) => {
-      const a = doigts.current.get(ev.pointerId); if (!a) return;
-      const dx = ev.clientX - a.x, dy = ev.clientY - a.y, el = ev.currentTarget;
-      doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if (Math.abs(dx) + Math.abs(dy) > 3) geste.current.bouge = true;
-      const l = [...doigts.current.values()];
-      if (l.length === 2) {
-        const d = Math.hypot(l[0].x - l[1].x, l[0].y - l[1].y);
-        if (geste.current.d) setV((o) => borner(Math.max(1, Math.min(6, (o.k * d) / geste.current.d)), o.x, o.y, el));
-        geste.current.d = d;
-      } else if (l.length === 1) setV((o) => (o.k > 1 ? borner(o.k, o.x + dx, o.y + dy, el) : o));
-    }}
-    onPointerUp={(ev) => {
-      doigts.current.delete(ev.pointerId); geste.current.d = 0;
-      if (doigts.current.size) return;
-      // Photo à sa taille : glisser d'un doigt vers la gauche ou la droite passe à la suivante ou à la précédente.
-      const dx = ev.clientX - geste.current.x0;
-      if (geste.current.bouge) { if (v.k === 1 && !geste.current.deux && Math.abs(dx) > 60) onGlisser?.(dx < 0 ? 1 : -1); return; }
-      const t = Date.now(), el = ev.currentTarget;
-      if (t - geste.current.dernier < 300) { geste.current.dernier = 0; setV((o) => (o.k > 1 ? { k: 1, x: 0, y: 0 } : borner(2.5, 0, 0, el))); }
-      else { geste.current.dernier = t; onToucher?.(); }
-    }}
-    onPointerCancel={(ev) => { doigts.current.delete(ev.pointerId); geste.current.d = 0; }}>
-    <div style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>{children}</div>
-  </div>;
-}
-
-/** Une photo en grand : ‹ ›, ⭐ pour le carnet, « Retirer » pour l'auteur. */
 export function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void; onPlacer?: (p: PhotoBuddy) => void }) {
   const p = l[i];
   const moi = p.par.id === (lire().moi ?? 'moi');
-  // La photo prend tout l'écran, les barres sont posées dessus : un toucher les cache ou les ramène ; deux doigts pour
-  // zoomer ; glisser pour la suivante (Seb, 25/11 : « chaque fois la photo doit être à son mieux »).
   const [plein, setPlein] = useState(false);
-  return <div className={`bd-visionneuse${plein ? ' plein' : ''}`}>
-    <div className="bd-vis-haut" onClick={(ev) => ev.stopPropagation()}>
+  const etat = useRef({ l, i, onI, onFermer });
+  etat.current = { l, i, onI, onFermer };
+  const ids = l.map((x) => x.id).join();
+  useEffect(() => {
+    let vivant = true, pswp: PhotoSwipe | null = null;
+    void Promise.all(etat.current.l.map(mesurer)).then((t) => {
+      if (!vivant) return;
+      const photos = etat.current.l, enCours = new WeakSet<object>();
+      const basculer = () => setPlein((v) => !v);
+      pswp = new PhotoSwipe({
+        // Hauteur et largeur à l'échelle de la grande image (2560 px au plus) : la photo s'ouvre entière, on zoome jusqu'à ses vrais points.
+        dataSource: photos.map((x, k) => (x.video ? { html: `<div class="bd-pswp-film" data-k="${k}"></div>` }
+          : { src: `photo:${k}`, width: Math.round((t[k].w / Math.max(t[k].w, t[k].h)) * 2560), height: Math.round((t[k].h / Math.max(t[k].w, t[k].h)) * 2560) })),
+        index: Math.min(etat.current.i, photos.length - 1),
+        bgOpacity: 1, showHideAnimationType: 'fade', arrowPrev: false, arrowNext: false, zoom: false, close: false, counter: false,
+        initialZoomLevel: 'fit', secondaryZoomLevel: 2.5, maxZoomLevel: 6,
+        tapAction: basculer, imageClickAction: basculer, bgClickAction: basculer, doubleTapAction: 'zoom', escKey: true,
+      });
+      const hote = pswp;
+      // La grande image est lue sur le téléphone (ou sur le serveur la première fois) au moment où on arrive dessus.
+      hote.on('contentLoadImage', (ev) => {
+        ev.preventDefault();
+        const c = ev.content, im = c.element as HTMLImageElement | undefined, x = photos[c.index];
+        if (!im || !x || enCours.has(c)) return;
+        enCours.add(c);
+        c.state = 'loading';
+        void adresse(x.id, 'grande', x.envoyee).then((u) => u ?? adresse(x.id, 'petite', x.envoyee)).then((u) => {
+          if (!u) { c.onError(); return; }
+          im.onload = () => c.onLoaded();
+          im.onerror = () => c.onError();
+          im.src = u;
+        });
+      });
+      // 🎥 Un film : son lecteur se pose quand on arrive dessus, et se met en pause quand on le quitte.
+      hote.on('contentActivate', ({ content: c }) => {
+        const el = c.element?.querySelector<HTMLElement>('.bd-pswp-film'), x = photos[c.index];
+        if (!el || !x || el.firstChild) return;
+        void adresse(x.id, 'video', x.envoyee).then((u) => {
+          if (!u || el.firstChild) { if (!u) el.textContent = '🕓'; return; }
+          const v = document.createElement('video');
+          v.src = u; v.controls = true; v.playsInline = true;
+          el.appendChild(v);
+        });
+      });
+      hote.on('contentDeactivate', ({ content: c }) => c.element?.querySelector('video')?.pause());
+      hote.on('change', () => { if (hote.currIndex !== etat.current.i) etat.current.onI(hote.currIndex); });
+      hote.on('destroy', () => { if (vivant) etat.current.onFermer(); });
+      hote.init();
+    });
+    return () => { vivant = false; pswp?.destroy(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids]);
+  // Les barres sortent de l'écran des buddies pour passer au-dessus de la photo.
+  return createPortal(<div className={`bd-vis-barres${plein ? ' plein' : ''}`}>
+    <div className="bd-vis-haut">
       <Visage b={p.par} taille={36} />
-      <span className="bd-texte"><b>{p.par.pseudo}</b><small>{jourLong(p.prise_le.slice(0, 10))} · {p.prise_le.slice(11, 16).replace(':', ' h ')}</small></span>
+      <span className="bd-texte"><b>{p.par.pseudo}</b><small>{jourLong(p.prise_le.slice(0, 10))} · {heure(p)}{l.length > 1 ? ` · ${i + 1}/${l.length}` : ''}</small></span>
       <button aria-label="Fermer" onClick={onFermer}>✕</button>
     </div>
-    {i > 0 && <button className="bd-vis-fleche" aria-label="Précédente" onClick={() => onI(i - 1)}>‹</button>}
-    {i < l.length - 1 && <button className="bd-vis-fleche droite" aria-label="Suivante" onClick={() => onI(i + 1)}>›</button>}
-    {p.video ? <Film p={p} /> : <Zoom key={p.id} onToucher={() => setPlein((v) => !v)} onGlisser={(d) => { if (i + d >= 0 && i + d < l.length) onI(i + d); }}><Image p={p} taille="grande" className="bd-vis-image" /></Zoom>}
-    <div className="bd-vis-bas" onClick={(ev) => ev.stopPropagation()}>
+    <div className="bd-vis-bas">
       <button aria-label="Partager" className="bd-vis-icone" onClick={() => void partagerPhoto(p)}><ShareIcon /></button>
       <button className={p.etoile ? 'oui' : ''} onClick={() => mettreEtoile(p.id, !p.etoile)}>{p.etoile ? '⭐ Dans le carnet' : '☆ Pour le carnet'}</button>
       {onPlacer && !p.video && <button onClick={() => onPlacer(p)}>📍 Déplacer</button>}
       {moi && <button onClick={() => { retirerPhoto(p.id); onFermer(); }}>Retirer</button>}
     </div>
+  </div>, document.body);
+}
+
+/** Une photo de la liste : sa petite image tout de suite, la grande quand elle approche de l'écran. */
+function PhotoDefile({ p, onClick }: { p: PhotoBuddy; onClick: () => void }) {
+  const el = useRef<HTMLButtonElement>(null);
+  const [proche, setProche] = useState(false);
+  const [t, setT] = useState(tailles.get(p.id) ?? null);
+  useEffect(() => { let vivant = true; if (!t) void mesurer(p).then((x) => { if (vivant) setT(x); }); return () => { vivant = false; }; }, [p.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!el.current || typeof IntersectionObserver === 'undefined') { setProche(true); return; }
+    const o = new IntersectionObserver((e) => { if (e.some((x) => x.isIntersecting)) { setProche(true); o.disconnect(); } }, { rootMargin: '800px 0px' });
+    o.observe(el.current);
+    return () => o.disconnect();
+  }, []);
+  return <button ref={el} className="bd-defile-photo" style={{ aspectRatio: t ? `${t.w} / ${t.h}` : '3 / 4' }} onClick={onClick}>
+    <Image p={p} taille={proche && !p.video ? 'grande' : 'petite'} />
+    {p.video && <i className="bd-film">▶</i>}
+    <small>{heure(p)}</small>
+  </button>;
+}
+
+/**
+ * Les photos à la suite, en pleine largeur, qu'on fait défiler de bas en haut comme dans WhatsApp (Seb, 25/11) ;
+ * une photo touchée s'ouvre en plein écran. `i` : celle sur laquelle la liste s'ouvre.
+ */
+export function Defile({ titre, l, i, onFermer }: { titre: string; l: PhotoBuddy[]; i: number; onFermer: () => void }) {
+  const [ouverte, setOuverte] = useState<number | null>(null);
+  const liste = useRef<HTMLDivElement>(null);
+  // La liste s'ouvre sur la photo touchée, une fois les hauteurs connues (sinon elle glisserait pendant le chargement).
+  useEffect(() => {
+    let vivant = true;
+    void Promise.all(l.map(mesurer)).then(() => requestAnimationFrame(() => { if (vivant) liste.current?.children[i]?.scrollIntoView({ block: 'start' }); }));
+    return () => { vivant = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const nPhotos = l.filter((p) => !p.video).length, nFilms = l.length - nPhotos;
+  const jours = [...new Set(l.filter((p) => !p.video).map((p) => p.prise_le.slice(0, 10)))].sort();
+  return <div className="bd-defile">
+    <div className="bd-defile-haut">
+      <button aria-label="Retour" onClick={onFermer}>‹</button>
+      <span className="bd-texte"><b>{titre}</b>
+        <small>{nPhotos} photo{nPhotos > 1 ? 's' : ''}{nFilms ? ` · ${nFilms} film${nFilms > 1 ? 's' : ''}` : ''}{jours.length ? ` · ${jourLong(jours[0])}` : ''}</small></span>
+    </div>
+    <div className="bd-defile-liste" ref={liste}>
+      {l.map((p, k) => <PhotoDefile key={p.id} p={p} onClick={() => setOuverte(k)} />)}
+    </div>
+    {ouverte != null && l[ouverte] && <Visionneuse l={l} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
   </div>;
 }
 

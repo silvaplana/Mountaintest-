@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TracesAssociees } from './Associer';
 import { Capacitor } from '@capacitor/core';
 import { nomAffiche } from '../compte/auth';
-import { Image, Visionneuse } from './Album';
+import { Defile, Image, Visionneuse } from './Album';
 import { dates, Natif, Visage } from './Buddies';
 import { MicIcon, Onde, useDictee } from './Dictee';
 import {
@@ -128,13 +128,15 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
   const tc = useMemo(() => tracesDuCarnet(traces, jours), [traces, jours.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const reliefs = useReliefs(tc);
   const choix = choixPhotos(photos);
-  // Une photo touchée s'ouvre en grand, plein écran ; on glisse vers les autres photos choisies.
+  const nFilms = photos.filter((p) => p.video).length, nChoisies = choix.photos.length - nFilms;
+  // Une photo touchée ouvre les photos choisies à la suite, comme dans WhatsApp ; de là, une photo s'ouvre en plein écran.
   const [ouverte, setOuverte] = useState<number | null>(null);
   const fs = fichesDe(x, tc, reliefs);
   const tuiles = chiffres(x, tc, reliefs, fs);
   const [pratique, setPratique] = useState(false);
   const dist = tuiles.find((t) => t.l === 'distance'), montee = tuiles.find((t) => t.l === 'montée');
-  const couverture = choix.photos[0];
+  // En couverture : la première photo (pas le film) ; la toucher l'ouvre en grand, comme toutes les photos (Seb, 25/11).
+  const couverture = choix.photos.find((p) => !p.video) ?? choix.photos[0];
   const partager = async () => {
     const texte = texteCarnet(x, dates(x), tuiles, fs);
     try {
@@ -145,16 +147,17 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
   };
   return <div className="bd-corps bd-carnet">
     <div className="bd-couverture" style={x.photo ? { background: `linear-gradient(#0000 35%, #000a), center/cover url("${x.photo}")` } : undefined}>
-      {!x.photo && couverture && <Image p={couverture} taille="grande" className="bd-couverture-image" />}
+      {!x.photo && couverture && <span className="bd-couverture-image" role="button" aria-label="Voir la photo en grand" onClick={() => setOuverte(choix.photos.indexOf(couverture))}><Image p={couverture} taille="grande" className="bd-couverture-image" /></span>}
       <button onClick={onRetour} aria-label="Retour">‹</button>
       <button className="bd-fermer" onClick={onClose} aria-label="Fermer">✕</button>
       <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)} · {x.participants.map((p) => p.pseudo).join(', ')}</small></span>
     </div>
     {photos.length > 0 && <>
-      <div className="bd-section bd-entre"><b>{choix.auto ? '✨' : '⭐'} {choix.photos.length} photo{choix.photos.length > 1 ? 's' : ''} choisie{choix.photos.length > 1 ? 's' : ''} sur {photos.length}</b></div>
+      <div className="bd-section bd-entre"><b>{choix.auto ? '✨' : '⭐'} {nChoisies} photo{nChoisies > 1 ? 's' : ''} choisie{nChoisies > 1 ? 's' : ''} sur {photos.length - nFilms}{nFilms ? ` · ${nFilms} film${nFilms > 1 ? 's' : ''}` : ''}</b></div>
       <div className="bd-mosaique">
         {choix.photos.slice(0, 3).map((p, i) => <span key={p.id} className={i === 0 ? 'grande' : ''} onClick={() => setOuverte(i)}>
           <Image p={p} taille="grande" />
+          {p.video && !(i === 2 && choix.photos.length > 3) && <i className="bd-film" style={{ fontStyle: 'normal' }}>▶</i>}
           {i === 2 && choix.photos.length > 3 && <b>+{choix.photos.length - 3}</b>}</span>)}
       </div>
       {/* « Changer » n'était pas compris (Seb, 25/11) : le bouton dit ce qu'il fait. */}
@@ -176,7 +179,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
     <TracesAssociees x={x} traces={traces} onVoir={() => onCarte()} onToast={onToast} />
     {c.conditions && <p className="bd-conditions"><b>Conditions</b> {c.conditions}</p>}
     {fs.map((f) => <FicheJour key={f.jour} f={f} photos={(choix.auto ? photos : choix.photos).filter((p) => p.prise_le.startsWith(f.jour))} />)}
-    {ouverte != null && choix.photos[ouverte] && <Visionneuse l={choix.photos} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
+    {ouverte != null && choix.photos[ouverte] && <Defile titre={x.nom} l={choix.photos} i={ouverte} onFermer={() => setOuverte(null)} />}
     <button className="bd-pratique" onClick={() => setPratique(!pratique)} aria-expanded={pratique}>
       <span>📍 💶 〰</span><b>Le pratique</b><span>{pratique ? '▾' : '▸'}</span></button>
     {pratique && <div className="bd-pratique-corps">

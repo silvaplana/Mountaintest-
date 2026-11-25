@@ -28,14 +28,16 @@ export function joursDe(x: Sortie): string[] {
   return out;
 }
 
-/** Photos du carnet : les ⭐ ; sans ⭐, au plus 12 réparties dans le temps (auto = vrai). */
+/** Photos du carnet : les ⭐ ; sans ⭐, au plus 12 réparties dans le temps (auto = vrai). Les films (celui du parcours
+ * surtout) y sont toujours, en premier, le plus récent d'abord (Seb, 25/11). */
 export function choixPhotos(photos: PhotoBuddy[], max = MAX_PHOTOS): { photos: PhotoBuddy[]; auto: boolean } {
-  const l = [...photos].sort((a, b) => a.prise_le.localeCompare(b.prise_le));
+  const films = photos.filter((p) => p.video).sort((a, b) => b.prise_le.localeCompare(a.prise_le));
+  const l = photos.filter((p) => !p.video).sort((a, b) => a.prise_le.localeCompare(b.prise_le));
   const et = l.filter((p) => p.etoile);
-  if (et.length) return { photos: et, auto: false };
-  if (l.length <= max) return { photos: l, auto: l.length > 0 };
+  if (et.length) return { photos: [...films, ...et], auto: false };
+  if (l.length <= max) return { photos: [...films, ...l], auto: l.length > 0 };
   const idx = new Set(Array.from({ length: max }, (_, i) => Math.round(i * (l.length - 1) / (max - 1))));
-  return { photos: l.filter((_, i) => idx.has(i)), auto: true };
+  return { photos: [...films, ...l.filter((_, i) => idx.has(i))], auto: true };
 }
 
 export type TraceCarnet = { t: TraceBuddy; couleur: string; libelle: string; jour: string | null };
