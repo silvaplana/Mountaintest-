@@ -1257,7 +1257,14 @@ export function App() {
         onFin={() => setSelection(null)} onEffacer={effacerPrise} />}
       {map && <PinLayer map={map} trails={trails.filter((t) => isMine(t.id) && t.pins?.length || t.id === selected?.id)}
         pique={pique && traceMenu && !modifier && !survol} targetId={traceMenu && selected && isMine(selected.id) ? selected.id : null}
-        editing={pinEdit} onEditing={setPinEdit} onPins={(id, pins) => changeMine(id, { pins })} />}
+        editing={pinEdit} onEditing={setPinEdit} onPins={(id, pins) => changeMine(id, { pins })}
+        onSelect={(id, i) => {
+          // Épingle touchée : sa trace s'ouvre (si besoin) et le champ de son mot apparaît dans le menu.
+          const t = trails.find((x) => x.id === id);
+          if (!t) return;
+          if (selected?.id !== id) void selectTrail(t); else { setTraceList(null); setTraceMenu(true); }
+          setModifier(false); setPique(false); setPinEdit({ id, i });
+        }} />}
       {!survol && !modifier && traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} onFilm={() => { setShowShade(false); setSurvol(true); }}
           onEdit={() => { setPique(false); setPinEdit(null); setModifier(true); }}

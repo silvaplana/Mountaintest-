@@ -9,7 +9,9 @@ Ce sont deux choses séparées (demande de Seb).
 ## 📍 Épingle : pas d'écran à part
 - Toucher 📍 l'allume (anneau vert). Chaque appui sur la carte pique un point sur cette trace.
 - Le mot du point s'écrit dans une ligne du menu de la trace (🗑 l'enlève, ✓ ferme la ligne).
-- Sur un point : un appui montre son mot (et rouvre la ligne), un nouvel appui le cache ;
+- Sur un point, un appui sur la tête ou sur le mot le choisit (Seb, 25/11) : la tête devient verte et le menu de
+  sa trace s'ouvre, même si la trace n'était pas choisie, avec le mot prêt à changer (🗑 l'enlève, ✓ garde). Le mot
+  ne se cache plus d'un appui.
   appui long (0,45 s) : on le fait glisser ; très long (1,4 s) : une 🗑 rouge apparaît au-dessus, la toucher l'enlève.
 - Les points suivent la trace : traces affichées (`tracesAffichees`) et 📂 Mes traces (`pins`).
 
