@@ -411,6 +411,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Depuis WhatsApp ou la galerie** (Seb, 25/11) : sur Android, « Partager » des photos propose
   Mountain Buddies ; l'appli demande dans quel album les ranger (50 photos au plus par partage),
   puis ouvre l'album. WhatsApp retire la position : on les place avec 📍.
+- **Avec le bouton 📷** (Seb, 25/11) : il ouvre toujours l'appareil photo du téléphone ; au retour
+  dans l'appli, les photos prises depuis vont seules dans l'album du Buddy Time du jour (bandeau
+  « n photos dans … · Annuler », 8 s), ou l'appli demande l'album s'il y en a plusieurs ou aucun
+  (« Ne pas ranger »). Heure lue dans la photo ; lieu lu dans la photo, sinon position du téléphone.
+  Android : accès aux photos demandé une fois (30 photos au plus par retour).
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
   les ⭐ d'abord) s'ouvrent dans le film là où elles ont été prises, 3 s chacune ; on les décoche
   avant de filmer (📷 dans le panneau du survol).
