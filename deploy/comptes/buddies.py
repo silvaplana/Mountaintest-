@@ -223,7 +223,7 @@ def sortie_visible(s: Session, u: Utilisateur, so: Sortie) -> bool:
 
 def sortie_de(s: Session, u: Utilisateur, sid: Any) -> Sortie:
     so = s.get(Sortie, uuid.UUID(str(sid)))
-    if so is None or not sortie_visible(s, u, so):
+    if so is None or so.supprime_le is not None or not sortie_visible(s, u, so):
         raise Refus("Buddy Time inconnu")
     return so
 
@@ -283,6 +283,33 @@ def retirer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
     s.delete(so)
     if g is not None:
         toucher(g)
+
+
+def sortie_a_supprimer(s: Session, u: Utilisateur, op: dict) -> Sortie | None:
+    """Supprimer un Buddy Time (ou le remettre) : celui qui l'a créé, ou un admin de son Buddy Group."""
+    so = s.get(Sortie, uuid.UUID(str(op["sortie"])))
+    if so is None or not sortie_visible(s, u, so):
+        raise Refus("Buddy Time inconnu")
+    m = membre(s, so.groupe_id, u.id)
+    if so.cree_par != u.id and (m is None or m.role != "admin"):
+        raise Refus("Seul celui qui a créé le Buddy Time (ou un admin du Buddy Group) peut le supprimer")
+    return so
+
+
+def supprimer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
+    """Bud supprime un Buddy Time à la demande (§7.12) : caché de tous, rien n'est effacé, « Annuler » le remet."""
+    so = sortie_a_supprimer(s, u, op)
+    if so.supprime_le is None:
+        so.supprime_le = so.modifie_le = maintenant()
+        toucher(s.get(Groupe, so.groupe_id))
+
+
+def remettre_sortie(s: Session, u: Utilisateur, op: dict) -> None:
+    """« Annuler » sous la réponse de Bud : le Buddy Time supprimé revient chez tous, avec tout ce qu'il contenait."""
+    so = sortie_a_supprimer(s, u, op)
+    if so.supprime_le is not None:
+        so.supprime_le, so.modifie_le = None, maintenant()
+        toucher(s.get(Groupe, so.groupe_id))
 
 
 def partager_trace(s: Session, u: Utilisateur, op: dict) -> None:
@@ -866,7 +893,8 @@ def fichier_photo(pid: uuid.UUID, taille: str) -> str:
 OPERATIONS = {
     "creer_groupe": creer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
-    "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
+    "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
+    "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
@@ -918,7 +946,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     d = date(depuis) if depuis else None
     neuf = lambda t: d is None or date(iso(t)) >= d - MARGE  # noqa: E731
     gids = [g.id for g in mes]
-    sorties = s.scalars(select(Sortie).where(or_(
+    sorties = s.scalars(select(Sortie).where(Sortie.supprime_le.is_(None), or_(
         Sortie.groupe_id.in_(gids),
         Sortie.id.in_(select(Participant.sortie_id).where(Participant.utilisateur_id == u.id))))).all()
     sids = [so.id for so in sorties]
@@ -971,7 +999,7 @@ def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
                                                      Invitation.expire_le > maintenant()).order_by(Invitation.cree_le)).all()
     return {
         "id": str(so.id), "groupe": str(so.groupe_id), "nom": so.nom, "photo": so.photo, "debut": so.debut, "fin": so.fin,
-        "lieu": so.lieu, "modifie_le": iso(so.modifie_le), "participants": [personne(x) for x in qui],
+        "lieu": so.lieu, "modifie_le": iso(so.modifie_le), "par": str(so.cree_par), "participants": [personne(x) for x in qui],
         "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact,
                          "par": str(i.invite_par)} for i in invitations],
         "carnet": vue_carnet(s, so),

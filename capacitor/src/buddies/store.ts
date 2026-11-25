@@ -33,6 +33,8 @@ export const carnetVide = (): CarnetBuddy => ({ difficulte: '', meteo: '', condi
 /** Buddy Time (spec §5.4). Dates du calendrier AAAA-MM-JJ. */
 export type Sortie = {
   id: string; groupe: string; nom: string; photo: string | null; debut: string; fin: string; lieu: string; modifie_le: string;
+  /** Qui l'a créé (le serveur l'envoie ; absent sur un Buddy Time pas encore synchronisé : c'est moi). */
+  par?: string;
   participants: Buddy[]; invitations: Invitation[]; carnet?: CarnetBuddy; attente?: boolean;
 };
 /** Trace partagée dans un Buddy Time ou un Buddy Group (panneau de partage, spec §3.4). */
@@ -91,6 +93,7 @@ export type Op = { id: string; type: string; t: number; [k: string]: unknown };
 export type ActionBud =
   | { genre: 'depense'; id: string; texte: string }
   | { genre: 'sortie'; id: string; texte: string }
+  | { genre: 'suppression'; copie: Sortie; texte: string }
   | { genre: 'dispo'; planning: string; debut: string; avant: { etat: Etat3 | ''; mot: string }; texte: string };
 
 export type AppelBuddy = { id: string; groupe: string | null; sortie: string | null; par: string; en_ligne: string[]; debut: string; fini: boolean };
@@ -253,7 +256,9 @@ export function vue(e: Etat): {
         repond_a: (op.repond_a as string) ?? null, reactions: [], transfere: !!op.transfere,
         fichier: op.fichier ? { ...(op.fichier as FichierMessage), envoye: !!(op.fichier as FichierMessage).envoye } : null,
         sondage: op.sondage ? { ...(op.sondage as Omit<Sondage, 'votes'>), votes: [] } : null });
-    } else if (op.type === 'retirer_sortie') {
+    } else if (op.type === 'remettre_sortie' && op.copie && !sorties.some((x) => x.id === op.sortie)) {
+      sorties.push(op.copie as Sortie);
+    } else if (op.type === 'retirer_sortie' || op.type === 'supprimer_sortie') {
       const i = sorties.findIndex((x) => x.id === op.sortie);
       if (i >= 0) sorties.splice(i, 1);
     } else if (op.type === 'retirer_message') {
@@ -571,6 +576,10 @@ export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { 
 }
 /** Annuler un Buddy Time qu'on vient de créer (le serveur refuse s'il a déjà servi). */
 export const retirerSortie = (sortie: string) => ajouter({ type: 'retirer_sortie', sortie });
+/** 🐻 Bud supprime un Buddy Time (§7.12) : caché de tous ; le serveur refuse si je ne l'ai pas créé ni n'administre la bande. */
+export const supprimerSortie = (sortie: string) => ajouter({ type: 'supprimer_sortie', sortie });
+/** « Annuler » : il revient (la copie le remontre tout de suite, avant la synchro). */
+export const remettreSortie = (copie: Sortie) => ajouter({ type: 'remettre_sortie', sortie: copie.id, copie });
 /** 🐻 Garder ce que Bud a fait (message de Bud → actions), ou le marquer annulé. */
 export function noterActionsBud(message: string, faites: ActionBud[], annule = false) {
   ecrire({ ...lire(), actionsBud: { ...lire().actionsBud, [message]: { faites, annule } } });

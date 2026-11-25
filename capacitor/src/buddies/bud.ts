@@ -8,7 +8,7 @@ import { IA_MOT_DE_PASSE_INTEGRE, RELAIS_URL } from '../trails/webHikes';
 import { compte, euros } from './count';
 import { longueurTrace, type Dest } from './messages';
 import {
-  aujourdhui, creerSortie, enregistrerDepense, repondre, retirerDepense, retirerSortie,
+  aujourdhui, creerSortie, enregistrerDepense, remettreSortie, repondre, retirerDepense, retirerSortie, supprimerSortie,
   type ActionBud, type Buddy, type Depense, type Hebergement, type MessageBuddy, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -18,6 +18,8 @@ export const pourBud = (texte: string) => /(^|[\s.!?👍])buds?\s*[,:]/iu.test(t
 export type Donnees = {
   nom: string; sortie?: Sortie; membres: Buddy[]; moi: string;
   traces: TraceBuddy[]; hebergements: Hebergement[]; depenses: Depense[]; plannings: Planning[]; messages: MessageBuddy[];
+  /** Les Buddy Times que je vois (Bud les nomme, et peut en supprimer un à ma demande). */
+  sorties?: Sortie[];
 };
 
 /** Ce que Bud sait de la conversation : la sortie ou la bande, en texte court (le relais le borne à 40 000 caractères). */
@@ -30,7 +32,11 @@ export function contexte(d: Dest, x: Donnees): string {
     l.push(`Qui vient : ${so.participants.map((p) => p.pseudo).join(', ')}.`);
     const inv = so.invitations.filter((i) => i.canal !== 'qr').map((i) => i.nom).filter(Boolean);
     if (inv.length) l.push(`Invités sans réponse : ${inv.join(', ')}.`);
-  } else l.push(`Buddy Group « ${x.nom} » : ${x.membres.map((b) => b.pseudo).join(', ')}.`);
+  } else {
+    l.push(`Buddy Group « ${x.nom} » : ${x.membres.map((b) => b.pseudo).join(', ')}.`);
+    const bts = (x.sorties ?? []).filter((y) => y.groupe === d.groupe);
+    if (bts.length) l.push(`Ses Buddy Times : ${bts.map((y) => `« ${y.nom} » du ${y.debut} au ${y.fin}`).join(' ; ')}.`);
+  }
   const ici = (y: { sortie?: string | null; groupe?: string | null }) => (d.sortie ? y.sortie === d.sortie : y.groupe === d.groupe);
   const traces = x.traces.filter(ici);
   if (traces.length) {
@@ -76,9 +82,9 @@ export type ReponseBud = {
   point: { nom: string; lat: number; lon: number } | null;
   actions: ActionDemandee[];
 };
-/** Ce que Bud propose de faire (§7.12) : une dépense, un Buddy Time, ma dispo à un planning. */
+/** Ce que Bud propose de faire (§7.12) : une dépense, un Buddy Time (le créer ou le supprimer), ma dispo à un planning. */
 export type ActionDemandee = {
-  type: 'depense' | 'buddy_time' | 'dispo'; titre: string | null; montant_euros: number | null; paye_par: string | null; pour: string[];
+  type: 'depense' | 'buddy_time' | 'supprimer_buddy_time' | 'dispo'; titre: string | null; montant_euros: number | null; paye_par: string | null; pour: string[];
   nom: string | null; debut: string | null; fin: string | null; lieu: string | null; etat: 'oui' | 'peut' | 'non' | null;
 };
 
@@ -87,7 +93,8 @@ const meme = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 
 /**
  * 🐻 Fait ce que Bud propose, en mon nom (choix de Seb, 23 novembre) : seulement une dépense du Buddy count de ce
- * Buddy Time, un Buddy Time dans cette bande, ou ma propre dispo à un planning de la bande. Le reste est écarté.
+ * Buddy Time, un Buddy Time dans cette bande (le créer, ou le supprimer si je l'ai créé ou administre la bande : Seb,
+ * 25 novembre), ou ma propre dispo à un planning de la bande. Le reste est écarté.
  * Rend ce qui est fait (pour « Annuler ») et ce qui ne l'est pas (à dire).
  */
 export function agir(actions: ActionDemandee[], d: Dest, x: Donnees & { groupe?: { id: string; nature: string; membres: Buddy[] } }) {
@@ -113,6 +120,16 @@ export function agir(actions: ActionDemandee[], d: Dest, x: Donnees & { groupe?:
         const fin = a.fin && JOUR.test(a.fin) && a.fin >= a.debut ? a.fin : a.debut;
         const sid = creerSortie({ groupe: g.id, nom: a.nom, photo: null, debut: a.debut, fin, lieu: (a.lieu ?? '').slice(0, 120), participants: qui });
         faites.push({ genre: 'sortie', id: sid, texte: `📅 Buddy Time « ${a.nom} » · ${a.debut}` });
+      } else if (a.type === 'supprimer_buddy_time') {
+        // Celui de cette conversation, ou celui de la bande qui porte ce nom (et cette date si Bud la donne).
+        const groupe = x.sortie?.groupe ?? d.groupe;
+        const so = !a.nom && x.sortie ? x.sortie : (x.sorties ?? []).filter((y) => y.groupe === groupe && !!a.nom && meme(y.nom, a.nom)
+          && (!a.debut || y.debut === a.debut)).at(0);
+        if (!so) throw new Error('je ne trouve pas ce Buddy Time');
+        const admin = x.groupe?.membres.find((b) => b.id === x.moi)?.role === 'admin';
+        if (so.par && so.par !== x.moi && !admin) throw new Error('seul celui qui a créé le Buddy Time (ou un admin) peut le supprimer');
+        supprimerSortie(so.id);
+        faites.push({ genre: 'suppression', copie: so, texte: `🗑 Buddy Time « ${so.nom} » supprimé` });
       } else if (a.type === 'dispo') {
         const groupe = x.sortie?.groupe ?? d.groupe;
         const p = x.plannings.find((y) => y.groupe === groupe && (!a.nom || meme(y.nom, a.nom))) ;
@@ -132,6 +149,7 @@ export function annuler(faites: ActionBud[]) {
   for (const a of [...faites].reverse()) {
     if (a.genre === 'depense') retirerDepense(a.id);
     else if (a.genre === 'sortie') retirerSortie(a.id);
+    else if (a.genre === 'suppression') remettreSortie(a.copie);
     else repondre(a.planning, a.debut, a.avant.etat, a.avant.mot);
   }
 }

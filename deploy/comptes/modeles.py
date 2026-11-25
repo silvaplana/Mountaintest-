@@ -106,6 +106,8 @@ class Sortie(Base):
     cree_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+    # Supprimé (par Bud, §7.12) : caché de tous, gardé pour que « Annuler » le remette avec tout ce qu'il contient.
+    supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Participant(Base):
