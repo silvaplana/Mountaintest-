@@ -220,3 +220,12 @@ describe('survol 3D : ombres fines (✨ soigné)', () => {
     expect(gridFor(zoneElargie(zone), 14).z).toBeLessThan(14);
   });
 });
+
+describe('survol 3D : plongée simple', () => {
+  it('descend tout de suite, sans attendre de nuages', () => {
+    const t = trajectoire(line, 'moyen', ensemble, 600, true, { nuages: false });
+    const nuages = trajectoire(line, 'moyen', ensemble, 600, true);
+    expect(cameraA(t, 0.12).zoom).toBeGreaterThan(cameraA(nuages, 0.12).zoom + 1);
+    expect(cameraA(t, 0.35).pitch).toBeGreaterThan(55);
+  });
+});
