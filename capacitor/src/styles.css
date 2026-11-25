@@ -1156,3 +1156,5 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .edit-actions button { min-height: 52px; font-size: 18px; }
 .edit-plus { color: #2f9e5f; } .edit-moins { color: #b45309; }
 .trace-edit .head .close { width: 48px; min-height: 48px; padding: 0; font-size: 22px; flex: 0 0 48px; }
+.trace-edit .head .annuler { min-height: 48px; padding: 0 12px; font-size: 17px; font-weight: 600; color: #1d2421; border: 1.5px solid #9aa5a0; border-radius: 12px; background: #fff; display: inline-flex; align-items: center; gap: 6px; }
+.trace-edit .head .annuler:disabled { opacity: 0.3; }

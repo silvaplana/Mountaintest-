@@ -41,6 +41,16 @@ const SRC = 'trace-edit';
 const coords = (l: LonLat[]) => l.map((p) => [p.lon, p.lat]);
 
 /** Rond posé sur la carte : zone de 48 px pour le doigt, le rond visible au milieu. */
+/** Flèche « Annuler » en gros trait foncé : ↶ seul était pâle et peu clair ; ↷ Refaire enlevé (Seb, 25/11). */
+function Fleche() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.8"
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  );
+}
+
 function rond(cls: string, txt = '') {
   const el = document.createElement('div');
   el.className = `edit-rond ${cls}`;
@@ -77,7 +87,7 @@ function glissable(map: MlMap, mk: maplibregl.Marker, onDrag: (ll: maplibregl.Ln
 
 /**
  * ✏ Modifier une de mes traces (maquette validée par Seb le 25/11, maquettes/edition-trace/) : même place que
- * le menu de la trace, ← pour y revenir, ↶ ↷ pour défaire et refaire. Outils : Recoller un morceau sur les
+ * le menu de la trace, ← pour y revenir, « Annuler » pour revenir en arrière. Outils : Recoller un morceau sur les
  * chemins (bornes ▶ ■ posées sur la trace), Prolonger la fin (tout droit ou par les chemins), Souple (ronds
  * qu'on fait glisser). Chaque changement est gardé tout de suite dans la trace.
  */
@@ -270,7 +280,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   const choisir = (o: Outil) => { viderBornes(); setOutil(outil === o ? null : o); };
 
   let aide: ReactNode;
-  if (!outil) aide = <p className="edit-aide muted">Choisis un outil. Tout se défait avec ↶.</p>;
+  if (!outil) aide = <p className="edit-aide muted">Choisis un outil. Tout s’annule avec « Annuler ».</p>;
   else if (outil === 'snap') {
     if (A == null) aide = <>
       <p className="edit-aide"><span className="edit-n debut">▶</span>Touche le <b>début</b> du morceau sur la trace</p>
@@ -303,8 +313,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
       <div className="head">
         <button className="retour" onClick={onBack} aria-label="Retour au menu de la trace">←</button>
         <b><span style={{ color: trail.color, display: 'flex' }}><PencilIcon size={24} /></span> Modifier</b>
-        <button className="close" disabled={hist.i === 0} onClick={() => aller(hist.i - 1)} aria-label="Défaire">↶</button>
-        <button className="close" disabled={hist.i >= hist.l.length - 1} onClick={() => aller(hist.i + 1)} aria-label="Refaire">↷</button>
+        <button className="annuler" disabled={hist.i === 0} onClick={() => aller(hist.i - 1)}><Fleche />Annuler</button>
       </div></div>
       <span className="hint">{formatKm(km)}{Math.abs(dk) >= 0.05 && <b className={dk < 0 ? 'edit-moins' : 'edit-plus'}> ({dk > 0 ? '+' : ''}{dk.toFixed(1).replace('.', ',')} km)</b>}</span>
       <div className="edit-outils">
