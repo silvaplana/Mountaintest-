@@ -86,7 +86,8 @@ export type Style = 'suivi' | 'cote' | 'alpi' | 'cine';
 export type Descente = 'gopro' | 'large';
 /** Relief lu dans le MNT IGN (relief.ts) : altitude d'un point, et les sommets marquants de la zone. */
 export interface Relief { alt: (p: LonLat) => number | null; sommets: (LonLat & { alt: number })[] }
-export interface Options { style?: Style; descente?: Descente; relief?: Relief | null }
+/** nuages : l'intro plongée attend derrière les nuages (par défaut) ; false = plongée simple, on descend tout de suite. */
+export interface Options { style?: Style; descente?: Descente; relief?: Relief | null; nuages?: boolean }
 
 /** Inclinaison de la caméra GoPro de la descente (au ras de la pente). */
 export const PITCH_GOPRO = 76;
@@ -218,10 +219,11 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
     if (plongee && t < debut) {
       // Façon clip « Au DD » : tant qu'on est dans les nuages (peints par-dessus), la carte attend à la verticale
       // du départ, très haut. À la déchirure, on descend tout droit en tournant lentement sur soi, puis on se redresse.
-      const u = t / debut, cap = depart.bearing;
-      const chute = doux(Math.max(0, Math.min(1, (u - DECHIRURE * 0.8) / (REDRESSE - DECHIRURE * 0.8))));
+      // Plongée simple : pas de nuages à attendre, la descente commence tout de suite.
+      const u = t / debut, cap = depart.bearing, attente = o.nuages === false ? 0 : DECHIRURE * 0.8;
+      const chute = doux(Math.max(0, Math.min(1, (u - attente) / (REDRESSE - attente))));
       const redresse = doux(Math.max(0, (u - REDRESSE) / (1 - REDRESSE)));
-      const tour = Math.min(1, Math.max(0, (u - DECHIRURE * 0.8) / (1 - DECHIRURE * 0.8)));
+      const tour = Math.min(1, Math.max(0, (u - attente) / (1 - attente)));
       brut.push({ x: depart.x, y: depart.y, zoom: lerp(ZOOM_CIEL, depart.zoom - 0.3, chute * chute) + 0.3 * redresse, pitch: lerp(0, depart.pitch, redresse),
         bearing: cap - 70 * (1 - tour), d: 0, s: 0 });
     } else if (t < debut && style === 'cine') {
