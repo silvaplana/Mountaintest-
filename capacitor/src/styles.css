@@ -1074,6 +1074,12 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .survol .couche { display: inline-block; transform: rotate(90deg); }
 .survol-choix { display: flex; gap: 6px; }
 .survol-choix button { flex: 1; }
+.survol-choix.deux { display: grid; grid-template-columns: 1fr 1fr; }
+.survol-styles { display: flex; flex-direction: column; gap: 8px; }
+.survol-dit { margin: 0; font-size: 15px; color: #5b6560; line-height: 1.3; }
+.survol-bas .pastille.ok { flex: 0 0 72px; }
+.survol-bas .pastille.ok::after { content: none; }
+.survol .head .retour, .survol .head .close { width: 48px; min-height: 48px; padding: 0; font-size: 22px; flex: 0 0 48px; }
 .survol-choix button.on { background: #2f9e5f; color: #fff; font-weight: 700; }
 .survol-plage { display: flex; flex-direction: column; gap: 6px; }
 .survol-plage .row { display: flex; align-items: center; gap: 10px; justify-content: space-between; font-size: 17px; }

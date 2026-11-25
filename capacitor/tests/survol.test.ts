@@ -118,3 +118,66 @@ describe('survol 3D : trace qui se dessine', () => {
     expect(debutTrace(line, total + 100)).toHaveLength(line.length);
   });
 });
+
+describe('survol 3D : styles de prise de vue', () => {
+  // Trace droite vers le nord (~4,4 km), qui monte jusqu'à son bout ; un grand sommet à 3 km à l'est du milieu.
+  const droite = Array.from({ length: 41 }, (_, i) => ({ lon: 6.0, lat: 45.0 + i * 0.001 }));
+  const pic = { lon: 6.0 + 3000 / (111_320 * Math.cos((45.02 * Math.PI) / 180)), lat: 45.02, alt: 2600 };
+  const relief = {
+    alt: (p: { lon: number; lat: number }) => {
+      const dx = (p.lon - pic.lon) * 111_320 * Math.cos((45 * Math.PI) / 180), dy = (p.lat - pic.lat) * 110_540;
+      return 1000 + (p.lat - 45.0) * 20_000 + 1400 * Math.exp(-(dx * dx + dy * dy) / (2 * 1200 * 1200));
+    },
+    sommets: [pic],
+  };
+  const vue = { center: { lon: 6.0, lat: 45.02 }, zoom: 12 };
+
+  it('de côté : la caméra regarde à ~75° de la marche', () => {
+    const c = cameraA(trajectoire(droite, 'moyen', vue, 600, false, { style: 'cote' }), 0.5);
+    expect(Math.abs(ecartAngle(75, c.bearing))).toBeLessThan(10);
+  });
+
+  it('alpiniste : monte au sommet, s\'y arrête (altitude affichée), puis redescend par le même chemin', async () => {
+    const { trajectoire: tr } = await import('../src/survol/camera');
+    const t = tr(droite, 'moyen', vue, 600, false, { style: 'alpi', relief, descente: 'gopro' });
+    const pause = t.filter((c) => c.sommet != null);
+    expect(pause.length).toBeGreaterThan(50);
+    expect(Math.abs(pause[0].point.lat - 45.04)).toBeLessThan(0.0005);
+    for (let i = 1; i < t.length; i++) expect(t[i].d).toBeGreaterThanOrEqual(t[i - 1].d - 1e-6);
+    const fin = t[t.length - 1];
+    expect(Math.abs(fin.point.lat - 45.0)).toBeLessThan(0.0005); // retour au départ
+    expect(cameraA(t, 0.9).pitch).toBeGreaterThan(70); // descente GoPro, au ras de la pente
+  });
+
+  it('sans relief, alpiniste et ciné font un simple suivi', () => {
+    const t = trajectoire(droite, 'moyen', vue, 600, false, { style: 'alpi', relief: null });
+    expect(t.some((c) => c.sommet != null)).toBe(false);
+  });
+
+  it('ciné : tourne la tête vers le beau sommet sur le côté, et prend son temps là', async () => {
+    const { beaute, chemin: ch } = await import('../src/survol/camera');
+    const b = beaute(ch(droite), relief);
+    expect(b.vues.length).toBeGreaterThan(0);
+    const t = trajectoire(droite, 'moyen', vue, 600, false, { style: 'cine', relief });
+    const v = b.vues[0], ici = t.filter((c) => c.d > 0 && c.d < 4000).reduce((m, c) => (Math.abs(c.d - v.d) < Math.abs(m.d - v.d) ? c : m));
+    expect(ecartAngle(0, ici.bearing)).toBeGreaterThan(30); // regarde vers l'est, vers le sommet
+    // Plus d'images passées au point de vue qu'au bout de la trace (ralenti là).
+    const n = (d: number) => t.filter((c) => Math.abs(c.d - d) < 300 && c.d > 0).length;
+    expect(n(v.d)).toBeGreaterThan(n(3900));
+  });
+});
+
+describe('survol 3D : relief', () => {
+  it('trouve le sommet d\'une grille d\'altitudes', async () => {
+    const { sommets, reliefDeGrille } = await import('../src/survol/relief');
+    const spec = { z: 12, x0: 2116, y0: 1468, nx: 1, ny: 1 };
+    const w = 256, h = 256, dem = new Float32Array(w * h);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) dem[j * w + i] = 1000 + 900 * Math.exp(-((i - 100) ** 2 + (j - 150) ** 2) / (2 * 20 * 20));
+    const g = { spec, w, h, dem, missing: 0 };
+    const s = sommets(g);
+    expect(s.length).toBe(1);
+    expect(s[0].alt).toBeGreaterThan(1850);
+    const r = reliefDeGrille(g);
+    expect(r.alt(s[0])).toBeGreaterThan(1850);
+  });
+});
