@@ -15,9 +15,39 @@ const doux = (v: number) => { const x = Math.max(0, Math.min(1, v)); return x * 
 // Soleil au sud-est, à 35° au-dessus de l'horizon (vers l'est, vers le nord, vers le haut).
 const SOLEIL = [0.58, -0.58, 0.57];
 
+/**
+ * Relief adouci (moyenne glissante sur ±r mailles, passée trois fois ; les trous restent des trous). Le relief IGN
+ * arrive en marches d'escalier (données plus grossières que la maille demandée) : sans ça la pente saute d'une maille
+ * à l'autre et la neige se couvre de stries (Seb, 26/11).
+ */
+export function lisser(dem: Float32Array, w: number, h: number, r = 2): Float32Array {
+  let a = dem;
+  const passe = (src: Float32Array, n: number, pas: number, debut: (k: number) => number, lignes: number) => {
+    const out = new Float32Array(src.length);
+    for (let k = 0; k < lignes; k++) {
+      const o = debut(k);
+      for (let i = 0; i < n; i++) {
+        let somme = 0, nb = 0;
+        for (let d = -r; d <= r; d++) {
+          const v = src[o + Math.max(0, Math.min(n - 1, i + d)) * pas];
+          if (v > 0) { somme += v; nb++; }
+        }
+        out[o + i * pas] = src[o + i * pas] > 0 && nb ? somme / nb : src[o + i * pas];
+      }
+    }
+    return out;
+  };
+  for (let t = 0; t < 3; t++) {
+    a = passe(a, w, 1, (j) => j * w, h);
+    a = passe(a, h, w, (i) => i, w);
+  }
+  return a;
+}
+
 /** Image de la neige (RGBA) pour une grille d'altitudes de maille `m` mètres ; ligne 0 au nord. */
 export function pixelsNeige(dem: Float32Array, w: number, h: number, m: number, limite: number): Uint8ClampedArray {
   const px = new Uint8ClampedArray(w * h * 4);
+  dem = lisser(dem, w, h);
   const at = (i: number, j: number) => dem[Math.max(0, Math.min(h - 1, j)) * w + Math.max(0, Math.min(w - 1, i))];
   for (let j = 0; j < h; j++) {
     for (let i = 0; i < w; i++) {
