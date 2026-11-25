@@ -280,3 +280,16 @@ describe('survol 3D : 🧗 la caméra se penche dans la pente', () => {
     expect(raide[i].pitch).toBeLessThan(douce[i].pitch - 5);
   });
 });
+
+describe('survol 3D : 🧗 montée seule, descente seule', () => {
+  const pic = { alt: (p: { lon: number; lat: number }) => { const y = (p.lat - 45.0) * 110_540; return 3000 - Math.abs(y - 2000) * 0.3; }, sommets: [] };
+  const droite = Array.from({ length: 41 }, (_, i) => ({ lon: 6, lat: 45 + (i * 100) / 110_540 }));
+  it('montée seule : finit au sommet ; descente seule : part du sommet', () => {
+    const m = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'montee' });
+    const d = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'descente' });
+    const y = (c: { lat: number }) => (c.lat - 45) * 110_540;
+    expect(Math.abs(y(m[600]) - 2000)).toBeLessThan(200);
+    expect(Math.abs(y(d[120]) - 2000)).toBeLessThan(250);
+    expect(y(d[600])).toBeGreaterThan(3600);
+  });
+});

@@ -6,7 +6,7 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Style } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
@@ -24,10 +24,10 @@ interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: 
   /** Intro : ⤓ plongée simple (on descend du ciel sur le départ) ou ☁ plongée dans les nuages façon clip. */
   plongee: Plongee; rapide: boolean; dessine: boolean;
   /** 🎬 style de prise de vue, descente du style alpiniste, ◭ pentes dans le film (la carte ne change pas). */
-  style: Style; descente: Descente; pentes: boolean }
+  style: Style; descente: Descente; sens: Sens; pentes: boolean }
 type Plongee = 'non' | 'simple' | 'nuages';
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', rapide: true, dessine: false, style: 'cine', descente: 'gopro', pentes: false };
+const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
 function lire(): Reglages {
   try {
     const r = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') };
@@ -126,7 +126,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     if (ctl.signal.aborted) { setEtape('reglages'); return; }
     if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee === 'nuages' ? partPlongee(r.duree) : r.plongee === 'simple',
-      { style: r.style, descente: r.descente, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight });
+      { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight });
     const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
     if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
     const pitchAvant = map.getMaxPitch();
@@ -371,7 +371,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
               <div className="survol-choix deux">{(Object.keys(STYLES) as Style[]).map((k) => (
                 <button key={k} className={r.style === k ? 'on' : ''} onClick={() => maj({ style: k })}>{STYLES[k].i} {STYLES[k].nom}</button>))}</div>
               <p className="survol-dit">{STYLES[r.style].dit}</p>
-              {r.style === 'alpi' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
+              {r.style === 'alpi' && <div className="survol-choix">{([['montee', '↗ Montée'], ['deux', '↗↘ Les deux'], ['descente', '↘ Descente']] as [Sens, string][]).map(([k, t]) => (
+                <button key={k} className={r.sens === k ? 'on' : ''} onClick={() => maj({ sens: k })}>{t}</button>))}</div>}
+              {r.style === 'alpi' && r.sens !== 'montee' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
                 <button key={k} className={r.descente === k ? 'on' : ''} onClick={() => maj({ descente: k })}>{t}</button>))}</div>}
               <div className="survol-bas">
                 <button className={`bascule ${r.plongee === 'simple' ? 'on' : ''}`} onClick={() => maj({ plongee: r.plongee === 'simple' ? 'non' : 'simple' })}

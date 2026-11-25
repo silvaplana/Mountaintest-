@@ -94,10 +94,12 @@ function flou(v: number[], sigma: number): number[] {
 /** 🎬 Styles de prise de vue (maquette validée par Seb le 25/11). */
 export type Style = 'suivi' | 'cote' | 'alpi' | 'cine';
 export type Descente = 'gopro' | 'large';
+/** 🧗 Ce que le film raconte : la montée seule, la descente seule (depuis le sommet), ou les deux. */
+export type Sens = 'deux' | 'montee' | 'descente';
 /** Relief lu dans le MNT IGN (relief.ts) : altitude d'un point, et les sommets marquants de la zone. */
 export interface Relief { alt: (p: LonLat) => number | null; sommets: (LonLat & { alt: number })[] }
 /** nuages : l'intro plongée attend derrière les nuages (par défaut) ; false = plongée simple, on descend tout de suite. */
-export interface Options { style?: Style; descente?: Descente; relief?: Relief | null; nuages?: boolean;
+export interface Options { style?: Style; descente?: Descente; sens?: Sens; relief?: Relief | null; nuages?: boolean;
   /** Hauteur de la carte à l'écran (px) : donne la distance de la caméra, pour ne jamais passer sous le relief. */
   hauteurPx?: number }
 
@@ -212,16 +214,20 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
     if (style === 'alpi' && som) {
       // La caméra se penche dans la pente (Seb, 25/11) : elle lève les yeux en montée, plonge le regard en descente.
       // Pente mesurée sur ± 150 m, dans le sens de la marche ; le flou final adoucit encore.
-      if (u < 0.5) {
-        const d = (u / 0.5) * som.d, p = c.lisse(d);
+      // Parts du film : montée jusqu'à m1, pause au sommet jusqu'à m2, puis descente.
+      const [m1, m2] = o.sens === 'montee' ? [0.82, 1.01] : o.sens === 'descente' ? [0, 0.18] : [0.5, 0.65];
+      if (u < m1) {
+        const d = (u / m1) * som.d, p = c.lisse(d);
         return { ...p, zoom: h.zoom, pitch: dansLaPente(h.pitch, pente(d, 1)), bearing: capAutour(c, d), d, s: d };
       }
-      if (u < 0.65) {
+      if (u < m2) {
         // Pause au sommet : demi-tour panoramique, la caméra recule un peu et regarde plus loin.
-        const v = doux((u - 0.5) / 0.15), bosse = Math.sin(v * Math.PI), p = c.at(som.d);
-        return { ...p, zoom: h.zoom - 0.7 * bosse, pitch: h.pitch - 10 * bosse, bearing: capAutour(c, som.d) + 180 * v, d: som.d, s: som.d, sommet: som.alt };
+        // Descente seule : le demi-tour finit face à la descente.
+        const v = doux((u - m1) / (m2 - m1)), bosse = Math.sin(v * Math.PI), p = c.at(som.d);
+        const cap = o.sens === 'descente' ? (som.retour ? capAutour(c, som.d) + 180 : capAutour(c, som.d)) - 180 * (1 - v) : capAutour(c, som.d) + 180 * v;
+        return { ...p, zoom: h.zoom - 0.7 * bosse, pitch: h.pitch - 10 * bosse, bearing: cap, d: som.d, s: som.d, sommet: som.alt };
       }
-      const v = (u - 0.65) / 0.35, s = lerp(som.d, som.fin, v), p = c.lisse(s);
+      const v = (u - m2) / (1 - m2), s = lerp(som.d, som.fin, v), p = c.lisse(s);
       const cap = som.retour ? capAutour(c, s) + 180 : capAutour(c, s);
       const penteDescente = pente(s, som.retour ? -1 : 1);
       return { ...p, zoom: gopro ? h.zoom + 0.6 : h.zoom - 0.4, pitch: dansLaPente(gopro ? PITCH_GOPRO : Math.min(64, h.pitch + 2), penteDescente),
