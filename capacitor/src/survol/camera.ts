@@ -135,3 +135,18 @@ export function heuresOmbres(h0: number, h1: number): number[] {
 }
 
 export const heureTexte = (h: number) => `${Math.floor(h)} h${h % 1 ? ' 30' : ''}`;
+
+/** Début de la trace jusqu'à d mètres (trace qui se dessine pendant le film), le dernier point coupé au bon endroit. */
+export function debutTrace(line: LonLat[], d: number): LonLat[] {
+  const c = chemin(line);
+  if (d <= 0 || line.length < 2) return [];
+  const out = [line[0]];
+  let cum = 0;
+  for (let i = 1; i < line.length; i++) {
+    const a = c.pr.vers(line[i - 1]), b = c.pr.vers(line[i]), l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (cum + l >= d) { out.push(c.pr.depuis(c.at(d))); return out; }
+    cum += l;
+    out.push(line[i]);
+  }
+  return out;
+}

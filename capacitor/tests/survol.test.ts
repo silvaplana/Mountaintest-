@@ -105,3 +105,16 @@ describe('survol 3D : ombres et musique du film', () => {
     expect(d[9]).toBeCloseTo(0.25);
   });
 });
+
+describe('survol 3D : trace qui se dessine', () => {
+  it('donne le début de la trace jusqu\'à la distance parcourue, coupé au bon endroit', async () => {
+    const { debutTrace, chemin } = await import('../src/survol/camera');
+    const total = chemin(line).total;
+    expect(debutTrace(line, 0)).toEqual([]);
+    const moitie = debutTrace(line, total / 2);
+    expect(moitie.length).toBeGreaterThan(2);
+    expect(moitie.length).toBeLessThan(line.length);
+    expect(chemin(moitie).total).toBeCloseTo(total / 2, 0);
+    expect(debutTrace(line, total + 100)).toHaveLength(line.length);
+  });
+});
