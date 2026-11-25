@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cameraA, capAutour, chemin, ecartAngle, heuresOmbres, heureTexte, partPlongee, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
+import { cameraA, capAutour, chemin, distanceCamera, ecartAngle, heuresOmbres, heureTexte, partPlongee, PITCH_MAX, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
 import { cameraCiel } from '../src/survol/ciel-gl';
 import { CIEL } from '../src/survol/nuages';
 import { cadrage } from '../src/survol/enregistreur';
@@ -165,7 +165,6 @@ describe('survol 3D : styles de prise de vue', () => {
     for (let i = 1; i < t.length; i++) expect(t[i].d).toBeGreaterThanOrEqual(t[i - 1].d - 1e-6);
     const fin = t[t.length - 1];
     expect(Math.abs(fin.point.lat - 45.0)).toBeLessThan(0.0005); // retour au départ
-    expect(cameraA(t, 0.9).pitch).toBeGreaterThan(60); // descente GoPro, regard penché dans la pente
   });
 
   it('sans relief, alpiniste et ciné font un simple suivi', () => {
@@ -270,14 +269,83 @@ describe('survol 3D : 🧗 la caméra se penche dans la pente', () => {
     expect(dansLaPente(76, 30)).toBe(PITCH_GOPRO);
     expect(dansLaPente(40, -40)).toBe(30);
   });
-  it('en descente raide, la caméra regarde plus bas qu\'en descente douce', () => {
-    // Sommet au milieu de la trace ; descente raide (40 %) ou douce (5 %) après.
-    const s = (raide: number) => ({ alt: (p: { lon: number; lat: number }) => { const y = (p.lat - 45.0) * 110_540; return y < 2000 ? 1000 + y * 0.2 : 1400 - (y - 2000) * raide; }, sommets: [] });
-    const droite = Array.from({ length: 41 }, (_, i) => ({ lon: 6, lat: 45 + (i * 100) / 110_540 }));
-    const raide = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: s(0.4) });
-    const douce = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: s(0.05) });
-    const i = Math.round(600 * (0.15 + 0.85 * 0.85));
-    expect(raide[i].pitch).toBeLessThan(douce[i].pitch - 5);
+});
+
+describe('survol 3D : 🧗 caméra au sol, sommet en drone, regard final', () => {
+  // Cône à 29° (sommet 2600 m), bosses de 6 m et ondulations de 25 m ; la trace y monte en grands lacets.
+  const KX = 78_710, KY = 110_540;
+  const h = (lon: number, lat: number) => { const x = (lon - 6) * KX, y = (lat - 45.03) * KY, d = Math.hypot(x, y);
+    return Math.max(1200, 2600 - 0.55 * d) + 6 * Math.sin(x / 60) * Math.cos(y / 45) + 25 * Math.sin(x / 400 + 1) * Math.sin(y / 300); };
+  const lacets = Array.from({ length: 221 }, (_, i) => { const d = i * 10; return { lon: 6 + (120 * Math.sin(d / 110) * (1 - d / 2300)) / KX, lat: 45.03 - (2200 - d) / KY }; });
+  const cone = { alt: (p: { lon: number; lat: number }) => h(p.lon, p.lat), sommets: [], maille: 7 };
+  const vue = { center: { lon: 6, lat: 45.02 }, zoom: 12.5 };
+  /** Position réelle de la caméra dans MapLibre (vérifiée dans MapLibre sans écran le 25/11) et hauteur au-dessus du sol. */
+  const oeil = (c: { lon: number; lat: number; zoom: number; pitch: number; bearing: number; elevation?: number }) => {
+    const D = distanceCamera(c.zoom, c.lat, 800), p = (c.pitch * Math.PI) / 180, a = (c.bearing * Math.PI) / 180, L = D * Math.sin(p);
+    const lon = c.lon - (L * Math.sin(a)) / (111_320 * Math.cos((c.lat * Math.PI) / 180)), lat = c.lat - (L * Math.cos(a)) / 110_540, alt = c.elevation! + D * Math.cos(p);
+    return { lon, lat, alt, sol: alt - h(lon, lat) };
+  };
+  const film = (hauteur: 'bas' | 'moyen' | 'haut', o: object = {}) => trajectoire(lacets, hauteur, vue, 600, false, { style: 'alpi', relief: cone, hauteurPx: 800, ...o });
+  // « Les deux » : montée jusqu'à l'image 284, sommet jusqu'à 447, descente jusqu'à 534, puis regard final.
+  const MONTEE = [120, 250] as const;
+
+  it('jamais dans la montagne, quelle que soit la hauteur, le sens ou l\'intro', () => {
+    for (const ht of ['bas', 'moyen', 'haut'] as const) for (const sens of ['deux', 'montee', 'descente'] as const) for (const desc of ['gopro', 'large'] as const) {
+      const t = film(ht, { sens, descente: desc });
+      expect(Math.min(...t.map((c) => oeil(c).sol)), `${ht} ${sens} ${desc}`).toBeGreaterThan(2);
+    }
+    const plongee = trajectoire(lacets, 'bas', vue, 600, 0.3, { style: 'alpi', relief: cone, hauteurPx: 800 });
+    expect(Math.min(...plongee.map((c) => oeil(c).sol))).toBeGreaterThan(2);
+  });
+  it('« Bas » colle au sol en montée ; Moyen et Haut s\'éloignent', () => {
+    const moy = (ht: 'bas' | 'moyen' | 'haut') => { const t = film(ht).slice(...MONTEE); return t.reduce((s, c) => s + oeil(c).sol, 0) / t.length; };
+    const bas = film('bas').slice(...MONTEE).map((c) => oeil(c).sol);
+    expect(Math.max(...bas)).toBeLessThan(30);
+    expect(moy('bas')).toBeLessThan(18);
+    expect(moy('moyen')).toBeGreaterThan(moy('bas') + 20);
+    expect(moy('haut')).toBeGreaterThan(moy('moyen') + 60);
+  });
+  it('en montée raide la caméra lève les yeux (au-dessus de l\'horizon), en descente elle regarde vers le bas', () => {
+    const t = film('bas');
+    for (const c of t.slice(...MONTEE)) { expect(c.pitch).toBeGreaterThan(92); expect(c.pitch).toBeLessThanOrEqual(PITCH_MAX + 1e-6); }
+    for (const c of t.slice(470, 525)) expect(c.pitch).toBeLessThan(80);
+  });
+  it('sans à-coup : la caméra ne saute ni en position ni en cap d\'une image à l\'autre', () => {
+    const t = film('bas');
+    for (let i = 1; i < t.length; i++) {
+      const a = oeil(t[i - 1]), b = oeil(t[i]);
+      const pas = Math.hypot((b.lon - a.lon) * KX, (b.lat - a.lat) * KY, b.alt - a.alt);
+      if (i > 100) expect(pas, `image ${i}`).toBeLessThan(60);
+      expect(Math.abs(t[i].bearing - t[i - 1].bearing), `cap ${i}`).toBeLessThan(i > 530 ? 6 : 4); // à l'arrivée, on se retourne
+      expect(Math.abs(t[i].pitch - t[i - 1].pitch), `pitch ${i}`).toBeLessThan(4);
+    }
+  });
+  it('au sommet : s\'élève comme un drone, tourne, replonge dans l\'axe de la descente et attend avant de partir', () => {
+    const t = film('bas');
+    const pause = t.filter((c) => c.sommet != null);
+    expect(Math.max(...pause.map((c) => oeil(c).sol))).toBeGreaterThan(300);
+    expect(Math.abs(pause[pause.length - 1].bearing - pause[0].bearing)).toBeGreaterThan(170);
+    // Les dernières images de la pause : immobile, au sol, face à la descente (la trace redescend vers le sud).
+    const a = oeil(pause[pause.length - 12]), b = oeil(pause[pause.length - 1]);
+    expect(Math.hypot((b.lon - a.lon) * KX, (b.lat - a.lat) * KY, b.alt - a.alt)).toBeLessThan(1);
+    expect(b.sol).toBeLessThan(40);
+    expect(Math.abs(ecartAngle(180, pause[pause.length - 1].bearing))).toBeLessThan(25);
+  });
+  it('la descente prend de la hauteur au fil de la pente', () => {
+    const t = film('bas');
+    expect(oeil(t[520]).sol).toBeGreaterThan(oeil(t[460]).sol + 5);
+  });
+  it('à l\'arrivée : se retourne vers le sommet et s\'en approche s\'il est visible', () => {
+    const t = film('bas'), fin = t[600], e = oeil(fin), avant = oeil(t[534]);
+    const versSommet = (Math.atan2((6 - e.lon) * KX, (45.03 - e.lat) * KY) * 180) / Math.PI;
+    expect(Math.abs(ecartAngle(versSommet, fin.bearing))).toBeLessThan(3);
+    const dist = (p: { lon: number; lat: number }) => Math.hypot((6 - p.lon) * KX, (45.03 - p.lat) * KY);
+    expect(dist(e)).toBeLessThan(dist(avant) - 300);
+    // Sommet caché par une crête : on se retourne, sans s'approcher.
+    const crete = { ...cone, alt: (p: { lon: number; lat: number }) => { const y = (p.lat - 45.03) * KY; return h(p.lon, p.lat) + (Math.abs(y + 1400) < 150 ? 900 : 0); } };
+    const c2 = trajectoire(lacets, 'bas', vue, 600, false, { style: 'alpi', relief: crete, hauteurPx: 800 });
+    const o = (c: typeof c2[0]) => { const x = oeil(c); return x; };
+    expect(dist(o(c2[600]))).toBeGreaterThan(dist(o(c2[534])) - 150);
   });
 });
 
@@ -288,9 +356,9 @@ describe('survol 3D : 🧗 montée seule, descente seule', () => {
     const m = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'montee' });
     const d = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pic, sens: 'descente' });
     const y = (c: { lat: number }) => (c.lat - 45) * 110_540;
-    expect(Math.abs(y(m[600]) - 2000)).toBeLessThan(200);
-    expect(Math.abs(y(d[120]) - 2000)).toBeLessThan(250);
-    expect(y(d[600])).toBeGreaterThan(3600);
+    expect(Math.abs(y(m[600].point) - 2000)).toBeLessThan(200);
+    expect(Math.abs(y(d[120].point) - 2000)).toBeLessThan(250);
+    expect(y(d[600].point)).toBeGreaterThan(3600);
   });
 });
 
@@ -301,13 +369,13 @@ describe('survol 3D : 🧗 trace qui part du sommet', () => {
   const y = (c: { lat: number }) => (c.lat - 45) * 110_540;
   it('« les deux » remonte depuis le bas puis redescend (la caméra ne reste pas plantée)', () => {
     const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pente, sens: 'deux' });
-    expect(y(t[150])).toBeGreaterThan(2000);   // en train de remonter depuis le bas (4 km)
-    expect(y(t[320])).toBeLessThan(600);       // au sommet
-    expect(y(t[590])).toBeGreaterThan(3300);   // redescendu
+    expect(y(t[150].point)).toBeGreaterThan(2000);   // en train de remonter depuis le bas (4 km)
+    expect(y(t[320].point)).toBeLessThan(600);       // au sommet
+    expect(y(t[590].point)).toBeGreaterThan(3300);   // redescendu
   });
   it('« descente » part du sommet', () => {
     const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pente, sens: 'descente' });
-    expect(y(t[130])).toBeLessThan(600);
-    expect(y(t[590])).toBeGreaterThan(3300);
+    expect(y(t[130].point)).toBeLessThan(600);
+    expect(y(t[590].point)).toBeGreaterThan(3300);
   });
 });
