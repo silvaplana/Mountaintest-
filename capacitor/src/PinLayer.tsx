@@ -2,6 +2,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import type { Pin } from './trails/edit';
+import { DOIGT_PX } from './doigt';
 import type { Trail } from './trails/osmTrails';
 
 /** Appui long : le point se déplace ; très long : 🗑 propose de l'enlever (règle de Seb, 25/11). */
@@ -101,7 +102,8 @@ export function PinLayer({ map, trails, pique, targetId, editing, onEditing, onP
         }
         if (mode === 'move' && bouge) {
           const r = map.getContainer().getBoundingClientRect();
-          mk.setLngLat(map.unproject([e.clientX - r.left, e.clientY - r.top]));
+          // La pointe de l'épingle 1 cm au-dessus du doigt, pour voir où elle se pique.
+          mk.setLngLat(map.unproject([e.clientX - r.left, e.clientY - r.top - DOIGT_PX]));
         }
       });
       const up = () => {

@@ -1,6 +1,7 @@
 import type { Map as MlMap } from 'maplibre-gl';
 import { useRef, useState } from 'react';
 import type { LonLat } from './trails/osmTrails';
+import { DOIGT_PX } from './doigt';
 
 /**
  * Tracé au doigt : un calque posé sur la carte capte le doigt et dessine la ligne ;
@@ -19,24 +20,28 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
   const el = useRef<HTMLDivElement>(null);
   const pts = useRef<[number, number][]>([]);
   const [path, setPath] = useState('');
+  /** ⊕ Viseur : là où le trait se pose, 1 cm au-dessus du doigt. */
+  const [vis, setVis] = useState<[number, number] | null>(null);
 
   const local = (e: React.PointerEvent): [number, number] => {
     const r = el.current!.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top];
+    return [e.clientX - r.left, e.clientY - r.top - DOIGT_PX];
   };
   const toD = (p: [number, number][]) => p.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('');
 
   return (
     <div ref={el} className="frame-overlay"
-      onPointerDown={(e) => { el.current!.setPointerCapture(e.pointerId); pts.current = [local(e)]; setPath(''); }}
+      onPointerDown={(e) => { el.current!.setPointerCapture(e.pointerId); pts.current = [local(e)]; setVis(local(e)); setPath(''); }}
       onPointerMove={(e) => {
         if (!pts.current.length) return;
         const p = local(e), last = pts.current[pts.current.length - 1];
+        setVis(p);
         if (Math.hypot(p[0] - last[0], p[1] - last[1]) < 6) return;
         pts.current.push(p);
         setPath(toD(pts.current));
       }}
       onPointerUp={() => {
+        setVis(null);
         const p = pts.current;
         pts.current = [];
         let len = 0;
@@ -62,7 +67,9 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
           <button onClick={onLoad}>📂 Charger des traces</button>
         </div>
       </div>
-      <svg className="draw-svg"><path d={path} /></svg>
+      <svg className="draw-svg"><path d={path} />
+        {vis && <g className="viseur" transform={`translate(${vis[0]} ${vis[1]})`}><circle r="9" /><path d="M-15 0h8M7 0h8M0-15v8M0 7v8" /></g>}
+      </svg>
     </div>
   );
 }
