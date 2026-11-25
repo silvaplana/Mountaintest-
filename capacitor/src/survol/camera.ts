@@ -40,10 +40,12 @@ export interface Cam { lon: number; lat: number; zoom: number; pitch: number; be
 export const DEBUT = 0.15, FIN = 0.85;
 /** Intro plongée : plus longue (descente à la verticale depuis les nuages, puis redressement). */
 export const DEBUT_PLONGEE = 0.3;
-/** Part du film prise par l'intro plongée : environ 7 s (comme le clip), entre 30 % et 55 % du film. */
-export const partPlongee = (duree: number) => Math.max(DEBUT_PLONGEE, Math.min(0.55, 7 / duree));
+/** Durée (s) de la plongée dans les nuages : on y prend son temps (Seb, 25/11), et elle s'ajoute à la durée choisie. */
+export const PLONGEE_NUAGES_S = 12;
+/** Part du film prise par la plongée dans les nuages, pour un survol de `duree` secondes (le film dure duree + 12 s). */
+export const partPlongee = (duree: number) => PLONGEE_NUAGES_S / (duree + PLONGEE_NUAGES_S);
 /** Dans l'intro plongée : la carte se montre à la déchirure des nuages (nuages.ts, CIEL.dechirure). */
-const DECHIRURE = 0.62, REDRESSE = 0.85;
+const DECHIRURE = 0.64, REDRESSE = 0.85;
 /** Zoom de départ de la plongée : très haut au-dessus du départ. */
 export const ZOOM_CIEL = 9.5;
 const TOUR_ARRIVEE = 35;

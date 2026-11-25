@@ -6,10 +6,11 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_MAX, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_MAX, PLONGEE_NUAGES_S, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
+import { ambianceCiel, type Ambiance } from './survol/ciel-gl';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
 import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
@@ -23,11 +24,13 @@ import { TrashIcon } from './icones';
 interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: boolean; infos: boolean; ombres: boolean; h0: number; h1: number;
   /** Intro : ⤓ plongée simple (on descend du ciel sur le départ) ou ☁ plongée dans les nuages façon clip. */
   plongee: Plongee; rapide: boolean; dessine: boolean;
+  /** ☁ Nuages de la plongée : mer lisse dorée, cumulus dorés ou cumulus bleu-gris. */
+  ciel: Ambiance;
   /** 🎬 style de prise de vue, descente du style alpiniste, ◭ pentes dans le film (la carte ne change pas). */
   style: Style; descente: Descente; sens: Sens; pentes: boolean }
 type Plongee = 'non' | 'simple' | 'nuages';
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
+const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
 function lire(): Reglages {
   try {
     const r = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') };
@@ -123,6 +126,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     // 🧗 et 🎬 ont besoin du relief (sommets, crêtes, points de vue) ; sans lui, le film fait un suivi.
     // Tous les styles s'en servent aussi pour que la caméra ne passe jamais dans la montagne.
     redresse = 0;
+    ambianceCiel(r.ciel, !r.rapide);
+    // La plongée dans les nuages s'ajoute à la durée choisie : le survol de la trace garde tout son temps.
+    const duree = r.duree + (r.plongee === 'nuages' ? PLONGEE_NUAGES_S : 0);
     setAvance('Lecture du relief…');
     const relief: Relief | null = await chargerRelief(zone, ctl.signal, r.style === 'alpi').catch(() => null);
     if (ctl.signal.aborted) { setEtape('reglages'); return; }
@@ -190,7 +196,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       let blob: Blob, couverture: Promise<ImageBitmap> | null = null;
       if (codec) {
         // Image par image : chaque image attend ses cartes, puis est encodée à sa place exacte dans le film.
-        const son = musique ? await preparerSon(musique, r.duree).catch(() => null) : null;
+        const son = musique ? await preparerSon(musique, duree).catch(() => null) : null;
         if (musique && !son) onToast('Morceau illisible : film sans musique');
         const enc = await creerFilm(cadre.ow, cadre.oh, codec, son);
         if (enc.sansSon) onToast('Ce téléphone ne sait pas ajouter la musique : film sans musique');
@@ -200,7 +206,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         const toile = toileFilm(map, r.vertical, texte);
         setEtape('tournage');
         try {
-          const N = Math.round(r.duree * IPS);
+          const N = Math.round(duree * IPS);
           placer(0);
           await attendreCarte(map, 5000);
           let attente = 2000;
@@ -223,9 +229,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         poser(map, cameraA(track, 0));
         await attendreCarte(map, 800);
         setEtape('tournage');
-        const son = musique ? await jouerMusique(musique, r.duree) : null;
+        const son = musique ? await jouerMusique(musique, duree) : null;
         const rec = enregistrer(map, r.vertical, texte, son?.piste);
-        const D = r.duree * 1000;
+        const D = duree * 1000;
         const t0 = performance.now();
         await new Promise<void>((fin) => {
           const pas = (now: number) => {
@@ -244,7 +250,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       const image = await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null;
       setFilm({ blob, url: URL.createObjectURL(blob), couverture: image });
       // 📁 Gardé tout de suite parmi les derniers films.
-      setFilmId(await garderFilm(blob, { nom: trail.name || 'Survol', secondes: r.duree, vertical: r.vertical,
+      setFilmId(await garderFilm(blob, { nom: trail.name || 'Survol', secondes: duree, vertical: r.vertical,
         couverture: image ? await reduire(image, PX.grande, 0.8).catch(() => null) : null }));
       void lireFilms().then(setGarde);
       setRange(null); setTelecharge(null);
@@ -417,6 +423,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
                 <button className={`bascule ${r.plongee === 'nuages' ? 'on' : ''}`} onClick={() => maj({ plongee: r.plongee === 'nuages' ? 'non' : 'nuages' })}
                   aria-label="Intro plongée dans les nuages">☁ plongée nuages</button>
               </div>
+              {r.plongee === 'nuages' && <div className="survol-choix">{([['lisse', '🌅 Mer dorée'], ['dore', '☁ Cumulus dorés'], ['bleu', '🌫 Bleu-gris']] as [Ambiance, string][]).map(([k, t]) => (
+                <button key={k} className={r.ciel === k ? 'on' : ''} onClick={() => maj({ ciel: k })}>{t}</button>))}</div>}
               <div className="survol-bas">
                 <button className={`bascule ${musique ? 'on' : ''}`} aria-label="Musique du film"
                   onClick={() => { if (musique) setMusique(null); else choixMusique.current?.click(); }}>🎵 {musique ? musique.name.replace(/\.[^.]+$/, '').slice(0, 10) : 'musique'}</button>
