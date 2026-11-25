@@ -1328,7 +1328,7 @@ export function App() {
         onCancel={() => { setFraming(false); setOpen(true); }} />}
 
       {searching ? (
-        <SearchBar near={map ? { lon: map.getCenter().lng, lat: map.getCenter().lat } : undefined} onClose={() => setSearching(false)} onPick={(p) => {
+        <SearchBar onToast={setToast} near={map ? { lon: map.getCenter().lng, lat: map.getCenter().lat } : undefined} onClose={() => setSearching(false)} onPick={(p) => {
           setSearching(false);
           setFollow(false);
           // Quitter le suivi de ◎ : MapLibre ne le lâche pas sur un flyTo qui zoome (isZooming), et le GPS

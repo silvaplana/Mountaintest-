@@ -249,9 +249,9 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
   };
   // Règle générale (Seb, 24/11) : appui long sur un bouton qui a des variantes = elles s'ouvrent à sa gauche,
   // on en touche une (une seule à la fois) ; toucher ailleurs ferme.
-  const [pick, setPick] = useState<{ kind: 'activity' | 'layer' | 'locate'; top: number; right?: number; left?: number } | null>(null);
-  const lpPick = (kind: 'activity' | 'layer' | 'locate') => ({
-    ...lp(kind === 'activity' ? 'skiText' : kind === 'locate' ? 'locate' : 'layer'),
+  const [pick, setPick] = useState<{ kind: 'activity' | 'layer'; top: number; right?: number; left?: number } | null>(null);
+  const lpPick = (kind: 'activity' | 'layer') => ({
+    ...lp(kind === 'activity' ? 'skiText' : 'layer'),
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       if (tipPress.current.timer) clearTimeout(tipPress.current.timer);
       tipPress.current.long = false;
@@ -280,9 +280,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
     </div>}
     {pick && <div className="tip-close" onPointerDown={(e) => { if (e.target === e.currentTarget) setPick(null); }} onContextMenu={(e) => e.preventDefault()}>
       <div className="variants" style={{ top: pick.top, right: pick.right, left: pick.left }}>
-        {pick.kind === 'locate'
-          ? <button aria-label="Rechercher un lieu" onClick={() => { setPick(null); onSearch(); }}>🔍</button>
-          : pick.kind === 'activity'
+        {pick.kind === 'activity'
           ? ACTIVITIES.map((a) => <button key={a} className={a === activity ? 'sel' : ''} aria-label={ACTIVITY_LABEL[a]}
               onClick={() => { setPick(null); if (a !== activity) onActivity(a); }}>{ACTIVITY_ICON[a]}</button>)
           : (Object.keys(BASE_MODES) as BaseMode[]).map((m) => <button key={m} className={`txt ${m === baseLayer ? 'sel' : ''}`} aria-label={BASE_MODES[m]}
@@ -310,9 +308,10 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         onContextMenu={(e) => e.preventDefault()}
         onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } toggleWide(); }}>{wide ? '◂' : '▸'}</button>
       {(tilted || help) && <button aria-label="Remettre la carte à plat, nord en haut" data-help="À plat, nord en haut" {...lp('compass')} onClick={onFlat}>🧭</button>}
-      {/* Appui long sur ◎ : 🔍 apparaît à sa gauche pour chercher un lieu (Seb, 24/11). */}
-      <button className={locating ? 'on' : ''} aria-label="Me localiser (appui long : chercher un lieu)" data-help="Me localiser · appui long : 🔍 chercher un lieu" {...lpPick('locate')}
+      <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser" {...lp('locate')}
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
+      {/* 🔍 de nouveau visible sous ◎, même en colonne réduite (Seb, 25/11). */}
+      <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
       <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
         onClick={() => {
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));

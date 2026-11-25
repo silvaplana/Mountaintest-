@@ -100,7 +100,16 @@ export function normalize(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-function distM(lon1: number, lat1: number, lon2: number, lat2: number): number {
+/** Petits mots qu'on ne tape pas toujours (« Le Dôme des Écrins » = « Dôme de Neige des Écrins »). */
+const STOP = new Set(['le', 'la', 'les', 'l', 'de', 'des', 'du', 'd', 'au', 'aux', 'a', 'et', 'en', 'sur', 'sous']);
+/** Mots qui comptent dans ce qu'on a tapé, sans les petits mots (sauf s'il n'y a qu'eux). */
+export function keyWords(text: string): string[] {
+  const all = normalize(text).split(' ').filter(Boolean);
+  const kept = all.filter((w) => !STOP.has(w));
+  return kept.length ? kept : all;
+}
+
+export function distM(lon1: number, lat1: number, lon2: number, lat2: number): number {
   const kx = 111_320 * Math.cos((((lat1 + lat2) / 2) * Math.PI) / 180);
   return Math.hypot((lon2 - lon1) * kx, (lat2 - lat1) * 110_540);
 }
@@ -124,16 +133,16 @@ export function mergeNames(into: PlaceName[], added: PlaceName[]): PlaceName[] {
  * Cherche dans les noms gardés : chaque mot tapé doit commencer un mot du nom (« coup sab » trouve
  * « Pas du Coup de Sabre »). Les noms qui commencent par le texte tapé passent devant, puis les plus proches.
  */
-export function searchNames(names: PlaceName[], text: string, near?: { lon: number; lat: number }, max = 8): Place[] {
+export function searchNames(names: PlaceName[], text: string, near?: { lon: number; lat: number }, max = 30): Place[] {
   const q = normalize(text);
-  const words = q.split(' ').filter(Boolean);
+  const words = keyWords(text);
   if (!words.length) return [];
   const found: { p: PlaceName; starts: boolean; d: number }[] = [];
   for (const p of names) {
     const n = normalize(p[0]);
     const nw = n.split(' ');
     if (!words.every((w) => nw.some((x) => x.startsWith(w)))) continue;
-    found.push({ p, starts: n.startsWith(q), d: near ? distM(near.lon, near.lat, p[2], p[3]) : 0 });
+    found.push({ p, starts: n.startsWith(q) || n.startsWith(words.join(' ')), d: near ? distM(near.lon, near.lat, p[2], p[3]) : 0 });
   }
   found.sort((a, b) => Number(b.starts) - Number(a.starts) || a.d - b.d);
   return found.slice(0, max).map(({ p }) => ({ label: p[0], detail: p[1].toLowerCase() || 'lieu', lon: p[2], lat: p[3], zoom: 15, local: true }));

@@ -126,13 +126,17 @@ Il n'y a pas d'écran 5 : le vote de dates a été retiré (§5.4).
 Dans la barre étendue de la carte, 👥 ouvre Buddies (pastille = du nouveau) ; 👤, dernière icône de sa colonne, ouvre Moi
 (profil, compte, réglages, état hors ligne). 👤 reprend l'écran « Mon compte » existant. **(Seb)**
 
-Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 📷 ;
-étendue = ✕, flèche, ◎, 📷, ✈, ✏, ⛰, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
-Appui long sur ◎ : 🔍 apparaît à sa gauche (chercher un lieu), même en barre réduite.
+Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 🔍, 📷 ;
+étendue = ✕, flèche, ◎, 🔍, 📷, ✈, ✏, ⛰, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
+🔍 (chercher un lieu) est de nouveau un bouton visible juste sous ◎, même en barre réduite (Seb, 25/11 ; avant : appui long sur ◎).
 La loupe 🔍 (Seb, 25/11) cherche d'abord dans les noms de lieux gardés sur le téléphone (sommets, cols, crêtes,
 lieux-dits, sources, refuges, calanques… de la BD TOPO IGN complétée par OpenStreetMap), téléchargés avec les cartes
 d'un rectangle ou d'une trace mise hors ligne (📶) et effacés avec elles : elle marche sans réseau. Puis, avec du
 réseau, la recherche de la Géoplateforme IGN, les lieux proches du centre de la carte en premier.
+Depuis le 25/11 après-midi (Seb, « Le Dôme des Écrins » ne sortait pas) : en ligne, trois demandes à la fois, IGN lieux
+seulement (avec les mots qui comptent, sans « le », « des »…), OpenStreetMap (Photon, lieux naturels seulement) puis IGN
+tout (communes, adresses) : sommets et lieux naturels avant les adresses, jusqu'à 30 résultats dans une liste qui défile.
+🎤 à côté du champ : on dit le nom (dictée dans l'appli, comme la messagerie).
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à

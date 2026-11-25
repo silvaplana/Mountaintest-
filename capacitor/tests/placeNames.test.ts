@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { bdtopoUrl, mergeNames, normalize, overpassNamesQuery, parseBdtopo, parseOverpassNames, searchNames, type PlaceName } from '../src/places/placeNames';
-import { mergeResults } from '../src/SearchBar';
-import { searchPlaces } from '../src/search';
+import { mergePlaces, parsePhoton, searchPlaces, searchPlacesWide } from '../src/search';
+const mergeResults = (a: Parameters<typeof mergePlaces>[0][0], b: Parameters<typeof mergePlaces>[0][0]) => mergePlaces([a, b]);
 
 const ciotat = { lon: 5.6, lat: 43.17 };
 
@@ -74,5 +74,53 @@ describe('recherche en ligne près de la carte', () => {
     await searchPlaces('sabre', undefined, ciotat);
     expect(new URL(urls[0]).searchParams.get('lonlat')).toBe('5.60000,43.17000');
     expect(new URL(urls[1]).searchParams.has('lonlat')).toBe(false);
+  });
+});
+
+describe('loupe : Le Dôme des Écrins (Seb, 25/11)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const dome: PlaceName[] = [['Dôme de Neige des Écrins', 'Sommet', 6.3567, 44.9217], ['Les Écrins', 'Lieu-dit', 5.0, 45.0]];
+
+  it('hors ligne : les petits mots tapés (le, des) ne gênent pas', () => {
+    expect(searchNames(dome, 'Le Dome Des Ecrins', ciotat)[0].label).toBe('Dôme de Neige des Écrins');
+  });
+
+  it('garde de Photon les lieux naturels, pas les rues', () => {
+    expect(parsePhoton({ features: [
+      { geometry: { coordinates: [6.3567, 44.9217] }, properties: { name: 'Dôme de Neige des Écrins', osm_key: 'natural', osm_value: 'peak', state: 'Provence-Alpes-Côte d’Azur' } },
+      { geometry: { coordinates: [6.3, 45] }, properties: { name: 'Col de la Temple', osm_key: 'mountain_pass', osm_value: 'yes' } },
+      { geometry: { coordinates: [5, 45] }, properties: { name: 'Rue des Écrins', osm_key: 'highway', osm_value: 'residential' } },
+    ] })).toEqual([
+      { label: 'Dôme de Neige des Écrins, Provence-Alpes-Côte d’Azur', detail: 'sommet', lon: 6.3567, lat: 44.9217, zoom: 15 },
+      { label: 'Col de la Temple', detail: 'col', lon: 6.3, lat: 45, zoom: 15 },
+    ]);
+  });
+
+  it('sommets IGN puis OSM avant les adresses, sans doublons, jusqu’à 30', async () => {
+    const urls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (u: string) => {
+      urls.push(u);
+      const q = new URL(u).searchParams;
+      if (u.includes('photon')) return new Response(JSON.stringify({ features: [
+        { geometry: { coordinates: [6.3568, 44.9218] }, properties: { name: 'Dôme de Neige des Écrins', osm_key: 'natural', osm_value: 'peak' } },
+        { geometry: { coordinates: [6.36, 44.92] }, properties: { name: 'Barre des Écrins', osm_key: 'natural', osm_value: 'peak' } },
+      ] }));
+      if (q.get('type') === 'PositionOfInterest') return new Response(JSON.stringify({ results: [
+        { x: 6.3567, y: 44.9217, fulltext: 'Dôme de Neige des Écrins, 05340 Pelvoux', kind: 'sommet', poiType: ['sommet'] }] }));
+      return new Response(JSON.stringify({ results: Array.from({ length: 40 }, (_, i) =>
+        ({ x: 5 + i / 10, y: 45, fulltext: `Les Écrins ${i}, 26540 Mours`, kind: 'street', country: 'StreetAddress' })) }));
+    }));
+    const r = await searchPlacesWide('Le Dome Des Ecrins', undefined, ciotat);
+    expect(r.slice(0, 3).map((p) => p.label)).toEqual(['Dôme de Neige des Écrins, 05340 Pelvoux', 'Barre des Écrins', 'Les Écrins 0, 26540 Mours']);
+    expect(r).toHaveLength(30);
+    const poi = urls.find((u) => u.includes('PositionOfInterest'))!;
+    expect(new URL(poi).searchParams.get('text')).toBe('dome ecrins');
+  });
+
+  it('une source en panne n’empêche pas les autres', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (u: string) => (u.includes('photon')
+      ? new Response(JSON.stringify({ features: [{ geometry: { coordinates: [6.36, 44.92] }, properties: { name: 'Barre des Écrins', osm_key: 'natural', osm_value: 'peak' } }] }))
+      : new Response('', { status: 500 }))));
+    expect((await searchPlacesWide('barre ecrins')).map((p) => p.label)).toEqual(['Barre des Écrins']);
   });
 });
