@@ -20,8 +20,10 @@ export interface Cam { lon: number; lat: number; zoom: number; pitch: number; be
 export const DEBUT = 0.15, FIN = 0.85;
 /** Intro plongée : plus longue (descente à la verticale depuis les nuages, puis redressement). */
 export const DEBUT_PLONGEE = 0.3;
-/** Les nuages sont traversés pendant ce début du film (intro plongée). */
-export const NUAGES = 0.12;
+/** Part du film prise par l'intro plongée : environ 7 s (comme le clip), entre 30 % et 55 % du film. */
+export const partPlongee = (duree: number) => Math.max(DEBUT_PLONGEE, Math.min(0.55, 7 / duree));
+/** Dans l'intro plongée : la carte se montre à la déchirure des nuages (nuages.ts, CIEL.dechirure). */
+const DECHIRURE = 0.62, REDRESSE = 0.85;
 /** Zoom de départ de la plongée : très haut au-dessus du départ. */
 export const ZOOM_CIEL = 9.5;
 const TOUR_ARRIVEE = 35;
@@ -170,11 +172,12 @@ export function sommetTrace(c: ReturnType<typeof chemin>, relief: Relief) {
  * 🎬 ciné (bas aux vallées, haut aux crêtes, regard vers les sommets et les points de vue, grand recul à la fin).
  * Sans relief, alpiniste et ciné font un suivi.
  */
-export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center: LonLat; zoom: number }, n = IMAGES, plongee = false, o: Options = {}): Cam[] {
+export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center: LonLat; zoom: number }, n = IMAGES, plongee: boolean | number = false, o: Options = {}): Cam[] {
   const c = chemin(line);
   const h = HAUTEURS[hauteur];
   const style: Style = (o.style === 'alpi' || o.style === 'cine') && !o.relief ? 'suivi' : o.style ?? 'suivi';
-  const debut = plongee ? DEBUT_PLONGEE : style === 'cine' ? 0.12 : DEBUT;
+  // plongee : true (part par défaut) ou la part du film prise par l'intro (partPlongee).
+  const debut = typeof plongee === 'number' ? plongee : plongee ? DEBUT_PLONGEE : style === 'cine' ? 0.12 : DEBUT;
   const fin = style === 'alpi' ? 1 : style === 'cine' ? 0.82 : FIN;
   const vue = { ...c.pr.vers(ensemble.center), zoom: ensemble.zoom, pitch: 45, bearing: 0 };
   const b = o.relief ? beaute(c, o.relief) : null;
@@ -213,10 +216,14 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
   for (let i = 0; i <= n; i++) {
     const t = i / n;
     if (plongee && t < debut) {
-      // Au-dessus du départ, regard vers le bas : on plonge (de plus en plus vite), puis on se redresse en tournant.
-      const u = t / debut, chute = Math.min(1, u / 0.6), redresse = doux(Math.max(0, (u - 0.6) / 0.4));
+      // Façon clip « Au DD » : tant qu'on est dans les nuages (peints par-dessus), la carte attend à la verticale
+      // du départ, très haut. À la déchirure, on descend tout droit en tournant lentement sur soi, puis on se redresse.
+      const u = t / debut, cap = depart.bearing;
+      const chute = doux(Math.max(0, Math.min(1, (u - DECHIRURE * 0.8) / (REDRESSE - DECHIRURE * 0.8))));
+      const redresse = doux(Math.max(0, (u - REDRESSE) / (1 - REDRESSE)));
+      const tour = Math.min(1, Math.max(0, (u - DECHIRURE * 0.8) / (1 - DECHIRURE * 0.8)));
       brut.push({ x: depart.x, y: depart.y, zoom: lerp(ZOOM_CIEL, depart.zoom - 0.3, chute * chute) + 0.3 * redresse, pitch: lerp(0, depart.pitch, redresse),
-        bearing: ecartAngle(0, depart.bearing) * redresse, d: 0, s: 0 });
+        bearing: cap - 70 * (1 - tour), d: 0, s: 0 });
     } else if (t < debut && style === 'cine') {
       // Ciné : on découvre le départ de près, en tournant autour.
       const u = doux(t / debut);

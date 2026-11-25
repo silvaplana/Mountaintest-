@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cameraA, capAutour, chemin, ecartAngle, heuresOmbres, heureTexte, trajectoire } from '../src/survol/camera';
+import { cameraA, capAutour, chemin, ecartAngle, heuresOmbres, heureTexte, partPlongee, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
+import { cameraCiel } from '../src/survol/ciel-gl';
+import { CIEL } from '../src/survol/nuages';
 import { cadrage } from '../src/survol/enregistreur';
 
 // Trace en zigzag serré (virages tous les ~100 m) vers le nord-est, ~5 km.
@@ -57,6 +59,23 @@ describe('survol 3D : intro plongée', () => {
     let max = 0;
     for (let i = 1; i < track.length; i++) max = Math.max(max, Math.abs(ecartAngle(track[i - 1].bearing, track[i].bearing)));
     expect(max).toBeLessThan(1.5);
+  });
+  it('dure 6 à 8 s environ, au moins 30 % du film, au plus 55 %', () => {
+    expect(partPlongee(60)).toBeCloseTo(0.3);
+    expect(partPlongee(20) * 20).toBeCloseTo(7);
+    expect(partPlongee(5)).toBe(0.55);
+  });
+  it('la carte reste vue de haut tant que les nuages la cachent', () => {
+    const part = partPlongee(20), t = trajectoire(line, 'moyen', ensemble, 600, part);
+    const cam = cameraA(t, part * CIEL.dechirure * 0.75);
+    expect(cam.zoom).toBeLessThan(ZOOM_CIEL + 0.4); // le lissage final arrondit à peine
+    expect(cam.pitch).toBeLessThan(1);
+  });
+  it('dans les nuages : au-dessus, bascule vers le bas, puis sous la couche', () => {
+    expect(cameraCiel(0).pitch).toBeGreaterThan(-0.2);
+    expect(cameraCiel(CIEL.dedans).pitch).toBeLessThan(-1.5);
+    expect(cameraCiel(0).y).toBeGreaterThan(1.15);
+    expect(cameraCiel(CIEL.dechirure).y).toBeLessThan(0.35);
   });
 });
 
