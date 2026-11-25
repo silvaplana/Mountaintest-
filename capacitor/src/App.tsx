@@ -525,7 +525,7 @@ export function App() {
   useEffect(() => {
     marker.current?.remove();
     marker.current = null;
-    if (map && target && !searching) marker.current = new maplibregl.Marker({ color: '#c0392b', scale: 0.7 }).setLngLat([target.lon, target.lat]).addTo(map);
+    // Plus de gros repère rouge sur la carte (Seb, 25/11 : « il faut vraiment l'enlever ») : le bandeau suffit.
   }, [map, target, searching]);
 
   async function startRecording() {
