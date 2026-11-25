@@ -509,6 +509,26 @@ def test_epingle_limitee_a_un_jour(client):
     assert sync(client, ops=[op("epingle", sortie=so["sortie"], enfoncee=True, quand=T0, jusqu=T0 - 1)])["refus"]
 
 
+def test_position_partagee_avec_un_buddy_group_hors_buddy_time(client):
+    gid, julie = bande_avec_julie(client)
+    seb = sync(client)["moi"]
+    # 📍 de la colonne : Seb s'épingle dans le Buddy Group, sans Buddy Time ; Julie le voit.
+    r = sync(client, ops=[op("epingle", groupe=gid, enfoncee=True, quand=T0, jusqu=T0 + 3600_000),
+                          op("position", groupe=gid, lat=44.61, lon=6.71, alt=1500, prise_le=T0 + 60_000)])
+    assert r["refus"] == []
+    p, = sync(client, sub="julie")["positions"]
+    assert (p["groupe"], p["qui"], p["lat"], p["prise_le"]) == (gid, seb, 44.61, T0 + 60_000) and "sortie" not in p
+    # Relevée : la dernière reste, les suivantes sont ignorées.
+    sync(client, ops=[op("epingle", groupe=gid, enfoncee=False, quand=T0 + 120_000),
+                      op("position", groupe=gid, lat=45, lon=7, prise_le=T0 + 600_000)])
+    p, = sync(client, sub="julie")["positions"]
+    assert p["jusqu"] == T0 + 120_000 and p["lat"] == 44.61
+    # Luc, hors du groupe, ne voit rien et ne peut pas s'y épingler ; le Me Time est refusé.
+    assert sync(client, sub="luc")["positions"] == []
+    assert sync(client, sub="luc", ops=[op("epingle", groupe=gid, enfoncee=True, quand=T0, jusqu=T0 + 1000)])["refus"]
+    assert sync(client, ops=[op("epingle", groupe="me-time", enfoncee=True, quand=T0, jusqu=T0 + 1000)])["refus"]
+
+
 def nouvel_hebergement(sid, nom="Gîte Les Baladins", **k):
     champs = {"nature": "gîte", "prix_nuit": 59.6, "adresse": "Ceillac", "url": "https://exemple.fr/gite", "resume": "demi-pension",
               "lon": 6.78, "lat": 44.66, **k}

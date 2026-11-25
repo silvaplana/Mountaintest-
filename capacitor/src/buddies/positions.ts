@@ -54,5 +54,21 @@ export function detail(r: Repere, moi?: Repere): string {
   ].filter(Boolean).join(' · ');
 }
 
+/**
+ * 📍 de la colonne (§7.14) : tous les buddies visibles, Buddy Groups et Buddy Times mêlés, une fois chacun (sa position
+ * la plus récente), moi compris. `gens` : les buddies que je connais (membres et participants).
+ */
+export function reperesTous(ps: Position[], gens: Buddy[], moi: string, t = Date.now()): Repere[] {
+  const par = new Map<string, Repere>();
+  for (const p of ps) {
+    const b = gens.find((x) => x.id === p.qui);
+    if (!b || p.lat == null || p.lon == null || p.prise_le == null) continue;
+    const avant = par.get(b.id);
+    if (avant && avant.p.prise_le >= p.prise_le) continue;
+    par.set(b.id, { b, p: p as Repere['p'], moi: b.id === moi || b.id === 'moi', actif: p.jusqu > t, age: Math.max(0, Math.round((t - p.prise_le) / 60_000)) });
+  }
+  return [...par.values()].sort((a, c) => Number(c.actif) - Number(a.actif) || c.p.prise_le - a.p.prise_le);
+}
+
 /** Pendant le Buddy Time (le jour même compris) : on peut enfoncer l'épingle. */
 export const pendant = (x: Sortie, auj: string) => x.debut <= auj && auj <= x.fin;

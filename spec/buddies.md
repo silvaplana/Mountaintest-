@@ -60,7 +60,8 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 ### 3.3 La colonne d'icônes
 
 - Verticale, à droite, toujours visible **(Seb)** : 📞 appel, 📅 planning, 💬 messagerie,
-  📸 album, 💶 Buddy count, 🏨 hébergement.
+  📸 album, 💶 Buddy count, 🏨 hébergement, 📍 ma position (Seb, 25 novembre : partager sa position
+  même hors Buddy Time, §7.14), 🚗 voyage, 👤 moi.
 - Elle ne change pas ; sa portée suit ce qui est ouvert à gauche **(proposé)** : dans la
   liste elle regarde tous mes buddies, dans un Buddy Group ce groupe, dans un Buddy Time
   cette sortie.
@@ -244,6 +245,8 @@ sa gauche, on en choisit une.
 - Chaque position est affichée avec l'heure de la dernière reçue ; elle grise en vieillissant.
 - Arrêt automatique le soir ou à la fin du Buddy Time ; un envoi toutes les cinq minutes
   environ avec le GPS économe existant ; visible seulement par les buddies de ce Buddy Time.
+- Hors Buddy Time **(Seb, 25 novembre)** : 📍 de la colonne de Buddies partage pareillement avec un ou
+  plusieurs Buddy Groups choisis (§7.14).
 - Sans réseau, les positions sont gardées avec leur heure et partent au retour.
 
 ### 5.10 Buddy count (écran 8)
@@ -454,7 +457,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 
 - **Accès** : sur la carte d'un Buddy Time, pendant ses dates, une ligne « 📍 Position des buddies · 2 visibles ·
   tu es visible » dans le bandeau ouvre l'écran 15 à la place du bandeau (« Retour » revient au bandeau). Les visages
-  des buddies visibles sont sur la carte dès qu'on l'ouvre. Pas encore de 📍 dans la colonne de Buddies (point ouvert 3).
+  des buddies visibles sont sur la carte dès qu'on l'ouvre. 📍 dans la colonne de Buddies : §7.14.
 - **Écran 15** : en haut « 📍 2 buddies visibles » ; sur la carte, chaque visage avec « toi », « il y a 4 min » ou
   l'heure (« 10 h 42 ») ; il grise en vieillissant (plus de 20 min, plus d'une heure) et pâlit quand l'épingle est
   relevée. En bas, chaque buddy avec « à 1,2 km de toi · 2 310 m », « plus de réseau ? » (épingle enfoncée, rien
@@ -649,6 +652,24 @@ envoi sans réseau. Quatre étapes, une PR chacune :
 
 Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
+### 7.14 📍 Ma position depuis la colonne de Buddies (Seb, 25 novembre 2026)
+
+- **Demande de Seb** : « dès qu'on est dans Buddies, il faut dans le menu à droite pouvoir partager pareillement,
+  même si on n'est pas dans un Buddy Time ».
+- **Colonne** : 📍 (icône au trait fin, comme le micro) entre 🏨 et 🚗 ; elle est verte tant que mes buddies me voient.
+- **Écran « 📍 Position »** : en haut, les buddies visibles de tous mes Buddy Groups et Buddy Times, une fois chacun
+  (sa position la plus récente), mêmes lignes que l'écran 15 ; un toucher montre la carte avec tous les visages,
+  centrée sur lui. Puis « Qui peut me voir ? » : mes Buddy Groups, les Buddy Times d'aujourd'hui, puis les buddies de
+  mes discussions à deux, chacun avec son visage ; on en touche un ou plusieurs (déjà coché : le Buddy Group ou le
+  Buddy Time ouvert, ou le seul qu'on a). Bouton principal « 📍 Mes buddies peuvent me voir ». Enfoncée : « Mes
+  buddies me voient · Les Queyrassiens · depuis 9 h 10 · s'arrête seul à 22 h » et « Arrêter ».
+- **Même mécanique** que §7.7 : toutes les 5 minutes, écran éteint compris, jusqu'à 22 h, sans réseau la dernière
+  attend. Toujours une seule épingle : l'enfoncer ici relève celle d'un Buddy Time, et inversement ; une même
+  position part vers chaque Buddy Group choisi.
+- **Serveur** : table `positions_groupes` (Buddy Group, buddy, mêmes colonnes que `positions`) ; les opérations
+  `epingle` et `position` prennent `groupe` à la place de `sortie`. Seuls les membres du Buddy Group s'y épinglent et
+  voient ces positions (pas le Me Time) ; oubliées après 48 h comme les autres.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**
@@ -660,7 +681,7 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
 1. Le nom « Me Time » : accepté « pourquoi pas », à confirmer.
 2. La portée de la colonne dans la liste (tous mes buddies à la fois) : à confirmer.
-3. Les icônes 📍 et 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
+3. ~~📍 dans la colonne~~ : faite pour tout Buddies (§7.14). L'icône 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
    haut de la liste : à confirmer.
 4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
 5. Bud : les règles du §5.12 sont construites telles quelles (bloc 11, §7.11), visage 🐻 ; ce qu'il a le droit de
