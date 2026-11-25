@@ -179,6 +179,9 @@ sa gauche, on en choisit une.
 - **Le supprimer** (Seb, 25 novembre 2026) : la poubelle (dessinée au trait, pas l'émoji) en haut de sa carte, montrée
   seulement à celui qui l'a créé et aux admins du Buddy Group. Supprimé tout de suite, « Annuler » 10 secondes, puis
   retour aux Buddies. Rien n'est effacé sur le serveur (même opération que Bud, §7.12).
+- Crayon et poubelle aussi **à côté de chaque Buddy Time** des listes (Seb, 25 novembre 2026) : la liste des Buddies
+  (l'heure de la ligne laisse sa place) et les affiches d'un Buddy Group (en haut à droite de l'image). Le crayon
+  ouvre une feuille « Nom du Buddy Time » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.
 - Ouvrir un Buddy Time ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
   bandeau en bas (dans combien de jours, qui vient, chiffres du parcours) se baisse pour ne
   laisser que la carte. **(proposé)**
