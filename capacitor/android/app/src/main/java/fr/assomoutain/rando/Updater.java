@@ -38,7 +38,8 @@ import org.json.JSONObject;
 
 /**
  * Mises à jour sans Play Store (copie identique dans les deux prototypes, voir shared/Updater.java) :
- * - à l'ouverture de l'appli : si une version plus récente est publiée, on propose de l'installer ;
+ * - appli ouverte : le JavaScript cherche (UpdaterPlugin) au démarrage, au retour à l'écran et toutes les 10 min,
+ *   et montre un bandeau « Nouvelle version · Installer » qui ne bloque rien ;
  * - en arrière-plan, deux fois par jour (WorkManager, seulement avec réseau) : notification « Nouvelle version ».
  * version.json est publié par GitHub Actions avec les APK : {"build": 12, "apk": {"capacitor": url, "kotlin": url}}.
  */
@@ -59,7 +60,6 @@ public final class Updater {
             .build();
         WorkManager.getInstance(activity).enqueueUniquePeriodicWork("verif-maj", ExistingPeriodicWorkPolicy.KEEP, work);
         activity.getSharedPreferences("maj", Context.MODE_PRIVATE).edit().putString("app", appKey).apply();
-        checkNow(activity, appKey, false);
     }
 
     /** Vérifie et propose l'installation. silent = false : dit aussi « à jour » si on l'a demandé à la main. */
@@ -128,7 +128,7 @@ public final class Updater {
         }
     }
 
-    private static int versionCode(Context c) {
+    static int versionCode(Context c) {
         try {
             PackageInfo p = c.getPackageManager().getPackageInfo(c.getPackageName(), 0);
             return (int) (Build.VERSION.SDK_INT >= 28 ? p.getLongVersionCode() : p.versionCode);
@@ -138,7 +138,7 @@ public final class Updater {
     }
 
     /** Télécharge l'APK avec une barre de progression, puis ouvre l'installeur d'Android. */
-    private static void download(Activity activity, Release r) {
+    static void download(Activity activity, Release r) {
         if (Build.VERSION.SDK_INT >= 26 && !activity.getPackageManager().canRequestPackageInstalls()) {
             new AlertDialog.Builder(activity)
                 .setTitle("Une autorisation d'abord")
