@@ -409,6 +409,49 @@ def lire_facture(image_b64: str, media: str):
     return appel.input, round(cout, 4), {"entree": u.input_tokens or 0, "sortie": u.output_tokens or 0, "recherches_web": 0}
 
 
+OUTIL_CHOIX_PHOTOS = {
+    "name": "donner_le_choix",
+    "description": "Renvoie les numéros des photos retenues, la meilleure d'abord.",
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {"choix": {"type": "array", "items": {"type": "integer"}, "description": "Numéros des photos retenues"}},
+        "required": ["choix"],
+        "additionalProperties": False,
+    },
+}
+MAX_PHOTOS_CHOIX = 90
+
+
+def choisir_photos(photos: list, combien: int):
+    """Les vignettes d'un album → les `combien` meilleures, sans doublon (Claude, vision). Renvoie (ids, coût, jetons)."""
+    contenu = []
+    for i, ph in enumerate(photos, 1):
+        contenu.append({"type": "text", "text": f"Photo {i}" + (f" ({ph['quand']})" if ph["quand"] else "")})
+        contenu.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": ph["image"]}})
+    contenu.append({"type": "text", "text": (
+        f"Voici les {len(photos)} photos de l'album d'une sortie en montagne entre amis. Choisis les {combien} meilleures (moins s'il n'y en a pas autant de bonnes et de différentes) "
+        "pour le carnet souvenir. Jamais deux photos presque pareilles (même scène, même cadrage, rafale) : n'en garde "
+        "que la plus réussie. Préfère les photos nettes, bien cadrées, bien éclairées, et varie : paysages, sommet, "
+        "les gens, moments de vie, du début à la fin de la sortie. Écarte les photos floues, ratées ou sans intérêt "
+        "(captures d'écran, sol, doigt devant l'objectif). Réponds avec l'outil donner_le_choix.")})
+    r = client.messages.create(
+        model=MODELE, max_tokens=500,
+        tools=[OUTIL_CHOIX_PHOTOS], tool_choice={"type": "tool", "name": OUTIL_CHOIX_PHOTOS["name"]},
+        messages=[{"role": "user", "content": contenu}],
+    )
+    u = r.usage
+    cout = ((u.input_tokens or 0) * PRIX["entree"] + (u.output_tokens or 0) * PRIX["sortie"]) / 1e6
+    appel = next((b for b in r.content if b.type == "tool_use"), None)
+    if not appel:
+        raise RuntimeError("pas de choix")
+    ids = []
+    for k in appel.input.get("choix", []):
+        if isinstance(k, int) and 1 <= k <= len(photos) and photos[k - 1]["id"] not in ids:
+            ids.append(photos[k - 1]["id"])
+    return ids[:combien], round(cout, 4), {"entree": u.input_tokens or 0, "sortie": u.output_tokens or 0, "recherches_web": 0}
+
+
 # ---------- Sorties de ski de rando (API officielle skitour.fr, clé gardée ici) ----------
 # Conditions : lien vers chaque sortie sur skitour.fr, pas de photos hors contexte ; 1000 requêtes / 24 h.
 
@@ -1939,7 +1982,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace", "geotrek-liste", "geotrek-trace"], "geotrek": GEOTREK_ETAT, "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "photos-choix", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace", "geotrek-liste", "geotrek-trace"], "geotrek": GEOTREK_ETAT, "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
 
     def _visugpx(self, liste: bool):
         if not VISUGPX_CLE:
@@ -1988,7 +2031,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace", "/geotrek-liste", "/geotrek-trace")):
+        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/photos-choix", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace", "/geotrek-liste", "/geotrek-trace")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -1996,6 +2039,8 @@ class Relais(BaseHTTPRequestHandler):
             return self._invitation()
         if chemin.endswith("/facture"):
             return self._facture()
+        if chemin.endswith("/photos-choix"):
+            return self._photos_choix()
         if chemin.endswith("/skitour"):
             return self._skitour()
         if chemin.endswith("/skitour-photo"):
@@ -2213,6 +2258,36 @@ class Relais(BaseHTTPRequestHandler):
             with open(_fichier("couts.jsonl"), "a") as f:
                 f.write(json.dumps({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "type": "facture", "cout_usd": cout, **jetons}) + "\n")
         self._json(200, {**r, "cout_usd": cout, **cumuls()})
+
+    def _photos_choix(self):
+        """🐻 « Bud choisit » (spec/buddies.md §7.16) : les vignettes de l'album, il rend les meilleures pour le carnet."""
+        try:
+            n = int(self.headers.get("Content-Length", 0))
+            if n > 12_000_000:
+                return self._json(413, {"erreur": "trop de photos"})
+            d = json.loads(self.rfile.read(n))
+            combien = max(1, min(12, int(d.get("combien", 8))))
+            photos = [{"id": str(x["id"])[:64], "image": str(x["image"]), "quand": str(x.get("quand", ""))[:20]} for x in d["photos"]]
+            if not 2 <= len(photos) <= MAX_PHOTOS_CHOIX or any(not 100 < len(x["image"]) < 200_000 for x in photos):
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            return self._json(400, {"erreur": "photos invalides"})
+        jour = time.strftime("%Y-%m-%d")
+        with verrou:
+            quota = _lire("quota.json", {})
+            if quota.get(jour, 0) >= MAX_PAR_JOUR:
+                return self._json(429, {"erreur": f"Bud a assez travaillé pour aujourd'hui ({MAX_PAR_JOUR} demandes)"})
+            _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
+        try:
+            ids, cout, jetons = choisir_photos(photos, min(combien, len(photos)))
+        except anthropic.APIError as e:
+            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
+        except Exception as e:  # noqa: BLE001
+            return self._json(502, {"erreur": str(e)})
+        with verrou:
+            with open(_fichier("couts.jsonl"), "a") as f:
+                f.write(json.dumps({"date": time.strftime("%Y-%m-%d %H:%M:%S"), "type": "photos", "cout_usd": cout, **jetons}) + "\n")
+        self._json(200, {"choix": ids, "cout_usd": cout, **cumuls()})
 
     def _bud(self):
         """🐻 Bud (spec/buddies.md §5.12) : la question d'un buddy et ce que son téléphone sait de la sortie."""
