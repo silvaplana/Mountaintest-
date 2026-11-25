@@ -323,6 +323,47 @@ public class BuddiesPlugin extends Plugin {
         }
     }
 
+    /**
+     * ⬇ Enregistre un film du cache dans la galerie : Movies/Mountain Buddies (un album de la galerie).
+     * Avant Android 10, écrire là demande une permission : le film va dans le dossier Movies de l'appli.
+     */
+    @PluginMethod
+    public void enregistrerFilm(PluginCall call) {
+        java.io.File f = new java.io.File(getContext().getCacheDir(), call.getString("chemin", ""));
+        String nom = call.getString("nom", f.getName()), mime = call.getString("mime", "video/mp4");
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) {
+            JSObject r = new JSObject();
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                android.content.ContentValues v = new android.content.ContentValues();
+                v.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, nom);
+                v.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime);
+                v.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_MOVIES + "/Mountain Buddies/");
+                v.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1);
+                android.content.ContentResolver cr = getContext().getContentResolver();
+                Uri uri = cr.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, v);
+                if (uri == null) throw new IllegalStateException("galerie inaccessible");
+                try (java.io.OutputStream o = cr.openOutputStream(uri)) { copier(in, o); }
+                v.clear();
+                v.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0);
+                cr.update(uri, v, null, null);
+                r.put("dossier", "Galerie › Mountain Buddies");
+            } else {
+                java.io.File dir = new java.io.File(getContext().getExternalFilesDir(android.os.Environment.DIRECTORY_MOVIES), "Mountain Buddies");
+                if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("dossier impossible à créer");
+                try (java.io.OutputStream o = new java.io.FileOutputStream(new java.io.File(dir, nom))) { copier(in, o); }
+                r.put("dossier", "Movies › Mountain Buddies (dossier de l'appli)");
+            }
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject(e.getMessage() != null ? e.getMessage() : "film illisible");
+        }
+    }
+
+    private static void copier(java.io.InputStream in, java.io.OutputStream o) throws java.io.IOException {
+        byte[] b = new byte[64 * 1024];
+        for (int n; (n = in.read(b)) > 0; ) o.write(b, 0, n);
+    }
+
     @PluginMethod
     public void partager(PluginCall call) {
         Intent i = new Intent(Intent.ACTION_SEND);

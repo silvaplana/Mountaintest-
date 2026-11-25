@@ -44,6 +44,8 @@ export const Natif = registerPlugin<{
   partager(o: { titre: string; texte: string }): Promise<void>;
   /** Partage un fichier du cache de l'appli (film du survol 3D) : WhatsApp, mail… */
   partagerFichier(o: { chemin: string; mime: string; titre: string }): Promise<void>;
+  /** ⬇ Copie un film du cache dans la galerie (Movies/Mountain Buddies) ; rend le dossier à montrer. */
+  enregistrerFilm(o: { chemin: string; nom: string; mime: string }): Promise<{ dossier: string }>;
   sms(o: { numero: string; texte: string }): Promise<void>;
   mail(o: { adresse: string; sujet: string; texte: string }): Promise<void>;
   /** 📍 Service de position (EpingleService.java) : une position toutes les 5 minutes jusqu'à `jusqu` (ms). */

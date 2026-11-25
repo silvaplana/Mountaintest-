@@ -72,6 +72,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   const [film, setFilm] = useState<{ blob: Blob; url: string; couverture: ImageBitmap | null } | null>(null);
   const [choixAlbum, setChoixAlbum] = useState(false);
   const [range, setRange] = useState<string | null>(null);
+  const [telecharge, setTelecharge] = useState<string | null>(null);
   const [joue, setJoue] = useState(false);
   /** Film revu en plein écran (couché si le film est horizontal). */
   const [plein, setPlein] = useState(false);
@@ -241,7 +242,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       setFilmId(await garderFilm(blob, { nom: trail.name || 'Survol', secondes: r.duree, vertical: r.vertical,
         couverture: image ? await reduire(image, PX.grande, 0.8).catch(() => null) : null }));
       void lireFilms().then(setGarde);
-      setRange(null);
+      setRange(null); setTelecharge(null);
       setEtape('pret');
     } catch (e) {
       if (!ctl.signal.aborted) onToast(`Film impossible : ${(e as Error).message}`);
@@ -255,14 +256,42 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     }
   }
 
-  async function partager() {
+  function nomFilm(f: { blob: Blob }) {
+    return `survol-${trail.name.replace(/[\\/:*?"<>|]/g, '_')}.${extension(f.blob.type)}`;
+  }
+
+  /** Copie le film dans le cache de l'appli, d'où le code Android le lit (partage, téléchargement). */
+  async function dansLeCache(f: { blob: Blob }, nom: string) {
+    const data = await new Promise<string>((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] ?? ''); fr.readAsDataURL(f.blob); });
+    const chemin = `films/${nom}`;
+    await Filesystem.writeFile({ path: chemin, data, directory: Directory.Cache, recursive: true });
+    return chemin;
+  }
+
+  /** ⬇ Enregistre le film dans la galerie du téléphone, album « Mountain Buddies » (Seb, 25/11). */
+  async function telecharger() {
     if (!film) return;
-    const nom = `survol-${trail.name.replace(/[\\/:*?"<>|]/g, '_')}.${extension(film.blob.type)}`;
+    const nom = nomFilm(film);
     try {
       if (Capacitor.isNativePlatform()) {
-        const data = await new Promise<string>((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] ?? ''); fr.readAsDataURL(film.blob); });
-        const chemin = `films/${nom}`;
-        await Filesystem.writeFile({ path: chemin, data, directory: Directory.Cache, recursive: true });
+        const { dossier } = await Natif.enregistrerFilm({ chemin: await dansLeCache(film, nom), nom, mime: film.blob.type });
+        setTelecharge(dossier);
+        onToast(`Film enregistré dans ${dossier}`);
+      } else {
+        const a = document.createElement('a'); a.href = film.url; a.download = nom; a.click();
+        setTelecharge('Téléchargements');
+      }
+    } catch (e) {
+      onToast(`Téléchargement impossible : ${(e as Error).message}`);
+    }
+  }
+
+  async function partager() {
+    if (!film) return;
+    const nom = nomFilm(film);
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const chemin = await dansLeCache(film, nom);
         await Natif.partagerFichier({ chemin, mime: film.blob.type, titre: `Survol de ${trail.name}` });
       } else {
         const f = new File([film.blob], nom, { type: film.blob.type });
@@ -289,7 +318,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     if (!blob) { onToast('Film introuvable'); await oublierFilm(f.id); setGarde(await lireFilms()); return; }
     setFilm({ blob, url: URL.createObjectURL(blob), couverture: f.couverture ? await createImageBitmap(f.couverture).catch(() => null) : null });
     setFilmId(f.id);
-    setRange(null);
+    setRange(null); setTelecharge(null);
     setOuvert(null);
     setEtape('pret');
   }
@@ -443,6 +472,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           <button onClick={() => void partager()}><ShareIcon />Partager</button>
           <button onClick={() => { setFilm(null); setEtape('reglages'); }}><span className="gros">🔁</span>Refaire</button>
           <button className="danger" onClick={() => { if (filmId) void oublierFilm(filmId); onClose(); }}><TrashIcon size={30} />Jeter</button>
+          <button className="survol-dl" disabled={telecharge != null} onClick={() => void telecharger()}>
+            <DownloadIcon />{telecharge ? `✓ Dans ${telecharge}` : `Télécharger dans ${Capacitor.isNativePlatform() ? GALERIE : 'Téléchargements'}`}</button>
         </div>}
       </section>
     </>
@@ -559,6 +590,18 @@ function HauteurIcon({ h, size }: { h: Hauteur; size: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 22l5-8 3 3 2-3 4 8z" /><path d="M1 22h22" /><rect x="1.5" y={y} width="6" height="4.5" rx="1" /><path d={`M7.5 ${y + 1}l3-1.2v4.4l-3-1.2`} />
+    </svg>
+  );
+}
+
+/** Dossier où ⬇ range le film (Android : Movies/Mountain Buddies, vu comme un album de la galerie). */
+const GALERIE = 'Galerie › Mountain Buddies';
+
+/** Flèche vers un plateau, au trait fin comme la poubelle. */
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3.5v11.5" /><path d="M7 10.5l5 5 5-5" /><path d="M4 16.5v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
     </svg>
   );
 }
