@@ -275,8 +275,8 @@ function keptPhotoUrls(): Set<string> {
   return new Set([...readSheets().flatMap((x) => sheetPhotos(x).map((p) => p.url)), ...readTopos().flatMap((t) => (t.photos ?? []).map((p) => p.url))]);
 }
 const TOPOS_KEY = 'skitourTopos';
-/** Numéro d'un topo d'après son lien skitour.fr (…/topos/123). */
-export const topoId = (url: string): number | null => { const m = /\/topos\/(\d+)/.exec(url); return m ? Number(m[1]) : null; };
+/** Numéro d'un topo d'après son lien skitour.fr (…/topos/123 ou …/topos/pointe-de-fleurendon,1997.html). */
+export const topoId = (url: string): number | null => { const m = /\/topos\/(?:[^/?#]*,)?(\d+)/.exec(url); return m ? Number(m[1]) : null; };
 function readTopos(): TopoSheet[] {
   try { const v = JSON.parse(localStorage.getItem(TOPOS_KEY) ?? '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
 }
