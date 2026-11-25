@@ -6,9 +6,10 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, heuresOmbres, heureTexte, IMAGES, NUAGES, trajectoire, type Cam, type Hauteur } from './survol/camera';
+import { cameraA, heuresOmbres, heureTexte, IMAGES, NUAGES, trajectoire, ZOOM_CIEL, type Cam, type Hauteur } from './survol/camera';
 import { dessinerNuages } from './survol/nuages';
-import { enregistrer, extension } from './survol/enregistreur';
+import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
+import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
 import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
 import type { Trail } from './trails/osmTrails';
 
@@ -96,54 +97,93 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         ombres = await preparerOmbres(map, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`));
         if (!ombres && !ctl.signal.aborted) onToast('Relief indisponible ici : film sans les ombres');
       }
-      // Les cartes du trajet sont chargées d'abord : le film ne montre pas de tuiles floues.
-      const N = 16;
-      for (let k = 0; k <= N && !ctl.signal.aborted; k++) {
-        setAvance(`Préparation des cartes : ${k}/${N}`);
-        poser(map, cameraA(track, k / N));
-        await attendreCarte(map, 1500);
-      }
-      if (ctl.signal.aborted) return;
-      poser(map, cameraA(track, 0));
-      await attendreCarte(map, 800);
-      setEtape('tournage');
-      let infos = '', heure = r.ombres && ombres ? heureTexte(heures[0]) : undefined;
-      let nuages = r.plongee ? 0 : undefined;
-      const son = musique ? await jouerMusique(musique, r.duree) : null;
-      const rec = enregistrer(map, r.vertical, () => ({ heure, infos: r.infos ? infos : undefined, nuages }), son?.piste);
+      const dessin = { heure: r.ombres && ombres ? heureTexte(heures[0]) : undefined, infos: '', nuages: r.plongee ? 0 : undefined } as Incrustation;
+      const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages });
       const ciel = voile.current?.getContext('2d') ?? null;
       if (voile.current) { voile.current.width = voile.current.offsetWidth; voile.current.height = voile.current.offsetHeight; }
-      const D = r.duree * 1000;
-      let couverture: Promise<ImageBitmap> | null = null;
-      const t0 = performance.now();
-      await new Promise<void>((fin) => {
-        const pas = (now: number) => {
-          const t = Math.min(1, (now - t0) / D);
-          const cam = cameraA(track, t);
-          poser(map, cam);
-          if (ombres) { const i = Math.round(t * (heures.length - 1)); ombres.montrer(i); heure = heureTexte(heures[i]); }
-          if (r.infos) {
-            const alt = map.queryTerrainElevation([cam.point.lon, cam.point.lat]);
-            infos = `${(cam.d / 1000).toFixed(1).replace('.', ',')} km${alt != null ? ` · ${Math.round(alt)} m` : ''}`;
+      /** Place la caméra au temps t (0 → 1) du film, avec l'heure des ombres, les km · altitude et les nuages. */
+      const placer = (t: number) => {
+        const cam = cameraA(track, t);
+        poser(map, cam);
+        if (ombres) {
+          const i = Math.round(t * (heures.length - 1));
+          ombres.montrer(i);
+          dessin.heure = heureTexte(heures[i]);
+          // Plongée : les ombres apparaissent en descendant (vues du ciel, on verrait leur bord).
+          if (r.plongee) ombres.opacite(Math.max(0, Math.min(1, (cam.zoom - ZOOM_CIEL - 1) / 2.5)));
+        }
+        if (r.infos) {
+          const alt = map.queryTerrainElevation([cam.point.lon, cam.point.lat]);
+          dessin.infos = `${(cam.d / 1000).toFixed(1).replace('.', ',')} km${alt != null ? ` · ${Math.round(alt)} m` : ''}`;
+        }
+        if (dessin.nuages != null) {
+          dessin.nuages = t / NUAGES;
+          if (ciel && voile.current) { ciel.clearRect(0, 0, voile.current.width, voile.current.height); dessinerNuages(ciel, voile.current.width, voile.current.height, dessin.nuages); }
+        }
+        setAvance(`${Math.round(t * 100)} %`);
+      };
+      const cadre = cadrage(map.getCanvas().width, map.getCanvas().height, r.vertical);
+      const codec = await codecVideo(cadre.ow, cadre.oh);
+      let blob: Blob, couverture: Promise<ImageBitmap> | null = null;
+      if (codec) {
+        // Image par image : chaque image attend ses cartes, puis est encodée à sa place exacte dans le film.
+        const son = musique ? await preparerSon(musique, r.duree).catch(() => null) : null;
+        if (musique && !son) onToast('Morceau illisible : film sans musique');
+        const enc = await creerFilm(cadre.ow, cadre.oh, codec, son);
+        if (enc.sansSon) onToast('Ce téléphone ne sait pas ajouter la musique : film sans musique');
+        const fondus = sansFondu(map);
+        const toile = toileFilm(map, r.vertical, texte);
+        setEtape('tournage');
+        try {
+          const N = Math.round(r.duree * IPS);
+          placer(0);
+          await attendreCarte(map, 5000);
+          let attente = 2000;
+          for (let k = 0; k < N; k++) {
+            if (ctl.signal.aborted) throw new Error('arrêté');
+            placer(k / (N - 1));
+            map.triggerRepaint();
+            attente = (await attendreCarte(map, attente)) ? 2000 : 300;
+            await enc.ajouter(toile.toile, k);
+            if (!couverture && k >= N * 0.6) couverture = toile.instantane();
           }
-          if (nuages != null) {
-            nuages = t / NUAGES;
-            if (ciel && voile.current) { ciel.clearRect(0, 0, voile.current.width, voile.current.height); dessinerNuages(ciel, voile.current.width, voile.current.height, nuages); }
-          }
-          if (!couverture && t >= 0.6) couverture = rec.instantane();
-          setAvance(`${Math.round(t * 100)} %`);
-          if (t < 1 && !ctl.signal.aborted) requestAnimationFrame(pas); else fin();
-        };
-        requestAnimationFrame(pas);
-      });
-      const blob = await rec.arreter();
-      son?.arreter();
+          blob = await enc.terminer();
+        } catch (e) { enc.abandonner(); throw e; } finally { toile.lacher(); fondus(); }
+      } else {
+        // En direct : les cartes du trajet sont chargées d'abord, le film ne montre pas de tuiles floues.
+        const N = 16;
+        for (let k = 0; k <= N && !ctl.signal.aborted; k++) {
+          setAvance(`Préparation des cartes : ${k}/${N}`);
+          poser(map, cameraA(track, k / N));
+          await attendreCarte(map, 1500);
+        }
+        if (ctl.signal.aborted) { setEtape('reglages'); return; }
+        poser(map, cameraA(track, 0));
+        await attendreCarte(map, 800);
+        setEtape('tournage');
+        const son = musique ? await jouerMusique(musique, r.duree) : null;
+        const rec = enregistrer(map, r.vertical, texte, son?.piste);
+        const D = r.duree * 1000;
+        const t0 = performance.now();
+        await new Promise<void>((fin) => {
+          const pas = (now: number) => {
+            const t = Math.min(1, (now - t0) / D);
+            placer(t);
+            if (!couverture && t >= 0.6) couverture = rec.instantane();
+            if (t < 1 && !ctl.signal.aborted) requestAnimationFrame(pas); else fin();
+          };
+          requestAnimationFrame(pas);
+        });
+        blob = await rec.arreter();
+        son?.arreter();
+      }
+      if (ctl.signal.aborted) { setEtape('reglages'); return; }
       if (!blob.size) throw new Error('vidéo vide');
       setFilm({ blob, url: URL.createObjectURL(blob), couverture: await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null });
       setRange(null);
       setEtape('pret');
     } catch (e) {
-      onToast(`Film impossible : ${(e as Error).message}`);
+      if (!ctl.signal.aborted) onToast(`Film impossible : ${(e as Error).message}`);
       setEtape('reglages');
     } finally {
       ombres?.retirer();
@@ -294,12 +334,25 @@ function poser(map: MlMap, c: Cam) {
   map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: c.pitch, bearing: c.bearing });
 }
 
+/** Attend que la carte ait fini de charger ce qu'elle montre (true), ou maxMs (false). */
 function attendreCarte(map: MlMap, maxMs: number) {
-  return new Promise<void>((ok) => {
-    const fin = () => { clearTimeout(t); map.off('idle', fin); ok(); };
-    const t = setTimeout(fin, maxMs);
-    map.once('idle', fin);
+  return new Promise<boolean>((ok) => {
+    const fin = (pret: boolean) => { clearTimeout(t); map.off('idle', surIdle); ok(pret); };
+    const surIdle = () => fin(true);
+    const t = setTimeout(() => fin(false), maxMs);
+    map.once('idle', surIdle);
   });
+}
+
+/** Cartes affichées d'un coup pendant le tournage image par image (pas d'image à moitié en fondu). Rend le retour. */
+function sansFondu(map: MlMap) {
+  const avant: [string, unknown][] = [];
+  for (const l of map.getStyle().layers) {
+    if (l.type !== 'raster') continue;
+    avant.push([l.id, map.getPaintProperty(l.id, 'raster-fade-duration')]);
+    map.setPaintProperty(l.id, 'raster-fade-duration', 0);
+  }
+  return () => { for (const [id, v] of avant) if (map.getLayer(id)) map.setPaintProperty(id, 'raster-fade-duration', v as number | undefined); };
 }
 
 /** Caméra au trait (rectangle + objectif), comme le partage et la poubelle. */

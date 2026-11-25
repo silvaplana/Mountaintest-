@@ -76,3 +76,32 @@ describe('survol 3D : ombres et format', () => {
     expect(h.ow / h.oh).toBeCloseTo(16 / 9, 1);
   });
 });
+
+describe('survol 3D : ombres et musique du film', () => {
+  it('calcule les ombres au-delà de la trace (au moins 2 km autour)', async () => {
+    const { zoneElargie } = await import('../src/survol/ombres');
+    const z = zoneElargie([6.0, 45.0, 6.01, 45.01]);
+    expect(45.0 - z[1]).toBeGreaterThan(0.017);
+    expect(6.0 - z[0]).toBeGreaterThan(0.025);
+    expect(z[2]).toBeGreaterThan(6.035);
+  });
+
+  it('fond les bords de l\'image des ombres (pas de carré visible de loin)', async () => {
+    const { fondreBords } = await import('../src/survol/ombres');
+    const w = 40, h = 20, px = new Uint8ClampedArray(w * h * 4).fill(200);
+    fondreBords(px, w, h);
+    const a = (x: number, y: number) => px[(y * w + x) * 4 + 3];
+    expect(a(0, 10)).toBeLessThan(40);
+    expect(a(20, 0)).toBeLessThan(40);
+    expect(a(20, 10)).toBe(200);
+    expect(px[(10 * w) * 4]).toBe(200); // la couleur ne change pas, seulement la transparence
+  });
+
+  it('baisse la musique sur la fin', async () => {
+    const { baisserFin } = await import('../src/survol/encodeur');
+    const d = baisserFin(new Float32Array(10).fill(1), 4);
+    expect(Array.from(d.slice(0, 6))).toEqual([1, 1, 1, 1, 1, 1]);
+    expect(d[6]).toBeCloseTo(1);
+    expect(d[9]).toBeCloseTo(0.25);
+  });
+});
