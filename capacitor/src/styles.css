@@ -1302,6 +1302,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* Photo en grand : plein écran d'un toucher, zoom à deux doigts (Album.tsx, Zoom). */
 .bd-zoom { flex: 1; min-height: 0; overflow: hidden; touch-action: none; display: flex; }
 .bd-zoom > div { flex: 1; min-height: 0; display: flex; will-change: transform; }
+/* La photo entière tient dans l'écran (elle débordait, donc paraissait trop zoomée : Seb, 25/11) ; on zoome ensuite à deux doigts. */
+.bd-zoom > div { position: relative; }
+.bd-zoom .bd-vis-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .bd-visionneuse.plein .bd-vis-haut, .bd-visionneuse.plein .bd-vis-bas { display: none; }
 /* Photo en grand : elle prend tout l'écran, les barres sont posées dessus (un toucher les cache). */
 .bd-visionneuse { z-index: 40; }

@@ -183,13 +183,13 @@ function Film({ p }: { p: PhotoBuddy }) {
 export function Zoom({ children, onToucher, onGlisser }: { children: React.ReactNode; onToucher?: () => void; onGlisser?: (sens: 1 | -1) => void }) {
   const [v, setV] = useState({ k: 1, x: 0, y: 0 });
   const doigts = useRef(new Map<number, { x: number; y: number }>());
-  const geste = useRef({ d: 0, k: 1, bouge: false, dernier: 0, x0: 0, deux: false });
+  const geste = useRef<{ d: number; m: { x: number; y: number } | null; bouge: boolean; dernier: number; x0: number; deux: boolean }>({ d: 0, m: null, bouge: false, dernier: 0, x0: 0, deux: false });
   const borner = (k: number, x: number, y: number, el: HTMLElement) => {
     const mx = (el.clientWidth * (k - 1)) / 2, my = (el.clientHeight * (k - 1)) / 2;
     return { k, x: Math.max(-mx, Math.min(mx, x)), y: Math.max(-my, Math.min(my, y)) };
   };
   return <div className="bd-zoom"
-    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); geste.current.bouge = doigts.current.size > 1; geste.current.d = 0;
+    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); geste.current.bouge = doigts.current.size > 1; geste.current.d = 0; geste.current.m = null;
       if (doigts.current.size === 1) { geste.current.x0 = ev.clientX; geste.current.deux = false; } else geste.current.deux = true; }}
     onPointerMove={(ev) => {
       const a = doigts.current.get(ev.pointerId); if (!a) return;
@@ -198,22 +198,26 @@ export function Zoom({ children, onToucher, onGlisser }: { children: React.React
       if (Math.abs(dx) + Math.abs(dy) > 3) geste.current.bouge = true;
       const l = [...doigts.current.values()];
       if (l.length === 2) {
-        const d = Math.hypot(l[0].x - l[1].x, l[0].y - l[1].y);
-        if (geste.current.d) setV((o) => borner(Math.max(1, Math.min(6, (o.k * d) / geste.current.d)), o.x, o.y, el));
-        geste.current.d = d;
+        // Deux doigts : le point de la photo sous les doigts reste sous les doigts (zoom et déplacement ensemble, sans saut).
+        const d = Math.hypot(l[0].x - l[1].x, l[0].y - l[1].y), r = el.getBoundingClientRect();
+        const m = { x: (l[0].x + l[1].x) / 2 - r.left - r.width / 2, y: (l[0].y + l[1].y) / 2 - r.top - r.height / 2 };
+        const d0 = geste.current.d, m0 = geste.current.m;
+        if (d0 && m0) setV((o) => { const k = Math.max(1, Math.min(6, (o.k * d) / d0)); return borner(k, m.x - ((m0.x - o.x) / o.k) * k, m.y - ((m0.y - o.y) / o.k) * k, el); });
+        geste.current.d = d; geste.current.m = m;
       } else if (l.length === 1) setV((o) => (o.k > 1 ? borner(o.k, o.x + dx, o.y + dy, el) : o));
     }}
     onPointerUp={(ev) => {
-      doigts.current.delete(ev.pointerId); geste.current.d = 0;
+      doigts.current.delete(ev.pointerId); geste.current.d = 0; geste.current.m = null;
       if (doigts.current.size) return;
       // Photo à sa taille : glisser d'un doigt vers la gauche ou la droite passe à la suivante ou à la précédente.
       const dx = ev.clientX - geste.current.x0;
       if (geste.current.bouge) { if (v.k === 1 && !geste.current.deux && Math.abs(dx) > 60) onGlisser?.(dx < 0 ? 1 : -1); return; }
       const t = Date.now(), el = ev.currentTarget;
-      if (t - geste.current.dernier < 300) { geste.current.dernier = 0; setV((o) => (o.k > 1 ? { k: 1, x: 0, y: 0 } : borner(2.5, 0, 0, el))); }
+      if (t - geste.current.dernier < 300) { geste.current.dernier = 0; const r = el.getBoundingClientRect(), px = ev.clientX - r.left - r.width / 2, py = ev.clientY - r.top - r.height / 2;
+        setV((o) => (o.k > 1 ? { k: 1, x: 0, y: 0 } : borner(2.5, -px * 1.5, -py * 1.5, el))); }
       else { geste.current.dernier = t; onToucher?.(); }
     }}
-    onPointerCancel={(ev) => { doigts.current.delete(ev.pointerId); geste.current.d = 0; }}>
+    onPointerCancel={(ev) => { doigts.current.delete(ev.pointerId); geste.current.d = 0; geste.current.m = null; }}>
     <div style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>{children}</div>
   </div>;
 }
