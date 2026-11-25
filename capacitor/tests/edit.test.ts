@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moveNode, nearestIndex, replaceSlice, snapToWays, splineNodes, wayRunsOf } from '../src/trails/edit';
+import { cutSpurs, moveNode, nearestIndex, replaceSlice, snapToWays, splineNodes, splineNodesEvery, wayRunsOf } from '../src/trails/edit';
 import { readPins } from '../src/trails/savedTraces';
 import { distanceM } from '../src/gps/adaptive';
 import type { LonLat } from '../src/trails/osmTrails';
@@ -74,5 +74,34 @@ describe('📍 points lus du téléphone', () => {
   it('garde ceux qui ont une position', () => {
     expect(readPins([{ lon: 5, lat: 43, txt: 'Source' }, { lat: 1 }, null])).toEqual([{ lon: 5, lat: 43, txt: 'Source', vu: true }]);
     expect(readPins('rien')).toEqual([]);
+  });
+});
+
+describe('✏ houppettes du recollage (Seb, 25/11)', () => {
+  // Une ligne droite de 5 points (~325 m) ; au milieu, un aller-retour de ~55 m vers le nord.
+  const droite = ligne(5);
+  const m = droite[2], haut = { lon: m.lon, lat: m.lat + 0.0005 };
+  const avecPointe = [droite[0], droite[1], m, haut, { ...m, lon: m.lon + 0.00002 }, droite[3], droite[4]];
+  it('enlève un aller-retour qui part loin du dessin', () => {
+    const r = cutSpurs(avecPointe, droite);
+    expect(r).not.toContainEqual(haut);
+    expect(Math.max(...r.map((p) => distanceM(p, { ...p, lat: 43.2 })))).toBeLessThan(1);
+  });
+  it('garde un aller-retour que le dessin fait lui-même', () => {
+    expect(cutSpurs(avecPointe, avecPointe)).toContainEqual(haut);
+  });
+  it('garde un lacet (les deux branches restent écartées)', () => {
+    const lacet = [droite[0], droite[2], { lon: droite[2].lon, lat: 43.2006 }, { lon: droite[2].lon + 0.0003, lat: 43.2006 }, { lon: droite[2].lon + 0.0003, lat: 43.2 }, droite[4]];
+    expect(cutSpurs(lacet, droite)).toHaveLength(lacet.length);
+  });
+});
+
+describe('✏ ronds du mode souple selon le zoom', () => {
+  const l = ligne(50); // ~3,97 km
+  it('espace les ronds selon l’écart voulu, avec un plafond', () => {
+    expect(splineNodesEvery(l, 500)).toHaveLength(9);
+    expect(splineNodesEvery(l, 2000)).toHaveLength(3);
+    expect(splineNodesEvery(l, 1).length).toBeLessThanOrEqual(50);
+    expect(splineNodesEvery(l, 1e6)).toEqual([0, 49]);
   });
 });

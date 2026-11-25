@@ -2,7 +2,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { distanceM } from './gps/adaptive';
-import { moveNode, nearestIndex, replaceSlice, snapToWays, splineNodes, wayRunsOf, type Snap } from './trails/edit';
+import { cutSpurs, moveNode, nearestIndex, replaceSlice, snapToWays, splineNodesEvery, wayRunsOf, type Snap } from './trails/edit';
 import { fetchWayLines } from './trails/junctions';
 import type { LonLat, Trail } from './trails/osmTrails';
 import { lineLengthM, routeOnPaths, waypoints } from './trails/route';
@@ -12,7 +12,10 @@ import { DOIGT_PX } from './doigt';
 
 type Outil = 'snap' | 'add' | 'spline';
 /** Mode souple : nombre de ronds sur la trace (Peu, Moyen, Beaucoup). */
-const DENS = [8, 14, 24];
+/** Mode souple : écart entre deux ronds à l'écran (Peu, Moyen, Beaucoup), en pixels ; recalculé quand on zoome. */
+const ECART_PX = [110, 70, 45];
+/** Couches de la trace dessinée par la carte, cachées pendant qu'un rond glisse (l'ancien tracé ne reste pas). */
+const COUCHES_TRACE = ['trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
 /** Un chemin plus loin que ça d'un point de la trace ne compte pas pour le recoller. */
 const NEAR_M = 40;
 /** Toucher la trace : à moins de tant de pixels. */
@@ -38,6 +41,16 @@ const SRC = 'trace-edit';
 const coords = (l: LonLat[]) => l.map((p) => [p.lon, p.lat]);
 
 /** Rond posé sur la carte : zone de 48 px pour le doigt, le rond visible au milieu. */
+/** Flèche « Annuler » en gros trait foncé : ↶ seul était pâle et peu clair ; ↷ Refaire enlevé (Seb, 25/11). */
+function Fleche() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.8"
+      strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </svg>
+  );
+}
+
 function rond(cls: string, txt = '') {
   const el = document.createElement('div');
   el.className = `edit-rond ${cls}`;
@@ -74,7 +87,7 @@ function glissable(map: MlMap, mk: maplibregl.Marker, onDrag: (ll: maplibregl.Ln
 
 /**
  * ✏ Modifier une de mes traces (maquette validée par Seb le 25/11, maquettes/edition-trace/) : même place que
- * le menu de la trace, ← pour y revenir, ↶ ↷ pour défaire et refaire. Outils : Recoller un morceau sur les
+ * le menu de la trace, ← pour y revenir, « Annuler » pour revenir en arrière. Outils : Recoller un morceau sur les
  * chemins (bornes ▶ ■ posées sur la trace), Prolonger la fin (tout droit ou par les chemins), Souple (ronds
  * qu'on fait glisser). Chaque changement est gardé tout de suite dans la trace.
  */
@@ -91,9 +104,16 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   const [apercu, setApercu] = useState<Snap | 'calcul' | 'erreur' | null>(null);
   const [prolonge, setProlonge] = useState<'droit' | 'chemin'>(() => (localStorage.getItem('prolonge') === 'droit' ? 'droit' : 'chemin'));
   const [densite, setDensite] = useState(1);
+  /** Zoom de la carte (au demi-cran) : les ronds se replacent quand il change. */
+  const [zoom, setZoom] = useState(() => Math.round(map.getZoom() * 2) / 2);
+  useEffect(() => {
+    const z = () => setZoom(Math.round(map.getZoom() * 2) / 2);
+    map.on('zoomend', z);
+    return () => { map.off('zoomend', z); };
+  }, [map]);
   const [live, setLive] = useState<LonLat[] | null>(null);
   const arret = useRef<AbortController | null>(null);
-  const ronds = useRef<{ line: LonLat[]; nodes: number[] } | null>(null);
+  const ronds = useRef<{ line: LonLat[]; nodes: number[]; zoom: number } | null>(null);
 
   const garder = (l: LonLat[]) => {
     setHist((h) => ({ l: [...h.l.slice(0, h.i + 1), l], i: h.i + 1 }));
@@ -134,6 +154,18 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     (map.getSource(SRC) as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: f });
   }, [map, outil, A, B, apercu, live, line]);
 
+  // Pendant qu'un rond glisse, la carte ne dessine plus l'ancienne trace : seule la nouvelle se voit.
+  const glisse = live != null;
+  useEffect(() => {
+    if (!glisse) return;
+    for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'none');
+    if (map.getLayer('trails')) map.setFilter('trails', ['!=', ['get', 'id'], trail.id]);
+    return () => {
+      for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'visible');
+      if (map.getLayer('trails')) map.setFilter('trails', null);
+    };
+  }, [map, glisse, trail.id]);
+
   // Bornes ▶ ■ du morceau à recoller : on les fait glisser le long de la trace.
   useEffect(() => {
     if (outil !== 'snap') return;
@@ -170,7 +202,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
           let path = run;
           try {
             const r = await routeOnPaths(waypoints(run, 8), ctrl.signal);
-            if (lineLengthM(r) <= 3 * lineLengthM(run) + 100) path = [run[0], ...r, run[run.length - 1]];
+            if (lineLengthM(r) <= 3 * lineLengthM(run) + 100) path = cutSpurs([run[0], ...r, run[run.length - 1]], run);
           } catch (e) { if (ctrl.signal.aborted) throw e; }
           path.forEach((p) => { out.push(p); on.push(true); });
           k = b + 1;
@@ -186,15 +218,18 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   useEffect(() => {
     if (outil !== 'spline') return;
     // Après un glissé, les ronds restent où on les a laissés ; sinon ils sont répartis le long de la trace.
-    const nodes = ronds.current?.line === line ? ronds.current.nodes : splineNodes(line, DENS[densite]);
+    // Écart en mètres pour ECART_PX pixels à ce zoom (tuiles de 512 px).
+    const lat = line[0]?.lat ?? 45;
+    const mParPx = (40_075_016.686 * Math.cos((lat * Math.PI) / 180)) / (512 * 2 ** map.getZoom());
+    const nodes = ronds.current?.line === line && ronds.current.zoom === zoom ? ronds.current.nodes : splineNodesEvery(line, ECART_PX[densite] * mParPx);
     const mks = nodes.map((i, k) => {
       const mk = new maplibregl.Marker({ element: rond('souple') }).setLngLat([line[i].lon, line[i].lat]).addTo(map);
       const at = (ll: maplibregl.LngLat) => moveNode(line, nodes, k, { lon: ll.lng, lat: ll.lat });
-      glissable(map, mk, (ll) => setLive(at(ll).line), (ll) => { const r = at(ll); ronds.current = r; setLive(null); garder(r.line); });
+      glissable(map, mk, (ll) => setLive(at(ll).line), (ll) => { const r = at(ll); ronds.current = { ...r, zoom }; setLive(null); garder(r.line); });
       return mk;
     });
     return () => mks.forEach((m) => m.remove());
-  }, [map, outil, densite, line]);
+  }, [map, outil, densite, line, zoom]);
 
   // 🏁 Prolonger : le bout de la trace.
   useEffect(() => {
@@ -245,7 +280,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   const choisir = (o: Outil) => { viderBornes(); setOutil(outil === o ? null : o); };
 
   let aide: ReactNode;
-  if (!outil) aide = <p className="edit-aide muted">Choisis un outil. Tout se défait avec ↶.</p>;
+  if (!outil) aide = <p className="edit-aide muted">Choisis un outil. Tout s’annule avec « Annuler ».</p>;
   else if (outil === 'snap') {
     if (A == null) aide = <>
       <p className="edit-aide"><span className="edit-n debut">▶</span>Touche le <b>début</b> du morceau sur la trace</p>
@@ -278,8 +313,7 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
       <div className="head">
         <button className="retour" onClick={onBack} aria-label="Retour au menu de la trace">←</button>
         <b><span style={{ color: trail.color, display: 'flex' }}><PencilIcon size={24} /></span> Modifier</b>
-        <button className="close" disabled={hist.i === 0} onClick={() => aller(hist.i - 1)} aria-label="Défaire">↶</button>
-        <button className="close" disabled={hist.i >= hist.l.length - 1} onClick={() => aller(hist.i + 1)} aria-label="Refaire">↷</button>
+        <button className="annuler" disabled={hist.i === 0} onClick={() => aller(hist.i - 1)}><Fleche />Annuler</button>
       </div></div>
       <span className="hint">{formatKm(km)}{Math.abs(dk) >= 0.05 && <b className={dk < 0 ? 'edit-moins' : 'edit-plus'}> ({dk > 0 ? '+' : ''}{dk.toFixed(1).replace('.', ',')} km)</b>}</span>
       <div className="edit-outils">
