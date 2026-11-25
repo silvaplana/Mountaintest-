@@ -1333,3 +1333,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-prises button:first-child { flex: 1; text-align: left; background: none; }
 .bd-choisir { flex: none; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 17px; border-radius: 12px; }
 .bd-choisir svg { width: 22px; height: 22px; }
+
+/* 🐻 Bud a choisi les photos du carnet : la ligne avec « Annuler » */
+.bd-bud-choix { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 17px; }
+.bd-bud-choix .bd-lien { margin-left: auto; flex: none; }

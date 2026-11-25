@@ -759,6 +759,23 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Pas encore** : une trace modifiée après l'association n'est pas renvoyée (on l'associe à nouveau) ; une trace
   associée depuis le Buddy Time ne change pas le lien de sa copie déjà affichée sur la carte.
 
+### 7.16 🐻 Bud choisit les photos du carnet (Seb, 25 novembre 2026)
+
+- **Demande de Seb** : « quand on est dans tout l'album et qu'il faut sélectionner pour le carnet, est-ce que tu peux
+  utiliser un appel à l'IA pour qu'il sélectionne les 8 meilleurs et sans doublon ? » Décision (Seb, « Ok ») : les 8
+  sont mises directement en ⭐, donc dans le carnet, et restent retouchables ; « Annuler » remet les ⭐ d'avant.
+- **À l'écran** (album d'un Buddy Time, dès qu'il a plus de 8 photos) : un bouton « 🐻 Bud choisit les 8 meilleures »
+  au-dessus de « Déposer mes photos ». Pendant qu'il regarde : « Bud regarde les photos… ». Ensuite l'album passe sur
+  « ⭐ Carnet » avec la ligne « Bud a gardé 8 photos pour le carnet. Tu peux en changer avec ⭐. · Annuler ».
+  Jamais le mot « IA » : c'est Bud.
+- **Comment** : le téléphone envoie les petites images (400 px) des photos, pas les films, avec leur date ; au-delà
+  de 90 photos, une sur n répartie sur la sortie. Le relais (`POST /photos-choix`, `deploy/ia/relais.py`) les montre
+  en une seule demande et rend les numéros retenus : nettes, bien cadrées, variées, jamais deux presque pareilles.
+  Le choix remplace les ⭐ d'avant (op `etoile` existante, rien de neuf au serveur des comptes) : tout le groupe le voit.
+- **Coût** : compté dans la limite du jour du relais et dans 📊 (ligne « Bud choisit les photos du carnet ») ;
+  environ 1 à 2 centimes pour 15 photos, 5 à 8 centimes pour 60.
+- **Pas encore** : il faut du réseau ; Bud ne voit que les petites images (un léger flou peut lui échapper).
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

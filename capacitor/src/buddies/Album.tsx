@@ -5,6 +5,7 @@ import 'photoswipe/style.css';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { adresse, garder, preparer } from './album';
+import { annulerChoix, budChoisit, COMBIEN } from './budPhotos';
 import { aujourdhui, deposerPhotos, lire, mettreEtoile, parJour, placerPhoto, retirerPhoto, uuid, type PhotoBuddy, type Sortie } from './store';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
@@ -135,6 +136,13 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
   const l = vue === 'carnet' ? photos.filter((p) => p.etoile) : photos;
   const auteurs = new Set(photos.map((p) => p.par.id)).size;
   const miennes = photos.filter((p) => p.attente).length;
+  // 🐻 Bud choisit les photos du carnet : 'travail' pendant qu'il regarde, puis ce qu'il a changé (pour Annuler).
+  const [bud, setBud] = useState<'travail' | { n: number; faits: { id: string; etoile: boolean }[] } | null>(null);
+  const nPhotos = photos.filter((p) => !p.video).length;
+  const choisir = () => {
+    setBud('travail');
+    budChoisit(photos).then((r) => { setBud(r); setVue('carnet'); }, (e: Error) => { setBud(null); onToast(e.message); });
+  };
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
@@ -154,6 +162,10 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
     {!l.length && <p className="bd-vide">{vue === 'carnet' ? 'Touche ⭐ sur une photo pour la garder pour le carnet.' : 'Pas encore de photo : dépose les tiennes, chacun ajoute les siennes.'}</p>}
     {miennes > 0 && <p className="hint">🕓 {miennes} photo{miennes > 1 ? 's' : ''} à toi {miennes > 1 ? 'partiront' : 'partira'} au retour du réseau.</p>}
     <span style={{ flex: 1 }} />
+    {bud && bud !== 'travail' && <p className="bd-bud-choix">🐻 Bud a gardé {bud.n} photo{bud.n > 1 ? 's' : ''} pour le carnet. Tu peux en changer avec ⭐.
+      <button className="bd-lien" onClick={() => { annulerChoix(bud.faits); setBud(null); }}>Annuler</button></p>}
+    {nPhotos > COMBIEN && <button className="bd-grand" disabled={bud === 'travail'} onClick={choisir}>
+      {bud === 'travail' ? '🐻 Bud regarde les photos…' : `🐻 Bud choisit les ${COMBIEN} meilleures`}</button>}
     <BoutonDeposer x={x} onToast={onToast} texte="📷 Déposer mes photos" />
     {ouverte != null && l[ouverte] && <Visionneuse l={l} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
     {menu && <div className="bd-recues-fond" onClick={() => setMenu(null)}>
