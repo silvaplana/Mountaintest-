@@ -23,7 +23,12 @@ Même place que le menu, ← pour y revenir, bouton « ↶ Annuler » pour reven
 - **Prolonger** : seulement à la fin (Seb) ; toucher la carte allonge la trace, 📏 tout droit ou 🥾 par les chemins (IGN).
 - **Souple** : ronds sur la trace, espacés à l'écran (choix « Ronds : ○ · ○○ · ○○○ » = 110, 70 ou 45 px) et replacés après chaque zoom ; pendant le glissé, l'ancien tracé est caché ; on en fait glisser un, la trace change en courbe douce
   entre ses deux voisins seulement.
+- **⇄ Inverser** (4ᵉ outil, Seb 25/11, maquette « Sens de la trace » B + 2) : retourne la trace d'un coup (le départ passe à l'autre bout) ; « ↶ Annuler » revient.
 - Chaque changement est gardé tout de suite ; une trace enregistrée dans 📂 Mes traces est mise à jour (et son fichier GPX).
+
+## Sens de la trace (Seb, 25/11)
+Sur la carte, chaque trace à moi montre son départ (rond vert ▶) et son arrivée (rond à damier), et de petites
+flèches blanches le long du trait (tous les 70 px) donnent le sens. Prolonger n'a plus son 🏁 à part : c'est le rond d'arrivée.
 
 ## Gaucher / droitier (Seb, 25/11)
 Dans 👤 Mon compte (avec ou sans connexion) : « Point décalé du doigt : Non / Gaucher / Droitier », NON par défaut (Seb : « perturbant » ; sans décalage ni viseur),

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { gainLoss, interpolate, parseElevations, sampleIndices, trailToGpx } from '../src/trails/elevation';
-import { assemble, overpassQuery, parseOverpass, zoneTooBig } from '../src/trails/osmTrails';
+import { assemble, overpassQuery, parseOverpass, trailEndsGeoJson, zoneTooBig } from '../src/trails/osmTrails';
 import { parseGpx } from '../src/track/gpx';
 
 const p = (lon: number, lat: number) => ({ lon, lat });
@@ -81,5 +81,19 @@ describe('randos trouvées par Claude', async () => {
     expect(h).toHaveLength(1);
     expect(hikeDetail(h[0])).toBe('Visorando · 8,5 km · D+ 320 m');
     expect(webHikesGeoJson(h).features[0].geometry).toEqual({ type: 'Point', coordinates: [5.61, 43.165] });
+  });
+});
+
+describe('sens de la trace', () => {
+  it('pose le départ au premier point et l’arrivée au dernier, et suit l’inversion', () => {
+    const t = { id: -1, name: 'x', kind: '', rank: 0, color: '#000', distanceM: 0, segments: [[p(1, 1), p(2, 2)], [p(3, 3), p(4, 4)]] };
+    const pos = (fc: GeoJSON.FeatureCollection, k: string) => (fc.features.find((f) => f.properties?.k === k)!.geometry as GeoJSON.Point).coordinates;
+    const fc = trailEndsGeoJson([t, { ...t, id: -2, segments: [[p(5, 5)]] }]);
+    expect(fc.features).toHaveLength(2);
+    expect(pos(fc, 'd')).toEqual([1, 1]);
+    expect(pos(fc, 'a')).toEqual([4, 4]);
+    const inv = trailEndsGeoJson([{ ...t, segments: [t.segments.flat().reverse()] }]);
+    expect(pos(inv, 'd')).toEqual([4, 4]);
+    expect(pos(inv, 'a')).toEqual([1, 1]);
   });
 });
