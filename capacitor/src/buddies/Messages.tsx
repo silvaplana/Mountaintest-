@@ -108,7 +108,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
     setBudPense(true);
     try {
       const donnees = { nom: appliquer(e).find((g) => g.id === dest.groupe)?.nom ?? '', sortie, membres, moi, traces: v.traces,
-        hebergements: v.hebergements, depenses: v.depenses, plannings: v.plannings, messages: v.messages };
+        hebergements: v.hebergements, depenses: v.depenses, plannings: v.plannings, messages: v.messages, sorties: v.sorties };
       const r = await demander(question, contexte(dest, donnees));
       // Ce que je lui ai demandé de faire (dépense, Buddy Time, ma dispo) : fait en mon nom, « Annuler » sous sa bulle.
       const { faites, refus } = agir(r.actions, dest, { ...donnees, groupe: appliquer(e).find((g) => g.id === (sortie?.groupe ?? dest.groupe)) });

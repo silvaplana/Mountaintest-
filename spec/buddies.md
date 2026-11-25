@@ -608,6 +608,12 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   celui qui a demandé) : la dépense est retirée, la dispo revient comme avant, le Buddy Time est retiré s'il n'a pas
   encore servi (opération `retirer_sortie` : seulement son créateur, et seulement sans trace, photo, dépense, message
   ni hébergement).
+- **Supprimer un Buddy Time** (Seb, 25 novembre 2026 : « Bud doit pouvoir supprimer des Buddy Times ») : « Bud,
+  supprime ce Buddy Time » (dans sa conversation) ou « Bud, supprime le Buddy Time Queyras » (dans celle de la bande,
+  où Bud voit la liste de ses Buddy Times). Seulement **celui qui l'a créé ou un admin du Buddy Group**. Même s'il a
+  déjà servi : rien n'est effacé, il est caché de tous (colonne `sorties.supprime_le`, opération `supprimer_sortie`) et
+  plus rien ne s'y ajoute ; « Annuler » le remet chez tous avec ses traces, photos, dépenses et messages (opération
+  `remettre_sortie`).
 - Ce qui sort de ces règles (un buddy hors du Buddy Time, une date hors du planning…) n'est pas fait : un message le dit.
 
 ### 7.13 La messagerie d'AppBase reprise telle quelle (Seb, 24 novembre 2026)
