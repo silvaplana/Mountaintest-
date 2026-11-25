@@ -405,7 +405,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   (mosaïque, fiches des jours) s'ouvrent pareil. Bouton « Partager » (WhatsApp, mail…).
 - **Appui long** sur une vignette de l'album : Partager, garder pour le carnet, retirer.
 - **📍 Placer une photo** (Seb, 25/11 : les photos passées par WhatsApp n'ont plus de position) : sur
-  l'écran 7, « 📍 n photos à placer » ouvre les photos sans position ; on en choisit une puis on
+  l'écran 7, « 📍 n photos à placer » ouvre les photos sans position ; on en choisit une, elle
+  s'ouvre en grand pour voir ce que c'est, un toucher la réduit (la vignette la rouvre), puis on
   touche la carte. Une photo déjà placée se déplace depuis sa vue en grand (« 📍 Déplacer »). Tout
   buddy du Buddy Time peut le faire (op `placer_photo`).
 - **Depuis WhatsApp ou la galerie** (Seb, 25/11) : sur Android, « Partager » des photos propose
