@@ -36,11 +36,39 @@ const NOMS: Record<Outil, string> = { snap: 'Recoller', add: 'Prolonger', spline
 const SRC = 'trace-edit';
 const coords = (l: LonLat[]) => l.map((p) => [p.lon, p.lat]);
 
+/** Rond posé sur la carte : zone de 48 px pour le doigt, le rond visible au milieu. */
 function rond(cls: string, txt = '') {
   const el = document.createElement('div');
   el.className = `edit-rond ${cls}`;
-  el.textContent = txt;
+  const i = document.createElement('i');
+  i.textContent = txt;
+  el.appendChild(i);
   return el;
+}
+
+/**
+ * Fait glisser un rond au doigt. On ne passe pas par le glisser de MapLibre : sur le téléphone, la carte
+ * prenait le doigt et se déplaçait à la place du rond (Seb, 25/11).
+ */
+function glissable(map: MlMap, mk: maplibregl.Marker, onDrag: (ll: maplibregl.LngLat) => void, onEnd: (ll: maplibregl.LngLat) => void) {
+  const el = mk.getElement();
+  let actif = false, bouge = false;
+  for (const ev of ['mousedown', 'touchstart', 'click', 'dblclick']) el.addEventListener(ev, (e) => e.stopPropagation());
+  el.addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); e.preventDefault();
+    el.setPointerCapture(e.pointerId);
+    actif = true; bouge = false;
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!actif) return;
+    const r = map.getContainer().getBoundingClientRect();
+    mk.setLngLat(map.unproject([e.clientX - r.left, e.clientY - r.top]));
+    bouge = true;
+    onDrag(mk.getLngLat());
+  });
+  const fin = () => { if (!actif) return; actif = false; if (bouge) onEnd(mk.getLngLat()); };
+  el.addEventListener('pointerup', fin);
+  el.addEventListener('pointercancel', fin);
 }
 
 /**
@@ -111,9 +139,10 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     const mks: maplibregl.Marker[] = [];
     ([['debut', A, setA, '▶'], ['fin', B, setB, '■']] as const).forEach(([cls, i, set, txt]) => {
       if (i == null) return;
-      const mk = new maplibregl.Marker({ element: rond(cls, txt), draggable: true }).setLngLat([line[i].lon, line[i].lat]).addTo(map);
-      mk.on('drag', () => { const ll = mk.getLngLat(); const k = nearestIndex(line, { lon: ll.lng, lat: ll.lat }).i; mk.setLngLat([line[k].lon, line[k].lat]); });
-      mk.on('dragend', () => { const ll = mk.getLngLat(); set(nearestIndex(line, { lon: ll.lng, lat: ll.lat }).i); });
+      const mk = new maplibregl.Marker({ element: rond(cls, txt) }).setLngLat([line[i].lon, line[i].lat]).addTo(map);
+      // La borne glisse le long de la trace.
+      const sur = (ll: maplibregl.LngLat) => nearestIndex(line, { lon: ll.lng, lat: ll.lat }).i;
+      glissable(map, mk, (ll) => { const k = sur(ll); mk.setLngLat([line[k].lon, line[k].lat]); }, (ll) => set(sur(ll)));
       mks.push(mk);
     });
     return () => mks.forEach((m) => m.remove());
@@ -158,10 +187,9 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     // Après un glissé, les ronds restent où on les a laissés ; sinon ils sont répartis le long de la trace.
     const nodes = ronds.current?.line === line ? ronds.current.nodes : splineNodes(line, DENS[densite]);
     const mks = nodes.map((i, k) => {
-      const mk = new maplibregl.Marker({ element: rond('souple'), draggable: true }).setLngLat([line[i].lon, line[i].lat]).addTo(map);
-      const at = () => { const ll = mk.getLngLat(); return moveNode(line, nodes, k, { lon: ll.lng, lat: ll.lat }); };
-      mk.on('drag', () => setLive(at().line));
-      mk.on('dragend', () => { const r = at(); ronds.current = r; setLive(null); garder(r.line); });
+      const mk = new maplibregl.Marker({ element: rond('souple') }).setLngLat([line[i].lon, line[i].lat]).addTo(map);
+      const at = (ll: maplibregl.LngLat) => moveNode(line, nodes, k, { lon: ll.lng, lat: ll.lat });
+      glissable(map, mk, (ll) => setLive(at(ll).line), (ll) => { const r = at(ll); ronds.current = r; setLive(null); garder(r.line); });
       return mk;
     });
     return () => mks.forEach((m) => m.remove());
