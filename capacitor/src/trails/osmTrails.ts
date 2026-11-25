@@ -3,6 +3,7 @@
 // Même logique côté Kotlin (Trails.kt) : mêmes serveurs, même requête, même assemblage.
 import type { Bbox } from '../config';
 import { distanceM } from '../gps/adaptive';
+import type { Pin } from './edit';
 
 export const OSM_ATTRIBUTION = '© contributeurs OpenStreetMap (licence ODbL)';
 
@@ -25,6 +26,8 @@ export interface Trail {
   /** Traces à moi seulement : recalée sur les chemins, et identifiant dans 📂 Mes traces si enregistrée. */
   onPaths?: boolean;
   savedId?: number | null;
+  /** 📍 Points piqués sur la trace, avec leur petit mot (traces à moi seulement). */
+  pins?: Pin[];
 }
 
 export function zoneTooBig(b: Bbox) { return b[2] - b[0] > MAX_ZONE_DEG || b[3] - b[1] > MAX_ZONE_DEG; }

@@ -52,7 +52,7 @@ export function simplify(line: LonLat[], tolM = 5): LonLat[] {
 }
 
 /** Requêtes Overpass : chemins (highway) à moins de 25 m de la trace, par morceaux de 300 points. */
-export function junctionQueries(line: LonLat[]): string[] {
+export function junctionQueries(line: LonLat[], aroundM = AROUND_M): string[] {
   const pts = simplify(line);
   const out: string[] = [];
   for (let i = 0; pts.length; i += CHUNK - 1) {
@@ -62,7 +62,7 @@ export function junctionQueries(line: LonLat[]): string[] {
     const lats = part.map((p) => p.lat), lons = part.map((p) => p.lon);
     const box = [Math.min(...lats) - 0.001, Math.min(...lons) - 0.0013, Math.max(...lats) + 0.001, Math.max(...lons) + 0.0013].map((v) => v.toFixed(5)).join(',');
     // + les relations GR / GR de Pays de ces chemins (🚵 type de chemin : portions sur GR).
-    out.push(`[out:json][timeout:90];way["highway"](around:${AROUND_M},${coords})->.w;.w out body geom(${box}) qt;`
+    out.push(`[out:json][timeout:90];way["highway"](around:${aroundM},${coords})->.w;.w out body geom(${box}) qt;`
       + 'rel(bw.w)["route"~"^(hiking|foot)$"]["network"~"^(iwn|nwn|rwn)$"];out body qt;');
     if (i + CHUNK >= pts.length) break;
   }
@@ -104,10 +104,10 @@ export function parseJunctions(json: { elements?: OsmWay[] }, line: LonLat[]): L
 }
 
 /** Appel réseau : chemins autour de la trace (plusieurs requêtes si elle est longue). */
-async function fetchWays(line: LonLat[], signal?: AbortSignal): Promise<OsmWay[]> {
+async function fetchWays(line: LonLat[], signal?: AbortSignal, aroundM = AROUND_M): Promise<OsmWay[]> {
   const elements: OsmWay[] = [];
   // Deux morceaux à la fois (Overpass accepte deux requêtes simultanées par appareil).
-  const qs = junctionQueries(line);
+  const qs = junctionQueries(line, aroundM);
   let next = 0;
   const worker = async () => { while (next < qs.length) await fetchOne(qs[next++]); };
   const fetchOne = async (q: string) => {
@@ -129,6 +129,21 @@ async function fetchWays(line: LonLat[], signal?: AbortSignal): Promise<OsmWay[]
   };
   await Promise.all([worker(), worker()]);
   return elements;
+}
+
+/** ✏ Recoller : forme des chemins et routes utiles à moins de `aroundM` d'un morceau de trace (réseau). */
+export async function fetchWayLines(line: LonLat[], aroundM: number, signal?: AbortSignal): Promise<LonLat[][]> {
+  const seen = new Set<number>(), out: LonLat[][] = [];
+  for (const w of await fetchWays(line, signal, aroundM)) {
+    if (w.type !== 'way' || !w.geometry || seen.has(w.id) || !usefulWay(w.tags ?? {})) continue;
+    seen.add(w.id);
+    let run: LonLat[] = [];
+    for (const p of [...w.geometry, null]) {
+      if (p && Number.isFinite(p.lat)) run.push({ lon: p.lon, lat: p.lat });
+      else { if (run.length >= 2) out.push(run); run = []; }
+    }
+  }
+  return out;
 }
 
 /** Appel réseau : chemins autour de la trace, puis carrefours. */

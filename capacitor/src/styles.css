@@ -1116,3 +1116,37 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .cran-2 { max-height: calc(100% - 72px) !important; overflow-y: auto; }
 .cran-0.cran-masque:not(.glisse) > :not(.sheet-grip) { display: none !important; }
 .bd-carte-bas > .sheet-grip { padding: 6px 0 10px; }
+
+/* ✏ Modifier une trace et 📍 épingles (maquette validée le 25/11, maquettes/edition-trace/). */
+.trace-menu .head .close.on { background: #e7f5ec; box-shadow: 0 0 0 3px #2f9e5f; }
+.pin-mot-ligne { display: flex; gap: 8px; align-items: center; }
+.pin-mot-ligne input { flex: 1; min-width: 0; min-height: 48px; font-size: 17px; }
+.pin-mot-ligne button { flex: 0 0 48px; min-height: 48px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.pin { position: relative; width: 30px; height: 30px; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.pin svg { display: block; filter: drop-shadow(0 1px 2px #0006); }
+.pin.leve { transform: translate(-4px, -10px) scale(1.25); }
+.pin-mot { position: absolute; left: 26px; top: -8px; background: #fff; color: #1d2421; border: 1px solid #999; border-radius: 8px;
+  padding: 2px 8px; font-size: 14px; white-space: nowrap; pointer-events: none; }
+.pin.sel .pin-mot { border: 2px solid #2f9e5f; }
+.pin-del { position: absolute; left: -2px; top: -58px; width: 48px; height: 48px; min-height: 48px; border-radius: 50%; padding: 0;
+  background: #d32f2f; border: 3px solid #fff; color: #fff; font-size: 22px; box-shadow: 0 1px 6px #0006; }
+.edit-rond { width: 26px; height: 26px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 1px 4px #0006; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: grab; }
+.edit-rond.debut { background: #2f9e5f; }
+.edit-rond.fin { background: #d32f2f; }
+.edit-rond.souple { width: 18px; height: 18px; background: #fff; border: 3px solid #1d2421; outline: 13px solid transparent; }
+.edit-rond.bout { background: #fff; border: 2.5px solid #1d2421; font-size: 13px; }
+.edit-outils { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.edit-outils button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 72px; font-size: 16px; padding: 4px; }
+.edit-outils button.on { background: #e7f5ec; border: 2px solid #2f9e5f; font-weight: 700; }
+.edit-aide { margin: 0; font-size: 17px; line-height: 1.35; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.edit-aide.muted { color: var(--muted); }
+.edit-aide.small { font-size: 15px; color: var(--muted); display: block; }
+.edit-n { flex: 0 0 30px; height: 30px; border-radius: 50%; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.edit-n.debut { background: #2f9e5f; } .edit-n.fin { background: #d32f2f; }
+.edit-leg { display: inline-block; width: 22px; height: 6px; border-radius: 3px; vertical-align: middle; margin: 0 4px; }
+.edit-leg.on { background: #2f9e5f; } .edit-leg.off { background: #f08a00; }
+.edit-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; }
+.edit-actions button { min-height: 52px; font-size: 18px; }
+.edit-plus { color: #2f9e5f; } .edit-moins { color: #b45309; }
+.trace-edit .head .close { width: 48px; min-height: 48px; padding: 0; font-size: 22px; flex: 0 0 48px; }

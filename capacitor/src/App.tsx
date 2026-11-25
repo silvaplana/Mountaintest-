@@ -49,11 +49,14 @@ import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { TraceList, TraceMenu } from './TraceMenu';
-import { defaultTraceName, deleteTrace, listTraces, saveTrace, traceLine, type SavedTrace } from './trails/savedTraces';
+import { defaultTraceName, deleteTrace, listTraces, readPins, saveTrace, traceLine, updateTrace, type SavedTrace } from './trails/savedTraces';
+import { TraceEdit } from './TraceEdit';
+import { PinLayer } from './PinLayer';
+import type { Pin } from './trails/edit';
 import { removeTraceFile, shareTrace, writeTraceFile } from './trails/traceShare';
 import { Profile, WayLegend } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
-import { drawnTrail, isMine, nextMine, bikeHours, routeOnPaths, walkingHours, waypoints } from './trails/route';
+import { drawnTrail, isMine, nextMine, bikeHours, lineLengthM, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import { parseTraceFile } from './trails/traceFile';
 import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
@@ -233,7 +236,11 @@ export function App() {
   const [traceMenu, setTraceMenu] = useState(false);
   /** 🎥 Survol 3D de la trace choisie : remplace son menu tant qu'il est ouvert. */
   const [survol, setSurvol] = useState(false);
-  useEffect(() => { if (!traceMenu) setSurvol(false); }, [traceMenu]);
+  /** ✏ Écran « Modifier » de la trace choisie, et 📍 piquer des points (maquette validée le 25/11). */
+  const [modifier, setModifier] = useState(false);
+  const [pique, setPique] = useState(false);
+  const [pinEdit, setPinEdit] = useState<{ id: number; i: number } | null>(null);
+  useEffect(() => { if (!traceMenu) { setSurvol(false); setModifier(false); setPique(false); setPinEdit(null); } }, [traceMenu]);
   const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
   const [drawnSlopes, setDrawnSlopes] = useState(false);
   const [drawnProfile, setDrawnProfile] = useState(false);
@@ -846,10 +853,10 @@ export function App() {
   }
 
   /** Ajoute une de mes traces (dessinée, enregistrée ou chargée), avec sa propre couleur, et ouvre son menu en bas. */
-  function showMine(line: LonLat[], o: { onPaths: boolean; name?: string; savedId?: number | null; kind?: string }) {
+  function showMine(line: LonLat[], o: { onPaths: boolean; name?: string; savedId?: number | null; kind?: string; pins?: Pin[] }) {
     const { id, color } = nextMine(trails);
     const base = drawnTrail(line, o.onPaths, id, color);
-    const t: Trail = { ...base, name: o.name ?? base.name, kind: o.kind ?? base.kind, savedId: o.savedId ?? null };
+    const t: Trail = { ...base, name: o.name ?? base.name, kind: o.kind ?? base.kind, savedId: o.savedId ?? null, pins: o.pins ?? [] };
     setTrails((prev) => [t, ...prev]);
     void selectTrail(t);
     return t;
@@ -915,7 +922,20 @@ export function App() {
     // Déjà affichée : on la sélectionne simplement.
     const shown = trails.find((x) => isMine(x.id) && x.savedId === st.id);
     if (shown) { void selectTrail(shown); return; }
-    showMine(traceLine(st), { onPaths: st.onPaths, name: st.name, savedId: st.id });
+    showMine(traceLine(st), { onPaths: st.onPaths, name: st.name, savedId: st.id, pins: readPins(st.pins) });
+  }
+
+  /**
+   * ✏ / 📍 Une de mes traces change (forme ou points) : sur la carte tout de suite, et dans 📂 Mes traces si
+   * elle y est enregistrée (son fichier GPX suit la nouvelle forme).
+   */
+  function changeMine(id: number, patch: { line?: LonLat[]; pins?: Pin[] }) {
+    const cur = trails.find((x) => x.id === id);
+    if (!cur) return;
+    const t: Trail = { ...cur, ...(patch.line ? { segments: [patch.line], distanceM: lineLengthM(patch.line) } : {}), ...(patch.pins ? { pins: patch.pins } : {}) };
+    setTrails((prev) => prev.map((x) => (x.id === id ? t : x)));
+    setSelected((s) => (s?.id === id ? t : s));
+    if (t.savedId != null) void updateTrace(t.savedId, t.segments.flat(), t.pins ?? []).then((st) => { if (st && patch.line) void writeTraceFile(st); });
   }
 
   async function saveDrawn() {
@@ -923,7 +943,7 @@ export function App() {
     const name = window.prompt('Nom de la trace', defaultTraceName())?.trim();
     if (name == null) return;
     try {
-      const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), selected.onPaths ?? false);
+      const st = await saveTrace(name || defaultTraceName(), selected.segments.flat(), selected.onPaths ?? false, selected.pins ?? []);
       void writeTraceFile(st);
       const t = { ...selected, name: st.name, savedId: st.id };
       setSelected(t);
@@ -1154,8 +1174,23 @@ export function App() {
       {survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
         <Survol map={map} trail={selected} sortie={carteSortie?.sortie ?? null} sorties={lireBuddies().sorties} onClose={() => setSurvol(false)} onToast={setToast} />
       )}
-      {!survol && traceMenu && selected && isMine(selected.id) && !drawing && (
-        <TraceMenu trail={selected} onFilm={() => { setShowShade(false); setSurvol(true); }} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
+      {modifier && !survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
+        <TraceEdit key={selected.id} map={map} trail={selected} onToast={setToast}
+          onLine={(l) => { setElevated(null); changeMine(selected.id, { line: l }); }}
+          onBack={() => { setModifier(false); void selectTrail(selected); }} />
+      )}
+      {map && <PinLayer map={map} trails={trails.filter((t) => isMine(t.id) && t.pins?.length || t.id === selected?.id)}
+        pique={pique && traceMenu && !modifier && !survol} targetId={traceMenu && selected && isMine(selected.id) ? selected.id : null}
+        editing={pinEdit} onEditing={setPinEdit} onPins={(id, pins) => changeMine(id, { pins })} />}
+      {!survol && !modifier && traceMenu && selected && isMine(selected.id) && !drawing && (
+        <TraceMenu trail={selected} onFilm={() => { setShowShade(false); setSurvol(true); }}
+          onEdit={() => { setPique(false); setPinEdit(null); setModifier(true); }}
+          pique={pique} onPique={() => { setPinEdit(null); setPique((v) => !v); }}
+          pin={pinEdit?.id === selected.id ? selected.pins?.[pinEdit.i] ?? null : null}
+          onPinText={(txt) => { if (pinEdit) changeMine(pinEdit.id, { pins: (selected.pins ?? []).map((p, i) => (i === pinEdit.i ? { ...p, txt, vu: true } : p)) }); }}
+          onPinDone={() => setPinEdit(null)}
+          onPinDelete={() => { if (pinEdit) changeMine(pinEdit.id, { pins: (selected.pins ?? []).filter((_, i) => i !== pinEdit.i) }); setPinEdit(null); }}
+          elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}
           showProfile={drawnProfile} onShowProfile={setDrawnProfile} cursor={profCursor} onCursor={setProfCursor}
           savedId={selected.savedId ?? null} onSave={() => void saveDrawn()} onDelete={deleteDrawn} onClose={() => setTraceMenu(false)}
           onShare={() => {

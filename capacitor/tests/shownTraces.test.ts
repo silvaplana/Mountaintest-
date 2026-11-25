@@ -14,6 +14,12 @@ describe('traces gardées à la fermeture', () => {
     expect(st.navId).toBe(-2);
     expect(st.navPaused).toBe(true);
   });
+  it('garde les points piqués 📍 et leur mot', () => {
+    const pins = [{ lon: 5.605, lat: 43.2, txt: 'Source', vu: true }, { lon: 5.606, lat: 43.2, txt: '', vu: false }];
+    const st = decodeShown(encodeShown([{ ...mine, pins }], null, false));
+    expect(st.trails[0].pins).toEqual(pins);
+    expect(decodeShown(encodeShown([mine], null, false)).trails[0].pins).toEqual([]);
+  });
   it('oublie un suivi dont la trace a disparu, et résiste aux données abîmées', () => {
     expect(decodeShown(encodeShown([mine], -5, false)).navId).toBeNull();
     expect(decodeShown('{pas du json').trails).toEqual([]);

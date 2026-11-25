@@ -1,0 +1,26 @@
+# Modifier une trace et piquer des points
+
+Maquette validée par Seb le 25/11/2026 : `maquettes/edition-trace/` (fichiers du projet).
+
+## Accès
+Dans le menu d'une de mes traces, à droite de 🎥 : **✏ crayon** (écran « Modifier ») puis **📍 épingle**.
+Ce sont deux choses séparées (demande de Seb).
+
+## 📍 Épingle : pas d'écran à part
+- Toucher 📍 l'allume (anneau vert). Chaque appui sur la carte pique un point sur cette trace.
+- Le mot du point s'écrit dans une ligne du menu de la trace (🗑 l'enlève, ✓ ferme la ligne).
+- Sur un point : un appui montre son mot (et rouvre la ligne), un nouvel appui le cache ;
+  appui long (0,45 s) : on le fait glisser ; très long (1,4 s) : une 🗑 rouge apparaît au-dessus, la toucher l'enlève.
+- Les points suivent la trace : traces affichées (`tracesAffichees`) et 📂 Mes traces (`pins`).
+
+## ✏ Écran « Modifier »
+Même place que le menu, ← pour y revenir, ↶ ↷ pour défaire et refaire. Ligne km avec l'écart à la trace d'avant.
+- **Recoller** : on touche le début ▶ puis la fin ■ du morceau sur la trace (bornes à faire glisser),
+  ou « Toute la trace » / « Jusqu'au bout ». Les chemins OSM à moins de 40 m sont cherchés (Overpass) :
+  chaque point proche est posé sur le chemin, le reste garde le tracé (« par morceaux », pas de chemin partout).
+  Sur un morceau de chemin, le calcul d'itinéraire IGN suit le vrai tracé (lacets). Aperçu vert / orange avant ✓ Recoller.
+  Demande du réseau.
+- **Prolonger** : seulement à la fin (Seb) ; toucher la carte allonge la trace, 📏 tout droit ou 🥾 par les chemins (IGN).
+- **Souple** : ronds sur la trace (Peu 8, Moyen 14, Beaucoup 24) ; on en fait glisser un, la trace change en courbe douce
+  entre ses deux voisins seulement.
+- Chaque changement est gardé tout de suite ; une trace enregistrée dans 📂 Mes traces est mise à jour (et son fichier GPX).

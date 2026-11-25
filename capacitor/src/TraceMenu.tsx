@@ -8,6 +8,9 @@ import { traceLengthM, type SavedTrace } from './trails/savedTraces';
 import { TRACE_FOLDER } from './trails/traceShare';
 import { formatKm } from './track/stats';
 import { CameraIcon } from './Survol';
+import { PinIcon } from './PinLayer';
+import { PencilIcon } from './TraceEdit';
+import type { Pin } from './trails/edit';
 import { useSheet } from './useSheet';
 
 function hours(h: number) {
@@ -19,10 +22,16 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, onFilm, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onShare, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
+export function TraceMenu({ trail, onFilm, onEdit, pique, onPique, pin, onPinText, onPinDone, onPinDelete, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onShare, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
   /** 🎥 Survol 3D le long de la trace (grisé tant que la trace n'a pas deux points). */
   onFilm: () => void;
+  /** ✏ Écran « Modifier » de la trace. */
+  onEdit: () => void;
+  /** 📍 allumé : toucher la carte pique un point (pas d'écran à part, demande de Seb). */
+  pique: boolean; onPique: () => void;
+  /** Point dont on écrit le mot (après l'avoir piqué ou touché). */
+  pin: Pin | null; onPinText: (t: string) => void; onPinDone: () => void; onPinDelete: () => void;
   slopes: boolean; onSlopes: (v: boolean) => void;
   showProfile: boolean; onShowProfile: (v: boolean) => void;
   cursor: number | null; onCursor: (d: number | null) => void;
@@ -49,9 +58,19 @@ export function TraceMenu({ trail, onFilm, elevated, slopes, onSlopes, showProfi
       <div className="head">
         <b><i className="swatch" style={{ background: trail.color }} />{trail.name}</b>
         <button className="close" onClick={onFilm} disabled={trail.segments.flat().length < 2} aria-label="Filmer un survol 3D de la trace"><CameraIcon /></button>
+        <button className="close" onClick={onEdit} disabled={trail.segments.flat().length < 2} aria-label="Modifier la trace"><PencilIcon /></button>
+        <button className={`close${pique ? ' on' : ''}`} onClick={onPique} aria-pressed={pique} aria-label="Piquer des points sur la carte"><PinIcon /></button>
         <button className="close" onClick={onShare} aria-label={`Partager ${trail.name}`}><ShareTraceIcon /></button>
         <button className="close" onClick={onClose} aria-label="Fermer le menu de la trace">✕</button>
       </div></div>
+      {pin ? (
+        <div className="pin-mot-ligne">
+          <input value={pin.txt} maxLength={40} autoFocus={!pin.txt} placeholder="Petit mot : source, passage délicat…" onChange={(e) => onPinText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onPinDone(); }} aria-label="Mot du point" />
+          <button className="close" onClick={onPinDelete} aria-label="Enlever ce point"><TrashIcon size={22} /></button>
+          <button className="primary" onClick={onPinDone} aria-label="Valider le mot">✓</button>
+        </div>
+      ) : pique && <span className="hint">📍 Touche la carte pour piquer un point. Sur un point : un appui montre ou cache son mot, appui long pour le déplacer, très long pour l’enlever.</span>}
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}
         {el && (vtt ? ` · ${hours(bikeHours(trail.distanceM, el.gainM))} à VTT` : ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`)}</span>
       <div className="checks">
