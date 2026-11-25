@@ -26,7 +26,7 @@ Même place que le menu, ← pour y revenir, bouton « ↶ Annuler » pour reven
 - Chaque changement est gardé tout de suite ; une trace enregistrée dans 📂 Mes traces est mise à jour (et son fichier GPX).
 
 ## Gaucher / droitier (Seb, 25/11)
-Dans 👤 Mon compte (avec ou sans connexion) : « Pour tracer, je suis… Gaucher / Droitier », droitier par défaut,
+Dans 👤 Mon compte (avec ou sans connexion) : « Point décalé du doigt : Non / Gaucher / Droitier », NON par défaut (Seb : « perturbant » ; sans décalage ni viseur),
 gardé sur le téléphone. Le point tracé ou glissé se pose 1 cm au-dessus du doigt et un peu de côté, à l'opposé
 de la main (en haut à gauche pour un droitier, en haut à droite pour un gaucher).
 Réglage à part (Seb : la colonne à gauche d'office « fait bizarre ») : « Icônes de la carte : À gauche / À droite »,

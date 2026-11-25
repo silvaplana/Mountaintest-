@@ -80,12 +80,13 @@ function ChoixMain() {
   const icones = (v: boolean) => { choisirIcones(v); setG(v); };
   return (
     <div className="acc-main">
-      <p className="acc-main-titre">Pour tracer, je suis…</p>
+      <p className="acc-main-titre">Point décalé du doigt</p>
       <div className="acc-main-choix">
-        <button className={m === 'gaucher' ? 'on' : ''} onClick={() => pose('gaucher')}>Gaucher</button>
-        <button className={m === 'droitier' ? 'on' : ''} onClick={() => pose('droitier')}>Droitier</button>
+        {([['aucun', 'Non'], ['gaucher', 'Gaucher'], ['droitier', 'Droitier']] as [Main, string][]).map(([v, t]) => (
+          <button key={v} className={m === v ? 'on' : ''} onClick={() => pose(v)}>{t}</button>))}
       </div>
-      <p className="hint">Pour les traces : le point se pose un peu au-dessus de ton doigt, {m === 'gaucher' ? 'à droite' : 'à gauche'}, pour que tu le voies.</p>
+      <p className="hint">{m === 'aucun' ? 'Pour les traces : le point se pose sous ton doigt.'
+        : `Pour les traces : le point se pose un peu au-dessus de ton doigt, ${m === 'gaucher' ? 'à droite' : 'à gauche'}, pour que tu le voies.`}</p>
       <p className="acc-main-titre">Icônes de la carte</p>
       <div className="acc-main-choix">
         <button className={g ? 'on' : ''} onClick={() => icones(true)}>À gauche</button>

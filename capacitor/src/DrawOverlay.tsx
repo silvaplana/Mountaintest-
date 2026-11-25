@@ -1,7 +1,7 @@
 import type { Map as MlMap } from 'maplibre-gl';
 import { useRef, useState } from 'react';
 import type { LonLat } from './trails/osmTrails';
-import { decalage } from './doigt';
+import { decalage, main } from './doigt';
 
 /**
  * Tracé au doigt : un calque posé sur la carte capte le doigt et dessine la ligne ;
@@ -69,7 +69,7 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
         </div>
       </div>
       <svg className="draw-svg"><path d={path} />
-        {vis && <g className="viseur" transform={`translate(${vis[0]} ${vis[1]})`}><circle r="9" /><path d="M-15 0h8M7 0h8M0-15v8M0 7v8" /></g>}
+        {vis && main() !== 'aucun' && <g className="viseur" transform={`translate(${vis[0]} ${vis[1]})`}><circle r="9" /><path d="M-15 0h8M7 0h8M0-15v8M0 7v8" /></g>}
       </svg>
     </div>
   );

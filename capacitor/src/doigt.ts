@@ -6,14 +6,14 @@ export const DOIGT_PX = 40;
 /** Et un peu de côté, à l'opposé de la main : en haut à gauche pour un droitier, à droite pour un gaucher. */
 export const COTE_PX = 24;
 
-export type Main = 'droitier' | 'gaucher';
+export type Main = 'aucun' | 'droitier' | 'gaucher';
 
-/** Main choisie dans 👤 Mon compte, gardée sur le téléphone ; droitier si rien n'est choisi. */
+/** Décalage choisi dans 👤 Mon compte, gardé sur le téléphone ; aucun par défaut (Seb, 25/11 : « perturbant »). */
 export function main(): Main {
-  try { return localStorage.getItem('main') === 'gaucher' ? 'gaucher' : 'droitier'; } catch { return 'droitier'; }
+  try { const v = localStorage.getItem('main'); return v === 'gaucher' || v === 'droitier' ? v : 'aucun'; } catch { return 'aucun'; }
 }
 export function choisirMain(m: Main) {
-  try { localStorage.setItem('main', m); } catch { /* rien : on reste droitier */ }
+  try { localStorage.setItem('main', m); } catch { /* rien : pas de décalage */ }
 }
 
 /** Colonne d'icônes à droite (par défaut) ou à gauche : réglage à part de la main (Seb, 25/11). */
@@ -31,5 +31,6 @@ export function appliquerIcones() {
 
 /** Décalage [x, y] en px du point par rapport au doigt. */
 export function decalage(): [number, number] {
-  return [main() === 'gaucher' ? COTE_PX : -COTE_PX, -DOIGT_PX];
+  const m = main();
+  return m === 'aucun' ? [0, 0] : [m === 'gaucher' ? COTE_PX : -COTE_PX, -DOIGT_PX];
 }
