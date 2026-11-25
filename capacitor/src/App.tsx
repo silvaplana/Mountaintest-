@@ -246,6 +246,10 @@ export function App() {
   const [traceMenu, setTraceMenu] = useState(false);
   /** 🎥 Survol 3D de la trace choisie : remplace son menu tant qu'il est ouvert. */
   const [survol, setSurvol] = useState(false);
+  // 🎥 Un film se fabrique sur une carte cachée : son panneau peut se fermer, le survol reste en vie avec sa trace.
+  const [filmTrail, setFilmTrail] = useState<Trail | null>(null);
+  const survolOuvert = survol && traceMenu && !!selected && isMine(selected.id) && !drawing;
+  const survolTrail = filmTrail ?? (survolOuvert ? selected : null);
   /** ✏ Écran « Modifier » de la trace choisie, et 📍 piquer des points (maquette validée le 25/11). */
   const [modifier, setModifier] = useState(false);
   /** ⬚ Appui long sur la carte : rectangle de sélection, parti de ce point (pixels de la carte). */
@@ -1243,8 +1247,11 @@ export function App() {
           onResume: () => { setNavPaused(false); setFollow(true); gpsOn(); void resumeRecording(); setDrawing(false); },
           onStop: () => { setNavPaused(false); setDrawing(false); void stopFree(); } } : null} />}
       {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} paused={navPaused} nextJunctionM={nextJunction} onOpen={startDrawing} />}
-      {survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
-        <Survol map={map} trail={selected} sortie={(selected.lien?.sortie && vueBuddies(buddiesEtat).sorties.find((x) => x.id === selected.lien?.sortie)) || (carteSortie?.sortie ?? null)} sorties={lireBuddies().sorties} onClose={() => setSurvol(false)} onToast={setToast} />
+      {survolTrail && map && (
+        <Survol map={map} trail={survolTrail} reduit={!survolOuvert || selected?.id !== survolTrail.id}
+          onFilm={(enCours) => setFilmTrail(enCours ? survolTrail : null)}
+          onOuvrir={() => { if (selected?.id !== survolTrail.id) void selectTrail(survolTrail); else setTraceMenu(true); setSurvol(true); }}
+          sortie={(survolTrail.lien?.sortie && vueBuddies(buddiesEtat).sorties.find((x) => x.id === survolTrail.lien?.sortie)) || (carteSortie?.sortie ?? null)} sorties={lireBuddies().sorties} onClose={() => setSurvol(false)} onToast={setToast} />
       )}
       {modifier && !survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
         <TraceEdit key={selected.id} map={map} trail={selected} onToast={setToast}
@@ -1266,7 +1273,7 @@ export function App() {
           setModifier(false); setPique(false); setPinEdit({ id, i });
         }} />}
       {!survol && !modifier && traceMenu && selected && isMine(selected.id) && !drawing && (
-        <TraceMenu trail={selected} onFilm={() => { setShowShade(false); setSurvol(true); }}
+        <TraceMenu trail={selected} onFilm={() => { if (filmTrail && filmTrail.id !== selected.id) { setToast('Un film est déjà en cours : attends qu\u2019il soit prêt'); return; } setShowShade(false); setSurvol(true); }}
           onEdit={() => { setPique(false); setPinEdit(null); setModifier(true); }}
           lien={selected.lien ? nomLien(selected.lien, vueBuddies(buddiesEtat).sorties, groupesBuddies(buddiesEtat)) : null}
           onAssocier={() => setAssocier(true)}
@@ -1418,7 +1425,7 @@ export function App() {
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       {toast && <div className="toast">{toast}</div>}
       {/* Nouvelle version : fenêtre au centre, bien lisible (Seb 25/11), cachée pendant un suivi de trace, une sortie enregistrée ou un survol. */}
-      {maj.build && navId == null && !recording && !survol && (
+      {maj.build && navId == null && !recording && !survol && !filmTrail && (
         <div className="maj-voile">
           <div className="maj-fenetre" role="dialog" aria-label="Nouvelle version">
             <span className="maj-icone">⬇️</span>

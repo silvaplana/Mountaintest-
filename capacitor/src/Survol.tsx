@@ -11,12 +11,12 @@ import { horlogePhotos, jourDesOmbres, momentPhoto, photosDeLaTrace } from './su
 import { cameraA, dansLeSens, debutTrace, heuresOmbres, heureTexte, IMAGES, dureeFilm, PITCH_MAX, PLONGEE_NUAGES_S, T_INTRO, T_PLONGEE, trajectoire, VITESSES, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
-import { dessinerNuages } from './survol/nuages';
 import { ambianceCiel, type Ambiance } from './survol/ciel-gl';
 import { CREDIT_PHOTO, poserPhoto } from './survol/photo';
 import { LIMITES_NEIGE, poserNeige } from './survol/neige';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
+import { carteCachee } from './survol/carte-cachee';
 import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
 import type { Trail } from './trails/osmTrails';
 import { useSheet } from './useSheet';
@@ -66,8 +66,10 @@ type Etape = 'reglages' | 'preparation' | 'tournage' | 'pret';
  * ⏺ prépare les cartes puis tourne le film (la carte en 3D le long de la trace, caméra lissée), puis
  * ▶ revoir, partager, refaire ou jeter. Ce qu'on voit sur la carte (fond, pentes) est ce qui est filmé.
  */
-export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
+export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, onClose, onToast }: {
   map: MlMap; trail: Trail; onClose: () => void; onToast: (t: string) => void;
+  /** Panneau fermé pendant qu'un film se fabrique (ou attend d'être vu) : il ne reste qu'un bandeau, qui rouvre le panneau. */
+  reduit: boolean; onFilm: (enCours: boolean) => void; onOuvrir: () => void;
   /** 📸 Buddy Time ouvert sur la carte : le film va dans son album ; sinon on choisit parmi mes Buddy Times. */
   sortie: Sortie | null; sorties: Sortie[];
 }) {
@@ -94,8 +96,10 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   const panneau = useRef<HTMLElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const arret = useRef<AbortController | null>(null);
-  /** Nuages de l'intro plongée, aussi montrés à l'écran pendant le tournage. */
-  const voile = useRef<HTMLCanvasElement>(null);
+  /** Le film en train de se faire, montré au-dessus du panneau. */
+  const [apercu, setApercu] = useState<HTMLCanvasElement | null>(null);
+  const reduitRef = useRef(reduit);
+  reduitRef.current = reduit;
   /** 🎵 Morceau choisi sur le téléphone (pas gardé : on le rechoisit à chaque survol). */
   const [musique, setMusique] = useState<File | null>(null);
   const choixMusique = useRef<HTMLInputElement>(null);
@@ -109,10 +113,16 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   const vueAvant = useRef({ center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() });
   useEffect(() => () => {
     arret.current?.abort();
-    for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'visible');
-    retirerTraceQuiAvance(map);
-    map.jumpTo(vueAvant.current);
+    if (!reduitRef.current) map.jumpTo(vueAvant.current);
   }, [map]);
+  // Panneau fermé pendant le film : la carte revient où elle était, et reste libre. Rouvert : on repart de là.
+  const dejaReduit = useRef(reduit);
+  useEffect(() => {
+    if (reduit === dejaReduit.current) return;
+    dejaReduit.current = reduit;
+    if (reduit) map.jumpTo(vueAvant.current);
+    else vueAvant.current = { center: map.getCenter(), zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() };
+  }, [reduit, map]);
   useEffect(() => () => { if (film) URL.revokeObjectURL(film.url); }, [film]);
 
   const line = trail.segments.flat();
@@ -126,7 +136,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
 
   // Avant le tournage : la trace vue d'ensemble, inclinée.
   useEffect(() => {
-    if (etape !== 'reglages') return;
+    if (etape !== 'reglages' || reduit) return;
     const c = map.cameraForBounds([[zone[0], zone[1]], [zone[2], zone[3]]], { padding: { top: 60, bottom: basPanneau + 30, left: 40, right: 70 }, pitch: 45 });
     if (c) map.easeTo({ ...c, pitch: 45, bearing: 0, duration: 800 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -135,6 +145,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   async function tourner() {
     setOuvert(null);
     const ctl = new AbortController();
+    const ecran = await ecranAllume();
     arret.current = ctl;
     setEtape('preparation');
     const ens = map.cameraForBounds([[zone[0], zone[1]], [zone[2], zone[3]]], { padding: 50, pitch: 45 });
@@ -146,7 +157,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     ambianceCiel(r.ciel, !r.rapide);
     setAvance('Lecture du relief…');
     const relief: Relief | null = await chargerRelief(zone, ctl.signal, r.style === 'alpi').catch(() => null);
-    if (ctl.signal.aborted) { setEtape('reglages'); return; }
+    if (ctl.signal.aborted) { ecran(); arret.current = null; setEtape('reglages'); return; }
     if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
     // On choisit une vitesse, pas une durée (Seb, 25/11) : le film dure ce que demande la trace, plus l'intro.
     const corps = dureeFilm(line, r.vitesse, { style: r.style, sens: r.sens, relief });
@@ -165,43 +176,43 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     }
     const horloge = horlogePhotos(duree, tirages.map((x) => x.moment));
     const dureeFilmee = horloge.total;
+    // 🎥 Le film se fabrique sur une carte cachée : la carte de l'appli reste libre (Seb, 25/11).
+    setAvance('Préparation…');
+    const cache = await carteCachee(map, ctl.signal).catch((e: Error) => { if (!ctl.signal.aborted) onToast(`Film impossible : ${e.message}`); return null; });
+    if (!cache) { ecran(); arret.current = null; setEtape('reglages'); return; }
+    const carte = cache.carte;
     const photo = r.fond === 'photo' && navigator.onLine;
     if (r.fond === 'photo' && !photo) onToast('Pas de réseau : film sur la carte');
-    const retirerPhoto = photo ? poserPhoto(map) : null;
-    const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
-    if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
-    const pitchAvant = map.getMaxPitch();
+    const retirerPhoto = photo ? poserPhoto(carte) : null;
+    if (carte.getLayer('slopes')) carte.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
     // 🧗 La caméra au sol lève les yeux au-dessus de l'horizon : il faut un ciel, et on impose l'altitude du point visé.
-    const auSol = track.some((x) => x.elevation != null), cielAvant = map.getSky();
-    const zoomAvant = map.getMaxZoom();
-    if (pitchAvant < PITCH_MAX + 2) map.setMaxPitch(PITCH_MAX + 2);
+    const auSol = track.some((x) => x.elevation != null);
+    if (carte.getMaxPitch() < PITCH_MAX + 2) carte.setMaxPitch(PITCH_MAX + 2);
     // Au ras du sol, la caméra est plus près que le zoom le plus fort de la carte : on le relève le temps du film.
-    if (auSol) { map.setCenterClampedToGround(false); map.setSky(CIEL_FILM); map.setMaxZoom(22); }
+    if (auSol) { carte.setCenterClampedToGround(false); carte.setSky(CIEL_FILM); carte.setMaxZoom(22); }
     const dessine = r.trace && r.dessine;
-    for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', r.trace && !dessine ? 'visible' : 'none');
-    const progression = dessine ? traceQuiAvance(map, trail.color) : null;
+    for (const l of COUCHES_TRACE) if (carte.getLayer(l)) carte.setLayoutProperty(l, 'visibility', r.trace && !dessine ? 'visible' : 'none');
+    const progression = dessine ? traceQuiAvance(carte, trail.color) : null;
     const heures = heuresOmbres(r.h0, r.h1);
     let ombres: OmbresSurvol | null = null, retirerNeige: (() => void) | null = null;
     try {
       if (photo && r.neige) {
         setAvance('Neige…');
-        retirerNeige = await poserNeige(map, zone, r.neige, ctl.signal).catch(() => null);
+        retirerNeige = await poserNeige(carte, zone, r.neige, ctl.signal).catch(() => null);
       }
       if (r.ombres) {
         setAvance('Calcul des ombres…');
-        ombres = await preparerOmbres(map, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`), !r.rapide, jour);
+        ombres = await preparerOmbres(carte, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`), !r.rapide, jour);
         if (!ombres && !ctl.signal.aborted) onToast('Relief indisponible ici : film sans les ombres');
       }
       const dessin = { heure: r.ombres && ombres ? heureTexte(heures[0]) : undefined, infos: '', nuages: r.plongee === 'nuages' ? 0 : undefined } as Incrustation;
       const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages, titre: dessin.titre, photo: dessin.photo, credit: photo ? CREDIT_PHOTO : undefined });
-      const ciel = voile.current?.getContext('2d') ?? null;
-      if (voile.current) { voile.current.width = voile.current.offsetWidth; voile.current.height = voile.current.offsetHeight; }
       /** Place la caméra au temps t (0 → 1) du film, avec l'heure des ombres, les km · altitude et les nuages. */
       const placer = (u: number) => {
         const { t, photo: tirage, q } = horloge.a(u);
         dessin.photo = tirage != null ? { image: tirages[tirage].image, q } : undefined;
         const cam = cameraA(track, t);
-        poser(map, cam);
+        poser(carte, cam);
         if (ombres) {
           const i = Math.round(t * (heures.length - 1));
           ombres.montrer(i);
@@ -212,13 +223,10 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         dessin.titre = cam.sommet != null ? `▲ Sommet · ${Math.round(cam.sommet)} m` : undefined;
         if (progression) { const pts = debutTrace(r.style === 'alpi' && relief ? dansLeSens(line, r.sens) : line, cam.d); progression(pts, pts.at(-1) ?? null); }
         if (r.infos) {
-          const alt = map.queryTerrainElevation([cam.point.lon, cam.point.lat]);
+          const alt = carte.queryTerrainElevation([cam.point.lon, cam.point.lat]);
           dessin.infos = `${(cam.d / 1000).toFixed(1).replace('.', ',')} km${alt != null ? ` · ${Math.round(alt)} m` : ''}`;
         }
-        if (dessin.nuages != null) {
-          dessin.nuages = t / debut;
-          if (ciel && voile.current) { ciel.clearRect(0, 0, voile.current.width, voile.current.height); dessinerNuages(ciel, voile.current.width, voile.current.height, dessin.nuages); }
-        }
+        if (dessin.nuages != null) dessin.nuages = t / debut;
         setAvance(`${Math.round(u * 100)} %`);
       };
       // Les cartes du trajet sont chargées d'abord (16 points du film) : moins de tuiles floues.
@@ -226,11 +234,11 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         const N = 16;
         for (let k = 0; k <= N && !ctl.signal.aborted; k++) {
           setAvance(`Préparation des cartes : ${k}/${N}`);
-          poser(map, cameraA(track, k / N));
-          await attendreCarte(map, 1500);
+          poser(carte, cameraA(track, k / N));
+          await attendreCarte(carte, 1500);
         }
       };
-      const cadre = cadrage(map.getCanvas().width, map.getCanvas().height, r.vertical);
+      const cadre = cadrage(carte.getCanvas().width, carte.getCanvas().height, r.vertical);
       const codec = await codecVideo(cadre.ow, cadre.oh);
       let blob: Blob, couverture: Promise<ImageBitmap> | null = null;
       if (codec) {
@@ -241,21 +249,22 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         if (enc.sansSon) onToast('Ce téléphone ne sait pas ajouter la musique : film sans musique');
         if (r.rapide) await precharger();
         if (ctl.signal.aborted) throw new Error('arrêté');
-        const fondus = sansFondu(map);
-        const toile = toileFilm(map, r.vertical, texte);
+        const fondus = sansFondu(carte);
+        const toile = toileFilm(carte, r.vertical, texte);
+        setApercu(toile.toile);
         setEtape('tournage');
         try {
           const N = Math.round(dureeFilmee * IPS);
           placer(0);
-          await attendreCarte(map, 5000);
+          await attendreCarte(carte, 5000);
           let attente = 2000;
           for (let k = 0; k < N; k++) {
             if (ctl.signal.aborted) throw new Error('arrêté');
             placer(k / (N - 1));
-            map.triggerRepaint();
+            carte.triggerRepaint();
             // ⚡ rapide : l'image suivante dès que la carte est dessinée ; ✨ soigné : quand ses cartes sont chargées.
-            if (r.rapide) await attendreDessin(map);
-            else attente = (await attendreCarte(map, attente)) ? 2000 : 300;
+            if (r.rapide) await attendreDessin(carte);
+            else attente = (await attendreCarte(carte, attente)) ? 2000 : 300;
             await enc.ajouter(toile.toile, k);
             if (!couverture && k >= N * 0.6) couverture = toile.instantane();
           }
@@ -265,11 +274,11 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         // En direct (téléphone sans encodeur) : ce que la carte arrive à dessiner, en temps réel.
         await precharger();
         if (ctl.signal.aborted) { setEtape('reglages'); return; }
-        poser(map, cameraA(track, 0));
-        await attendreCarte(map, 800);
+        poser(carte, cameraA(track, 0));
+        await attendreCarte(carte, 800);
         setEtape('tournage');
         const son = musique ? await jouerMusique(musique, dureeFilmee) : null;
-        const rec = enregistrer(map, r.vertical, texte, son?.piste);
+        const rec = enregistrer(carte, r.vertical, texte, son?.piste);
         const D = dureeFilmee * 1000;
         const t0 = performance.now();
         await new Promise<void>((fin) => {
@@ -294,6 +303,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       void lireFilms().then(setGarde);
       setRange(null); setTelecharge(null);
       setEtape('pret');
+      if (reduitRef.current) onToast('Ton film est prêt');
     } catch (e) {
       if (!ctl.signal.aborted) onToast(`Film impossible : ${(e as Error).message}`);
       setEtape('reglages');
@@ -301,10 +311,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       ombres?.retirer();
       retirerNeige?.();
       retirerPhoto?.();
-      retirerTraceQuiAvance(map);
-      if (pentesAvant !== undefined && map.getLayer('slopes')) map.setLayoutProperty('slopes', 'visibility', pentesAvant);
-      if (auSol) { map.setCenterClampedToGround(true); map.setSky(cielAvant); map.setMaxZoom(zoomAvant); }
-      map.setMaxPitch(pitchAvant);
+      cache.retirer();
+      ecran();
+      setApercu(null);
       arret.current = null;
     }
   }
@@ -421,9 +430,22 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   });
 
   const occupe = etape === 'preparation' || etape === 'tournage';
+  // L'appli garde ce composant en vie tant qu'un film se fabrique, ou attend d'être vu panneau fermé.
+  const enCours = occupe || (etape === 'pret' && reduit);
+  useEffect(() => { onFilm(enCours); }, [enCours]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onFilm(false), []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (reduit) {
+    return enCours ? (
+      <button className="survol-bandeau" onClick={onOuvrir}>
+        <CameraIcon size={24} />
+        <span><b>{occupe ? `Film en cours${/%$/.test(avance) ? ` · ${avance}` : ''}` : 'Ton film est prêt'}</b>
+          <small>{occupe ? 'Ne ferme pas l\u2019appli' : 'Touche pour le voir'}</small></span>
+      </button>
+    ) : null;
+  }
   return (
     <>
-      {occupe && <canvas className="survol-voile" ref={voile} />}
+      {occupe && <div className="survol-apercu" style={{ bottom: basPanneau }} ref={(el) => { if (el && apercu && apercu.parentElement !== el) el.replaceChildren(apercu); }} />}
       {etape === 'pret' && film && (
         <div className={`survol-film${plein ? ' plein' : ''}`} ref={boite} style={{ bottom: plein ? 0 : basPanneau }}>
           <video ref={video} src={`${film.url}#t=0.1`} playsInline preload="auto" controls={plein} onEnded={() => setJoue(false)} onPause={() => setJoue(false)} onPlay={() => setJoue(true)} />
@@ -436,7 +458,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         <div className="head">
           <button className="retour" onClick={retour} aria-label="Retour">←</button>
           <b><CameraIcon size={22} /> Survol</b>
-          <button className="close" onClick={() => { arret.current?.abort(); onClose(); }} aria-label="Fermer le survol">✕</button>
+          <button className="close" onClick={() => { if (!occupe) arret.current?.abort(); onClose(); }} aria-label="Fermer le survol">✕</button>
         </div></div>
         {etape === 'reglages' && <>
           {ouvert === 'duree' ? (
@@ -527,7 +549,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           <input ref={choixMusique} type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setMusique(f); e.target.value = ''; }} />
         </>}
         {occupe && <>
-          <p className="hint">{etape === 'preparation' ? avance : `Le film se tourne… ${avance}`}</p>
+          <p className="hint">{etape === 'preparation' ? avance : `Le film se fabrique… ${avance}`}<br />Tu peux fermer ce panneau et continuer. Ne ferme pas l’appli.</p>
           <div className="survol-bas"><span />
             <button className="survol-rec stop" onClick={() => arret.current?.abort()} aria-label="Arrêter"><i /><span>Arrêter</span></button></div>
         </>}
@@ -555,6 +577,19 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
  * 🎵 Joue le morceau depuis le début et le rend comme piste son pour l'enregistrement ; il baisse doucement
  * sur les 2 dernières secondes du film.
  */
+/** Garde l'écran allumé le temps du film (s'il s'éteint, le film s'arrête). Rend de quoi le relâcher. */
+async function ecranAllume(): Promise<() => void> {
+  type Verrou = { release: () => Promise<void> };
+  const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<Verrou> } };
+  let verrou: Verrou | null = null, fini = false;
+  const prendre = async () => { if (!fini && document.visibilityState === 'visible') verrou = await nav.wakeLock?.request('screen').catch(() => null) ?? null; };
+  // Le téléphone relâche le verrou quand on quitte l'appli : on le reprend au retour.
+  const retour = () => void prendre();
+  document.addEventListener('visibilitychange', retour);
+  await prendre();
+  return () => { fini = true; document.removeEventListener('visibilitychange', retour); void verrou?.release().catch(() => undefined); };
+}
+
 async function jouerMusique(f: File, duree: number) {
   const ac = new AudioContext();
   const son = await ac.decodeAudioData(await f.arrayBuffer());
