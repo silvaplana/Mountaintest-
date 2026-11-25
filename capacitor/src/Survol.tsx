@@ -306,9 +306,13 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     try { screen.orientation.unlock(); } catch { /* rien */ }
     if (document.fullscreenElement) try { await document.exitFullscreen(); } catch { /* rien */ }
   }
-  // Retour du téléphone ou geste système : le plein écran se ferme, on suit.
+  // Retour du téléphone ou geste système : le plein écran se ferme, on suit (seulement s'il s'était vraiment ouvert).
+  const entre = useRef(false);
   useEffect(() => {
-    const suivre = () => { if (!document.fullscreenElement && plein) void quitterPlein(); };
+    const suivre = () => {
+      if (document.fullscreenElement) { entre.current = true; return; }
+      if (entre.current && plein) { entre.current = false; void quitterPlein(); }
+    };
     document.addEventListener('fullscreenchange', suivre);
     return () => document.removeEventListener('fullscreenchange', suivre);
   });
