@@ -1289,3 +1289,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-ouvert { position: absolute; right: -6px; bottom: -6px; background: var(--accent); color: #fff; border-radius: 10px; font-size: 12px;
   font-style: normal; font-weight: 600; padding: 2px 7px; }
 .bd-carnet > * { flex-shrink: 0; }
+/* Photo en grand : plein écran d'un toucher, zoom à deux doigts (Album.tsx, Zoom). */
+.bd-zoom { flex: 1; min-height: 0; overflow: hidden; touch-action: none; display: flex; }
+.bd-zoom > div { flex: 1; min-height: 0; display: flex; will-change: transform; }
+.bd-visionneuse.plein .bd-vis-haut, .bd-visionneuse.plein .bd-vis-bas { display: none; }
