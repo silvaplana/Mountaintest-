@@ -94,6 +94,7 @@ export type ActionBud =
   | { genre: 'depense'; id: string; texte: string }
   | { genre: 'sortie'; id: string; texte: string }
   | { genre: 'suppression'; copie: Sortie; texte: string }
+  | { genre: 'renommage'; id: string; avant: string; texte: string }
   | { genre: 'dispo'; planning: string; debut: string; avant: { etat: Etat3 | ''; mot: string }; texte: string };
 
 export type AppelBuddy = { id: string; groupe: string | null; sortie: string | null; par: string; en_ligne: string[]; debut: string; fini: boolean };
@@ -256,6 +257,9 @@ export function vue(e: Etat): {
         repond_a: (op.repond_a as string) ?? null, reactions: [], transfere: !!op.transfere,
         fichier: op.fichier ? { ...(op.fichier as FichierMessage), envoye: !!(op.fichier as FichierMessage).envoye } : null,
         sondage: op.sondage ? { ...(op.sondage as Omit<Sondage, 'votes'>), votes: [] } : null });
+    } else if (op.type === 'renommer_sortie') {
+      const k = sorties.findIndex((y) => y.id === op.sortie);
+      if (k >= 0) sorties[k] = { ...sorties[k], nom: String(op.nom), attente: true };
     } else if (op.type === 'remettre_sortie' && op.copie && !sorties.some((x) => x.id === op.sortie)) {
       sorties.push(op.copie as Sortie);
     } else if (op.type === 'retirer_sortie' || op.type === 'supprimer_sortie') {
@@ -576,6 +580,13 @@ export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { 
 }
 /** Annuler un Buddy Time qu'on vient de créer (le serveur refuse s'il a déjà servi). */
 export const retirerSortie = (sortie: string) => ajouter({ type: 'retirer_sortie', sortie });
+/** ✏ Changer le nom d'un Buddy Time (tout buddy qui le voit). */
+export function renommerSortie(sortie: string, nom: string) {
+  const n = nom.replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (!n) throw new Error('Donne un nom au Buddy Time');
+  ajouter({ type: 'renommer_sortie', sortie, nom: n });
+  return n;
+}
 /** 🐻 Bud supprime un Buddy Time (§7.12) : caché de tous ; le serveur refuse si je ne l'ai pas créé ni n'administre la bande. */
 export const supprimerSortie = (sortie: string) => ajouter({ type: 'supprimer_sortie', sortie });
 /** « Annuler » : il revient (la copie le remontre tout de suite, avant la synchro). */

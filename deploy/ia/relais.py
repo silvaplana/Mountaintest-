@@ -327,18 +327,19 @@ OUTIL_BUD = {
                 "items": {
                     "type": "object",
                     "properties": {
-                        "type": {"type": "string", "enum": ["depense", "buddy_time", "supprimer_buddy_time", "dispo"]},
+                        "type": {"type": "string", "enum": ["depense", "buddy_time", "supprimer_buddy_time", "renommer_buddy_time", "dispo"]},
                         "titre": {"type": ["string", "null"], "description": "depense : ce qui a été payé"},
                         "montant_euros": {"type": ["number", "null"], "description": "depense : montant total"},
                         "paye_par": {"type": ["string", "null"], "description": "depense : prénom de qui a payé (null : celui qui te parle)"},
                         "pour": {"type": "array", "items": {"type": "string"}, "description": "depense : prénoms concernés (vide : tous les participants) ; buddy_time : qui part (vide : toute la bande)"},
-                        "nom": {"type": ["string", "null"], "description": "buddy_time : nom de la sortie ; supprimer_buddy_time : nom du Buddy Time à supprimer (null : celui de cette conversation) ; dispo : nom du planning"},
-                        "debut": {"type": ["string", "null"], "description": "buddy_time, supprimer_buddy_time (si plusieurs du même nom) et dispo : date AAAA-MM-JJ"},
+                        "nom": {"type": ["string", "null"], "description": "buddy_time : nom de la sortie ; supprimer_buddy_time et renommer_buddy_time : nom actuel du Buddy Time (null : celui de cette conversation) ; dispo : nom du planning"},
+                        "nouveau_nom": {"type": ["string", "null"], "description": "renommer_buddy_time : le nouveau nom"},
+                        "debut": {"type": ["string", "null"], "description": "buddy_time, supprimer_buddy_time, renommer_buddy_time (si plusieurs du même nom) et dispo : date AAAA-MM-JJ"},
                         "fin": {"type": ["string", "null"], "description": "buddy_time : date AAAA-MM-JJ"},
                         "lieu": {"type": ["string", "null"], "description": "buddy_time"},
                         "etat": {"anyOf": [{"type": "string", "enum": ["oui", "peut", "non"]}, {"type": "null"}], "description": "dispo de celui qui te parle"},
                     },
-                    "required": ["type", "titre", "montant_euros", "paye_par", "pour", "nom", "debut", "fin", "lieu", "etat"],
+                    "required": ["type", "titre", "montant_euros", "paye_par", "pour", "nom", "nouveau_nom", "debut", "fin", "lieu", "etat"],
                     "additionalProperties": False,
                 },
             },
@@ -351,13 +352,17 @@ OUTIL_BUD = {
 CONSIGNE_BUD = """Tu es Bud 🐻, le buddy à part d'une bande de copains qui partent en montagne ensemble (appli Mountain Buddies).
 On te donne ce que l'appli sait de leur sortie ou de leur bande (dates, qui vient, traces, hébergements proposés,
 plannings, dépenses, derniers messages), puis la question qu'un buddy t'a posée en commençant par « Bud, … ».
+Vocabulaire : « BT » = Buddy Time (une sortie ou un week-end), « BG » = Buddy Group (une bande de copains),
+« BC » = Buddy count (les comptes communs d'un Buddy Time) ; on peut les écrire en minuscules.
+La dictée écrit parfois ton nom « Bad », « Budd », « Bod »… : c'est toi qu'on appelle.
 Règles :
 - Tu réponds seulement à la question, court et chaleureux, comme un copain qui s'y connaît (tutoiement).
 - Tu proposes, les buddies décident : ne dis jamais que tu as réservé, payé ou décidé quoi que ce soit.
 - Tu n'agis dans l'appli (« actions ») que si celui qui te parle te le demande clairement (« ajoute », « crée »,
   « mets-moi oui »…), et seulement pour : une dépense du Buddy count de ce Buddy Time (« depense »), un nouveau
   Buddy Time dans cette bande (« buddy_time »), la suppression d'un Buddy Time de cette conversation ou de cette
-  bande (« supprimer_buddy_time » : seulement s'il le demande clairement, par exemple « supprime ce Buddy Time »), sa propre réponse à un planning de la bande (« dispo » : jamais celle
+  bande (« supprimer_buddy_time » : seulement s'il le demande clairement, par exemple « supprime ce Buddy Time »), le
+  changement de nom d'un Buddy Time (« renommer_buddy_time »), sa propre réponse à un planning de la bande (« dispo » : jamais celle
   d'un autre). Dans le texte, dis ce que tu as fait ; il pourra toucher « Annuler ». Dans le doute, demande plutôt.
 - Tu ne te fais jamais passer pour l'un d'eux.
 - Pour trouver un hébergement, cherche sur le web (pages réellement vues, jamais inventées), donne leurs coordonnées

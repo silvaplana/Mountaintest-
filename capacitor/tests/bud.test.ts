@@ -11,6 +11,12 @@ describe('Bud', () => {
     expect(pourBud('On dort où le samedi ?')).toBe(false);
     expect(pourBud('Mon budget est serré')).toBe(false);
     expect(pourBud('buds quelle heure est-il')).toBe(true); // dicté « buds »
+    // Dictée (Seb, 25 novembre) : « bad », « budd », « OK Bud »…
+    for (const x of ['Bad, supprime ce BT', 'bad supprime ce BT', 'Budd, la météo ?', 'Bude où on dort', 'Bod, le gîte ?',
+      'OK Bud, crée un BT', 'ok bad crée un BT', 'Hey Bud la pente', 'Dis bud, combien je dois ?', 'Beud, la météo'])
+      expect(pourBud(x), x).toBe(true);
+    for (const x of ['Buddy Time samedi ?', 'Badminton demain', 'OK pour samedi', 'Bodega ce soir', 'Le temps est bad'])
+      expect(pourBud(x), x).toBe(false);
   });
   it('connaît la sortie, les comptes et les derniers messages', () => {
     const b = (id: string, pseudo: string) => ({ id, pseudo, photo: null, role: 'membre' });

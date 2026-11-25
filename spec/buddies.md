@@ -173,6 +173,12 @@ sa gauche, on en choisit une.
 - Dans Me Time, on peut inviter un ou plusieurs copains à une sortie sans créer de Buddy
   Group. **(Seb)**
 - Création : photo, nom, dates, lieu facultatif.
+- **Changer son nom** (Seb, 25 novembre 2026) : le crayon (dessiné au trait) en haut de sa carte, ou toucher le nom ;
+  l'écrire, ✓ (✕ pour renoncer). Tout buddy qui voit le Buddy Time peut le faire, comme le nom d'un groupe WhatsApp (opération
+  `renommer_sortie`). Aussi par Bud (§7.12).
+- **Le supprimer** (Seb, 25 novembre 2026) : la poubelle (dessinée au trait, pas l'émoji) en haut de sa carte, montrée
+  seulement à celui qui l'a créé et aux admins du Buddy Group. Supprimé tout de suite, « Annuler » 10 secondes, puis
+  retour aux Buddies. Rien n'est effacé sur le serveur (même opération que Bud, §7.12).
 - Ouvrir un Buddy Time ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
   bandeau en bas (dans combien de jours, qui vient, chiffres du parcours) se baisse pour ne
   laisser que la carte. **(proposé)**
@@ -608,6 +614,13 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   celui qui a demandé) : la dépense est retirée, la dispo revient comme avant, le Buddy Time est retiré s'il n'a pas
   encore servi (opération `retirer_sortie` : seulement son créateur, et seulement sans trace, photo, dépense, message
   ni hébergement).
+- **Changer le nom d'un Buddy Time** (Seb, 25 novembre 2026) : « Bud, renomme ce BT en Raquettes au Queyras » ;
+  « Annuler » remet l'ancien nom.
+- **Appeler Bud à la voix** (Seb, 25 novembre 2026) : la dictée écrit souvent « bad », « budd », « bod »… En tête
+  de message, ces variantes appellent Bud aussi, avec ou sans « OK », « hey », « dis » devant (« OK Bud » marche sans
+  être obligatoire). « Buddy » n'appelle pas Bud.
+- **Abréviations** (Seb, 25 novembre 2026) : Bud comprend « BT » (Buddy Time), « BG » (Buddy Group) et « BC » (Buddy
+  count, les comptes communs).
 - **Supprimer un Buddy Time** (Seb, 25 novembre 2026 : « Bud doit pouvoir supprimer des Buddy Times ») : « Bud,
   supprime ce Buddy Time » (dans sa conversation) ou « Bud, supprime le Buddy Time Queyras » (dans celle de la bande,
   où Bud voit la liste de ses Buddy Times). Seulement **celui qui l'a créé ou un admin du Buddy Group**. Même s'il a
