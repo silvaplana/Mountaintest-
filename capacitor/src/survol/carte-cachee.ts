@@ -23,6 +23,8 @@ export async function carteCachee(map: MlMap, signal: AbortSignal): Promise<{ ca
   });
   if (!charge) { retirer(); throw new Error(signal.aborted ? 'arrêté' : 'carte du film indisponible'); }
   ajouterImagesSens(carte);
+  // Pas de flèches de sens dans le film (Seb, 26/11 : « pas trop beau ») ; le départ et l'arrivée restent.
+  for (const id of ['trails-sens', 'trail-sel-sens']) if (carte.getLayer(id)) carte.setLayoutProperty(id, 'visibility', 'none');
   // Le relief se pose quand on incline la carte de l'appli (MapView) ; ici il y est toujours.
   carte.setTerrain({ source: 'relief', exaggeration: 1 });
   const ciel = map.getSky();

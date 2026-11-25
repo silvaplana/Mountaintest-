@@ -495,9 +495,10 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
               <p className="survol-dit">{STYLES[r.style].dit}</p>
               <div className="survol-choix">{([['carte', '🗺 Carte'], ['photo', '📷 Photo aérienne']] as [Reglages['fond'], string][]).map(([k, t]) => (
                 <button key={k} className={r.fond === k ? 'on' : ''} onClick={() => maj({ fond: k })}>{t}</button>))}</div>
+              {r.fond === 'photo' && <p className="survol-dit">❄ Limite pluie-neige : la neige est ajoutée sur les photos au-dessus.</p>}
               {r.fond === 'photo' && <div className="survol-choix">
-                <button className={r.neige ? '' : 'on'} onClick={() => maj({ neige: 0 })}>Sans neige</button>
-                {LIMITES_NEIGE.map((m) => <button key={m} className={r.neige === m ? 'on' : ''} onClick={() => maj({ neige: m })}>❄ {m} m</button>)}</div>}
+                {LIMITES_NEIGE.map((m) => <button key={m} className={r.neige === m ? 'on' : ''} onClick={() => maj({ neige: m })}>{m} m</button>)}
+                <button className={r.neige ? '' : 'on'} onClick={() => maj({ neige: 0 })}>Sans neige</button></div>}
               {r.style === 'alpi' && <div className="survol-choix">{([['montee', '→ Aller'], ['deux', '⇄ Aller-retour'], ['descente', '← Retour']] as [Sens, string][]).map(([k, t]) => (
                 <button key={k} className={r.sens === k ? 'on' : ''} onClick={() => maj({ sens: k })}>{t}</button>))}</div>}
               {r.style === 'alpi' && r.sens !== 'montee' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
