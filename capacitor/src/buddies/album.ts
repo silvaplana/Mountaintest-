@@ -9,8 +9,10 @@
  */
 import { apiFichier } from '../compte/auth';
 
-export type Taille = 'petite' | 'grande';
-export const PX: Record<Taille, number> = { petite: 400, grande: 1600 };
+export type Taille = 'petite' | 'grande' | 'video';
+export const PX: Record<'petite' | 'grande', number> = { petite: 400, grande: 1600 };
+/** Fichiers d'une photo ; « video » seulement pour un film de survol 3D (petite et grande = sa couverture). */
+const TAILLES: Taille[] = ['petite', 'grande', 'video'];
 const DB = 'buddies-photos', STORE = 'p';
 
 function db(): Promise<IDBDatabase> {
@@ -33,7 +35,7 @@ export async function fichier(id: string, taille: Taille): Promise<Blob | undefi
   try { return await tx<Blob | undefined>('readonly', (s) => s.get(`${id}-${taille}`)); } catch { return undefined; }
 }
 export async function oublier(id: string) {
-  try { for (const t of ['petite', 'grande'] as Taille[]) await tx('readwrite', (s) => s.delete(`${id}-${t}`)); } catch { /* ignoré */ }
+  try { for (const t of TAILLES) await tx('readwrite', (s) => s.delete(`${id}-${t}`)); } catch { /* ignoré */ }
 }
 
 const urls = new Map<string, string>();
@@ -51,11 +53,11 @@ export async function adresse(id: string, taille: Taille, envoyee: boolean): Pro
   return u;
 }
 
-/** Envoie le fichier d'une photo (petite puis grande). Vrai si tout est parti. */
+/** Envoie le fichier d'une photo (petite, grande, puis le film s'il y en a un). Vrai si tout est parti. */
 export async function envoyer(id: string): Promise<boolean> {
-  for (const t of ['petite', 'grande'] as Taille[]) {
+  for (const t of TAILLES) {
     const b = await fichier(id, t);
-    if (!b) return true; // fichier perdu (stockage vidé) : rien à envoyer
+    if (!b) return true; // fichier perdu (stockage vidé), ou pas de film : rien de plus à envoyer
     await apiFichier('PUT', `/buddies/photos/${id}/${t}`, b);
   }
   return true;

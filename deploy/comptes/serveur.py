@@ -20,6 +20,7 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
   PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
   GET  /buddies/photos/{id}/{petite|grande}   la lire (participants du Buddy Time)
+  PUT  /buddies/photos/{id}/video             le film d'un survol 3D (MP4 ou WebM) ; GET : le lire
   PUT  /buddies/fichiers/{id} envoyer le fichier joint à un message (annoncé par la synchro) ; GET : le lire
   POST /appareils             📞 le jeton Firebase de ce téléphone (pour sonner)
   POST /appels                📞 appeler un Buddy Group ou un Buddy Time (ou rejoindre l'appel en cours) (appels.py)
@@ -93,6 +94,7 @@ COLONNES_AJOUTEES = [
     ("messages_buddies", "fichier_id", "UUID"),
     ("messages_buddies", "sondage", "TEXT"),
     ("messages_buddies", "transfere", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("photos", "video", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 
@@ -283,14 +285,18 @@ async def envoyer_photo(pid: str, taille: str, req: Request, j: dict = Depends(j
     if p.par != utilisateur(s, j).id:
         raise HTTPException(403, "Seul l'auteur envoie sa photo")
     corps = await req.body()
-    if len(corps) > buddies.TAILLES[taille] or not corps.startswith(b"\xff\xd8"):
+    if taille == "video":
+        if not p.video or len(corps) > buddies.TAILLES[taille] or not buddies.format_video(corps):
+            raise HTTPException(422, "Film MP4 ou WebM attendu, trop gros ou illisible")
+    elif len(corps) > buddies.TAILLES[taille] or not corps.startswith(b"\xff\xd8"):
         raise HTTPException(422, "JPEG attendu, trop gros ou illisible")
     os.makedirs(buddies.DOSSIER_PHOTOS, exist_ok=True)
     chemin = buddies.fichier_photo(p.id, taille)
     with open(chemin + ".tmp", "wb") as f:
         f.write(corps)
     os.replace(chemin + ".tmp", chemin)
-    if taille == "grande" and not p.envoyee:
+    # Arrivée : la grande image d'une photo, le film d'une vidéo.
+    if taille == ("video" if p.video else "grande") and not p.envoyee:
         p.envoyee = True
         p.modifie_le = maintenant()
         s.commit()
@@ -302,8 +308,10 @@ def lire_photo(pid: str, taille: str, j: dict = Depends(jeton_requis), s: Sessio
     p = photo_visible(s, j, pid, taille)
     try:
         with open(buddies.fichier_photo(p.id, taille), "rb") as f:
+            corps = f.read()
             # Une photo ne change jamais : le téléphone la garde.
-            return Response(f.read(), media_type="image/jpeg", headers={"Cache-Control": "private, max-age=31536000, immutable"})
+            return Response(corps, media_type=(buddies.format_video(corps) or "video/mp4") if taille == "video" else "image/jpeg",
+                            headers={"Cache-Control": "private, max-age=31536000, immutable"})
     except OSError as e:
         raise HTTPException(404, "Pas encore arrivée") from e
 

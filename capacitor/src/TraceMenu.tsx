@@ -7,6 +7,7 @@ import type { WayRun } from './trails/wayTypes';
 import { traceLengthM, type SavedTrace } from './trails/savedTraces';
 import { TRACE_FOLDER } from './trails/traceShare';
 import { formatKm } from './track/stats';
+import { CameraIcon } from './Survol';
 
 function hours(h: number) {
   const m = Math.round(h * 60);
@@ -17,8 +18,10 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onShare, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
+export function TraceMenu({ trail, onFilm, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onShare, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
+  /** 🎥 Survol 3D le long de la trace (grisé tant que la trace n'a pas deux points). */
+  onFilm: () => void;
   slopes: boolean; onSlopes: (v: boolean) => void;
   showProfile: boolean; onShowProfile: (v: boolean) => void;
   cursor: number | null; onCursor: (d: number | null) => void;
@@ -42,6 +45,7 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
     <section className="trace-menu">
       <div className="head">
         <b><i className="swatch" style={{ background: trail.color }} />{trail.name}</b>
+        <button className="close" onClick={onFilm} disabled={trail.segments.flat().length < 2} aria-label="Filmer un survol 3D de la trace"><CameraIcon /></button>
         <button className="close" onClick={onShare} aria-label={`Partager ${trail.name}`}><ShareTraceIcon /></button>
         <button className="close" onClick={onClose} aria-label="Fermer le menu de la trace">✕</button>
       </div>
@@ -69,7 +73,7 @@ export function TraceMenu({ trail, elevated, slopes, onSlopes, showProfile, onSh
       <div className="row">
         <button onClick={onOffline}>📶 Hors ligne</button>
         <button onClick={onSave} disabled={savedId != null}>{savedId != null ? '✓ Enregistrée' : '💾 Sauvegarder'}</button>
-        <button className="danger" onClick={onDelete}>🗑 Supprimer</button>
+        <button className="danger" onClick={onDelete}><TrashIcon size={20} /> Supprimer</button>
       </div>
     </section>
   );
@@ -126,9 +130,9 @@ function ShareTraceIcon() {
 }
 
 /** Effacer : poubelle simple, couvercle, cuve, 2 rayures (même dessin que ic_delete_trace côté Kotlin). */
-function TrashIcon() {
+function TrashIcon({ size = 26 }: { size?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="#c62828" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="#c62828" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 6h18M9 6V4h6v2M5.5 6l1 14h11l1-14M10 10v6M14 10v6" />
     </svg>
   );

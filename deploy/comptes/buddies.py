@@ -364,7 +364,8 @@ def ajouter_photo(s: Session, u: Utilisateur, op: dict) -> None:
             lon = lat = None
     else:
         lon = lat = None
-    s.add(Photo(id=pid, sortie_id=so.id, par=u.id, prise_le=heure_photo(op.get("prise_le")), lon=lon, lat=lat))
+    s.add(Photo(id=pid, sortie_id=so.id, par=u.id, prise_le=heure_photo(op.get("prise_le")), lon=lon, lat=lat,
+                video=bool(op.get("video"))))
     toucher(so)
 
 
@@ -498,9 +499,18 @@ def retirer_depense(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
-# Fichiers des photos : COMPTES_DOSSIER/photos/<id>-petite.jpg et -grande.jpg.
+# Fichiers des photos : COMPTES_DOSSIER/photos/<id>-petite.jpg et -grande.jpg (et -video.jpg : le film, MP4 ou WebM).
 DOSSIER_PHOTOS = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "photos")
-TAILLES = {"petite": 300_000, "grande": 4_000_000}  # octets au plus
+TAILLES = {"petite": 300_000, "grande": 4_000_000, "video": 100_000_000}  # octets au plus
+
+
+def format_video(corps: bytes) -> str | None:
+    """Film d'un survol 3D : MP4 (boîte « ftyp ») ou WebM (en-tête EBML), sinon None."""
+    if corps[4:8] == b"ftyp":
+        return "video/mp4"
+    if corps.startswith(b"\x1a\x45\xdf\xa3"):
+        return "video/webm"
+    return None
 
 
 JOUR_MS = 24 * 3600 * 1000
@@ -973,7 +983,7 @@ def vue_planning(s: Session, p: Planning) -> dict[str, Any]:
 
 def vue_photo(s: Session, p: Photo) -> dict[str, Any]:
     return {"id": str(p.id), "sortie": str(p.sortie_id), "par": personne(s.get(Utilisateur, p.par)), "prise_le": p.prise_le,
-            "lon": p.lon, "lat": p.lat, "etoile": p.etoile, "envoyee": p.envoyee, "modifie_le": iso(p.modifie_le)}
+            "lon": p.lon, "lat": p.lat, "etoile": p.etoile, "envoyee": p.envoyee, "video": p.video, "modifie_le": iso(p.modifie_le)}
 
 
 def vue_depense(x: Depense) -> dict[str, Any]:

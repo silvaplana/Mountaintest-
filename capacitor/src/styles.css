@@ -1055,3 +1055,45 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-sondage .bd-sondage-barre { position: absolute; left: 0; top: 0; bottom: 0; background: #2b8be622; }
 .bd-coche { display: flex; align-items: center; gap: 10px; min-height: 48px; font-size: 17px; }
 .bd-coche input { width: 24px; height: 24px; }
+
+/* 🎥 Survol 3D d'une trace (maquettes/survol-3d) : pastilles qui se déplient, bascules à coche verte, gros ⏺. */
+.survol .head b { font-size: 18px; }
+.survol-grille { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.survol-grille button, .survol-choix button, .survol-bas .pastille {
+  position: relative; min-height: 48px; border-radius: 24px; border: 0; background: #eef0ef; font-size: 17px; padding: 0 6px;
+  display: flex; align-items: center; justify-content: center; gap: 4px; color: #1d2421;
+}
+.survol .pastille::after { content: "⌄"; font-size: 13px; color: #5b6560; margin-left: 2px; }
+.survol .bascule { background: #f4f5f4; color: #9aa19d; }
+.survol .bascule.on { background: #fff; color: #1d2421; box-shadow: inset 0 0 0 2px #2f9e5f; }
+.survol .bascule.on::after {
+  content: "✓"; position: absolute; top: -6px; right: -4px; width: 22px; height: 22px; border-radius: 50%;
+  background: #2f9e5f; color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.survol .couche { display: inline-block; transform: rotate(90deg); }
+.survol-choix { display: flex; gap: 6px; }
+.survol-choix button { flex: 1; }
+.survol-choix button.on { background: #2f9e5f; color: #fff; font-weight: 700; }
+.survol-plage { display: flex; flex-direction: column; gap: 6px; }
+.survol-plage .row { display: flex; align-items: center; gap: 10px; justify-content: space-between; font-size: 17px; }
+.survol-plage .step { width: 48px; height: 48px; border-radius: 50%; padding: 0; flex: 0 0 48px; }
+.survol-plage b { min-width: 64px; text-align: center; }
+.survol-bas { display: flex; align-items: center; gap: 10px; }
+.survol-bas > * { flex: 1; }
+.survol > .pastille { position: relative; min-height: 44px; border-radius: 22px; border: 0; background: #eef0ef; font-size: 17px; }
+.survol-bas .bascule { position: relative; min-height: 48px; border-radius: 24px; border: 0; font-size: 17px; padding: 0 6px; }
+.survol-rec { flex: 0 0 64px; width: 64px; height: 64px; min-height: 0; border-radius: 50%; padding: 0; border: 0; background: #d32f2f; box-shadow: 0 0 0 5px #fbd4d4; }
+.survol-rec i { display: block; width: 24px; height: 24px; border-radius: 50%; background: #fff; margin: auto; }
+.survol-rec.stop i { border-radius: 4px; width: 22px; height: 22px; }
+.survol-fin { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.survol-fin button { min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 16px; }
+.survol-fin .gros { font-size: 26px; }
+.survol-voile { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 3; pointer-events: auto; }
+.survol-film { position: absolute; left: 0; right: 0; top: 0; z-index: 3; background: #000; display: flex; align-items: center; justify-content: center; }
+.survol-film video { max-width: 100%; max-height: 100%; }
+.survol-play { position: absolute; width: 84px; height: 84px; border-radius: 50%; border: 0; background: #000a; color: #fff; font-size: 36px; }
+.survol-fin.deux { grid-template-columns: 1fr 1fr; }
+.survol-fin button.primary { color: #fff; }
+.survol-albums { display: flex; flex-direction: column; gap: 6px; }
+.survol-albums button { min-height: 48px; text-align: left; padding: 0 12px; font-size: 17px; }
+.bd-film { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 50%; background: #000a; color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; }

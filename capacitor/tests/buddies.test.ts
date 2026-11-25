@@ -237,6 +237,14 @@ describe('Album (bloc 4)', () => {
     expect(lire().envois).toEqual(['p1']);
   });
 
+  it('🎥 un film de survol rangé dans l’album : marqué vidéo, envoyé comme les photos', () => {
+    reseau(() => 'coupure');
+    deposerPhotos('s1', [{ photo: 'f1', prise_le: '2026-10-18T11:00:00', lon: 6.7, lat: 44.6, video: true }]);
+    expect(vue(lire()).photos.map((p) => [p.id, p.video, p.attente])).toEqual([['f1', true, true]]);
+    expect(lire().attente.some((o) => o.type === 'ajouter_photo' && o.photo === 'f1' && o.video === true)).toBe(true);
+    expect(lire().envois).toEqual(['f1']);
+  });
+
   it('une photo refusée par le serveur est oubliée de la file d’envoi', async () => {
     reseau(() => 'coupure');
     deposerPhotos('s-inconnu', [{ photo: 'p1', prise_le: '2026-10-18T10:00:00', lon: null, lat: null }]);
