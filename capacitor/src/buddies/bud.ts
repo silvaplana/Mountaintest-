@@ -12,8 +12,14 @@ import {
   type ActionBud, type Buddy, type Depense, type Hebergement, type MessageBuddy, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
-/** « Bud, … », « bud : … », « Les Baladins 👍 Bud, la pente ? » : Bud est appelé. */
-export const pourBud = (texte: string) => /(^|[\s.!?👍])buds?\s*[,:]/iu.test(texte) || /^\s*buds?\b/i.test(texte);
+/**
+ * « Bud, … », « bud : … », « Les Baladins 👍 Bud, la pente ? » : Bud est appelé. La dictée l'écrit souvent autrement
+ * (Seb, 25 novembre) : en tête du message, « bad », « budd », « bude », « bod », « beud »… comptent aussi, avec ou
+ * sans « OK », « hey », « dis » devant (« OK Bud » marche, sans être obligatoire). Pas « buddy » (Buddy Time…).
+ */
+const VARIANTES = '(?:bu(?:dd?e?|ds)|bad|bade|bod|bode|beud|bœud|bheud)';
+export const pourBud = (texte: string) => /(^|[\s.!?👍])bud{1,2}s?\s*[,:]/iu.test(texte)
+  || new RegExp(`^\\s*(?:(?:ok|okay|o\\.k\\.|hey|hé|eh|dis|salut)[\\s,]+)?${VARIANTES}(?![\\p{L}\\d])`, 'iu').test(texte);
 
 export type Donnees = {
   nom: string; sortie?: Sortie; membres: Buddy[]; moi: string;

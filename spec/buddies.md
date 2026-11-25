@@ -616,6 +616,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   ni hébergement).
 - **Changer le nom d'un Buddy Time** (Seb, 25 novembre 2026) : « Bud, renomme ce BT en Raquettes au Queyras » ;
   « Annuler » remet l'ancien nom.
+- **Appeler Bud à la voix** (Seb, 25 novembre 2026) : la dictée écrit souvent « bad », « budd », « bod »… En tête
+  de message, ces variantes appellent Bud aussi, avec ou sans « OK », « hey », « dis » devant (« OK Bud » marche sans
+  être obligatoire). « Buddy » n'appelle pas Bud.
 - **Abréviations** (Seb, 25 novembre 2026) : Bud comprend « BT » (Buddy Time), « BG » (Buddy Group) et « BC » (Buddy
   count, les comptes communs).
 - **Supprimer un Buddy Time** (Seb, 25 novembre 2026 : « Bud doit pouvoir supprimer des Buddy Times ») : « Bud,
