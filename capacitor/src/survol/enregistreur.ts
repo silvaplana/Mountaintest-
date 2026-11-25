@@ -1,6 +1,6 @@
 // Enregistre le film du survol : chaque image de la carte (WebGL) est recopiée, juste après son dessin, dans
 // une toile 2D au format choisi (vertical 9:16 ou horizontal 16:9), avec l'heure et les km · altitude par-dessus.
-// MediaRecorder en fait une vidéo MP4 si le téléphone sait, sinon WebM.
+// Image par image (encodeur.ts) si le téléphone sait encoder ; sinon en direct avec MediaRecorder (MP4 ou WebM).
 import type { Map as MlMap } from 'maplibre-gl';
 import { dessinerNuages } from './nuages';
 
@@ -24,8 +24,11 @@ export function cadrage(w: number, h: number, vertical: boolean) {
 /** nuages : avancée dans les nuages de l'intro plongée (0 → 1), absente sans plongée. */
 export interface Incrustation { heure?: string; infos?: string; nuages?: number }
 
-/** son : piste de la musique choisie (🎵), mixée dans le film. */
-export function enregistrer(map: MlMap, vertical: boolean, texte: () => Incrustation, son?: MediaStreamTrack) {
+/**
+ * Toile du film : chaque image de la carte y est recopiée juste après son dessin (l'image WebGL n'est lisible
+ * qu'à ce moment-là, dans l'évènement « render »), recadrée, avec l'heure, les km · altitude et les nuages.
+ */
+export function toileFilm(map: MlMap, vertical: boolean, texte: () => Incrustation, apres?: () => void) {
   const src = map.getCanvas();
   const c = cadrage(src.width, src.height, vertical);
   const toile = document.createElement('canvas');
@@ -46,25 +49,37 @@ export function enregistrer(map: MlMap, vertical: boolean, texte: () => Incrusta
     if (t.nuages != null) dessinerNuages(ctx, c.ow, c.oh, t.nuages);
     if (t.heure) pastille(`🕘 ${t.heure}`, 12 * echelle, 12 * echelle);
     if (t.infos) pastille(t.infos, 12 * echelle, c.oh - 42 * echelle);
-    // L'enregistrement part avec la première vraie image (pas d'image noire au début du film).
-    if (rec.state === 'inactive' && !fini) rec.start(500);
+    apres?.();
   };
+  map.on('render', dessiner);
+  map.triggerRepaint();
+  return {
+    toile,
+    /** Image du moment (couverture du film dans l'album). */
+    instantane: () => createImageBitmap(toile),
+    lacher: () => map.off('render', dessiner),
+  };
+}
+
+/**
+ * Film en direct (téléphones sans encodeur vidéo) : MediaRecorder garde ce que la carte arrive à dessiner.
+ * son : piste de la musique choisie (🎵), mixée dans le film.
+ */
+export function enregistrer(map: MlMap, vertical: boolean, texte: () => Incrustation, son?: MediaStreamTrack) {
+  // L'enregistrement part avec la première vraie image (pas d'image noire au début du film).
+  const t = toileFilm(map, vertical, texte, () => { if (rec.state === 'inactive' && !fini) rec.start(500); });
   const mime = formatVideo(!!son);
-  const flux = toile.captureStream(30);
+  const flux = t.toile.captureStream(30);
   if (son) flux.addTrack(son);
   const rec = new MediaRecorder(flux, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
   const morceaux: Blob[] = [];
   let fini = false;
   rec.ondataavailable = (e) => { if (e.data.size) morceaux.push(e.data); };
-  // L'image WebGL n'est lisible que juste après son dessin : on recopie dans l'évènement « render ».
-  map.on('render', dessiner);
-  map.triggerRepaint();
   return {
-    /** Image du moment (couverture du film dans l'album). */
-    instantane: () => createImageBitmap(toile),
+    instantane: t.instantane,
     arreter: () => new Promise<Blob>((ok) => {
       fini = true;
-      map.off('render', dessiner);
+      t.lacher();
       if (rec.state === 'inactive') { ok(new Blob([], { type: mime.split(';')[0] })); return; }
       rec.onstop = () => ok(new Blob(morceaux, { type: mime.split(';')[0] }));
       rec.stop();

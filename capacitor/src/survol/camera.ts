@@ -22,7 +22,7 @@ export const DEBUT_PLONGEE = 0.3;
 /** Les nuages sont traversés pendant ce début du film (intro plongée). */
 export const NUAGES = 0.12;
 /** Zoom de départ de la plongée : très haut au-dessus du départ. */
-const ZOOM_CIEL = 9.5;
+export const ZOOM_CIEL = 9.5;
 const TOUR_ARRIVEE = 35;
 export const IMAGES = 600;
 
