@@ -6,8 +6,9 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Style } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
+import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
@@ -23,10 +24,10 @@ interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: 
   /** Intro : ⤓ plongée simple (on descend du ciel sur le départ) ou ☁ plongée dans les nuages façon clip. */
   plongee: Plongee; rapide: boolean; dessine: boolean;
   /** 🎬 style de prise de vue, descente du style alpiniste, ◭ pentes dans le film (la carte ne change pas). */
-  style: Style; descente: Descente; pentes: boolean }
+  style: Style; descente: Descente; sens: Sens; pentes: boolean }
 type Plongee = 'non' | 'simple' | 'nuages';
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', rapide: true, dessine: false, style: 'cine', descente: 'gopro', pentes: false };
+const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
 function lire(): Reglages {
   try {
     const r = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') };
@@ -61,7 +62,11 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   const [r, setR] = useState<Reglages>(lire);
   // Poignée commune des panneaux ; le survol s'ouvre en grand pour que tous ses boutons se voient.
   const sheet = useSheet('survol', { defaut: 2 });
-  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | null>(null);
+  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | 'films' | null>(null);
+  /** 📁 Derniers films gardés sur le téléphone, et celui qu'on regarde (pour le retirer si on le jette). */
+  const [garde, setGarde] = useState<FilmGarde[]>([]);
+  const [filmId, setFilmId] = useState<string | null>(null);
+  useEffect(() => { void lireFilms().then(setGarde); }, []);
   const [etape, setEtape] = useState<Etape>('reglages');
   const [avance, setAvance] = useState('');
   const [film, setFilm] = useState<{ blob: Blob; url: string; couverture: ImageBitmap | null } | null>(null);
@@ -115,15 +120,14 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     const centre = ens?.center ? LngLat.convert(ens.center) : map.getCenter();
     const c0 = { lon: centre.lng, lat: centre.lat };
     // 🧗 et 🎬 ont besoin du relief (sommets, crêtes, points de vue) ; sans lui, le film fait un suivi.
-    let relief: Relief | null = null;
-    if (r.style === 'alpi' || r.style === 'cine') {
-      setAvance('Lecture du relief…');
-      relief = await chargerRelief(zone, ctl.signal).catch(() => null);
-      if (ctl.signal.aborted) { setEtape('reglages'); return; }
-      if (!relief) onToast('Relief indisponible ici : film en suivi');
-    }
+    // Tous les styles s'en servent aussi pour que la caméra ne passe jamais dans la montagne.
+    redresse = 0;
+    setAvance('Lecture du relief…');
+    const relief: Relief | null = await chargerRelief(zone, ctl.signal).catch(() => null);
+    if (ctl.signal.aborted) { setEtape('reglages'); return; }
+    if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee === 'nuages' ? partPlongee(r.duree) : r.plongee === 'simple',
-      { style: r.style, descente: r.descente, relief, nuages: r.plongee === 'nuages' });
+      { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight });
     const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
     if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
     const pitchAvant = map.getMaxPitch();
@@ -231,7 +235,12 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       }
       if (ctl.signal.aborted) { setEtape('reglages'); return; }
       if (!blob.size) throw new Error('vidéo vide');
-      setFilm({ blob, url: URL.createObjectURL(blob), couverture: await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null });
+      const image = await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null;
+      setFilm({ blob, url: URL.createObjectURL(blob), couverture: image });
+      // 📁 Gardé tout de suite parmi les derniers films.
+      setFilmId(await garderFilm(blob, { nom: trail.name || 'Survol', secondes: r.duree, vertical: r.vertical,
+        couverture: image ? await reduire(image, PX.grande, 0.8).catch(() => null) : null }));
+      void lireFilms().then(setGarde);
       setRange(null);
       setEtape('pret');
     } catch (e) {
@@ -272,6 +281,17 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     else if (etape === 'pret') { setFilm(null); setEtape('reglages'); }
     else if (etape === 'preparation' || etape === 'tournage') arret.current?.abort();
     else onClose();
+  }
+
+  /** 📁 Revoit un film gardé : même écran qu'à la fin du tournage (plein écran, album, partage). */
+  async function revoir(f: FilmGarde) {
+    const blob = await videoDe(f.id);
+    if (!blob) { onToast('Film introuvable'); await oublierFilm(f.id); setGarde(await lireFilms()); return; }
+    setFilm({ blob, url: URL.createObjectURL(blob), couverture: f.couverture ? await createImageBitmap(f.couverture).catch(() => null) : null });
+    setFilmId(f.id);
+    setRange(null);
+    setOuvert(null);
+    setEtape('pret');
   }
 
   /** 📸 Range le film dans l'album : couverture (petite, grande) + film, gardés ici et envoyés au retour du réseau. */
@@ -342,12 +362,19 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           ) : ouvert === 'hauteur' ? (
             <div className="survol-choix">{(['bas', 'moyen', 'haut'] as Hauteur[]).map((h) => (
               <button key={h} className={r.hauteur === h ? 'on' : ''} onClick={() => { maj({ hauteur: h }); setOuvert(null); }}><HauteurIcon h={h} size={26} /> {NOMS[h]}</button>))}</div>
+          ) : ouvert === 'films' ? (
+            <div className="survol-films">
+              {garde.map((f) => <FilmLigne key={f.id} f={f} revoir={() => void revoir(f)} jeter={() => void oublierFilm(f.id).then(lireFilms).then(setGarde)} />)}
+              <button className="pastille ok" onClick={() => setOuvert(null)}>OK</button>
+            </div>
           ) : ouvert === 'style' ? (
             <div className="survol-styles">
               <div className="survol-choix deux">{(Object.keys(STYLES) as Style[]).map((k) => (
                 <button key={k} className={r.style === k ? 'on' : ''} onClick={() => maj({ style: k })}>{STYLES[k].i} {STYLES[k].nom}</button>))}</div>
               <p className="survol-dit">{STYLES[r.style].dit}</p>
-              {r.style === 'alpi' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
+              {r.style === 'alpi' && <div className="survol-choix">{([['montee', '↗ Montée'], ['deux', '↗↘ Les deux'], ['descente', '↘ Descente']] as [Sens, string][]).map(([k, t]) => (
+                <button key={k} className={r.sens === k ? 'on' : ''} onClick={() => maj({ sens: k })}>{t}</button>))}</div>}
+              {r.style === 'alpi' && r.sens !== 'montee' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
                 <button key={k} className={r.descente === k ? 'on' : ''} onClick={() => maj({ descente: k })}>{t}</button>))}</div>}
               <div className="survol-bas">
                 <button className={`bascule ${r.plongee === 'simple' ? 'on' : ''}`} onClick={() => maj({ plongee: r.plongee === 'simple' ? 'non' : 'simple' })}
@@ -393,16 +420,16 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
             {ouvert === 'plage' ? <button className="pastille" onClick={() => setOuvert(null)}>OK</button>
               : ouvert ? <span /> : <>
                 <button className={`bascule ${r.pentes ? 'on' : ''}`} onClick={() => maj({ pentes: !r.pentes })} aria-label="Pentes dans le film">◭ pentes</button>
-                <span />
+                <button className="pastille" disabled={!garde.length} onClick={() => setOuvert('films')} aria-label="Mes derniers films">📁 {garde.length}</button>
               </>}
-            <button className="survol-rec" onClick={() => void tourner()} aria-label="Filmer"><i /></button>
+            <button className="survol-rec" onClick={() => void tourner()} aria-label="Filmer"><i /><span>Filmer</span></button>
           </div>}
           <input ref={choixMusique} type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setMusique(f); e.target.value = ''; }} />
         </>}
         {occupe && <>
           <p className="hint">{etape === 'preparation' ? avance : `Le film se tourne… ${avance}`}</p>
           <div className="survol-bas"><span />
-            <button className="survol-rec stop" onClick={() => arret.current?.abort()} aria-label="Arrêter"><i /></button></div>
+            <button className="survol-rec stop" onClick={() => arret.current?.abort()} aria-label="Arrêter"><i /><span>Arrêter</span></button></div>
         </>}
         {etape === 'pret' && choixAlbum && <div className="survol-albums">
           <b>Dans quel album ?</b>
@@ -415,7 +442,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
             <span className="gros">📸</span>{range ? `✓ Dans « ${range} »` : sortie ? `Album « ${sortie.nom} »` : 'Ranger dans un album'}</button>}
           <button onClick={() => void partager()}><ShareIcon />Partager</button>
           <button onClick={() => { setFilm(null); setEtape('reglages'); }}><span className="gros">🔁</span>Refaire</button>
-          <button className="danger" onClick={onClose}><TrashIcon size={30} />Jeter</button>
+          <button className="danger" onClick={() => { if (filmId) void oublierFilm(filmId); onClose(); }}><TrashIcon size={30} />Jeter</button>
         </div>}
       </section>
     </>
@@ -444,8 +471,27 @@ async function jouerMusique(f: File, duree: number) {
 /** Zoom de carte qui donne le relief des ombres (même finesse que ce qu'on filme). */
 const HAUTEUR_ZOOM: Record<Hauteur, number> = { bas: 15, moyen: 14, haut: 13 };
 
+/** Garde-fou pendant le tournage : redressement en cours (°), qui retombe doucement quand le relief le permet. */
+let redresse = 0;
+
+/** La caméra est-elle sous le relief que MapLibre dessine (avec 25 m de marge) ? */
+function sousRelief(map: MlMap): boolean {
+  // Position de la caméra : interne à MapLibre 6 (map._camera.transform) ; absente, pas de garde-fou.
+  const t = (map as unknown as { _camera?: { transform?: { getCameraLngLat?: () => LngLat; getCameraAltitude?: () => number } } })._camera?.transform;
+  if (!t?.getCameraLngLat || !t.getCameraAltitude) return false;
+  const sol = map.queryTerrainElevation(t.getCameraLngLat());
+  return sol != null && t.getCameraAltitude() < sol + 25;
+}
+
+/** Pose la caméra ; si, malgré la trajectoire calculée, elle tombe dans la montagne, on la redresse encore. */
 function poser(map: MlMap, c: Cam) {
-  map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: c.pitch, bearing: c.bearing });
+  let r = Math.max(0, redresse - 0.4);
+  for (let i = 0; i < 20; i++) {
+    map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: Math.max(0, c.pitch - r), bearing: c.bearing });
+    if (c.pitch - r <= 0 || !sousRelief(map)) break;
+    r += 3;
+  }
+  redresse = r;
 }
 
 /** Attend que la carte ait fini de charger ce qu'elle montre (true), ou maxMs (false). */
@@ -526,3 +572,24 @@ function ShareIcon() {
   );
 }
 
+
+/** Une ligne du 📁 : vignette, nom, date ; appui = revoir, 🗑 = retirer. */
+function FilmLigne({ f, revoir, jeter }: { f: FilmGarde; revoir: () => void; jeter: () => void }) {
+  const [img, setImg] = useState<string | null>(null);
+  useEffect(() => {
+    if (!f.couverture) return;
+    const u = URL.createObjectURL(f.couverture);
+    setImg(u);
+    return () => URL.revokeObjectURL(u);
+  }, [f.couverture]);
+  const le = new Date(f.le);
+  return (
+    <div className="survol-film-ligne">
+      <button onClick={revoir} aria-label={`Revoir ${f.nom}`}>
+        {img ? <img src={img} alt="" /> : <span className="vide">🎬</span>}
+        <span><b>{f.nom}</b><small>{le.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} {le.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · {f.secondes} s</small></span>
+      </button>
+      <button className="jeter" onClick={jeter} aria-label={`Retirer ${f.nom}`}><TrashIcon size={24} /></button>
+    </div>
+  );
+}
