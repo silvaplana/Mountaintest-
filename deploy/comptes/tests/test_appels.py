@@ -46,9 +46,8 @@ def test_appeler_sonner_rejoindre_raccrocher(client, livekit):
 def test_appel_dans_un_buddy_time_et_refus(client, livekit):
     gid, julie = bande_avec_julie(client)
     so = nouvelle_sortie(gid, participants=[julie])
-    me = next(g for g in sync(client, ops=[so])["groupes"] if g["nature"] == "me_time")
+    sync(client, ops=[so])
     assert client.post("/appels", headers=entete(sub="seb"), json={"sortie": so["sortie"]}).status_code == 200
-    assert client.post("/appels", headers=entete(sub="seb"), json={"groupe": me["id"]}).status_code == 409
     assert client.post("/appels", headers=entete(sub="luc"), json={"groupe": gid}).status_code == 409
 
 

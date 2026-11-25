@@ -182,7 +182,7 @@ export function vue(e: Etat): {
   messages: MessageBuddy[];
 } {
   const groupes = appliquer(e);
-  const meTime = groupes.find((g) => g.nature === 'me_time')!;
+
   const sorties: Sortie[] = e.sorties.map((x) => ({ ...x, invitations: [...x.invitations] }));
   const traces: TraceBuddy[] = [...e.traces];
   const plannings: Planning[] = (e.plannings ?? []).map((p) => ({ ...p, dispos: [...p.dispos] }));
@@ -194,7 +194,7 @@ export function vue(e: Etat): {
   const quand = (op: Op) => new Date(op.t).toISOString();
   for (const op of e.attente) {
     if (op.type === 'creer_sortie' && !sorties.some((x) => x.id === op.sortie)) {
-      const g = groupes.find((x) => x.id === op.groupe) ?? meTime;
+      const g = groupes.find((x) => x.id === op.groupe) ?? { id: String(op.groupe), membres: [] as Buddy[] };
       const qui = new Set([...(op.participants as string[] ?? []), e.moi ?? 'moi']);
       sorties.push({ id: String(op.sortie), groupe: g.id, nom: String(op.nom), photo: (op.photo as string) ?? null, debut: String(op.debut),
         fin: String(op.fin), lieu: String(op.lieu ?? ''), modifie_le: quand(op), attente: true,
@@ -427,10 +427,6 @@ export function appliquer(e: Etat): Groupe[] {
         break;
     }
   }
-  // Me Time existe toujours, même avant la première synchro.
-  if (!gs.some((g) => g.nature === 'me_time')) {
-    gs.push({ id: 'me-time', nom: 'Me Time', nature: 'me_time', photo: null, modifie_le: new Date(0).toISOString(), membres: [moiBuddy(e)], invitations: [] });
-  }
   // Façon WhatsApp : le plus récemment actif en haut.
   return gs.sort((a, b) => b.modifie_le.localeCompare(a.modifie_le));
 }
@@ -590,7 +586,7 @@ export function renommerSortie(sortie: string, nom: string) {
   ajouter({ type: 'renommer_sortie', sortie, nom: n });
   return n;
 }
-/** ✏ Changer le nom d'un Buddy Group (tout membre) ou de mon Me Time (« Mes sorties solo »…). */
+/** ✏ Changer le nom d'un Buddy Group (tout membre). */
 export function renommerGroupe(groupe: string, nom: string) {
   const n = nom.replace(/\s+/g, ' ').trim().slice(0, 80);
   if (!n) throw new Error('Il faut un nom');

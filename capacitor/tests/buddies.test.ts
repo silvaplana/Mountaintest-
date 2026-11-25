@@ -39,9 +39,8 @@ beforeEach(() => {
 });
 
 describe('Buddies : copie locale et file d’attente', () => {
-  it('Me Time est là avant même la première synchro', () => {
-    const gs = appliquer(lire());
-    expect(gs.map((g) => [g.nom, g.nature])).toEqual([['Me Time', 'me_time']]);
+  it('plus de Me Time (Seb, 25 novembre) : aucun groupe tant qu’on n’en crée pas', () => {
+    expect(appliquer(lire())).toEqual([]);
   });
 
   it('sans réseau, un Buddy Group créé apparaît tout de suite avec 🕓 et part au retour du réseau', async () => {
