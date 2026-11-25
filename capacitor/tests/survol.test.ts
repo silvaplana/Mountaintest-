@@ -293,3 +293,21 @@ describe('survol 3D : 🧗 montée seule, descente seule', () => {
     expect(y(d[600])).toBeGreaterThan(3600);
   });
 });
+
+describe('survol 3D : 🧗 trace qui part du sommet', () => {
+  // Le sommet est au départ : la trace ne fait que descendre vers le nord.
+  const pente = { alt: (p: { lon: number; lat: number }) => 3000 - (p.lat - 45.0) * 110_540 * 0.3, sommets: [] };
+  const droite = Array.from({ length: 41 }, (_, i) => ({ lon: 6, lat: 45 + (i * 100) / 110_540 }));
+  const y = (c: { lat: number }) => (c.lat - 45) * 110_540;
+  it('« les deux » remonte depuis le bas puis redescend (la caméra ne reste pas plantée)', () => {
+    const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pente, sens: 'deux' });
+    expect(y(t[150])).toBeGreaterThan(2000);   // en train de remonter depuis le bas (4 km)
+    expect(y(t[320])).toBeLessThan(600);       // au sommet
+    expect(y(t[590])).toBeGreaterThan(3300);   // redescendu
+  });
+  it('« descente » part du sommet', () => {
+    const t = trajectoire(droite, 'moyen', ensemble, 600, false, { style: 'alpi', relief: pente, sens: 'descente' });
+    expect(y(t[130])).toBeLessThan(600);
+    expect(y(t[590])).toBeGreaterThan(3300);
+  });
+});

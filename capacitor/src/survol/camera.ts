@@ -177,7 +177,9 @@ export function sommetTrace(c: ReturnType<typeof chemin>, relief: Relief) {
   let d = 0, h = -Infinity;
   for (let i = 0; i <= 200; i++) { const x = (c.total * i) / 200, a = relief.alt(c.pr.depuis(c.at(x))) ?? -Infinity; if (a > h) { h = a; d = x; } }
   const retour = c.total - d < c.total * 0.2;
-  return { d, alt: h, retour, fin: retour ? 0 : c.total };
+  // Trace qui part du sommet (Seb, 25/11) : pas de montée dans le sens de la trace ; on monte en la remontant.
+  const depart = d < c.total * 0.2 && !retour;
+  return { d, alt: h, retour, depart, fin: retour ? 0 : c.total };
 }
 
 /**
@@ -215,23 +217,33 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
       // La caméra se penche dans la pente (Seb, 25/11) : elle lève les yeux en montée, plonge le regard en descente.
       // Pente mesurée sur ± 150 m, dans le sens de la marche ; le flou final adoucit encore.
       // Parts du film : montée jusqu'à m1, pause au sommet jusqu'à m2, puis descente.
+      // Trace qui part du sommet : « les deux » = remonter depuis le bas puis redescendre ; « montée » = remonter.
       const [m1, m2] = o.sens === 'montee' ? [0.82, 1.01] : o.sens === 'descente' ? [0, 0.18] : [0.5, 0.65];
       if (u < m1) {
+        if (som.depart) {
+          const d = lerp(c.total, som.d, u / m1), p = c.lisse(d);
+          return { ...p, zoom: h.zoom, pitch: dansLaPente(h.pitch, pente(d, -1)), bearing: capAutour(c, d) + 180, d: c.total - d, s: d };
+        }
         const d = (u / m1) * som.d, p = c.lisse(d);
         return { ...p, zoom: h.zoom, pitch: dansLaPente(h.pitch, pente(d, 1)), bearing: capAutour(c, d), d, s: d };
       }
+      // Distance déjà parcourue au sommet (pour km · alt), caps de la montée et de la descente au sommet.
+      const monte = o.sens === 'descente' ? 0 : som.depart ? c.total - som.d : som.d;
+      const capM = capAutour(c, som.d) + (som.depart ? 180 : 0), capD = capAutour(c, som.d) + (som.retour ? 180 : 0);
       if (u < m2) {
-        // Pause au sommet : demi-tour panoramique, la caméra recule un peu et regarde plus loin.
-        // Descente seule : le demi-tour finit face à la descente.
+        // Pause au sommet : tour panoramique qui finit face à la descente (un tour complet si on continue tout droit),
+        // la caméra recule un peu et regarde plus loin. Descente seule : demi-tour qui finit face à la descente.
         const v = doux((u - m1) / (m2 - m1)), bosse = Math.sin(v * Math.PI), p = c.at(som.d);
-        const cap = o.sens === 'descente' ? (som.retour ? capAutour(c, som.d) + 180 : capAutour(c, som.d)) - 180 * (1 - v) : capAutour(c, som.d) + 180 * v;
-        return { ...p, zoom: h.zoom - 0.7 * bosse, pitch: h.pitch - 10 * bosse, bearing: cap, d: som.d, s: som.d, sommet: som.alt };
+        let tour = ecartAngle(capM, capD);
+        if (Math.abs(tour) < 90) tour += 360;
+        const cap = o.sens === 'descente' ? capD - 180 * (1 - v) : o.sens === 'montee' ? capM + 180 * v : capM + tour * v;
+        return { ...p, zoom: h.zoom - 0.7 * bosse, pitch: h.pitch - 10 * bosse, bearing: cap, d: monte, s: som.d, sommet: som.alt };
       }
       const v = (u - m2) / (1 - m2), s = lerp(som.d, som.fin, v), p = c.lisse(s);
       const cap = som.retour ? capAutour(c, s) + 180 : capAutour(c, s);
       const penteDescente = pente(s, som.retour ? -1 : 1);
       return { ...p, zoom: gopro ? h.zoom + 0.6 : h.zoom - 0.4, pitch: dansLaPente(gopro ? PITCH_GOPRO : Math.min(64, h.pitch + 2), penteDescente),
-        bearing: cap, d: som.d + Math.abs(s - som.d), s };
+        bearing: cap, d: monte + Math.abs(s - som.d), s };
     }
     if (style === 'cine' && b) {
       const d = b.distA(u), p = c.lisse(d), k = Math.max(0, Math.min(1, (b.crete(p) + 40) / 160)), cap = capAutour(c, d);
