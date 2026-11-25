@@ -130,17 +130,57 @@ function Film({ p }: { p: PhotoBuddy }) {
     : <span className="bd-vis-image bd-img-vide">🕓</span>;
 }
 
+/**
+ * Photo qu'on agrandit avec deux doigts et qu'on déplace quand elle est agrandie ; deux touchers rapides : ×2,5 ou
+ * retour à l'écran. Un toucher simple appelle onToucher (plein écran).
+ */
+export function Zoom({ children, onToucher }: { children: React.ReactNode; onToucher?: () => void }) {
+  const [v, setV] = useState({ k: 1, x: 0, y: 0 });
+  const doigts = useRef(new Map<number, { x: number; y: number }>());
+  const geste = useRef({ d: 0, k: 1, bouge: false, dernier: 0 });
+  const borner = (k: number, x: number, y: number, el: HTMLElement) => {
+    const mx = (el.clientWidth * (k - 1)) / 2, my = (el.clientHeight * (k - 1)) / 2;
+    return { k, x: Math.max(-mx, Math.min(mx, x)), y: Math.max(-my, Math.min(my, y)) };
+  };
+  return <div className="bd-zoom"
+    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY }); geste.current.bouge = doigts.current.size > 1; geste.current.d = 0; }}
+    onPointerMove={(ev) => {
+      const a = doigts.current.get(ev.pointerId); if (!a) return;
+      const dx = ev.clientX - a.x, dy = ev.clientY - a.y, el = ev.currentTarget;
+      doigts.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (Math.abs(dx) + Math.abs(dy) > 3) geste.current.bouge = true;
+      const l = [...doigts.current.values()];
+      if (l.length === 2) {
+        const d = Math.hypot(l[0].x - l[1].x, l[0].y - l[1].y);
+        if (geste.current.d) setV((o) => borner(Math.max(1, Math.min(6, (o.k * d) / geste.current.d)), o.x, o.y, el));
+        geste.current.d = d;
+      } else if (l.length === 1) setV((o) => (o.k > 1 ? borner(o.k, o.x + dx, o.y + dy, el) : o));
+    }}
+    onPointerUp={(ev) => {
+      doigts.current.delete(ev.pointerId); geste.current.d = 0;
+      if (doigts.current.size || geste.current.bouge) return;
+      const t = Date.now(), el = ev.currentTarget;
+      if (t - geste.current.dernier < 300) { geste.current.dernier = 0; setV((o) => (o.k > 1 ? { k: 1, x: 0, y: 0 } : borner(2.5, 0, 0, el))); }
+      else { geste.current.dernier = t; onToucher?.(); }
+    }}
+    onPointerCancel={(ev) => { doigts.current.delete(ev.pointerId); geste.current.d = 0; }}>
+    <div style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.k})` }}>{children}</div>
+  </div>;
+}
+
 /** Une photo en grand : ‹ ›, ⭐ pour le carnet, « Retirer » pour l'auteur. */
 function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void; onPlacer?: (p: PhotoBuddy) => void }) {
   const p = l[i];
   const moi = p.par.id === (lire().moi ?? 'moi');
-  return <div className="bd-visionneuse" onClick={onFermer}>
+  // Un toucher sur la photo la met en plein écran (sans les barres) ; deux doigts pour zoomer.
+  const [plein, setPlein] = useState(false);
+  return <div className={`bd-visionneuse${plein ? ' plein' : ''}`}>
     <div className="bd-vis-haut" onClick={(ev) => ev.stopPropagation()}>
       <Visage b={p.par} taille={36} />
       <span className="bd-texte"><b>{p.par.pseudo}</b><small>{jourLong(p.prise_le.slice(0, 10))} · {p.prise_le.slice(11, 16).replace(':', ' h ')}</small></span>
       <button aria-label="Fermer" onClick={onFermer}>✕</button>
     </div>
-    {p.video ? <Film p={p} /> : <Image p={p} taille="grande" className="bd-vis-image" />}
+    {p.video ? <Film p={p} /> : <Zoom key={p.id} onToucher={() => setPlein((v) => !v)}><Image p={p} taille="grande" className="bd-vis-image" /></Zoom>}
     <div className="bd-vis-bas" onClick={(ev) => ev.stopPropagation()}>
       <button aria-label="Précédente" disabled={i === 0} onClick={() => onI(i - 1)}>‹</button>
       <button className={p.etoile ? 'oui' : ''} onClick={() => mettreEtoile(p.id, !p.etoile)}>{p.etoile ? '⭐ Dans le carnet' : '☆ Pour le carnet'}</button>

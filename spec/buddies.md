@@ -396,6 +396,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   ‹ ›, « ☆ Pour le carnet » (n'importe quel participant), « Retirer » (l'auteur seulement).
 - **Écran 7** : sur la carte, chaque photo là où elle a été prise (vignette bordée de blanc) ; un
   toucher l'ouvre en grand. Sans trace partagée, la carte se cadre sur les photos.
+- **En grand** : un toucher met la photo en plein écran, deux doigts l'agrandissent (jusqu'à ×6), deux touchers rapides : ×2,5.
 - **📍 Placer une photo** (Seb, 25/11 : les photos passées par WhatsApp n'ont plus de position) : sur
   l'écran 7, « 📍 n photos à placer » ouvre les photos sans position ; on en choisit une puis on
   touche la carte. Une photo déjà placée se déplace depuis sa vue en grand (« 📍 Déplacer »). Tout
@@ -406,7 +407,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
   les ⭐ d'abord) s'ouvrent dans le film là où elles ont été prises, 3 s chacune ; on les décoche
   avant de filmer (📷 dans le panneau du survol).
-- **Hors ligne** : la photo est réduite sur le téléphone (400 px pour la grille, 1600 px pour la voir,
+- **Hors ligne** : la photo est réduite sur le téléphone (400 px pour la grille ; pour la voir, 2560 px au plus, et une photo JPEG déjà à cette taille est gardée telle quelle, sans la recompresser : Seb, 25/11, « la même qualité que WhatsApp » ;
   JPEG), gardée et montrée tout de suite avec 🕓 ; elle part au retour du réseau. Les photos des
   autres, une fois vues, restent sur le téléphone : l'album s'ouvre sans réseau.
 - **🎥 Films de survol 3D** (Seb, 25/11) : le film tourné depuis la caméra du menu d'une trace se range

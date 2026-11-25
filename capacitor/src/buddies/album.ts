@@ -1,7 +1,7 @@
 /**
  * Album d'un Buddy Time (spec/buddies.md §5.8) : les fichiers des photos.
  *
- * - Déposer : la photo est réduite sur le téléphone (petite 400 px pour la grille, grande 1600 px pour la voir),
+ * - Déposer : la photo est réduite sur le téléphone (petite 400 px pour la grille, grande 2560 px au plus pour la voir, sans recompresser une photo déjà à cette taille),
  *   gardée ici (IndexedDB) et envoyée au retour du réseau (PUT /buddies/photos/<id>/<taille>).
  * - Voir : petite et grande sont lues une fois sur le serveur puis gardées : l'album s'ouvre sans réseau.
  * - L'heure et le lieu de prise de vue sont lus dans la photo (EXIF) quand le téléphone les y a laissés.
@@ -10,7 +10,9 @@
 import { apiFichier } from '../compte/auth';
 
 export type Taille = 'petite' | 'grande' | 'video';
-export const PX: Record<'petite' | 'grande', number> = { petite: 400, grande: 1600 };
+export const PX: Record<'petite' | 'grande', number> = { petite: 400, grande: 2560 };
+/** Poids (octets) au plus d'une grande photo : le serveur refuse au-delà de 4 Mo. */
+const POIDS_GRANDE = 3_800_000;
 /** Fichiers d'une photo ; « video » seulement pour un film de survol 3D (petite et grande = sa couverture). */
 const TAILLES: Taille[] = ['petite', 'grande', 'video'];
 const DB = 'buddies-photos', STORE = 'p';
@@ -82,9 +84,17 @@ export function heureLocale(d = new Date()) {
 export type Preparee = { prise_le: string; lon: number | null; lat: number | null; petite: Blob; grande: Blob };
 /** Lit l'heure et le lieu de la photo, puis la réduit (l'orientation est appliquée par le navigateur). */
 export async function preparer(f: File): Promise<Preparee> {
-  const x = exif(await f.slice(0, 256 * 1024).arrayBuffer());
+  const debut = await f.slice(0, 256 * 1024).arrayBuffer(), o = new Uint8Array(debut, 0, Math.min(2, debut.byteLength));
+  const x = exif(debut), jpeg = o[0] === 0xff && o[1] === 0xd8;
   const img = await createImageBitmap(f, { imageOrientation: 'from-image' });
-  const [petite, grande] = [await reduire(img, PX.petite, 0.7), await reduire(img, PX.grande, 0.8)];
+  const petite = await reduire(img, PX.petite, 0.7);
+  // Qualité (Seb, 25/11 : « la même que WhatsApp ») : une photo JPEG déjà à la bonne taille est gardée telle quelle,
+  // sans la recompresser ; une plus grosse est ramenée à 2560 px, en qualité haute.
+  let grande: Blob = f;
+  if (!jpeg || Math.max(img.width, img.height) > PX.grande || f.size > POIDS_GRANDE) {
+    grande = await reduire(img, PX.grande, 0.9);
+    if (grande.size > POIDS_GRANDE) grande = await reduire(img, PX.grande, 0.8);
+  }
   img.close();
   return { prise_le: x.prise_le ?? heureLocale(f.lastModified ? new Date(f.lastModified) : new Date()), lon: x.lon, lat: x.lat, petite, grande };
 }
