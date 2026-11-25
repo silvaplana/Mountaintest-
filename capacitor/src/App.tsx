@@ -44,6 +44,7 @@ import { registerReliefProtocol } from './shade/terrain';
 import { CORRIDOR_M, lineBbox, tilesForBbox, tilesForCorridor, type TileCoord } from './tiles/tileMath';
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
+import { clearPlaceNames, savePlaceNames } from './places/placeNames';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
@@ -620,7 +621,9 @@ export function App() {
       return;
     }
     setStatus(`Rectangle : ${total} tuiles, environ ${formatMo(total * TILE_BYTES_ESTIMATE)}.`);
-    await runDownload(steps);
+    const r = await runDownload(steps);
+    // Noms des sommets, cols, lieux-dits… de la zone : la loupe 🔍 les trouve ensuite sans réseau.
+    if (!r.aborted) await savePlaceNames(bbox).catch(() => 0);
   }
 
   /** 📶 Cartes et relief dans un couloir d'environ 1 km autour d'une de mes traces. */
@@ -644,7 +647,9 @@ export function App() {
     const missing: number[] = [];
     for (const st of steps) { const store = await getTileStore(st.layer); missing.push(st.tiles.filter((x) => !store.has(x)).length); }
     const total = missing.reduce((a, b) => a + b, 0);
-    if (!total) { void junctionsFor(t.segments.flat()).catch(() => null); setTraceOffline({ id: t.id, msg: '✓ Cartes et relief déjà disponibles hors ligne autour de cette trace.' }); return; }
+    // Noms des lieux autour de la trace, pour la loupe 🔍 sans réseau (rien à faire s'ils sont déjà là).
+    const names = () => savePlaceNames(lineBbox(t.segments.flat(), CORRIDOR_M)).catch(() => 0);
+    if (!total) { void junctionsFor(t.segments.flat()).catch(() => null); void names(); setTraceOffline({ id: t.id, msg: '✓ Cartes et relief déjà disponibles hors ligne autour de cette trace.' }); return; }
     const mapTiles = missing.slice(0, -1).reduce((a, b) => a + b, 0);
     if (mapTiles > MAX_ZONE_TILES) {
       setTraceOffline({ id: t.id, msg: `Trace trop longue pour le hors ligne d'un coup (${mapTiles} tuiles, maximum ${MAX_ZONE_TILES}).` });
@@ -655,7 +660,7 @@ export function App() {
     setTraceOffline({ id: t.id, msg: `📶 Téléchargement des cartes autour de la trace (environ ${size})…` });
     const r = await runDownload(steps);
     // ⑂ Carrefours de la trace, gardés pour l'écran rallumé avant les carrefours hors ligne.
-    if (!r.aborted) await junctionsFor(t.segments.flat()).catch(() => null);
+    if (!r.aborted) { await junctionsFor(t.segments.flat()).catch(() => null); await names(); }
     setTraceOffline({ id: t.id, msg: r.aborted ? 'Téléchargement arrêté.'
       : r.failed ? `Téléchargement terminé, mais ${r.failed} tuiles ont échoué (réseau ?) : relance 📶 Hors ligne.`
       : '✓ Cartes et relief disponibles hors ligne autour de cette trace.' });
@@ -663,6 +668,7 @@ export function App() {
 
   async function clearZone() {
     for (const l of [LAYERS.scan25, LAYERS.planign, MNT_LAYER]) await (await getTileStore(l)).clear();
+    await clearPlaceNames();
     await refreshStored();
     setProgress(null);
   }
@@ -1274,7 +1280,7 @@ export function App() {
         onCancel={() => { setFraming(false); setOpen(true); }} />}
 
       {searching ? (
-        <SearchBar onClose={() => setSearching(false)} onPick={(p) => {
+        <SearchBar near={map ? { lon: map.getCenter().lng, lat: map.getCenter().lat } : undefined} onClose={() => setSearching(false)} onPick={(p) => {
           setSearching(false);
           setFollow(false);
           // Quitter le suivi de ◎ : MapLibre ne le lâche pas sur un flyTo qui zoome (isZooming), et le GPS

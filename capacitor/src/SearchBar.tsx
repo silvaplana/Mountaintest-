@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { searchPlaces, type Place } from './search';
+import { localNames, normalize, searchNames } from './places/placeNames';
 
-/** Barre de recherche : on tape une ville, un département ou un lieu, on choisit, la carte y va. */
-export function SearchBar({ onPick, onClose }: { onPick: (p: Place) => void; onClose: () => void }) {
+/** Un résultat en ligne qui redit un nom déjà trouvé sur le téléphone (même nom, à moins de 300 m). */
+export function mergeResults(local: Place[], online: Place[]): Place[] {
+  const dup = (o: Place) => local.some((l) => normalize(o.label).startsWith(normalize(l.label))
+    && Math.abs(o.lon - l.lon) < 0.004 && Math.abs(o.lat - l.lat) < 0.003);
+  return [...local, ...online.filter((o) => !dup(o))];
+}
+
+/**
+ * Barre de recherche : on tape une ville, un département ou un lieu, on choisit, la carte y va.
+ * D'abord les noms gardés sur le téléphone avec les cartes hors ligne (marche sans réseau),
+ * puis la recherche de l'IGN, les lieux proches du centre de la carte (near) en premier.
+ */
+export function SearchBar({ onPick, onClose, near }: { onPick: (p: Place) => void; onClose: () => void; near?: { lon: number; lat: number } }) {
   const [text, setText] = useState('');
   const [results, setResults] = useState<Place[]>([]);
   const [error, setError] = useState('');
@@ -14,13 +26,18 @@ export function SearchBar({ onPick, onClose }: { onPick: (p: Place) => void; onC
     const t = text.trim();
     if (t.length < 2) { setResults([]); setError(''); return; }
     const ctrl = new AbortController();
+    const localP = localNames().then((names) => searchNames(names, t, near)).catch(() => [] as Place[]);
+    void localP.then((local) => { if (!ctrl.signal.aborted) { setResults(local); setError(''); } });
     const timer = setTimeout(() => {
-      searchPlaces(t, ctrl.signal)
-        .then((r) => { setResults(r); setError(r.length ? '' : 'Aucun résultat'); })
-        .catch((e) => { if ((e as Error).name !== 'AbortError') setError('Recherche impossible (pas de réseau ?)'); });
+      void localP.then((local) => searchPlaces(t, ctrl.signal, near)
+        .then((r) => { const all = mergeResults(local, r); setResults(all); setError(all.length ? '' : 'Aucun résultat'); })
+        .catch((e) => {
+          if ((e as Error).name === 'AbortError') return;
+          setError(local.length ? '' : 'Pas de réseau, et ce nom n’est pas dans les cartes gardées hors ligne');
+        }));
     }, 300);
     return () => { clearTimeout(timer); ctrl.abort(); };
-  }, [text]);
+  }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="search">

@@ -129,6 +129,10 @@ Dans la barre étendue de la carte, 👥 ouvre Buddies (pastille = du nouveau) ;
 Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 📷 ;
 étendue = ✕, flèche, ◎, 📷, ✈, ✏, ⛰, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
 Appui long sur ◎ : 🔍 apparaît à sa gauche (chercher un lieu), même en barre réduite.
+La loupe 🔍 (Seb, 25/11) cherche d'abord dans les noms de lieux gardés sur le téléphone (sommets, cols, crêtes,
+lieux-dits, sources, refuges, calanques… de la BD TOPO IGN complétée par OpenStreetMap), téléchargés avec les cartes
+d'un rectangle ou d'une trace mise hors ligne (📶) et effacés avec elles : elle marche sans réseau. Puis, avec du
+réseau, la recherche de la Géoplateforme IGN, les lieux proches du centre de la carte en premier.
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
