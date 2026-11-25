@@ -2,7 +2,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { distanceM } from './gps/adaptive';
-import { cutSpurs, moveNode, piecesOf, nearestIndex, replaceSlice, snapToWays, splineNodesEvery, wayRunsOf, type Snap } from './trails/edit';
+import { cutSpurs, keptAfterSpurs, moveNode, piecesOf, nearestIndex, replaceSlice, snapToWays, splineNodesEvery, wayRunsOf, type Snap } from './trails/edit';
 import { avecDelai, fetchWayLines } from './trails/junctions';
 import type { LonLat, Trail } from './trails/osmTrails';
 import { lineLengthM, routeOnPaths, waypoints } from './trails/route';
@@ -227,7 +227,9 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
           k = b + 1;
         });
         for (; k < snap.line.length; k++) { out.push(snap.line[k]); on.push(snap.onWay[k]); }
-        if (!ctrl.signal.aborted) setApercu({ line: out, onWay: on, share: snap.share });
+        // Les allers-retours peuvent aussi enjamber deux morceaux (Seb, 25/11 : « zigouigoui » près d'un refuge).
+        const garde = keptAfterSpurs(out, seg);
+        if (!ctrl.signal.aborted) setApercu({ line: garde.map((i) => out[i]), onWay: garde.map((i) => on[i]), share: snap.share });
       } catch { if (!ctrl.signal.aborted) setApercu('erreur'); }
     })();
     return () => ctrl.abort();
