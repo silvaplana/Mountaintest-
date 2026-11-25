@@ -8,7 +8,7 @@ export type IconKey =
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
   locate: { title: 'Me localiser', text: 'Centre la carte sur toi. Encore : coupe le GPS.' },
-  search: { title: '🔍 Chercher un lieu', text: 'Cherche une ville, un sommet…' },
+  search: { title: '🔍 Chercher un lieu', text: 'Cherche une ville, un sommet, un col… Tape ou dis le nom avec 🎤.' },
   photo: { title: '📷 Appareil photo', text: 'Ouvre l’appareil photo.' },
   layer: { title: '🗺 Fond de carte', text: 'SCAN 25, Plan IGN ou auto.' },
   avion: { title: '✈ Mode avion', text: 'Ouvre le réglage. Le GPS marche toujours.' },
