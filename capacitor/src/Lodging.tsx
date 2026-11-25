@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useSheet } from './useSheet';
 import { costLine } from './trails/webHikes';
 import { relayPost } from './travel/travel';
 import { searchPlaces, type Place } from './search';
@@ -69,6 +70,7 @@ export function LiensSites({ lieu, arrivee, nuits, personnes }: { lieu: string; 
 const tomorrow = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
 export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { password: string; onClose: () => void; onProposer?: (h: Lodging) => void; onShowOnMap?: (l: PlacedLodging[]) => void }) {
+  const sheet = useSheet('hebergement');
   const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, string>; } catch { return {}; } })();
   const [city, setCity] = useState(saved.city ?? '');
   const [people, setPeople] = useState(saved.people ?? '2');
@@ -114,8 +116,8 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
   }
 
   return (
-    <div className="travel">
-      <div className="travel-head"><b>🏨 Trouver un hébergement</b><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    <div className={`travel${sheet.classe}`}>
+      <div {...sheet.prise}><div className="handle" /><div className="travel-head"><b>🏨 Trouver un hébergement</b><button onClick={onClose} aria-label="Fermer">✕</button></div></div>
       <label className="field">Ville ou lieu<input value={city} onChange={(e) => setCity(e.target.value)} placeholder="ex. Chamonix" /></label>
       <span className="row">
         <label className="field">Personnes<input type="number" inputMode="numeric" min="1" value={people} onChange={(e) => setPeople(e.target.value)} /></label>

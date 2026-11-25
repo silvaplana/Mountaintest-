@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSheet } from './useSheet';
 import { searchPlaces, type Place } from './search';
 import { costLine } from './trails/webHikes';
 import { addToGroup, loadGroups, money } from './expenses/expenses';
@@ -53,6 +54,7 @@ export interface TravelProps {
 
 /** Préparer un voyage : départ, arrivée, péages, voiture, énergie, conso → itinéraires sur la carte → coût par Claude. */
 export function TravelPanel({ here, password, routes, selected, onRoutes, onClose }: TravelProps) {
+  const sheet = useSheet('voyage');
   const [from, setFrom] = useState<Spot | null>(here);
   const [to, setTo] = useState<Spot | null>(null);
   const [s, setS] = useState<Saved>(load);
@@ -108,8 +110,8 @@ export function TravelPanel({ here, password, routes, selected, onRoutes, onClos
 
   const unit = unitFor(s.energy);
   return (
-    <div className="travel">
-      <div className="travel-head"><b>🚗 Préparer un voyage</b><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    <div className={`travel${sheet.classe}`}>
+      <div {...sheet.prise}><div className="handle" /><div className="travel-head"><b>🚗 Préparer un voyage</b><button onClick={onClose} aria-label="Fermer">✕</button></div></div>
       {!form && <div className="summary">
         <span>{from?.label} → {to?.label}<br />{s.car ? `${s.car} · ` : ''}{ENERGIES[s.energy]} {String(s.conso).replace('.', ',')} {unit}{s.tolls ? '' : ' · sans péage'}</span>
         <button onClick={() => setEditing(true)}>Modifier</button>

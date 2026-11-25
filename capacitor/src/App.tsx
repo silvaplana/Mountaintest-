@@ -79,6 +79,7 @@ import { costLine, fetchWebHikes, hikeDetail, IA_MOT_DE_PASSE_INTEGRE, type WebH
 import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } from './trails/osmTrails';
 import { BDFORET_ATTRIBUTION, fetchForests, forestZoneTooBig, formatHa, groupByEssence, MAX_FOREST_DEG, type Forest } from './forests/bdForet';
 import { computeStats, formatDuration, formatKm } from './track/stats';
+import { useSheet } from './useSheet';
 
 type Tab = 'sortie' | 'randos' | 'forets' | 'horsligne' | 'mesures' | 'versions' | 'usage';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
@@ -108,7 +109,10 @@ function formatMo(bytes: number) { return `${(bytes / 1e6).toFixed(1).replace('.
 
 export function App() {
   const [tab, setTab] = useState<Tab>('sortie');
-  const [open, setOpen] = useState(false); // l'appli démarre menu fermé
+  // Menu du bas réglé par la poignée (useSheet) : réduit = fermé ; l'appli démarre menu fermé.
+  const sheet = useSheet('menu', { depart: 0, masque: false });
+  const open = sheet.cran > 0;
+  const setOpen = (v: boolean) => sheet.setCran((c) => (!v ? 0 : c === 0 ? 1 : c));
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   /** Film des ombres du relief (8 h → midi). */
@@ -1306,8 +1310,8 @@ export function App() {
         </div>
       )}
 
-      <section className={`sheet ${open ? 'open' : ''}`}>
-        <button className="handle" onClick={() => setOpen(!open)} aria-label="Ouvrir ou fermer le panneau" />
+      <section className={`sheet ${open ? 'open' : ''}${sheet.classe}`}>
+        <div {...sheet.prise}><div className="handle" />
         <nav className="tabs">
           <button className="close" onClick={() => { setNature(true); setSearching(false); }} aria-label="Masquer l'interface (mode nature)">✕</button>
           <button className={`icon ${tab === 'usage' ? 'active' : ''}`} onClick={() => { setTab('usage'); setOpen(true); }}
@@ -1317,7 +1321,7 @@ export function App() {
               {{ sortie: 'Sortie', randos: 'Randos', forets: 'Forêts', horsligne: 'Hors ligne', mesures: 'Mesures', versions: 'Versions' }[t]}
             </button>
           ))}
-        </nav>
+        </nav></div>
 
         {open && tab === 'sortie' && (
           <div className="pane">
