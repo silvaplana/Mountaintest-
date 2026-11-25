@@ -39,6 +39,15 @@ export async function oublierFilm(id: string) {
   } catch { /* ignoré */ }
 }
 
+/** Change le nom d'un film gardé (crayon du 📁). */
+export async function renommerFilm(id: string, nom: string) {
+  try {
+    const st = (await db()).transaction('fiche', 'readwrite').objectStore('fiche');
+    const f = await req(st.get(id) as IDBRequest<FilmGarde | undefined>);
+    if (f) await req(st.put({ ...f, nom }));
+  } catch { /* ignoré */ }
+}
+
 /** Garde un nouveau film et retire les plus anciens au-delà de MAX_FILMS. Rend son identifiant. */
 export async function garderFilm(video: Blob, fiche: Omit<FilmGarde, 'id' | 'le'>): Promise<string | null> {
   try {
