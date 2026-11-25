@@ -62,13 +62,14 @@ export function adoucir(px: Uint8ClampedArray, w: number, h: number) {
 /** Relief à 7 m (zoom 14) en ✨ soigné : jusqu'à 12 × 12 tuiles, soit une image de 3072 px au plus de côté. */
 const TUILES_FIN = 144;
 
-/** Calcule les images (une par heure de `heures`, aujourd'hui) et les pose sur la carte, la première visible.
+/** Calcule les images (une par heure de `heures`, le jour `jour` AAAA-MM-JJ, sinon aujourd'hui) et les pose sur la carte, la première visible.
  * fin : ✨ soigné, relief le plus détaillé possible et bords lissés ; sinon la qualité habituelle. */
 export async function preparerOmbres(map: MlMap, zone: Bbox, zoom: number, heures: number[], signal: AbortSignal,
-  progres: (fait: number, total: number) => void, fin = false): Promise<OmbresSurvol | null> {
+  progres: (fait: number, total: number) => void, fin = false, jour: string | null = null): Promise<OmbresSurvol | null> {
   const grid = await loadGrid(fin ? gridFor(zoneElargie(zone), 15, TUILES_FIN) : gridFor(zoneElargie(zone), zoom), signal);
   if (signal.aborted || grid.missing === grid.spec.nx * grid.spec.ny) return null;
-  const now = new Date();
+  const [a, m, j] = jour ? jour.split('-').map(Number) : [];
+  const now = jour ? new Date(a, m - 1, j) : new Date();
   const urls: string[] = [];
   for (let i = 0; i < heures.length; i++) {
     progres(i, heures.length);

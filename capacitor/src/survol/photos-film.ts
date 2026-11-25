@@ -22,6 +22,14 @@ export function photosDeLaTrace<T extends Prise>(photos: T[], line: LonLat[], ma
   return pres.filter((p) => et.includes(p) || pris.has(p));
 }
 
+/** Jour (AAAA-MM-JJ) des ombres du film : celui du Buddy Time de la trace (Seb, 25/11), au jour de sa première photo
+ * sur la trace s'il dure plusieurs jours ; null sans Buddy Time (les ombres sont alors celles d'aujourd'hui). */
+export function jourDesOmbres(sortie: { debut: string; fin: string } | null, photos: { prise_le: string }[]): string | null {
+  if (!sortie) return null;
+  const j = photos.map((p) => p.prise_le.slice(0, 10)).find((d) => d >= sortie.debut && d <= sortie.fin);
+  return j ?? sortie.debut;
+}
+
 /** Moment (0 → 1 de la trajectoire, après l'intro) où le film passe au plus près de la photo ; null si jamais près. */
 export function momentPhoto(track: Cam[], p: LonLat, debut: number): number | null {
   let m = PRES * 1.5, k = -1;

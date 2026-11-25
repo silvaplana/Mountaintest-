@@ -420,6 +420,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
   les ⭐ d'abord) s'ouvrent dans le film là où elles ont été prises, 3 s chacune ; on les décoche
   avant de filmer (📷 dans le panneau du survol).
+  Les ombres du film sont celles du jour du Buddy Time de la trace (au jour de sa première photo sur
+  la trace s'il dure plusieurs jours), sinon celles d'aujourd'hui. Le film 🧗 se règle en « → Aller »
+  (la trace du début à la fin), « ← Retour » (de la fin au début) ou « ⇄ Aller-retour » (au bout, la
+  caméra tourne puis revient par le même chemin), quel que soit le relief (Seb, 25/11 : « un film a
+  un début et une fin »). Vitesses : 200, 400 ou 800 km/h.
 - **Hors ligne** : la photo est réduite sur le téléphone (400 px pour la grille ; pour la voir, 2560 px au plus, et une photo JPEG déjà à cette taille est gardée telle quelle, sans la recompresser : Seb, 25/11, « la même qualité que WhatsApp » ;
   JPEG), gardée et montrée tout de suite avec 🕓 ; elle part au retour du réseau. Les photos des
   autres, une fois vues, restent sur le téléphone : l'album s'ouvre sans réseau.

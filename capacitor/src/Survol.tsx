@@ -7,8 +7,8 @@ import { Natif } from './buddies/Buddies';
 import { adresse, garder, heureLocale, PX, reduire } from './buddies/album';
 import { Image as Vignette } from './buddies/Album';
 import { aujourdhui, deposerPhotos, lire as lireBuddies, uuid, type Sortie } from './buddies/store';
-import { horlogePhotos, momentPhoto, photosDeLaTrace } from './survol/photos-film';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, dureeFilm, PITCH_MAX, PLONGEE_NUAGES_S, T_INTRO, T_PLONGEE, trajectoire, VITESSES, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
+import { horlogePhotos, jourDesOmbres, momentPhoto, photosDeLaTrace } from './survol/photos-film';
+import { cameraA, dansLeSens, debutTrace, heuresOmbres, heureTexte, IMAGES, dureeFilm, PITCH_MAX, PLONGEE_NUAGES_S, T_INTRO, T_PLONGEE, trajectoire, VITESSES, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
@@ -38,7 +38,7 @@ interface Reglages { /** Vitesse du film le long de la trace (km/h) : la durée 
   style: Style; descente: Descente; sens: Sens; pentes: boolean }
 type Plongee = 'non' | 'simple' | 'nuages';
 const CLE = 'survol';
-const DEFAUT: Reglages = { vitesse: 200, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', fond: 'carte', neige: 0, rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
+const DEFAUT: Reglages = { vitesse: 400, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', fond: 'carte', neige: 0, rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
 function lire(): Reglages {
   try {
     const r = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') };
@@ -119,6 +119,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   const photos = useMemo(() => photosDeLaTrace(lireBuddies().photos.filter((p) => !sortie || p.sortie === sortie.id), line),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trail, sortie]);
+  // 🌗 Les ombres sont celles du jour du Buddy Time de la trace (sinon d'aujourd'hui).
+  const jour = jourDesOmbres(sortie, photos);
+  const jourTexte = jour ? ` · ${new Date(`${jour}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}` : '';
   const zone: Bbox = [Math.min(...line.map((p) => p.lon)), Math.min(...line.map((p) => p.lat)), Math.max(...line.map((p) => p.lon)), Math.max(...line.map((p) => p.lat))];
 
   // Avant le tournage : la trace vue d'ensemble, inclinée.
@@ -186,7 +189,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       }
       if (r.ombres) {
         setAvance('Calcul des ombres…');
-        ombres = await preparerOmbres(map, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`), !r.rapide);
+        ombres = await preparerOmbres(map, zone, HAUTEUR_ZOOM[r.hauteur], heures, ctl.signal, (f, t) => setAvance(`Ombres : ${f + 1}/${t}`), !r.rapide, jour);
         if (!ombres && !ctl.signal.aborted) onToast('Relief indisponible ici : film sans les ombres');
       }
       const dessin = { heure: r.ombres && ombres ? heureTexte(heures[0]) : undefined, infos: '', nuages: r.plongee === 'nuages' ? 0 : undefined } as Incrustation;
@@ -207,7 +210,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           if (r.plongee !== 'non') ombres.opacite(Math.max(0, Math.min(1, (cam.zoom - ZOOM_CIEL - 1) / 2.5)));
         }
         dessin.titre = cam.sommet != null ? `▲ Sommet · ${Math.round(cam.sommet)} m` : undefined;
-        if (progression) { const pts = debutTrace(line, cam.d); progression(pts, pts.at(-1) ?? null); }
+        if (progression) { const pts = debutTrace(r.style === 'alpi' && relief ? dansLeSens(line, r.sens) : line, cam.d); progression(pts, pts.at(-1) ?? null); }
         if (r.infos) {
           const alt = map.queryTerrainElevation([cam.point.lon, cam.point.lat]);
           dessin.infos = `${(cam.d / 1000).toFixed(1).replace('.', ',')} km${alt != null ? ` · ${Math.round(alt)} m` : ''}`;
@@ -465,7 +468,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
               {r.fond === 'photo' && <div className="survol-choix">
                 <button className={r.neige ? '' : 'on'} onClick={() => maj({ neige: 0 })}>Sans neige</button>
                 {LIMITES_NEIGE.map((m) => <button key={m} className={r.neige === m ? 'on' : ''} onClick={() => maj({ neige: m })}>❄ {m} m</button>)}</div>}
-              {r.style === 'alpi' && <div className="survol-choix">{([['montee', '↗ Montée'], ['deux', '↗↘ Les deux'], ['descente', '↘ Descente']] as [Sens, string][]).map(([k, t]) => (
+              {r.style === 'alpi' && <div className="survol-choix">{([['montee', '→ Aller'], ['deux', '⇄ Aller-retour'], ['descente', '← Retour']] as [Sens, string][]).map(([k, t]) => (
                 <button key={k} className={r.sens === k ? 'on' : ''} onClick={() => maj({ sens: k })}>{t}</button>))}</div>}
               {r.style === 'alpi' && r.sens !== 'montee' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
                 <button key={k} className={r.descente === k ? 'on' : ''} onClick={() => maj({ descente: k })}>{t}</button>))}</div>}
@@ -512,7 +515,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
                 </div>))}
             </div>
           )}
-          {r.ombres && !ouvert && <button className="pastille" onClick={() => setOuvert('plage')} aria-label="Heures des ombres">🕘 ombres de {heureTexte(r.h0)} à {heureTexte(r.h1)}</button>}
+          {r.ombres && !ouvert && <button className="pastille" onClick={() => setOuvert('plage')} aria-label="Heures des ombres">🕘 ombres de {heureTexte(r.h0)} à {heureTexte(r.h1)}{jourTexte}</button>}
           {ouvert !== 'style' && <div className="survol-bas">
             {ouvert === 'plage' ? <button className="pastille" onClick={() => setOuvert(null)}>OK</button>
               : ouvert ? <span /> : <>
