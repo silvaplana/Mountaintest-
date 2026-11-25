@@ -1,4 +1,4 @@
-import { LngLat, type Map as MlMap } from 'maplibre-gl';
+import { LngLat, type GeoJSONSource, type Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
@@ -6,7 +6,7 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, heuresOmbres, heureTexte, IMAGES, NUAGES, trajectoire, ZOOM_CIEL, type Cam, type Hauteur } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, NUAGES, trajectoire, ZOOM_CIEL, type Cam, type Hauteur } from './survol/camera';
 import { dessinerNuages } from './survol/nuages';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
@@ -14,9 +14,11 @@ import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
 import type { Trail } from './trails/osmTrails';
 
 /** Réglages du film, gardés d'une fois sur l'autre. */
-interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: boolean; infos: boolean; ombres: boolean; h0: number; h1: number; plongee: boolean }
+/** rapide : ⚡ les images n'attendent pas leurs cartes (tournage ≈ durée du film) ; sinon ✨ soigné, chaque image attend.
+ *  dessine : ✏ la trace se construit derrière la caméra (comme au Tour de France). */
+interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: boolean; infos: boolean; ombres: boolean; h0: number; h1: number; plongee: boolean; rapide: boolean; dessine: boolean }
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: false };
+const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: false, rapide: true, dessine: false };
 function lire(): Reglages {
   try { return { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') }; } catch { return DEFAUT; }
 }
@@ -64,6 +66,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   useEffect(() => () => {
     arret.current?.abort();
     for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', 'visible');
+    retirerTraceQuiAvance(map);
     map.jumpTo(vueAvant.current);
   }, [map]);
   useEffect(() => () => { if (film) URL.revokeObjectURL(film.url); }, [film]);
@@ -88,7 +91,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     const centre = ens?.center ? LngLat.convert(ens.center) : map.getCenter();
     const c0 = { lon: centre.lng, lat: centre.lat };
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee);
-    for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', r.trace ? 'visible' : 'none');
+    const dessine = r.trace && r.dessine;
+    for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', r.trace && !dessine ? 'visible' : 'none');
+    const progression = dessine ? traceQuiAvance(map, trail.color) : null;
     const heures = heuresOmbres(r.h0, r.h1);
     let ombres: OmbresSurvol | null = null;
     try {
@@ -112,6 +117,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           // Plongée : les ombres apparaissent en descendant (vues du ciel, on verrait leur bord).
           if (r.plongee) ombres.opacite(Math.max(0, Math.min(1, (cam.zoom - ZOOM_CIEL - 1) / 2.5)));
         }
+        if (progression) { const pts = debutTrace(line, cam.d); progression(pts, pts.at(-1) ?? null); }
         if (r.infos) {
           const alt = map.queryTerrainElevation([cam.point.lon, cam.point.lat]);
           dessin.infos = `${(cam.d / 1000).toFixed(1).replace('.', ',')} km${alt != null ? ` · ${Math.round(alt)} m` : ''}`;
@@ -122,6 +128,15 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         }
         setAvance(`${Math.round(t * 100)} %`);
       };
+      // Les cartes du trajet sont chargées d'abord (16 points du film) : moins de tuiles floues.
+      const precharger = async () => {
+        const N = 16;
+        for (let k = 0; k <= N && !ctl.signal.aborted; k++) {
+          setAvance(`Préparation des cartes : ${k}/${N}`);
+          poser(map, cameraA(track, k / N));
+          await attendreCarte(map, 1500);
+        }
+      };
       const cadre = cadrage(map.getCanvas().width, map.getCanvas().height, r.vertical);
       const codec = await codecVideo(cadre.ow, cadre.oh);
       let blob: Blob, couverture: Promise<ImageBitmap> | null = null;
@@ -131,6 +146,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         if (musique && !son) onToast('Morceau illisible : film sans musique');
         const enc = await creerFilm(cadre.ow, cadre.oh, codec, son);
         if (enc.sansSon) onToast('Ce téléphone ne sait pas ajouter la musique : film sans musique');
+        if (r.rapide) await precharger();
+        if (ctl.signal.aborted) throw new Error('arrêté');
         const fondus = sansFondu(map);
         const toile = toileFilm(map, r.vertical, texte);
         setEtape('tournage');
@@ -143,20 +160,17 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
             if (ctl.signal.aborted) throw new Error('arrêté');
             placer(k / (N - 1));
             map.triggerRepaint();
-            attente = (await attendreCarte(map, attente)) ? 2000 : 300;
+            // ⚡ rapide : l'image suivante dès que la carte est dessinée ; ✨ soigné : quand ses cartes sont chargées.
+            if (r.rapide) await attendreDessin(map);
+            else attente = (await attendreCarte(map, attente)) ? 2000 : 300;
             await enc.ajouter(toile.toile, k);
             if (!couverture && k >= N * 0.6) couverture = toile.instantane();
           }
           blob = await enc.terminer();
         } catch (e) { enc.abandonner(); throw e; } finally { toile.lacher(); fondus(); }
       } else {
-        // En direct : les cartes du trajet sont chargées d'abord, le film ne montre pas de tuiles floues.
-        const N = 16;
-        for (let k = 0; k <= N && !ctl.signal.aborted; k++) {
-          setAvance(`Préparation des cartes : ${k}/${N}`);
-          poser(map, cameraA(track, k / N));
-          await attendreCarte(map, 1500);
-        }
+        // En direct (téléphone sans encodeur) : ce que la carte arrive à dessiner, en temps réel.
+        await precharger();
         if (ctl.signal.aborted) { setEtape('reglages'); return; }
         poser(map, cameraA(track, 0));
         await attendreCarte(map, 800);
@@ -187,6 +201,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       setEtape('reglages');
     } finally {
       ombres?.retirer();
+      retirerTraceQuiAvance(map);
       arret.current = null;
     }
   }
@@ -257,7 +272,11 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
               <button className="pastille" onClick={() => setOuvert('hauteur')} aria-label="Hauteur de la caméra"><HauteurIcon h={r.hauteur} size={26} /> {NOMS[r.hauteur]}</button>
               <button className="bascule-format" onClick={() => maj({ vertical: !r.vertical })} aria-label="Format du film">
                 <span className={r.vertical ? '' : 'couche'}>📱</span> {r.vertical ? 'vertical' : 'horiz.'}</button>
+              <button className="bascule-format" onClick={() => maj({ rapide: !r.rapide })} aria-label="Rapide ou soigné">
+                {r.rapide ? '⚡ rapide' : '✨ soigné'}</button>
               <button className={`bascule ${r.trace ? 'on' : ''}`} onClick={() => maj({ trace: !r.trace })}>〰 trace</button>
+              <button className={`bascule ${r.trace && r.dessine ? 'on' : ''}`} disabled={!r.trace} onClick={() => maj({ dessine: !r.dessine })}
+                aria-label="La trace se dessine pendant le film">✏ se dessine</button>
               <button className={`bascule ${r.infos ? 'on' : ''}`} onClick={() => maj({ infos: !r.infos })}>km · alt.</button>
               <button className={`bascule ${r.ombres ? 'on' : ''}`} onClick={() => maj({ ombres: !r.ombres })}>🌗 ombres</button>
             </div>
@@ -342,6 +361,35 @@ function attendreCarte(map: MlMap, maxMs: number) {
     const t = setTimeout(() => fin(false), maxMs);
     map.once('idle', surIdle);
   });
+}
+
+/** Attend le prochain dessin de la carte (500 ms au plus). */
+function attendreDessin(map: MlMap) {
+  return new Promise<void>((ok) => {
+    const fin = () => { clearTimeout(t); map.off('render', fin); ok(); };
+    const t = setTimeout(fin, 500);
+    map.once('render', fin);
+  });
+}
+
+const TRACE_FILM = 'survol-trace';
+/** ✏ Trace qui se construit derrière la caméra : la partie parcourue, et un point au bout. Rend la mise à jour. */
+function traceQuiAvance(map: MlMap, couleur: string) {
+  retirerTraceQuiAvance(map);
+  map.addSource(TRACE_FILM, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addLayer({ id: `${TRACE_FILM}-bord`, type: 'line', source: TRACE_FILM, filter: ['==', '$type', 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 9 } });
+  map.addLayer({ id: TRACE_FILM, type: 'line', source: TRACE_FILM, filter: ['==', '$type', 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': couleur, 'line-width': 5 } });
+  map.addLayer({ id: `${TRACE_FILM}-bout`, type: 'circle', source: TRACE_FILM, filter: ['==', '$type', 'Point'], paint: { 'circle-radius': 8, 'circle-color': couleur, 'circle-stroke-color': '#fff', 'circle-stroke-width': 3 } });
+  return (pts: { lon: number; lat: number }[], bout: { lon: number; lat: number } | null) => {
+    const features: GeoJSON.Feature[] = [];
+    if (pts.length > 1) features.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts.map((p) => [p.lon, p.lat]) } });
+    if (bout) features.push({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [bout.lon, bout.lat] } });
+    (map.getSource(TRACE_FILM) as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features });
+  };
+}
+function retirerTraceQuiAvance(map: MlMap) {
+  for (const l of [`${TRACE_FILM}-bout`, TRACE_FILM, `${TRACE_FILM}-bord`]) if (map.getLayer(l)) map.removeLayer(l);
+  if (map.getSource(TRACE_FILM)) map.removeSource(TRACE_FILM);
 }
 
 /** Cartes affichées d'un coup pendant le tournage image par image (pas d'image à moitié en fondu). Rend le retour. */

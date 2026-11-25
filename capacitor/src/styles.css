@@ -1065,6 +1065,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 }
 .survol .pastille::after { content: "⌄"; font-size: 13px; color: #5b6560; margin-left: 2px; }
 .survol .bascule { background: #f4f5f4; color: #9aa19d; }
+.survol .bascule:disabled { opacity: 0.4; }
 .survol .bascule.on { background: #fff; color: #1d2421; box-shadow: inset 0 0 0 2px #2f9e5f; }
 .survol .bascule.on::after {
   content: "✓"; position: absolute; top: -6px; right: -4px; width: 22px; height: 22px; border-radius: 50%;
