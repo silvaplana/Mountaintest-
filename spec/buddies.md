@@ -430,6 +430,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   (la trace du début à la fin), « ← Retour » (de la fin au début) ou « ⇄ Aller-retour » (au bout, la
   caméra tourne puis revient par le même chemin), quel que soit le relief (Seb, 25/11 : « un film a
   un début et une fin »). Vitesses : 200, 400 ou 800 km/h.
+  Le film se fabrique sur une **carte cachée** (Seb, 25/11, « un écran virtuel ») : une deuxième carte de
+  la taille de l'écran, hors de vue. On peut fermer le panneau et continuer à se servir de l'appli ;
+  un bandeau « Film en cours · n % · Ne ferme pas l'appli » reste en haut et rouvre le panneau, puis
+  dit « Ton film est prêt ». L'écran reste allumé pendant la fabrication. Un seul film à la fois ;
+  l'appli doit rester ouverte au premier plan (en arrière-plan le film attend).
 - **Hors ligne** : la photo est réduite sur le téléphone (400 px pour la grille ; pour la voir, 2560 px au plus, et une photo JPEG déjà à cette taille est gardée telle quelle, sans la recompresser : Seb, 25/11, « la même qualité que WhatsApp » ;
   JPEG), gardée et montrée tout de suite avec 🕓 ; elle part au retour du réseau. Les photos des
   autres, une fois vues, restent sur le téléphone : l'album s'ouvre sans réseau.
