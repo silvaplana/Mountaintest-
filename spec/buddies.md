@@ -440,7 +440,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   trace) ; sur la carte d'un Buddy Time commencé, « 📖 Carnet » à côté de « 📷 Ajouter » et « 📸 Album ».
 - **Écran 12** : couverture (la photo du Buddy Time, sinon la première photo choisie), nom, dates, qui est
   venu. « ⭐ 12 photos choisies sur 42 » : les ⭐ de l'album ; sans ⭐, un choix automatique fait sur le
-  téléphone (au plus 12, réparties sur tout le Buddy Time, signalé ✨). « Changer » ouvre l'album sur la vue
+  téléphone (au plus 12, réparties sur tout le Buddy Time, signalé ✨). « Choisir les photos pour le carnet » (sous la mosaïque ; « Changer » n'était pas compris, Seb 25/11) ouvre l'album sur la vue
   ⭐ Carnet. Puis les récits, chacun signé du visage de son auteur, puis « 〰 La trace » : un petit plan,
   une couleur par jour ; un toucher ouvre le Buddy Time sur la carte.
 - **Une couleur par jour** : quand il y a autant de traces partagées que de jours, la 1re trace partagée

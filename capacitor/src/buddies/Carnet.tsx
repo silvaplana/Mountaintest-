@@ -151,13 +151,16 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
       <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)} · {x.participants.map((p) => p.pseudo).join(', ')}</small></span>
     </div>
     {photos.length > 0 && <>
-      <div className="bd-section bd-entre"><b>{choix.auto ? '✨' : '⭐'} {choix.photos.length} photo{choix.photos.length > 1 ? 's' : ''} choisie{choix.photos.length > 1 ? 's' : ''} sur {photos.length}</b>
-        <button className="bd-lien" onClick={onChanger}>Changer</button></div>
+      <div className="bd-section bd-entre"><b>{choix.auto ? '✨' : '⭐'} {choix.photos.length} photo{choix.photos.length > 1 ? 's' : ''} choisie{choix.photos.length > 1 ? 's' : ''} sur {photos.length}</b></div>
       <div className="bd-mosaique">
         {choix.photos.slice(0, 3).map((p, i) => <span key={p.id} className={i === 0 ? 'grande' : ''} onClick={() => setOuverte(i)}>
           <Image p={p} taille="grande" />
           {i === 2 && choix.photos.length > 3 && <b>+{choix.photos.length - 3}</b>}</span>)}
       </div>
+      {/* « Changer » n'était pas compris (Seb, 25/11) : le bouton dit ce qu'il fait. */}
+      <button className="bd-choisir" onClick={onChanger}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"><path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" /></svg>
+        Choisir les photos pour le carnet</button>
     </>}
     {c.recits.map((r) => <div key={r.par.id} className="bd-recit">
       <p>{r.texte}</p>
