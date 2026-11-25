@@ -24,7 +24,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, autreDuDuo, monEpingle, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
-  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
+  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -327,24 +327,32 @@ function useSuppression() {
   return { supprimer, bandeau };
 }
 
+/** Feuille « Nom du … » : changer le nom d'un Buddy Time, d'un Buddy Group ou du Me Time. */
+function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
+  titre: string; nom: string; onEnregistrer: (nom: string) => void; onFermer: () => void; onToast: (m: string) => void;
+}) {
+  const [texte, setTexte] = useState(nom);
+  const valider = () => {
+    try { if (texte.trim() !== nom) onEnregistrer(texte); onFermer(); } catch (err) { onToast((err as Error).message); }
+  };
+  return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+    <h3>{titre}</h3>
+    <input className="bd-titre-champ" value={texte} maxLength={80} autoFocus aria-label={titre}
+      onChange={(ev) => setTexte(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') valider(); }} />
+    <button className="primary" onClick={valider}>Enregistrer</button>
+    <button onClick={onFermer}>Annuler</button>
+  </div></div>;
+}
+
 /** ✏ et poubelle, au trait, à côté de chaque Buddy Time des listes (Seb, 25 novembre). */
 function OutilsBuddyTime({ x, e, onSupprimer, onToast, surImage = false }: {
   x: Sortie; e: Etat; onSupprimer: (x: Sortie) => void; onToast: (m: string) => void; surImage?: boolean;
 }) {
-  const [titre, setTitre] = useState<string | null>(null);
-  const valider = () => {
-    try { if (titre !== null && titre.trim() !== x.nom) renommerSortie(x.id, titre); setTitre(null); } catch (err) { onToast((err as Error).message); }
-  };
+  const [nommer, setNommer] = useState(false);
   return <span className={`bd-outils${surImage ? ' sur-image' : ''}`}>
-    <button onClick={() => setTitre(x.nom)} aria-label={`Changer le nom de ${x.nom}`}><PencilIcon size={22} /></button>
+    <button onClick={() => setNommer(true)} aria-label={`Changer le nom de ${x.nom}`}><PencilIcon size={22} /></button>
     {peutSupprimer(x, e) && <button onClick={() => onSupprimer(x)} aria-label={`Supprimer ${x.nom}`}><TrashIcon size={22} /></button>}
-    {titre !== null && <div className="bd-voile" onClick={() => setTitre(null)}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
-      <h3>Nom du Buddy Time</h3>
-      <input className="bd-titre-champ" value={titre} maxLength={80} autoFocus aria-label="Nom du Buddy Time"
-        onChange={(ev) => setTitre(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') valider(); }} />
-      <button className="primary" onClick={valider}>Enregistrer</button>
-      <button onClick={() => setTitre(null)}>Annuler</button>
-    </div></div>}
+    {nommer && <FeuilleNom titre="Nom du Buddy Time" nom={x.nom} onEnregistrer={(n) => renommerSortie(x.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
   </span>;
 }
 
@@ -546,6 +554,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   onToast: (m: string) => void; onOuvrir: (x: Sortie) => void; onTrace: (t: TraceBuddy) => void; onNouvelle: () => void; onRetour: () => void; onClose: () => void;
 }) {
   const [membres, setMembres] = useState(false);
+  const [nommer, setNommer] = useState(false);
   const me = g.nature === 'me_time';
   const qr = g.invitations.find((i) => i.canal === 'qr')?.code;
   const auj = aujourdhui();
@@ -556,9 +565,12 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <span className="bd-titre"><b>{g.nom}</b><small>{me ? 'Mes sorties à moi' : `Buddy Group · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
+      <span className="bd-titre" onClick={() => setNommer(true)}><b>{g.nom}</b><small>{me ? 'Mes sorties à moi' : `Buddy Group · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
+      <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={22} /></button>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
+    {nommer && <FeuilleNom titre={me ? 'Nom de mes sorties à moi' : 'Nom du Buddy Group'} nom={g.nom}
+      onEnregistrer={(n) => renommerGroupe(g.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
     {!me && <button className="bd-visages" onClick={() => setMembres(true)} aria-label="Les buddies">
       {g.membres.map((m) => <Visage key={m.id} b={m} taille={34} />)}
       {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <span key={i.id} className="bd-invite-visage"><Visage b={{ id: i.id, nom: i.nom, photo: null }} taille={34} /></span>)}
@@ -702,7 +714,7 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
       <label>du<input type="date" value={debut} onChange={(ev) => { setDebut(ev.target.value); if (fin < ev.target.value) setFin(ev.target.value); }} /></label>
       <label>au<input type="date" value={fin} min={debut} onChange={(ev) => setFin(ev.target.value)} /></label>
     </div>
-    <h3 className="bd-section">Avec qui <small>{me ? 'Me Time' : `${g.nom} · ${qui.size} sur ${g.membres.length}`}</small></h3>
+    <h3 className="bd-section">Avec qui <small>{me ? g.nom : `${g.nom} · ${qui.size} sur ${g.membres.length}`}</small></h3>
     {me ? <>
       <Inviter sortie nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast} onInvite={(i) => setInvites((l) => [...l, i])} />
       {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">

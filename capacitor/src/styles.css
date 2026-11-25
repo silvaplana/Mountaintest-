@@ -642,6 +642,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-affiche-outils { position: relative; }
 .bd-outils.sur-image { position: absolute; top: 6px; right: 6px; }
 .bd-outils.sur-image > button { background: #0006; color: #fff; }
+.xp-head > .bd-crayon { background: none; border: 0; color: var(--fg); width: 48px; height: 48px; flex: none; }
 .bd-titre-champ { height: 52px; font-size: 18px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; background: var(--card); color: var(--fg); }
 .bd-bandeau-bas { position: sticky; bottom: 12px; z-index: 3; }
 .bd-mini-carre { display: inline-grid; place-items: end center; width: 30px; height: 30px; border-radius: 7px; background: #9cc3e6; color: #e0592a;

@@ -129,6 +129,19 @@ def creer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
     s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role="admin"))
 
 
+def renommer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
+    """Changer le nom d'un Buddy Group (tout membre, comme un groupe WhatsApp) ou de son Me Time (Seb, 25 novembre)."""
+    g = groupe_de(s, u, op["groupe"])
+    if g.nature == "duo":
+        raise Refus("Une discussion à deux n'a pas de nom")
+    nom = propre(op.get("nom"), 80)
+    if not nom:
+        raise Refus("Il faut un nom")
+    if g.nom != nom:
+        g.nom = nom
+        toucher(g)
+
+
 def inviter(s: Session, u: Utilisateur, op: dict) -> None:
     iid = uuid.UUID(str(op["invitation"]))
     if s.get(Invitation, iid) is not None:
@@ -902,7 +915,7 @@ def fichier_photo(pid: uuid.UUID, taille: str) -> str:
 
 
 OPERATIONS = {
-    "creer_groupe": creer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
+    "creer_groupe": creer_groupe, "renommer_groupe": renommer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
     "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,

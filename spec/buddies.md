@@ -179,6 +179,9 @@ sa gauche, on en choisit une.
 - **Le supprimer** (Seb, 25 novembre 2026) : la poubelle (dessinée au trait, pas l'émoji) en haut de sa carte, montrée
   seulement à celui qui l'a créé et aux admins du Buddy Group. Supprimé tout de suite, « Annuler » 10 secondes, puis
   retour aux Buddies. Rien n'est effacé sur le serveur (même opération que Bud, §7.12).
+- **Renommer un Buddy Group** (Seb, 25 novembre 2026) : crayon au trait en haut de l'écran du Buddy Group (ou toucher
+  son nom), feuille « Nom du Buddy Group ». Tout membre peut le faire (opération `renommer_groupe`). Le Me Time aussi,
+  pour soi seul, en attendant sa disparition (Seb : « il vaudrait mieux qu'il n'existe pas »).
 - Crayon et poubelle aussi **à côté de chaque Buddy Time** des listes (Seb, 25 novembre 2026) : la liste des Buddies
   (l'heure de la ligne laisse sa place) et les affiches d'un Buddy Group (en haut à droite de l'image). Le crayon
   ouvre une feuille « Nom du Buddy Time » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.
