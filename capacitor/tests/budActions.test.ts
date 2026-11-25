@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@capacitor/preferences', () => ({ Preferences: { get: async () => ({ value: null }) } }));
 import { agir, annuler, type ActionDemandee } from '../src/buddies/bud';
-import { _reinitialiser, lire, type Planning, type Sortie } from '../src/buddies/store';
+import { _reinitialiser, lire, vue, type Planning, type Sortie } from '../src/buddies/store';
 
 const b = (id: string, pseudo: string) => ({ id, pseudo, photo: null, role: 'membre' });
 const so = { id: 's', groupe: 'g', nom: 'Queyras', photo: null, debut: '2026-12-12', fin: '2026-12-13', lieu: '', modifie_le: '',
@@ -29,6 +29,21 @@ describe('Bud agit à ma demande', () => {
     annuler(faites);
     expect(types().slice(3)).toEqual(['retirer_sortie', 'dispo', 'retirer_depense']);
     expect(lire().attente[4]).toMatchObject({ etat: '' });
+  });
+  it('supprime un Buddy Time de la bande, puis Annuler le remet', () => {
+    const { faites, refus } = agir([{ ...vide, type: 'supprimer_buddy_time', nom: 'queyras' }], { groupe: 'g' },
+      { ...donnees, sortie: undefined, sorties: [{ ...so, par: 'seb' }] });
+    expect(refus).toEqual([]);
+    expect(lire().attente.map((o) => o.type)).toEqual(['supprimer_sortie']);
+    annuler(faites);
+    expect(lire().attente[1]).toMatchObject({ type: 'remettre_sortie', sortie: 's', copie: { nom: 'Queyras' } });
+    expect(vue({ ...lire(), sorties: [so] }).sorties.map((x) => x.id)).toEqual(['s']);
+    expect(vue({ ...lire(), sorties: [so], attente: lire().attente.slice(0, 1) }).sorties).toEqual([]);
+  });
+  it('ne supprime pas le Buddy Time d’un autre si je ne suis pas admin', () => {
+    const { faites, refus } = agir([{ ...vide, type: 'supprimer_buddy_time' }], { sortie: 's' }, { ...donnees, sortie: { ...so, par: 'julie' } });
+    expect(faites).toEqual([]);
+    expect(refus).toHaveLength(1);
   });
   it('écarte ce qui sort de la bande ou du planning', () => {
     const { faites, refus } = agir([

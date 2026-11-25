@@ -734,6 +734,26 @@ def test_annuler_un_buddy_time(client, photos):
     assert sync(client, ops=[{"id": "c", "type": "retirer_sortie", "sortie": so2["sortie"]}])["refus"]
 
 
+def test_bud_supprime_un_buddy_time(client, photos):
+    """§7.12 : supprimer un Buddy Time qui a déjà servi (caché de tous), puis « Annuler » le remet avec son contenu."""
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    msg = nouveau_message(sortie=so["sortie"])
+    sync(client, ops=[so, msg])
+    sup = {"id": "s", "type": "supprimer_sortie", "sortie": so["sortie"]}
+    # Julie n'est ni la créatrice ni admin : refusé.
+    assert sync(client, sub="julie", ops=[sup])["refus"]
+    r = sync(client, ops=[sup, sup])
+    assert r["refus"] == [] and so["sortie"] not in r["ids_sorties"]
+    assert so["sortie"] not in sync(client, sub="julie")["ids_sorties"]
+    # Plus rien ne s'y ajoute tant qu'il est supprimé.
+    assert sync(client, ops=[nouveau_message(sortie=so["sortie"])])["refus"]
+    r = sync(client, ops=[{"id": "r", "type": "remettre_sortie", "sortie": so["sortie"]}])
+    assert r["refus"] == [] and so["sortie"] in r["ids_sorties"]
+    assert any(m["id"] == msg["message"] for m in r["messages"])
+    assert so["sortie"] in sync(client, sub="julie")["ids_sorties"]
+
+
 def test_notification_des_nouveaux_messages(client, monkeypatch):
     """Étape 4 (§7.13) : un nouveau message prévient les autres (pas l'auteur), une seule fois, même renvoyé."""
     import appels
