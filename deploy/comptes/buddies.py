@@ -20,7 +20,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
-                     Position, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, maintenant)
+                     Position, PositionGroupe, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -526,19 +526,30 @@ def ms(v: Any) -> int:
     return n
 
 
-def epingle(s: Session, u: Utilisateur, op: dict) -> None:
-    """Position des buddies (§5.9) : enfoncer l'épingle (« mes buddies me voient » jusqu'à ce soir) ou la relever."""
+def ma_position(s: Session, u: Utilisateur, op: dict) -> tuple[Any, Any]:
+    """L'épingle visée : dans un Buddy Time (`sortie`) ou, hors Buddy Time, dans un Buddy Group (`groupe`, §7.14).
+    Rend la ligne existante (ou None) et de quoi la créer."""
+    if op.get("groupe"):
+        g = groupe_de(s, u, op["groupe"])
+        if g.nature == "me_time":
+            raise Refus("Choisis un Buddy Group avec des buddies")
+        return s.get(PositionGroupe, (g.id, u.id)), lambda **k: PositionGroupe(groupe_id=g.id, utilisateur_id=u.id, **k)
     so = sortie_de(s, u, op["sortie"])
     if u.id not in participants(s, so):
         raise Refus("Seuls les buddies du Buddy Time partagent leur position")
+    return s.get(Position, (so.id, u.id)), lambda **k: Position(sortie_id=so.id, utilisateur_id=u.id, **k)
+
+
+def epingle(s: Session, u: Utilisateur, op: dict) -> None:
+    """Position des buddies (§5.9) : enfoncer l'épingle (« mes buddies me voient » jusqu'à ce soir) ou la relever."""
+    p, nouvelle = ma_position(s, u, op)
     t = ms(op["quand"])
-    p = s.get(Position, (so.id, u.id))
     if op.get("enfoncee"):
         jusqu = min(ms(op["jusqu"]), t + JOUR_MS)
         if jusqu <= t:
             raise Refus("Heure de fin avant le début")
         if p is None:
-            s.add(Position(sortie_id=so.id, utilisateur_id=u.id, depuis=t, jusqu=jusqu))
+            s.add(nouvelle(depuis=t, jusqu=jusqu))
         else:
             p.depuis, p.jusqu, p.modifie_le = t, jusqu, maintenant()
     elif p is not None and p.jusqu > t:
@@ -548,8 +559,7 @@ def epingle(s: Session, u: Utilisateur, op: dict) -> None:
 def position(s: Session, u: Utilisateur, op: dict) -> None:
     """Une position envoyée pendant que l'épingle est enfoncée ; hors de ce temps-là elle est ignorée sans bruit
     (personne n'est localisé sans l'avoir voulu). Seule la plus récente est gardée."""
-    so = sortie_de(s, u, op["sortie"])
-    p = s.get(Position, (so.id, u.id))
+    p, _ = ma_position(s, u, op)
     t = ms(op["prise_le"])
     if p is None or not p.depuis - MARGE_MS <= t <= p.jusqu + MARGE_MS or (p.prise_le or 0) >= t:
         return
@@ -925,6 +935,10 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
                                                 & (Participant.utilisateur_id == Position.utilisateur_id))
                           .where(Position.sortie_id.in_(sids), Position.modifie_le > debut - GARDE_POSITIONS)).all()
+    # Hors Buddy Time (§7.14) : celles partagées avec mes Buddy Groups, par qui en est encore membre.
+    positions_g = s.scalars(select(PositionGroupe).join(Membre, (Membre.groupe_id == PositionGroupe.groupe_id)
+                                                        & (Membre.utilisateur_id == PositionGroupe.utilisateur_id))
+                            .where(PositionGroupe.groupe_id.in_(gids), PositionGroupe.modifie_le > debut - GARDE_POSITIONS)).all()
     return {"curseur": iso(debut), "moi": str(u.id), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
@@ -937,7 +951,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
             "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, []), votes.get(m.id, []), fichiers.get(m.fichier_id)) for m in neufs],
             "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
-            "positions": [vue_position(x) for x in positions], "appels": appels_en_cours(s, gids, sids), "refus": refus}
+            "positions": [vue_position(x) for x in [*positions, *positions_g]], "appels": appels_en_cours(s, gids, sids), "refus": refus}
 
 
 def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
@@ -1043,8 +1057,9 @@ def vue_lectures(s: Session, u: Utilisateur, gids: list, sids: list) -> list[dic
             for x in s.scalars(select(Utilisateur).where(Utilisateur.id.in_(qui)))]
 
 
-def vue_position(x: Position) -> dict[str, Any]:
-    return {"sortie": str(x.sortie_id), "qui": str(x.utilisateur_id), "depuis": x.depuis, "jusqu": x.jusqu,
+def vue_position(x: Position | PositionGroupe) -> dict[str, Any]:
+    dest = {"groupe": str(x.groupe_id)} if isinstance(x, PositionGroupe) else {"sortie": str(x.sortie_id)}
+    return {**dest, "qui": str(x.utilisateur_id), "depuis": x.depuis, "jusqu": x.jusqu,
             "lon": x.lon, "lat": x.lat, "alt": x.alt, "prise_le": x.prise_le}
 
 

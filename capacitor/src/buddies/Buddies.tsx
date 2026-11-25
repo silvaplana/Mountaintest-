@@ -13,14 +13,14 @@ import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
-import { BandePositions, nombreVisibles, PositionsSurCarte, useReperes } from './Positions';
+import { BandePositions, MaPosition, nombreVisibles, PinIcon, PositionsSurCarte, useReperes } from './Positions';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, autreDuDuo, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
+  annulerInvitation, appliquer, aujourdhui, autreDuDuo, monEpingle, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
   nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -168,10 +168,11 @@ function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: 
 }
 
 /** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel }: {
+function Colonne({ onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
   onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
-  onAppel?: () => void;
+  onAppel?: () => void; onPosition?: () => void;
 }) {
+  const visible = !!monEpingle(useBuddies());
   return <div className="bd-colonne">
     <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
@@ -179,6 +180,9 @@ function Colonne({ onToast, onExpenses, onLodging, onTravel, onAccount, onPlanni
     <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
     <button aria-label="Buddy count" onClick={onExpenses}>💶</button>
     <button aria-label="Hébergement" onClick={onLodging}>🏨</button>
+    {/* 📍 Partager ma position avec mes buddies, même hors Buddy Time (Seb, 25/11) ; verte tant qu'ils me voient. */}
+    <button aria-label="Ma position" className={`bd-col-pin${visible ? ' actif' : ''}`}
+      onClick={onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position'))}><PinIcon /></button>
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Voyage en voiture" onClick={onTravel}>🚗</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
@@ -304,12 +308,14 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
-  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' };
+  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' }
+  | { ecran: 'position'; groupe?: string; sortie?: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
 
-/** Ce qu'on montre sur la carte : un Buddy Time (sa conversation ouverte si `parler`), des traces, un point d'un message. */
-export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string } };
+/** Ce qu'on montre sur la carte : un Buddy Time (sa conversation ouverte si `parler`), des traces, un point d'un message,
+ * ou les buddies visibles (📍 de la colonne) centrés sur l'un d'eux (`positions` = son identifiant). */
+export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
@@ -357,6 +363,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
+    onPosition={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime.id ? ici : undefined, sortie: sortieIci })}
     onMessages={() => {
       // 💬 : la conversation du Buddy Time ouvert (sur sa carte), sinon celle du Buddy Group ouvert, sinon toutes.
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
@@ -378,7 +385,11 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
   return <div className="buddies">
     {colonne}
-    {vue.ecran === 'albums' ? <Albums sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} photos={photos} onClose={onClose}
+    {vue.ecran === 'position' ? <MaPosition groupes={groupes} sorties={sorties} onToast={onToast} onClose={onClose}
+      ici={vue.sortie ? { sortie: vue.sortie } : vue.groupe ? { groupe: vue.groupe } : undefined}
+      onVoir={(r) => onCarte({ traces: [], positions: r.b.id })}
+      onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'albums' ? <Albums sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} photos={photos} onClose={onClose}
       onOuvrir={(x) => setVue({ ecran: 'album', id: x.id, groupe: vue.groupe })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'comptes' ? <Comptes sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} depenses={depenses} onClose={onClose}

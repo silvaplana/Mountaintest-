@@ -7,8 +7,8 @@ import {
 } from '../src/buddies/store';
 import { exif } from '../src/buddies/album';
 import { compte, euros, icone, lireEuros } from '../src/buddies/count';
-import { detail, etiquette, opacite, reperes } from '../src/buddies/positions';
-import { enfoncerEpingle, envoyerPosition, finEpingle, monEpingle, positions, releverEpingle } from '../src/buddies/store';
+import { detail, etiquette, opacite, reperes, reperesTous } from '../src/buddies/positions';
+import { enfoncerEpingle, envoyerPosition, finEpingle, mesEpingles, monEpingle, positions, releverEpingle } from '../src/buddies/store';
 import { mettreCoeur, proposerHebergement, retenirHebergement, retirerHebergement } from '../src/buddies/store';
 import { iconeHebergement, prixHebergement } from '../src/buddies/Hebergements';
 import { envoyerMessage, marquerLu, nonLus, retirerMessage, type MessageBuddy } from '../src/buddies/store';
@@ -375,14 +375,14 @@ describe('Position des buddies (bloc 7)', () => {
     reseau(() => 'coupure');
     envoyerPosition({ lat: 44.6, lon: 6.7, t: T }); // sans épingle : rien
     expect(lire().attente).toEqual([]);
-    enfoncerEpingle('s1', T);
+    enfoncerEpingle([{ sortie: 's1' }], T);
     expect(monEpingle(lire(), T + 1000)?.sortie).toBe('s1');
     envoyerPosition({ lat: 44.6, lon: 6.7, alt: 2310.4, t: T + 60_000 });
     envoyerPosition({ lat: 44.61, lon: 6.71, alt: 2320, t: T + 360_000 });
     expect(lire().attente.map((o) => o.type)).toEqual(['epingle', 'position']);
     const p = positions(lire())[0];
     expect([p.lat, p.lon, p.alt, p.prise_le, p.attente]).toEqual([44.61, 6.71, 2320, T + 360_000, true]);
-    releverEpingle('s1', T + 400_000);
+    releverEpingle({ sortie: 's1' }, T + 400_000);
     expect(monEpingle(lire(), T + 500_000)).toBeUndefined();
     envoyerPosition({ lat: 45, lon: 7, t: T + 600_000 });
     expect(positions(lire())[0].lat).toBe(44.61);
@@ -406,9 +406,30 @@ describe('Position des buddies (bloc 7)', () => {
     localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [], positions: ps }));
     _reinitialiser();
     reseau(() => 'coupure');
-    enfoncerEpingle('s2', T);
+    enfoncerEpingle([{ sortie: 's2' }], T);
     expect(monEpingle(lire(), T + 1000)?.sortie).toBe('s2');
     expect(positions(lire()).find((p) => p.qui === 'u-seb' && p.sortie === 's1')?.jusqu).toBe(T);
+  });
+
+  it('📍 de la colonne : partagée avec deux Buddy Groups hors Buddy Time, chaque position part vers les deux', () => {
+    localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [] }));
+    _reinitialiser();
+    reseau(() => 'coupure');
+    enfoncerEpingle([{ sortie: 's1' }], T);
+    enfoncerEpingle([{ groupe: 'a' }, { groupe: 'b' }], T + 1000); // relève celle du Buddy Time
+    expect(mesEpingles(lire(), T + 2000).map((p) => p.groupe).sort()).toEqual(['a', 'b']);
+    envoyerPosition({ lat: 44.6, lon: 6.7, t: T + 60_000 });
+    envoyerPosition({ lat: 44.61, lon: 6.71, t: T + 360_000 });
+    const pos = lire().attente.filter((o) => o.type === 'position');
+    expect(pos.map((o) => [o.groupe, o.lat])).toEqual([['a', 44.61], ['b', 44.61]]);
+    expect(positions(lire()).find((p) => p.sortie === 's1')?.jusqu).toBe(T + 1000);
+    releverEpingle(undefined, T + 400_000);
+    expect(mesEpingles(lire(), T + 500_000)).toEqual([]);
+    // Un buddy visible dans un groupe et un Buddy Time n'apparaît qu'une fois, avec sa position la plus récente.
+    const julie2 = { qui: 'u-julie', depuis: T - 3600e3, jusqu: T + 3600e3, alt: null };
+    const rs = reperesTous([{ ...julie2, sortie: 's1', lat: 44, lon: 6, prise_le: T - 600_000 }, { ...julie2, groupe: 'a', lat: 45, lon: 7, prise_le: T - 60_000 }],
+      [seb, julie], 'u-seb', T);
+    expect(rs.map((r) => [r.b.pseudo, r.p.lat, etiquette(r)])).toEqual([['Julie', 45, 'il y a 1 min']]);
   });
 });
 

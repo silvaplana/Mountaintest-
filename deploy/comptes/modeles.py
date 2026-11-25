@@ -261,6 +261,23 @@ class Position(Base):
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
 
 
+class PositionGroupe(Base):
+    """Position partagée avec un Buddy Group, hors Buddy Time (📍 de la colonne de Buddies, spec/buddies.md §7.14) :
+    même épingle et mêmes règles que `positions`, mais vue par les membres du groupe. Heures en ms (epoch)."""
+
+    __tablename__ = "positions_groupes"
+
+    groupe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    depuis: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    jusqu: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    lon: Mapped[float | None] = mapped_column(Float)
+    lat: Mapped[float | None] = mapped_column(Float)
+    alt: Mapped[float | None] = mapped_column(Float)
+    prise_le: Mapped[int | None] = mapped_column(BigInteger)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
 class Hebergement(Base):
     """Hébergement proposé dans un Buddy Time (spec/buddies.md §5.11, écrans 9 et 23) : chacun met un ♥, on en
     retient un (✅). N'importe quel participant propose, retient ou retire."""
