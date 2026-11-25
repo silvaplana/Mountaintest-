@@ -8,6 +8,7 @@ import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
 import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
+import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
@@ -61,7 +62,11 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   const [r, setR] = useState<Reglages>(lire);
   // Poignée commune des panneaux ; le survol s'ouvre en grand pour que tous ses boutons se voient.
   const sheet = useSheet('survol', { defaut: 2 });
-  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | null>(null);
+  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | 'films' | null>(null);
+  /** 📁 Derniers films gardés sur le téléphone, et celui qu'on regarde (pour le retirer si on le jette). */
+  const [garde, setGarde] = useState<FilmGarde[]>([]);
+  const [filmId, setFilmId] = useState<string | null>(null);
+  useEffect(() => { void lireFilms().then(setGarde); }, []);
   const [etape, setEtape] = useState<Etape>('reglages');
   const [avance, setAvance] = useState('');
   const [film, setFilm] = useState<{ blob: Blob; url: string; couverture: ImageBitmap | null } | null>(null);
@@ -229,7 +234,12 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       }
       if (ctl.signal.aborted) { setEtape('reglages'); return; }
       if (!blob.size) throw new Error('vidéo vide');
-      setFilm({ blob, url: URL.createObjectURL(blob), couverture: await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null });
+      const image = await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null;
+      setFilm({ blob, url: URL.createObjectURL(blob), couverture: image });
+      // 📁 Gardé tout de suite parmi les derniers films.
+      setFilmId(await garderFilm(blob, { nom: trail.name || 'Survol', secondes: r.duree, vertical: r.vertical,
+        couverture: image ? await reduire(image, PX.grande, 0.8).catch(() => null) : null }));
+      void lireFilms().then(setGarde);
       setRange(null);
       setEtape('pret');
     } catch (e) {
@@ -270,6 +280,17 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     else if (etape === 'pret') { setFilm(null); setEtape('reglages'); }
     else if (etape === 'preparation' || etape === 'tournage') arret.current?.abort();
     else onClose();
+  }
+
+  /** 📁 Revoit un film gardé : même écran qu'à la fin du tournage (plein écran, album, partage). */
+  async function revoir(f: FilmGarde) {
+    const blob = await videoDe(f.id);
+    if (!blob) { onToast('Film introuvable'); await oublierFilm(f.id); setGarde(await lireFilms()); return; }
+    setFilm({ blob, url: URL.createObjectURL(blob), couverture: f.couverture ? await createImageBitmap(f.couverture).catch(() => null) : null });
+    setFilmId(f.id);
+    setRange(null);
+    setOuvert(null);
+    setEtape('pret');
   }
 
   /** 📸 Range le film dans l'album : couverture (petite, grande) + film, gardés ici et envoyés au retour du réseau. */
@@ -340,6 +361,11 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           ) : ouvert === 'hauteur' ? (
             <div className="survol-choix">{(['bas', 'moyen', 'haut'] as Hauteur[]).map((h) => (
               <button key={h} className={r.hauteur === h ? 'on' : ''} onClick={() => { maj({ hauteur: h }); setOuvert(null); }}><HauteurIcon h={h} size={26} /> {NOMS[h]}</button>))}</div>
+          ) : ouvert === 'films' ? (
+            <div className="survol-films">
+              {garde.map((f) => <FilmLigne key={f.id} f={f} revoir={() => void revoir(f)} jeter={() => void oublierFilm(f.id).then(lireFilms).then(setGarde)} />)}
+              <button className="pastille ok" onClick={() => setOuvert(null)}>OK</button>
+            </div>
           ) : ouvert === 'style' ? (
             <div className="survol-styles">
               <div className="survol-choix deux">{(Object.keys(STYLES) as Style[]).map((k) => (
@@ -391,16 +417,16 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
             {ouvert === 'plage' ? <button className="pastille" onClick={() => setOuvert(null)}>OK</button>
               : ouvert ? <span /> : <>
                 <button className={`bascule ${r.pentes ? 'on' : ''}`} onClick={() => maj({ pentes: !r.pentes })} aria-label="Pentes dans le film">◭ pentes</button>
-                <span />
+                <button className="pastille" disabled={!garde.length} onClick={() => setOuvert('films')} aria-label="Mes derniers films">📁 {garde.length}</button>
               </>}
-            <button className="survol-rec" onClick={() => void tourner()} aria-label="Filmer"><i /></button>
+            <button className="survol-rec" onClick={() => void tourner()} aria-label="Filmer"><i /><span>Filmer</span></button>
           </div>}
           <input ref={choixMusique} type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setMusique(f); e.target.value = ''; }} />
         </>}
         {occupe && <>
           <p className="hint">{etape === 'preparation' ? avance : `Le film se tourne… ${avance}`}</p>
           <div className="survol-bas"><span />
-            <button className="survol-rec stop" onClick={() => arret.current?.abort()} aria-label="Arrêter"><i /></button></div>
+            <button className="survol-rec stop" onClick={() => arret.current?.abort()} aria-label="Arrêter"><i /><span>Arrêter</span></button></div>
         </>}
         {etape === 'pret' && choixAlbum && <div className="survol-albums">
           <b>Dans quel album ?</b>
@@ -413,7 +439,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
             <span className="gros">📸</span>{range ? `✓ Dans « ${range} »` : sortie ? `Album « ${sortie.nom} »` : 'Ranger dans un album'}</button>}
           <button onClick={() => void partager()}><ShareIcon />Partager</button>
           <button onClick={() => { setFilm(null); setEtape('reglages'); }}><span className="gros">🔁</span>Refaire</button>
-          <button className="danger" onClick={onClose}><TrashIcon size={30} />Jeter</button>
+          <button className="danger" onClick={() => { if (filmId) void oublierFilm(filmId); onClose(); }}><TrashIcon size={30} />Jeter</button>
         </div>}
       </section>
     </>
@@ -524,3 +550,24 @@ function ShareIcon() {
   );
 }
 
+
+/** Une ligne du 📁 : vignette, nom, date ; appui = revoir, 🗑 = retirer. */
+function FilmLigne({ f, revoir, jeter }: { f: FilmGarde; revoir: () => void; jeter: () => void }) {
+  const [img, setImg] = useState<string | null>(null);
+  useEffect(() => {
+    if (!f.couverture) return;
+    const u = URL.createObjectURL(f.couverture);
+    setImg(u);
+    return () => URL.revokeObjectURL(u);
+  }, [f.couverture]);
+  const le = new Date(f.le);
+  return (
+    <div className="survol-film-ligne">
+      <button onClick={revoir} aria-label={`Revoir ${f.nom}`}>
+        {img ? <img src={img} alt="" /> : <span className="vide">🎬</span>}
+        <span><b>{f.nom}</b><small>{le.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} {le.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · {f.secondes} s</small></span>
+      </button>
+      <button className="jeter" onClick={jeter} aria-label={`Retirer ${f.nom}`}><TrashIcon size={24} /></button>
+    </div>
+  );
+}
