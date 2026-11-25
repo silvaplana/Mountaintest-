@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cameraA, capAutour, chemin, distanceCamera, ecartAngle, heuresOmbres, heureTexte, partPlongee, PITCH_MAX, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
+import { cameraA, capAutour, chemin, distanceCamera, ecartAngle, heuresOmbres, heureTexte, partPlongee, PITCH_MAX, PLONGEE_NUAGES_S, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
 import { cameraCiel } from '../src/survol/ciel-gl';
 import { CIEL } from '../src/survol/nuages';
 import { cadrage } from '../src/survol/enregistreur';
@@ -60,10 +60,9 @@ describe('survol 3D : intro plongée', () => {
     for (let i = 1; i < track.length; i++) max = Math.max(max, Math.abs(ecartAngle(track[i - 1].bearing, track[i].bearing)));
     expect(max).toBeLessThan(1.5);
   });
-  it('dure 6 à 8 s environ, au moins 30 % du film, au plus 55 %', () => {
-    expect(partPlongee(60)).toBeCloseTo(0.3);
-    expect(partPlongee(20) * 20).toBeCloseTo(7);
-    expect(partPlongee(5)).toBe(0.55);
+  it('dure 12 s, en plus du survol', () => {
+    // La plongée dure 12 s et s'ajoute au survol : la trace garde toute la durée choisie.
+    for (const d of [5, 15, 30]) expect(partPlongee(d) * (d + PLONGEE_NUAGES_S)).toBeCloseTo(12);
   });
   it('la carte reste vue de haut tant que les nuages la cachent', () => {
     const part = partPlongee(20), t = trajectoire(line, 'moyen', ensemble, 600, part);

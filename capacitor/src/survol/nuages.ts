@@ -4,7 +4,7 @@
 // MapLibre ne sait pas faire de nuages : ils sont peints par-dessus la carte, qui reste cachée jusqu'à la déchirure.
 
 /** Étapes de l'intro (u de 0 à 1) : au-dessus, bascule, dans le gris, déchirure, puis plus rien. */
-export const CIEL = { bascule: 0.28, dedans: 0.4, dechirure: 0.62, fin: 0.75 };
+export const CIEL = { bascule: 0.22, dedans: 0.32, dechirure: 0.64, fin: 0.76 };
 
 import { rendreCiel } from './ciel-gl';
 
