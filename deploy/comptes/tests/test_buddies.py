@@ -338,6 +338,10 @@ def test_album_deposer_voir_etoile_retirer(client, photos):
     r = sync(client, sub="julie", ops=[{"id": "e", "type": "etoile", "photo": ph["photo"], "etoile": True},
                                        {"id": "x", "type": "retirer_photo", "photo": ph["photo"]}])
     assert len(r["refus"]) == 1 and r["photos"][0]["etoile"] is True and r["photos"][0]["envoyee"] is True
+    # 📍 Julie replace la photo sur la carte ; une position impossible est refusée.
+    r = sync(client, sub="julie", ops=[{"id": "p1", "type": "placer_photo", "photo": ph["photo"], "lon": 6.36, "lat": 45.04},
+                                       {"id": "p2", "type": "placer_photo", "photo": ph["photo"], "lon": 600, "lat": 45}])
+    assert len(r["refus"]) == 1 and r["photos"][0]["lon"] == 6.36 and r["photos"][0]["lat"] == 45.04
     # Seb la retire : fichiers effacés, plus dans l'album.
     r = sync(client, ops=[{"id": "y", "type": "retirer_photo", "photo": ph["photo"]}])
     assert r["ids_photos"] == [] and list(photos.iterdir()) == []
