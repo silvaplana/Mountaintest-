@@ -4,6 +4,7 @@ import { Preferences } from '@capacitor/preferences';
 import type { Trail } from './osmTrails';
 import { isMine } from './route';
 import { lengthM } from './osmTrails';
+import { readPins } from './savedTraces';
 
 const KEY = 'tracesAffichees';
 
@@ -14,6 +15,7 @@ export function encodeShown(trails: Trail[], navId: number | null, navPaused: bo
     trails: trails.filter((t) => isMine(t.id)).map((t) => ({
       id: t.id, name: t.name, kind: t.kind, color: t.color, onPaths: t.onPaths ?? false, savedId: t.savedId ?? null,
       segments: t.segments.map((s) => s.map((p) => [p.lon, p.lat])),
+      pins: t.pins ?? [],
     })),
     navId, navPaused,
   });
@@ -29,6 +31,7 @@ export function decodeShown(v: string | null): ShownState {
       return {
         id: Number(t.id), name: String(t.name ?? 'Tracé'), kind: String(t.kind ?? ''), rank: 0, color: String(t.color ?? '#7b3fe4'),
         segments, distanceM: lengthM(segments), onPaths: !!t.onPaths, savedId: t.savedId == null ? null : Number(t.savedId),
+        pins: readPins(t.pins),
       };
     }).filter((t: Trail) => t.segments.length && isMine(t.id));
     const navId = typeof o.navId === 'number' && trails.some((t) => t.id === o.navId) ? o.navId : null;

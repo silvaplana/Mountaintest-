@@ -1,6 +1,7 @@
 // Traces dessinées au doigt, enregistrées sur le téléphone (hors ligne, sans compte).
 // Même format côté Kotlin (SavedTraces.kt) : une liste JSON dans les préférences.
 import { Preferences } from '@capacitor/preferences';
+import type { Pin } from './edit';
 import type { LonLat } from './osmTrails';
 import { lineLengthM } from './route';
 
@@ -11,6 +12,8 @@ export interface SavedTrace {
   onPaths: boolean;
   /** Coordonnées [lon, lat] arrondies au mètre près. */
   line: [number, number][];
+  /** 📍 Points piqués avec leur petit mot. */
+  pins?: Pin[];
 }
 
 const KEY = 'tracesEnregistrees';
@@ -27,10 +30,29 @@ async function write(all: SavedTrace[]) {
   await Preferences.set({ key: KEY, value: JSON.stringify(all) });
 }
 
-export async function saveTrace(name: string, line: LonLat[], onPaths: boolean): Promise<SavedTrace> {
-  const t: SavedTrace = { id: Date.now(), name, onPaths, line: line.map((p) => [+p.lon.toFixed(5), +p.lat.toFixed(5)]) };
+const round = (line: LonLat[]) => line.map((p) => [+p.lon.toFixed(5), +p.lat.toFixed(5)] as [number, number]);
+
+export async function saveTrace(name: string, line: LonLat[], onPaths: boolean, pins: Pin[] = []): Promise<SavedTrace> {
+  const t: SavedTrace = { id: Date.now(), name, onPaths, line: round(line), pins };
   await write([t, ...(await listTraces())]);
   return t;
+}
+
+/** ✏ / 📍 Trace enregistrée modifiée : on garde la nouvelle forme et ses points (même identifiant). */
+export async function updateTrace(id: number, line: LonLat[], pins: Pin[]): Promise<SavedTrace | null> {
+  const all = await listTraces();
+  const t = all.find((x) => x.id === id);
+  if (!t) return null;
+  t.line = round(line); t.pins = pins;
+  await write(all);
+  return t;
+}
+
+/** Points lus d'un JSON (préférences) : on ne garde que ceux qui ont une position. */
+export function readPins(v: unknown): Pin[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((p) => Number.isFinite(p?.lon) && Number.isFinite(p?.lat))
+    .map((p) => ({ lon: Number(p.lon), lat: Number(p.lat), txt: String(p.txt ?? ''), vu: p.vu !== false }));
 }
 
 export async function deleteTrace(id: number) {
