@@ -294,10 +294,10 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
   for (let i = 1; i < brut.length; i++) brut[i].bearing = brut[i - 1].bearing + ecartAngle(brut[i - 1].bearing, brut[i].bearing);
   const k = n / 600;
   const cap = flou(brut.map((x) => x.bearing), 70 * k), x = flou(brut.map((v) => v.x), 24 * k), y = flou(brut.map((v) => v.y), 24 * k);
-  const zoom = flou(brut.map((v) => v.zoom), 30 * k);
+  let zoom = flou(brut.map((v) => v.zoom), 30 * k);
   let pitch = flou(brut.map((v) => v.pitch), 30 * k);
   const centres = brut.map((_, i) => c.pr.depuis({ x: x[i], y: y[i] }));
-  if (o.relief) pitch = degager(centres, zoom, pitch, cap, o.relief, o.hauteurPx ?? 800, k);
+  if (o.relief) ({ pitch, zoom } = degager(centres, zoom, pitch, cap, o.relief, o.hauteurPx ?? 800, k));
   return brut.map((v, i) => ({ lon: centres[i].lon, lat: centres[i].lat, zoom: zoom[i], pitch: pitch[i], bearing: cap[i], d: v.d,
     point: c.pr.depuis(c.at(v.s)), sommet: v.sommet }));
 }
@@ -322,28 +322,46 @@ function derriere(p: LonLat, cap: number, m: number): LonLat {
 export function camLibre(centre: LonLat, zoom: number, pitch: number, cap: number, relief: Relief, hauteurPx: number): boolean {
   const D = distanceCamera(zoom, centre.lat, hauteurPx), base = relief.alt(centre);
   if (base == null) return true;
-  const p = (pitch * Math.PI) / 180, marge = 40 + 0.04 * D;
-  for (const f of [1, 0.85, 0.7, 0.55]) {
-    const sol = relief.alt(derriere(centre, cap, f * D * Math.sin(p)));
-    if (sol != null && base + f * D * Math.cos(p) < sol + marge * f) return false;
+  // Marge large : le relief lu ici (mailles de 30 à 55 m) arrondit les crêtes que MapLibre dessine plus fines.
+  const p = (pitch * Math.PI) / 180, marge = 60 + 0.05 * D, a = (cap * Math.PI) / 180;
+  for (const f of [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.5, 0.4]) {
+    const recul = f * D * Math.sin(p), haut = base + f * D * Math.cos(p), m = marge * Math.max(f, 0.5);
+    const ici = derriere(centre, cap, recul);
+    const points = f === 1 ? [ici, derriere(centre, cap, recul + 80), decaler(ici, a, 80), decaler(ici, a, -80)] : [ici];
+    for (const q of points) {
+      const sol = relief.alt(q);
+      if (sol != null && haut < sol + m) return false;
+    }
   }
   return true;
+}
+
+/** Point décalé de m mètres sur le côté (droite si m > 0) par rapport au cap. */
+function decaler(p: LonLat, a: number, m: number): LonLat {
+  return { lon: p.lon + (m * Math.cos(a)) / (111_320 * Math.cos((p.lat * Math.PI) / 180)), lat: p.lat - (m * Math.sin(a)) / 110_540 };
 }
 
 /**
  * Jamais dans la montagne (Seb, 25/11 : « on voit l'envers de la montagne ») : là où la caméra passerait sous le relief,
  * on la redresse (moins inclinée = plus haute et moins loin derrière). La limite est anticipée et lissée : pas d'à-coup.
  */
-function degager(centres: LonLat[], zoom: number[], pitch: number[], cap: number[], relief: Relief, hauteurPx: number, k: number): number[] {
-  const max = pitch.map((p, i) => {
-    let q = p;
-    while (q > 20 && !camLibre(centres[i], zoom[i], q, cap[i], relief, hauteurPx)) q -= 2;
-    return q;
+function degager(centres: LonLat[], zoom: number[], pitch: number[], cap: number[], relief: Relief, hauteurPx: number, k: number) {
+  // Pour chaque image : inclinaison la plus forte qui passe ; si même redressée à 20° ça ne passe pas, on recule (zoom).
+  const lim = pitch.map((p, i) => {
+    let q = p, z = zoom[i];
+    while (q > 20 && !camLibre(centres[i], z, q, cap[i], relief, hauteurPx)) q -= 2;
+    while (z > zoom[i] - 3 && !camLibre(centres[i], z, q, cap[i], relief, hauteurPx)) z -= 0.1;
+    return { q, recul: zoom[i] - z };
   });
-  // Plus petite limite à ± 1,5 s, puis flou : la caméra se redresse à l'avance et doucement.
-  const r = Math.round(40 * k), proche = max.map((_, i) => Math.min(...max.slice(Math.max(0, i - r), i + r + 1)));
-  const lisse = flou(proche, 20 * k);
-  return pitch.map((p, i) => Math.min(p, lisse[i], proche[i] + 2));
+  // Pire cas à ± 1,5 s, puis flou : la caméra se redresse (ou recule) à l'avance et doucement, sans jamais dépasser la limite.
+  const r = Math.round(40 * k);
+  const fenetre = (v: number[], pire: (...x: number[]) => number) => v.map((_, i) => pire(...v.slice(Math.max(0, i - r), i + r + 1)));
+  const qMin = fenetre(lim.map((l) => l.q), Math.min), reculMax = fenetre(lim.map((l) => l.recul), Math.max);
+  const q = flou(qMin, 20 * k), recul = flou(reculMax, 20 * k);
+  return {
+    pitch: pitch.map((p, i) => Math.min(p, q[i], qMin[i] + 2)),
+    zoom: zoom.map((z, i) => z - Math.max(recul[i], reculMax[i] - 0.1)),
+  };
 }
 
 /** Caméra au temps t (0 → 1) du film, entre deux positions calculées. */

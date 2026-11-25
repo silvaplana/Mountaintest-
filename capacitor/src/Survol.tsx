@@ -121,6 +121,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     const c0 = { lon: centre.lng, lat: centre.lat };
     // 🧗 et 🎬 ont besoin du relief (sommets, crêtes, points de vue) ; sans lui, le film fait un suivi.
     // Tous les styles s'en servent aussi pour que la caméra ne passe jamais dans la montagne.
+    redresse = 0;
     setAvance('Lecture du relief…');
     const relief: Relief | null = await chargerRelief(zone, ctl.signal).catch(() => null);
     if (ctl.signal.aborted) { setEtape('reglages'); return; }
@@ -470,8 +471,27 @@ async function jouerMusique(f: File, duree: number) {
 /** Zoom de carte qui donne le relief des ombres (même finesse que ce qu'on filme). */
 const HAUTEUR_ZOOM: Record<Hauteur, number> = { bas: 15, moyen: 14, haut: 13 };
 
+/** Garde-fou pendant le tournage : redressement en cours (°), qui retombe doucement quand le relief le permet. */
+let redresse = 0;
+
+/** La caméra est-elle sous le relief que MapLibre dessine (avec 25 m de marge) ? */
+function sousRelief(map: MlMap): boolean {
+  // Position de la caméra : interne à MapLibre 6 (map._camera.transform) ; absente, pas de garde-fou.
+  const t = (map as unknown as { _camera?: { transform?: { getCameraLngLat?: () => LngLat; getCameraAltitude?: () => number } } })._camera?.transform;
+  if (!t?.getCameraLngLat || !t.getCameraAltitude) return false;
+  const sol = map.queryTerrainElevation(t.getCameraLngLat());
+  return sol != null && t.getCameraAltitude() < sol + 25;
+}
+
+/** Pose la caméra ; si, malgré la trajectoire calculée, elle tombe dans la montagne, on la redresse encore. */
 function poser(map: MlMap, c: Cam) {
-  map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: c.pitch, bearing: c.bearing });
+  let r = Math.max(0, redresse - 0.4);
+  for (let i = 0; i < 20; i++) {
+    map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: Math.max(0, c.pitch - r), bearing: c.bearing });
+    if (c.pitch - r <= 0 || !sousRelief(map)) break;
+    r += 3;
+  }
+  redresse = r;
 }
 
 /** Attend que la carte ait fini de charger ce qu'elle montre (true), ou maxMs (false). */
