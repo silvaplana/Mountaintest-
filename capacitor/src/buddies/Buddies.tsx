@@ -308,6 +308,46 @@ function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; 
   </button>;
 }
 
+/** Celui qui a créé le Buddy Time (ou pas encore synchronisé : c'est moi) ou un admin de son Buddy Group peut le supprimer. */
+export const peutSupprimer = (x: Sortie, e: Etat) => !x.par || x.par === e.moi || appliquer(e).some((g) => g.id === x.groupe && estAdmin(g, e));
+
+/** Poubelle (Seb, 25 novembre) : supprimé tout de suite, « Annuler » 10 secondes ; le serveur garde tout. */
+function useSuppression() {
+  const [copie, setCopie] = useState<Sortie | null>(null);
+  const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (minuteur.current) clearTimeout(minuteur.current); }, []);
+  const supprimer = (x: Sortie) => {
+    if (minuteur.current) clearTimeout(minuteur.current);
+    supprimerSortie(x.id);
+    setCopie(x);
+    minuteur.current = setTimeout(() => setCopie(null), 10000);
+  };
+  const annuler = () => { if (minuteur.current) clearTimeout(minuteur.current); if (copie) remettreSortie(copie); setCopie(null); };
+  const bandeau = copie && <div className="bd-bandeau bd-bandeau-bas">« {copie.nom} » supprimé<button className="bd-lien" onClick={annuler}>Annuler</button></div>;
+  return { supprimer, bandeau };
+}
+
+/** ✏ et poubelle, au trait, à côté de chaque Buddy Time des listes (Seb, 25 novembre). */
+function OutilsBuddyTime({ x, e, onSupprimer, onToast, surImage = false }: {
+  x: Sortie; e: Etat; onSupprimer: (x: Sortie) => void; onToast: (m: string) => void; surImage?: boolean;
+}) {
+  const [titre, setTitre] = useState<string | null>(null);
+  const valider = () => {
+    try { if (titre !== null && titre.trim() !== x.nom) renommerSortie(x.id, titre); setTitre(null); } catch (err) { onToast((err as Error).message); }
+  };
+  return <span className={`bd-outils${surImage ? ' sur-image' : ''}`}>
+    <button onClick={() => setTitre(x.nom)} aria-label={`Changer le nom de ${x.nom}`}><PencilIcon size={22} /></button>
+    {peutSupprimer(x, e) && <button onClick={() => onSupprimer(x)} aria-label={`Supprimer ${x.nom}`}><TrashIcon size={22} /></button>}
+    {titre !== null && <div className="bd-voile" onClick={() => setTitre(null)}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+      <h3>Nom du Buddy Time</h3>
+      <input className="bd-titre-champ" value={titre} maxLength={80} autoFocus aria-label="Nom du Buddy Time"
+        onChange={(ev) => setTitre(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') valider(); }} />
+      <button className="primary" onClick={valider}>Enregistrer</button>
+      <button onClick={() => setTitre(null)}>Annuler</button>
+    </div></div>}
+  </span>;
+}
+
 type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }
   | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string } | { ecran: 'dispos'; id: string; groupe?: string }
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
@@ -457,16 +497,17 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onToast={onToast} onOuvrir={voir} onTrace={(t) => onCarte({ traces: [t] })}
         onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
         : <Liste e={e} groupes={groupes.filter((x) => x.nature !== 'duo')} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
-          onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: meTime.id })} onClose={onClose} />}
+          onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: meTime.id })} onClose={onClose} onToast={onToast} />}
   </div>;
 }
 
-function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, onNouveau, onNouvelle, onClose }: {
+function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, onNouveau, onNouvelle, onClose, onToast }: {
   e: Etat; groupes: Groupe[]; sorties: Sortie[]; plannings: Planning[]; onRemplir: (p: Planning) => void; onOuvrir: (id: string) => void; onSortie: (x: Sortie) => void;
-  onNouveau: () => void; onNouvelle: () => void; onClose: () => void;
+  onNouveau: () => void; onNouvelle: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
   const enAttente = e.attente.length;
   const haut = prochaine(sorties);
+  const suppression = useSuppression();
   const nomGroupe = (x: Sortie) => groupes.find((g) => g.id === x.groupe)?.nom ?? '';
   return <div className="bd-corps">
     <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
@@ -483,12 +524,13 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
       <small className="bd-quand">{g.attente ? '🕓' : quand(g.modifie_le)}</small>
     </button>)}
     {sorties.length > 0 && <h3 className="bd-section">Buddy Times</h3>}
-    {sorties.map((x) => <button key={x.id} className="bd-ligne" onClick={() => onSortie(x)}>
+    {sorties.map((x) => <div key={x.id} className="bd-ligne-outils"><button className="bd-ligne" onClick={() => onSortie(x)}>
       <Carre x={x} />
       <span className="bd-texte"><b>{x.nom}</b>
         <small>{[nomGroupe(x), x.participants.length > 1 ? `${x.participants.length} partants` : '', x.fin < aujourdhui() ? 'souvenir' : ''].filter(Boolean).join(' · ')}</small></span>
-      <small className="bd-quand">{x.attente ? '🕓' : quand(x.modifie_le)}</small>
-    </button>)}
+      {x.attente && <small className="bd-quand">🕓</small>}
+    </button><OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} /></div>)}
+    {suppression.bandeau}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
       <button className="primary" onClick={onNouveau}><span className="bd-faces"><i /><i /><i /></span>
@@ -509,6 +551,8 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   const auj = aujourdhui();
   const avenir = sorties.filter((x) => x.fin >= auj).sort((a, b) => a.debut.localeCompare(b.debut));
   const souvenirs = sorties.filter((x) => x.fin < auj).sort((a, b) => b.debut.localeCompare(a.debut));
+  const suppression = useSuppression();
+  const e = useBuddies();
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
@@ -523,10 +567,13 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     {!me && <LigneAppel dest={{ groupe: g.id }} nom={g.nom} onToast={onToast} />}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     <h3 className="bd-section">À venir</h3>
-    {avenir.length ? avenir.map((x) => <Affiche key={x.id} x={x} onClick={() => onOuvrir(x)} />)
+    {avenir.length ? avenir.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} onClick={() => onOuvrir(x)} />
+      <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)
       : <p className="bd-vide">{me ? 'Tes sorties à toi, seul ou avec un ou deux copains invités.' : 'Rien de prévu pour l’instant : ＋ Buddy Time quand vous êtes sûrs de partir.'}</p>}
     {souvenirs.length > 0 && <><h3 className="bd-section">Souvenirs</h3>
-      <div className="bd-grille">{souvenirs.map((x) => <Affiche key={x.id} x={x} petite onClick={() => onOuvrir(x)} />)}</div></>}
+      <div className="bd-grille">{souvenirs.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} petite onClick={() => onOuvrir(x)} />
+        <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)}</div></>}
+    {suppression.bandeau}
     {traces.length > 0 && <><h3 className="bd-section">Traces partagées</h3>
       {traces.map((t) => <button key={t.id} className="bd-ligne petite" onClick={() => onTrace(t)}>
         <Visage b={t.par} /><span className="bd-texte"><b>〰 {t.nom}</b><small>{t.par.pseudo}{t.mot ? ` : ${t.mot}` : ''}</small></span>
@@ -717,7 +764,6 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   };
   // Poubelle (Seb, 25 novembre) : pour celui qui l'a créé ou un admin du Buddy Group. Supprimé tout de suite,
   // « Annuler » 10 secondes (le serveur garde tout), puis retour aux Buddies.
-  const peutSupprimer = !x.par || x.par === eb.moi || appliquer(eb).some((g) => g.id === x.groupe && estAdmin(g, eb));
   const [supprime, setSupprime] = useState<Sortie | null>(null);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (minuteur.current) clearTimeout(minuteur.current); }, []);
@@ -753,7 +799,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
       <span className="bd-texte" onClick={() => setTitre(nom)}><b>{nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
         : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
       <button onClick={() => setTitre(nom)} aria-label="Changer le nom"><PencilIcon size={22} /></button>
-      {peutSupprimer && <button onClick={supprimer} aria-label="Supprimer le Buddy Time"><TrashIcon size={22} /></button>}
+      {peutSupprimer(x, eb) && <button onClick={supprimer} aria-label="Supprimer le Buddy Time"><TrashIcon size={22} /></button>}
     </div>
     <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}${sheet.classe}`}>
       <div {...sheet.prise} aria-label="Régler la hauteur du bandeau"><div className="handle" /></div>
