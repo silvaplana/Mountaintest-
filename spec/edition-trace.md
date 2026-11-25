@@ -55,3 +55,9 @@ Pendant un appel, l'appui long montre toujours l'endroit aux autres. Trace chois
 « recaler sur sentiers » est toujours décoché quand on ouvre ✏ ; le dernier choix n'est pas retenu.
 Avec ✏ ouvert, la carte se déplace et se zoome normalement ; un APPUI LONG d'un doigt (0,45 s, une vibration) démarre
 le trait, on glisse sans lever ; un appui TRÈS LONG sans bouger (1,4 s, deux vibrations) ouvre le rectangle de sélection.
+
+## Renommer une trace (Seb, 25/11)
+Dans 📂 Charger des traces, chaque ligne de « Mes traces » a un crayon au trait avant le partage et la poubelle.
+Il ouvre le nom dans un champ avec ✕ (garder l'ancien) et ✓. Le nouveau nom va dans la trace enregistrée, sur la carte
+si elle y est affichée, et dans le fichier GPX : l'ancien fichier est enlevé et un nouveau est écrit. Un nom long est
+coupé avec « … », et les boutons restent dans l'écran.

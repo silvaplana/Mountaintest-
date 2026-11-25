@@ -50,6 +50,16 @@ export async function updateTrace(id: number, line: LonLat[], pins: Pin[], lien:
   return t;
 }
 
+/** ✏ Nouveau nom d'une trace enregistrée (Seb, 25/11). */
+export async function renameTrace(id: number, name: string): Promise<SavedTrace | null> {
+  const all = await listTraces();
+  const t = all.find((x) => x.id === id);
+  if (!t) return null;
+  t.name = name;
+  await write(all);
+  return t;
+}
+
 /** Points lus d'un JSON (préférences) : on ne garde que ceux qui ont une position. */
 export function readPins(v: unknown): Pin[] {
   if (!Array.isArray(v)) return [];
