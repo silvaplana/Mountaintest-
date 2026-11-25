@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { mergePlaces, searchPlacesWide, type Place } from './search';
 import { localNames, searchNames } from './places/placeNames';
-import { Onde, useDictee } from './buddies/Dictee';
+import { MicIcon, Onde, useDictee } from './buddies/Dictee';
 
 /** Un résultat en ligne qui redit un nom déjà trouvé sur le téléphone (même nom, à moins de 300 m). */
 export function mergeResults(local: Place[], online: Place[]): Place[] {
@@ -12,7 +12,7 @@ export function mergeResults(local: Place[], online: Place[]): Place[] {
  * Barre de recherche : on tape une ville, un département ou un lieu, on choisit, la carte y va.
  * D'abord les noms gardés sur le téléphone avec les cartes hors ligne (marche sans réseau),
  * puis la recherche de l'IGN, les lieux proches du centre de la carte (near) en premier.
- * 🎤 : on dit le nom au lieu de le taper (dictée dans l'appli, comme dans la messagerie).
+ * Micro : on dit le nom au lieu de le taper (dictée dans l'appli, comme dans la messagerie).
  */
 export function SearchBar({ onPick, onClose, near, onToast }: {
   onPick: (p: Place) => void; onClose: () => void; near?: { lon: number; lat: number }; onToast: (m: string) => void;
@@ -52,8 +52,8 @@ export function SearchBar({ onPick, onClose, near, onToast }: {
         {dictee.ecoute ? <Onde niveau={dictee.niveau} partiel={dictee.partiel} /> : <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ville, département, sommet, lieu…"
           enterKeyHint="search" autoCorrect="off" autoCapitalize="words"
           onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) onPick(results[0]); if (e.key === 'Escape') onClose(); }} />}
-        <button className={dictee.ecoute ? 'bd-ecoute' : ''} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dire le nom'}
-          onClick={() => void dictee.basculer()}>{dictee.ecoute ? '■' : '🎤'}</button>
+        <button className={dictee.ecoute ? 'bd-ecoute' : 'micro'} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dire le nom'}
+          onClick={() => void dictee.basculer()}>{dictee.ecoute ? '■' : <MicIcon />}</button>
         <button onClick={onClose} aria-label="Fermer la recherche">✕</button>
       </div>
       {(results.length > 0 || error) && (
