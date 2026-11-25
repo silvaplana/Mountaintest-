@@ -82,6 +82,8 @@ export function PinLayer({ map, trails, pique, targetId, editing, onEditing, onP
       }
       // Le doigt sur l'épingle ne fait pas bouger la carte.
       for (const ev of ['mousedown', 'touchstart', 'click', 'dblclick']) el.addEventListener(ev, (e) => e.stopPropagation());
+      // L'appui long sur un point ne doit pas aussi poser le gros repère « Point choisi sur la carte » (Seb, 25/11).
+      el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); });
       let t0: { x: number; y: number } | null = null, mode: 'tap' | 'move' | 'del' = 'tap', bouge = false;
       const timers: ReturnType<typeof setTimeout>[] = [];
       const stop = () => { timers.forEach(clearTimeout); timers.length = 0; };
