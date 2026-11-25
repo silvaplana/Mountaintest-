@@ -10,6 +10,8 @@ import {
   texteCarnet, tracesDuCarnet, type FicheAffichee, type Relief, type TraceCarnet,
 } from './carnet';
 import { euros } from './count';
+import { LAYERS, wmtsTileUrl } from '../config';
+import { getTileStore } from '../tiles/offlineStore';
 import { enregistrerCarnet, ficheVide, lire, type Depense, type Fiche, type PhotoBuddy, type Sortie, type TraceBuddy } from './store';
 
 /**
@@ -35,19 +37,54 @@ function useReliefs(traces: TraceCarnet[]) {
 /** La trace sur un petit plan, une couleur par jour ; un toucher l'ouvre sur la carte. */
 function PetitPlan({ traces, onCarte }: { traces: TraceCarnet[]; onCarte: () => void }) {
   const pts = traces.flatMap((t) => t.t.ligne);
-  if (pts.length < 2) return null;
-  const lat0 = pts.reduce((n, p) => n + p[1], 0) / pts.length, k = Math.cos(lat0 * Math.PI / 180);
-  const xs = pts.map((p) => p[0] * k), ys = pts.map((p) => -p[1]);
+  // Mercator (pixels du zoom 0) : la trace tombe juste sur les tuiles du fond de carte (Seb, 25/11).
+  const xs = pts.map((p) => mercX(p[0])), ys = pts.map((p) => mercY(p[1]));
   const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
   const W = 300, H = 200, m = 14, e = Math.min((W - 2 * m) / (x1 - x0 || 1e-9), (H - 2 * m) / (y1 - y0 || 1e-9));
   const ox = (W - (x1 - x0) * e) / 2, oy = (H - (y1 - y0) * e) / 2;
-  const chemin = (l: [number, number][]) => l.map((p, i) => `${i ? 'L' : 'M'}${(ox + (p[0] * k - x0) * e).toFixed(1)},${(oy + (-p[1] - y0) * e).toFixed(1)}`).join('');
+  const fond = useFond(pts.length < 2 ? null : { gauche: x0 - ox / e, haut: y0 - oy / e, e, W, H });
+  if (pts.length < 2) return null;
+  const chemin = (l: [number, number][]) => l.map((p, i) => `${i ? 'L' : 'M'}${(ox + (mercX(p[0]) - x0) * e).toFixed(1)},${(oy + (mercY(p[1]) - y0) * e).toFixed(1)}`).join('');
   const legende = traces.length > 1 || traces[0]?.jour == null;
   return <button className="bd-petit-plan" onClick={onCarte} aria-label="Voir la trace sur la carte">
-    <svg viewBox={`0 0 ${W} ${H}`}>{traces.map((t) => <path key={t.t.id} d={chemin(t.t.ligne)} stroke={t.couleur} />)}</svg>
+    <svg viewBox={`0 0 ${W} ${H}`}>
+      {fond.map((t) => <image key={t.cle} href={t.href} x={t.x} y={t.y} width={t.taille} height={t.taille} preserveAspectRatio="none" />)}
+      {traces.map((t) => <path key={t.t.id} d={chemin(t.t.ligne)} stroke={t.couleur} />)}
+    </svg>
     <span className="bd-agrandir">⤢</span>
     {legende && <span className="bd-legende">{traces.map((t) => <span key={t.t.id}><i style={{ background: t.couleur }} />{t.libelle}</span>)}</span>}
   </button>;
+}
+
+const mercX = (lon: number) => (lon + 180) / 360 * 256;
+const mercY = (lat: number) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 256; };
+
+type Tuile = { cle: string; href: string; x: number; y: number; taille: number };
+/**
+ * Fond Plan IGN sous le petit plan : tuiles gardées sur le téléphone d'abord (hors ligne), sinon le réseau.
+ * Le plan déborde de son cadre de chaque côté (le SVG est centré dans un cadre plus large) : on couvre large.
+ */
+function useFond(v: { gauche: number; haut: number; e: number; W: number; H: number } | null): Tuile[] {
+  const [l, setL] = useState<Tuile[]>([]);
+  const cle = v ? [v.gauche, v.haut, v.e].map((n) => n.toFixed(4)).join() : '';
+  useEffect(() => {
+    if (!v) return;
+    const z = Math.max(0, Math.min(16, Math.ceil(Math.log2(1.5 * v.e)))), n = 2 ** z, taille = 256 / n * v.e;
+    const g = v.gauche - v.W / 2 / v.e, d = v.gauche + 1.5 * v.W / v.e, h = v.haut - v.H / 2 / v.e, b = v.haut + 1.5 * v.H / v.e;
+    const tuiles: { z: number; x: number; y: number }[] = [];
+    for (let x = Math.floor(g / 256 * n); x <= Math.floor(d / 256 * n); x++)
+      for (let y = Math.max(0, Math.floor(h / 256 * n)); y <= Math.min(n - 1, Math.floor(b / 256 * n)); y++) tuiles.push({ z, x, y });
+    let fini = false;
+    const urls: string[] = [];
+    void getTileStore(LAYERS.planign).then((store) => Promise.all(tuiles.map(async (t) => {
+      const local = await store.read(t).catch(() => null);
+      const href = local ? URL.createObjectURL(new Blob([local], { type: LAYERS.planign.format })) : wmtsTileUrl(LAYERS.planign, t.z, t.x, t.y, '');
+      if (local) urls.push(href);
+      return { cle: `${t.z}/${t.x}/${t.y}`, href, x: (t.x * 256 / n - v.gauche) * v.e, y: (t.y * 256 / n - v.haut) * v.e, taille };
+    }))).then((r) => { if (!fini) setL(r); }).catch(() => undefined);
+    return () => { fini = true; urls.forEach((u) => URL.revokeObjectURL(u)); };
+  }, [cle]); // eslint-disable-line react-hooks/exhaustive-deps
+  return l;
 }
 
 /** Profil de tout le Buddy Time, jour après jour (écran 13). */

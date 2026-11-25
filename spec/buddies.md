@@ -717,6 +717,8 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   et apparaît sur sa carte chez tous ; le lien est gardé avec la trace (`lien` : Buddy Group + Buddy Time, dans
   `tracesAffichees` et `tracesEnregistrees`) ; le film 🎥 prend les photos de l'album de ce Buddy Time même s'il n'est
   pas ouvert. Une trace ouverte depuis un Buddy Time arrive déjà associée.
+- **Petit plan « La trace » du carnet** : la trace est posée sur un fond Plan IGN (Seb, 25/11), tuiles gardées sur le
+  téléphone d'abord (hors ligne), sinon le réseau ; sans rien, le fond beige reste.
 - **Derniers ouverts** : gardés sur le téléphone (`localStorage` « buddiesOuverts ») quand on ouvre un Buddy Group,
   la carte d'un Buddy Time, son album, son carnet, son Buddy count ou son hébergement.
 - **Pas encore** : une trace modifiée après l'association n'est pas renvoyée (on l'associe à nouveau) ; une trace
