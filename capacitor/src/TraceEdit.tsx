@@ -15,7 +15,7 @@ type Outil = 'snap' | 'add' | 'spline';
 /** Mode souple : écart entre deux ronds à l'écran (Peu, Moyen, Beaucoup), en pixels ; recalculé quand on zoome. */
 const ECART_PX = [110, 70, 45];
 /** Couches de la trace dessinée par la carte, cachées pendant qu'un rond glisse (l'ancien tracé ne reste pas). */
-const COUCHES_TRACE = ['trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
+const COUCHES_TRACE = ['trail-sel-halo', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
 /** Un chemin plus loin que ça d'un point de la trace ne compte pas pour le recoller. */
 const NEAR_M = 40;
 /** Toucher la trace : à moins de tant de pixels. */

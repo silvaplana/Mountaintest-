@@ -38,3 +38,10 @@ laisse la place au suivant ; les morceaux sur chemin sont coupés en bouts de 1,
 au plus (sinon le tracé reste posé sur le chemin). Avancement affiché, « ↻ Réessayer » si le réseau ne répond pas.
 Sans réseau : à faire (garder la forme des chemins avec les cartes hors ligne), règle de Seb : en ligne d'abord, le local
 seulement sans réseau ou si le réseau échoue.
+
+## Rectangle de sélection (Seb, 25/11)
+L'appui long sur la carte ne pose plus de « Point choisi » (gros repère rouge supprimé) : il ouvre un rectangle qu'on
+étire du doigt. Mes traces (dès qu'un point est dedans) et les épingles dedans sont prises, la trace prise grossit.
+Barre en bas : « 2 traces · 3 📍 », poubelle dessinée (même trait que le micro), ✕. La poubelle efface : les traces
+quittent la carte (celles enregistrées restent dans 📂 Mes traces), les épingles sont enlevées ; « ↶ Annuler » 6 s.
+Pendant un appel, l'appui long montre toujours l'endroit aux autres. Trace choisie : halo jaune sous un liseré blanc.
