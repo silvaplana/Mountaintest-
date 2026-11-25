@@ -173,9 +173,12 @@ sa gauche, on en choisit une.
 - Dans Me Time, on peut inviter un ou plusieurs copains à une sortie sans créer de Buddy
   Group. **(Seb)**
 - Création : photo, nom, dates, lieu facultatif.
-- **Changer son nom** (Seb, 25 novembre 2026) : toucher le nom en haut de sa carte (✏), l'écrire, ✓ (✕ pour
-  renoncer). Tout buddy qui voit le Buddy Time peut le faire, comme le nom d'un groupe WhatsApp (opération
+- **Changer son nom** (Seb, 25 novembre 2026) : le crayon (dessiné au trait) en haut de sa carte, ou toucher le nom ;
+  l'écrire, ✓ (✕ pour renoncer). Tout buddy qui voit le Buddy Time peut le faire, comme le nom d'un groupe WhatsApp (opération
   `renommer_sortie`). Aussi par Bud (§7.12).
+- **Le supprimer** (Seb, 25 novembre 2026) : la poubelle (dessinée au trait, pas l'émoji) en haut de sa carte, montrée
+  seulement à celui qui l'a créé et aux admins du Buddy Group. Supprimé tout de suite, « Annuler » 10 secondes, puis
+  retour aux Buddies. Rien n'est effacé sur le serveur (même opération que Bud, §7.12).
 - Ouvrir un Buddy Time ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
   bandeau en bas (dans combien de jours, qui vient, chiffres du parcours) se baisse pour ne
   laisser que la carte. **(proposé)**

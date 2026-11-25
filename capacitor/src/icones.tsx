@@ -12,3 +12,10 @@ export function TrashIcon({ size = 24 }: { size?: number }) {
 
 /** Même poubelle, en texte SVG pour les éléments posés directement sur la carte (épingles). */
 export const TRASH_SVG = `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${TRASH_PATHS}</svg>`;
+
+/** Crayon au même trait que la poubelle : changer un nom. */
+export function PencilIcon({ size = 24 }: { size?: number }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor"
+    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5z" /><path d="M13.5 7l3 3" /></svg>;
+}

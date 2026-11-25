@@ -3,6 +3,7 @@ import type { Map as MlMap } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { useSheet } from '../useSheet';
+import { PencilIcon, TrashIcon } from '../icones';
 import { noterOuvert } from './recents';
 import { TracesAssociees } from './Associer';
 import qrcode from 'qrcode-generator';
@@ -23,7 +24,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, autreDuDuo, monEpingle, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
-  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, renommerSortie, retirer, suivre, synchroniser, vue as vueSorties,
+  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -714,6 +715,30 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   const valider = () => {
     try { if (titre !== null && titre.trim() !== nom) renommerSortie(x.id, titre); setTitre(null); } catch (err) { onToast((err as Error).message); }
   };
+  // Poubelle (Seb, 25 novembre) : pour celui qui l'a créé ou un admin du Buddy Group. Supprimé tout de suite,
+  // « Annuler » 10 secondes (le serveur garde tout), puis retour aux Buddies.
+  const peutSupprimer = !x.par || x.par === eb.moi || appliquer(eb).some((g) => g.id === x.groupe && estAdmin(g, eb));
+  const [supprime, setSupprime] = useState<Sortie | null>(null);
+  const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (minuteur.current) clearTimeout(minuteur.current); }, []);
+  const supprimer = () => {
+    setSupprime(v.sorties.find((y) => y.id === x.id) ?? x);
+    supprimerSortie(x.id);
+    minuteur.current = setTimeout(onRetour, 10000);
+  };
+  const annulerSuppression = () => {
+    if (minuteur.current) clearTimeout(minuteur.current);
+    if (supprime) remettreSortie(supprime);
+    setSupprime(null);
+  };
+  if (supprime) return <>
+    <div className="bd-carte-haut">
+      <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
+      <span className="bd-texte"><b>{nom}</b><small>Buddy Time supprimé</small></span>
+    </div>
+    <div className="bd-carte-bas"><div className="bd-bandeau">Buddy Time supprimé
+      <button className="bd-lien" onClick={annulerSuppression}>Annuler</button></div></div>
+  </>;
   if (titre !== null) return <>
     <div className="bd-carte-haut">
       <button onClick={() => setTitre(null)} aria-label="Annuler">✕</button>
@@ -725,8 +750,10 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   return <>
     <div className="bd-carte-haut">
       <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
-      <span className="bd-texte" onClick={() => setTitre(nom)} title="Toucher pour changer le nom"><b>{nom} <small>✏</small></b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
+      <span className="bd-texte" onClick={() => setTitre(nom)}><b>{nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
         : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
+      <button onClick={() => setTitre(nom)} aria-label="Changer le nom"><PencilIcon size={22} /></button>
+      {peutSupprimer && <button onClick={supprimer} aria-label="Supprimer le Buddy Time"><TrashIcon size={22} /></button>}
     </div>
     <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}${sheet.classe}`}>
       <div {...sheet.prise} aria-label="Régler la hauteur du bandeau"><div className="handle" /></div>
