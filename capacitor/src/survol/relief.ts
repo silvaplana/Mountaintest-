@@ -25,7 +25,7 @@ export function reliefDeGrille(g: DemGrid): Relief {
     const i0 = Math.floor(i), j0 = Math.floor(j), u = i - i0, v = j - j0;
     return (at(i0, j0) * (1 - u) + at(i0 + 1, j0) * u) * (1 - v) + (at(i0, j0 + 1) * (1 - u) + at(i0 + 1, j0 + 1) * u) * v;
   };
-  return { alt, sommets: sommets(g) };
+  return { alt, sommets: sommets(g), maille: cellMeters(g.spec) };
 }
 
 /** Sommets marquants : plus hauts que tout à 1 km autour, et dominant leurs alentours (1,5 km) d'au moins 60 m. */
@@ -51,8 +51,9 @@ export function sommets(g: DemGrid, max = 40): (LonLat & { alt: number })[] {
 }
 
 /** Charge le relief autour de la trace (null s'il manque : film en simple suivi). */
-export async function chargerRelief(zone: Bbox, signal: AbortSignal): Promise<Relief | null> {
-  const g = await loadGrid(gridFor(zoneRelief(zone), 12), signal);
+/** fin : relief à 7 m quand la zone le permet (🧗 caméra au ras du sol), sinon 30 m. */
+export async function chargerRelief(zone: Bbox, signal: AbortSignal, fin = false): Promise<Relief | null> {
+  const g = await loadGrid(fin ? gridFor(zoneRelief(zone), 15, 144) : gridFor(zoneRelief(zone), 12), signal);
   if (signal.aborted || g.missing === g.spec.nx * g.spec.ny) return null;
   return reliefDeGrille(g);
 }

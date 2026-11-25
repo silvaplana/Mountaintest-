@@ -14,21 +14,27 @@ export const HAUTEURS: Record<Hauteur, { pitch: number; zoom: number }> = {
 
 /**
  * 🧗 Alpiniste (Seb, 25/11 : « au niveau du sol… il faut quand même coller », « quand on met en bas, c'est en bas ») :
- * la caméra est posée sur la trace, `recul` m derrière soi et `haut` m au-dessus du terrain, et vise la trace `vise` m
- * devant : elle lève les yeux en montée, plonge le regard en descente. Au sommet, elle s'élève comme un drone à
- * `drone` m du sommet et en fait le tour.
+ * la caméra est `recul` m derrière soi, `haut` m au-dessus du terrain, et vise la trace `vise` m devant : elle lève
+ * les yeux en montée, plonge le regard en descente. Au sommet, elle s'élève comme un drone (`drone` m) et tourne autour.
  */
 export const ALPI: Record<Hauteur, { haut: number; recul: number; vise: number; drone: number }> = {
   bas: { haut: 5, recul: 30, vise: 250, drone: 700 },
   moyen: { haut: 40, recul: 120, vise: 350, drone: 1000 },
   haut: { haut: 150, recul: 400, vise: 600, drone: 1600 },
 };
-/** Inclinaison la plus forte (°) : 90 = l'horizon, au-delà on lève les yeux (MapLibre va jusqu'à 180). */
-export const PITCH_MAX = 115;
+/**
+ * Inclinaison la plus forte (°) : 90 = l'horizon, au-delà la caméra lève les yeux. Pas plus de 100 : au-delà, MapLibre
+ * ne dessine plus le terrain proche (essai du 25/11 : à 110° face à une pente, l'image n'est que du ciel).
+ */
+export const PITCH_MAX = 100;
 
 /** Une image de la caméra ; d = distance parcourue sur la trace (m), point = où l'on en est. */
-/** sommet : altitude affichée pendant la pause au sommet (🧗) ; sol : caméra posée près du sol (🧗), garde serrée. */
-export interface Cam { lon: number; lat: number; zoom: number; pitch: number; bearing: number; d: number; point: LonLat; sommet?: number; sol?: boolean }
+/** sommet : altitude affichée pendant la pause au sommet (🧗). */
+export interface Cam { lon: number; lat: number; zoom: number; pitch: number; bearing: number; d: number; point: LonLat; sommet?: number;
+  /** 🧗 Altitude (m) du point visé, imposée à MapLibre : la caméra est exactement là où on l'a calculée. */
+  elevation?: number;
+  /** 🧗 Marge (m) au-dessus du sol garantie par le calcul : le garde-fou du tournage ne demande pas plus. */
+  garde?: number }
 
 /** Parts du film : vue d'ensemble → départ, puis suivi, puis tour de l'arrivée. */
 export const DEBUT = 0.15, FIN = 0.85;
@@ -111,7 +117,9 @@ export type Descente = 'gopro' | 'large';
 /** 🧗 Ce que le film raconte : la montée seule, la descente seule (depuis le sommet), ou les deux. */
 export type Sens = 'deux' | 'montee' | 'descente';
 /** Relief lu dans le MNT IGN (relief.ts) : altitude d'un point, et les sommets marquants de la zone. */
-export interface Relief { alt: (p: LonLat) => number | null; sommets: (LonLat & { alt: number })[] }
+export interface Relief { alt: (p: LonLat) => number | null; sommets: (LonLat & { alt: number })[];
+  /** Taille d'une maille du relief (m) : plus il est grossier, plus la caméra au sol garde de marge. */
+  maille?: number }
 /** nuages : l'intro plongée attend derrière les nuages (par défaut) ; false = plongée simple, on descend tout de suite. */
 export interface Options { style?: Style; descente?: Descente; sens?: Sens; relief?: Relief | null; nuages?: boolean;
   /** Hauteur de la carte à l'écran (px) : donne la distance de la caméra, pour ne jamais passer sous le relief. */
@@ -120,7 +128,7 @@ export interface Options { style?: Style; descente?: Descente; sens?: Sens; reli
 /** Inclinaison de la caméra GoPro de la descente (au ras de la pente). */
 export const PITCH_GOPRO = 76;
 
-interface Brut { x: number; y: number; zoom: number; pitch: number; bearing: number; d: number; s: number; sommet?: number; sol?: boolean }
+interface Brut { x: number; y: number; zoom: number; pitch: number; bearing: number; d: number; s: number; sommet?: number }
 
 /**
  * Note de beauté le long de la trace (🎬 Ciné), avec le relief : pente raide, crête (plus haut que les alentours),
@@ -221,76 +229,44 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
     return a == null || b == null ? 0 : (Math.atan2(b - a, 2 * l) * 180) / Math.PI;
   };
 
-  const H = o.hauteurPx ?? 800, A = ALPI[hauteur];
-  const altP = (p: Plan) => o.relief?.alt(c.pr.depuis(p)) ?? null;
-  /** Sol le plus haut sous la caméra et à 12 m autour. */
-  const solSous = (p: Plan) => {
-    let m = -Infinity;
-    for (const [dx, dy] of [[0, 0], [12, 0], [-12, 0], [0, 12], [0, -12]]) { const a = altP({ x: p.x + dx, y: p.y + dy }); if (a != null && a > m) m = a; }
-    return m;
-  };
-  /**
-   * Caméra posée près du sol (🧗) quand on est à la distance d en marchant dans le sens `sens` (+1 / −1).
-   * Hauteur : le sol le plus haut sur 60 m autour du chemin de la caméra (pas de saut à chaque bosse), plus `haut`.
-   */
-  const auSol = (d: number, sens: number): Brut => {
-    const camD = (x: number) => c.lisse(x - sens * A.recul), cible = c.lisse(d + sens * A.vise), cam = camD(d);
-    let alt = 0;
-    for (let j = -3; j <= 3; j++) {
-      let m = -Infinity;
-      for (let k = -3; k <= 3; k++) m = Math.max(m, solSous(camD(d + sens * (j * 10 + k * 10))));
-      alt += m / 7;
-    }
-    alt = Math.max(alt, solSous(cam)) + A.haut;
-    let b = 0, nb = 0;
-    for (let k = -2; k <= 2; k++) { const a = altP(c.lisse(d + sens * (A.vise + k * 15))); if (a != null) { b += a; nb++; } }
-    const r = regard(cam, alt, cible, nb ? b / nb : alt, c.pr.depuis(cible).lat, H);
-    return { ...r, d, s: d, sol: true };
-  };
-  /** Vue drone au-dessus du sommet. */
-  const drone = (): Brut => {
-    const p = c.at(som?.d ?? 0);
-    return { ...p, zoom: zoomPourDistance(A.drone, c.pr.depuis(p).lat, H), pitch: 58, bearing: 0, d: 0, s: som?.d ?? 0 };
-  };
-  /**
-   * 🧗 Montée jusqu'à m1, sommet jusqu'à m2, puis descente. La caméra colle au sol (selon la Hauteur), sauf en
-   * descente « large ». Trace qui part du sommet : « les deux » = remonter depuis le bas puis redescendre.
-   */
-  const alpi = (u: number): Brut => {
-    const s0 = som!;
-    const [m1, m2] = o.sens === 'montee' ? [0.7, 1.01] : o.sens === 'descente' ? [0, 0.25] : [0.45, 0.7];
-    // Distance déjà parcourue au sommet (pour km · alt).
-    const monte = o.sens === 'descente' ? 0 : s0.depart ? c.total - s0.d : s0.d;
-    const montee = (v: number): Brut => {
-      if (s0.depart) { const d = lerp(c.total, s0.d, v), x = auSol(d, -1); return { ...x, d: c.total - d, s: d }; }
-      return auSol(v * s0.d, 1);
-    };
-    const descente = (v: number): Brut => {
-      const s = lerp(s0.d, s0.fin, v), sens = s0.retour ? -1 : 1, dd = monte + Math.abs(s - s0.d);
-      if (gopro) return { ...auSol(s, sens), d: dd, s };
-      const p = c.lisse(s);
-      return { ...p, zoom: h.zoom - 0.4, pitch: dansLaPente(Math.min(64, h.pitch + 2), pente(s, sens)), bearing: capAutour(c, s) + (sens < 0 ? 180 : 0), d: dd, s };
-    };
-    if (u < m1) return montee(u / m1);
-    if (u >= m2) return descente((u - m2) / (1 - m2));
-    // Au sommet, façon drone (Seb, 25/11) : on s'élève, on fait le tour du sommet, puis on redescend au sol.
-    const v = (u - m1) / (m2 - m1), a = o.sens === 'descente' ? null : montee(1), z = o.sens === 'montee' ? null : descente(0);
-    const dr = drone(), base = a && z ? melange(a, z, doux(v)) : (a ?? z)!;
-    const monter = a ? doux(Math.min(1, v / 0.3)) : 1, descendre = z ? doux(Math.min(1, (1 - v) / 0.3)) : 1;
-    const k = Math.min(monter, descendre);
-    const b0 = a?.bearing ?? z!.bearing, b1 = z?.bearing ?? b0, e = ecartAngle(b0, b1);
-    const tour = a && z ? e + (e >= 0 ? 360 : -360) : 360;
-    const cap = z && !a ? b1 - tour * (1 - doux(v)) : b0 + tour * doux(v);
-    return { ...melange(base, dr, k), bearing: cap, d: monte, s: s0.d, sommet: s0.alt, sol: false };
-  };
-
   /** Le corps du film (u de 0 à 1), selon le style. */
   const corps = (u: number): Brut => {
     if (style === 'cote') {
       const d = u * c.total, p = c.lisse(d);
       return { ...p, zoom: h.zoom - 0.2, pitch: Math.min(66, h.pitch + 4), bearing: capAutour(c, d) + 75, d, s: d };
     }
-    if (style === 'alpi' && som) return alpi(u);
+    if (style === 'alpi' && som) {
+      // La caméra se penche dans la pente (Seb, 25/11) : elle lève les yeux en montée, plonge le regard en descente.
+      // Pente mesurée sur ± 150 m, dans le sens de la marche ; le flou final adoucit encore.
+      // Parts du film : montée jusqu'à m1, pause au sommet jusqu'à m2, puis descente.
+      // Trace qui part du sommet : « les deux » = remonter depuis le bas puis redescendre ; « montée » = remonter.
+      const [m1, m2] = o.sens === 'montee' ? [0.82, 1.01] : o.sens === 'descente' ? [0, 0.18] : [0.5, 0.65];
+      if (u < m1) {
+        if (som.depart) {
+          const d = lerp(c.total, som.d, u / m1), p = c.lisse(d);
+          return { ...p, zoom: h.zoom, pitch: dansLaPente(h.pitch, pente(d, -1)), bearing: capAutour(c, d) + 180, d: c.total - d, s: d };
+        }
+        const d = (u / m1) * som.d, p = c.lisse(d);
+        return { ...p, zoom: h.zoom, pitch: dansLaPente(h.pitch, pente(d, 1)), bearing: capAutour(c, d), d, s: d };
+      }
+      // Distance déjà parcourue au sommet (pour km · alt), caps de la montée et de la descente au sommet.
+      const monte = o.sens === 'descente' ? 0 : som.depart ? c.total - som.d : som.d;
+      const capM = capAutour(c, som.d) + (som.depart ? 180 : 0), capD = capAutour(c, som.d) + (som.retour ? 180 : 0);
+      if (u < m2) {
+        // Pause au sommet : tour panoramique qui finit face à la descente (un tour complet si on continue tout droit),
+        // la caméra recule un peu et regarde plus loin. Descente seule : demi-tour qui finit face à la descente.
+        const v = doux((u - m1) / (m2 - m1)), bosse = Math.sin(v * Math.PI), p = c.at(som.d);
+        let tour = ecartAngle(capM, capD);
+        if (Math.abs(tour) < 90) tour += 360;
+        const cap = o.sens === 'descente' ? capD - 180 * (1 - v) : o.sens === 'montee' ? capM + 180 * v : capM + tour * v;
+        return { ...p, zoom: h.zoom - 0.7 * bosse, pitch: h.pitch - 10 * bosse, bearing: cap, d: monte, s: som.d, sommet: som.alt };
+      }
+      const v = (u - m2) / (1 - m2), s = lerp(som.d, som.fin, v), p = c.lisse(s);
+      const cap = som.retour ? capAutour(c, s) + 180 : capAutour(c, s);
+      const penteDescente = pente(s, som.retour ? -1 : 1);
+      return { ...p, zoom: gopro ? h.zoom + 0.6 : h.zoom - 0.4, pitch: dansLaPente(gopro ? PITCH_GOPRO : Math.min(64, h.pitch + 2), penteDescente),
+        bearing: cap, d: monte + Math.abs(s - som.d), s };
+    }
     if (style === 'cine' && b) {
       const d = b.distA(u), p = c.lisse(d), k = Math.max(0, Math.min(1, (b.crete(p) + 40) / 160)), cap = capAutour(c, d);
       const sommet = b.devant(d), c1 = sommet == null ? cap : cap + ecartAngle(cap, sommet) * 0.5;
@@ -301,11 +277,9 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
     return { ...p, zoom: h.zoom, pitch: h.pitch, bearing: capAutour(c, d), d, s: d };
   };
 
-  const brut: Brut[] = [];
-  const depart = corps(0);
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    if (plongee && t < debut) {
+  /** L'intro (t < debut) : plongée depuis le ciel, découverte ciné, ou vue d'ensemble qui descend vers le départ. */
+  const intro = (t: number, depart: Brut): Brut => {
+    if (plongee) {
       // Façon clip « Au DD » : tant qu'on est dans les nuages (peints par-dessus), la carte attend à la verticale
       // du départ, très haut. À la déchirure, on descend tout droit en tournant lentement sur soi, puis on se redresse.
       // Plongée simple : pas de nuages à attendre, la descente commence tout de suite.
@@ -313,16 +287,181 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
       const chute = doux(Math.max(0, Math.min(1, (u - attente) / (REDRESSE - attente))));
       const redresse = doux(Math.max(0, (u - REDRESSE) / (1 - REDRESSE)));
       const tour = Math.min(1, Math.max(0, (u - attente) / (1 - attente)));
-      brut.push({ x: depart.x, y: depart.y, zoom: lerp(ZOOM_CIEL, depart.zoom - 0.3, chute * chute) + 0.3 * redresse, pitch: lerp(0, depart.pitch, redresse),
+      return ({ x: depart.x, y: depart.y, zoom: lerp(ZOOM_CIEL, depart.zoom - 0.3, chute * chute) + 0.3 * redresse, pitch: lerp(0, depart.pitch, redresse),
         bearing: cap - 70 * (1 - tour), d: 0, s: 0 });
-    } else if (t < debut && style === 'cine') {
+    }
+    if (style === 'cine') {
       // Ciné : on découvre le départ de près, en tournant autour.
       const u = doux(t / debut);
-      brut.push({ ...depart, zoom: depart.zoom + 0.5 * (1 - u), pitch: lerp(Math.min(70, depart.pitch + 6), depart.pitch, u), bearing: depart.bearing - 110 * (1 - u) });
-    } else if (t < debut) {
+      return ({ ...depart, zoom: depart.zoom + 0.5 * (1 - u), pitch: lerp(Math.min(70, depart.pitch + 6), depart.pitch, u), bearing: depart.bearing - 110 * (1 - u) });
+    }
+    {
       const u = doux(t / debut);
-      brut.push({ x: lerp(vue.x, depart.x, u), y: lerp(vue.y, depart.y, u), zoom: lerp(vue.zoom, depart.zoom, u), pitch: lerp(vue.pitch, depart.pitch, u),
+      return ({ x: lerp(vue.x, depart.x, u), y: lerp(vue.y, depart.y, u), zoom: lerp(vue.zoom, depart.zoom, u), pitch: lerp(vue.pitch, depart.pitch, u),
         bearing: vue.bearing + ecartAngle(vue.bearing, depart.bearing) * u, d: 0, s: 0 });
+    }
+  };
+
+  /**
+   * 🧗 Alpiniste : film calculé en position réelle de caméra (œil, cap, distance du regard), puis traduit pour MapLibre.
+   * Montée au ras du sol (selon la Hauteur), le regard vers le haut de la pente ; au sommet la caméra s'élève comme un
+   * drone, fait le tour, s'arrête dans l'axe de la descente, replonge au sol, attend (« 1, 2, 3… feu ») et part ;
+   * la descente prend de la hauteur et du recul au fil de la pente ; à l'arrivée on se retourne vers le sommet et,
+   * si on le voit, on s'en approche (Seb, 25/11). Jamais dans la montagne : l'œil est relevé là où le sol l'exige.
+   */
+  const filmAlpi = (): Cam[] => {
+    interface Pose { ex: number; ey: number; cap: number; L: number; rel: number; abs: number; k: number; tAbs: number; kt: number; d: number; s: number; sommet?: number;
+      /** Regard le plus bas (° sous l'horizon, négatif) quand la caméra est au sol. */
+      bas: number }
+    const s0 = som!, rl = o.relief!, maille = rl.maille ?? 7, A = ALPI[hauteur], H = o.hauteurPx ?? 800;
+    const alt = (x: number, y: number) => rl.alt(c.pr.depuis({ x, y }));
+    /** Sol le plus haut sous l'œil et à 8 m autour. */
+    const solSous = (x: number, y: number) => {
+      let m = -Infinity;
+      for (const [dx, dy] of [[0, 0], [8, 0], [-8, 0], [0, 8], [0, -8]]) { const a = alt(x + dx, y + dy); if (a != null && a > m) m = a; }
+      return m;
+    };
+    // Trace très lissée (± 300 m) : la caméra monte droit et sans à-coup, les lacets défilent sous elle.
+    const LISSE = Math.max(300, c.total * 0.04);
+    const rad = Math.PI / 180, borne = (v: number) => Math.max(0, Math.min(1, v));
+    const capVers = (ax: number, ay: number, bx: number, by: number) => Math.atan2(bx - ax, by - ay) / rad;
+    /** Point lissé de la trace, prolongé tout droit au-delà de ses bouts (le regard ne bute pas sur l'arrivée). */
+    const loin = (d: number): Plan => {
+      if (d >= 0 && d <= c.total) return c.lisse(d, LISSE);
+      const bout = d < 0 ? 0 : c.total, p = c.lisse(bout, LISSE), q = c.lisse(d < 0 ? 200 : c.total - 200, LISSE);
+      const l = Math.hypot(p.x - q.x, p.y - q.y) || 1, e = Math.abs(d - bout);
+      return { x: p.x + ((p.x - q.x) / l) * e, y: p.y + ((p.y - q.y) / l) * e };
+    };
+    /** Caméra près du sol à la distance d, en marchant dans le sens `sens` ; mult éloigne (descente). */
+    const auSol = (d: number, sens: number, mult = 1): Pose => {
+      const e = c.lisse(d - sens * A.recul * mult, LISSE), t = loin(d + sens * A.vise * (1 + (mult - 1) * 0.5));
+      const rel = Math.max(A.haut, 0.6 * maille) * mult;
+      // Sol lissé sur ± 60 m le long du chemin de la caméra : elle suit la pente, pas chaque bosse.
+      let sl = 0, w = 0;
+      for (let j = -4; j <= 4; j++) {
+        const q = c.lisse(d - sens * A.recul * mult + j * 15, LISSE), a = solSous(q.x, q.y), p = Math.exp(-(j * j) / 8);
+        if (Number.isFinite(a)) { sl += a * p; w += p; }
+      }
+      return { ex: e.x, ey: e.y, cap: capVers(e.x, e.y, t.x, t.y), L: Math.hypot(t.x - e.x, t.y - e.y), rel, abs: (w ? sl / w : s0.alt) + rel,
+        k: 0, tAbs: alt(t.x, t.y) ?? s0.alt, kt: 0, d, s: d, bas: -30 };
+    };
+    const S = c.at(s0.d);
+    /** Vue drone : en orbite autour du sommet, au cap donné. */
+    const drone = (cap: number): Pose => {
+      const L = A.drone * 0.85;
+      return { ex: S.x - L * Math.sin(cap * rad), ey: S.y - L * Math.cos(cap * rad), cap, L, rel: 0, abs: s0.alt + A.drone * 0.53, k: 1, tAbs: s0.alt, kt: 1, d: 0, s: s0.d, bas: -30 };
+    };
+    /** Descente « large » : la vue haute d'avant, derrière soi. */
+    const large = (s: number, sens: number): Pose => {
+      const p = c.lisse(s), cap = capAutour(c, s) + (sens < 0 ? 180 : 0), g = alt(p.x, p.y) ?? s0.alt;
+      const D = distanceCamera(h.zoom - 0.4, c.pr.depuis(p).lat, H), q = dansLaPente(Math.min(64, h.pitch + 2), pente(s, sens)) * rad, L = D * Math.sin(q);
+      return { ex: p.x - L * Math.sin(cap * rad), ey: p.y - L * Math.cos(cap * rad), cap, L, rel: 0, abs: g + D * Math.cos(q), k: 1, tAbs: g, kt: 1, d: s, s, bas: -30 };
+    };
+    const mix = (a: Pose, b: Pose, t: number): Pose => ({ ...a, ex: lerp(a.ex, b.ex, t), ey: lerp(a.ey, b.ey, t), cap: a.cap + ecartAngle(a.cap, b.cap) * t,
+      L: lerp(a.L, b.L, t), rel: lerp(a.rel, b.rel, t), abs: lerp(a.abs, b.abs, t), k: lerp(a.k, b.k, t), tAbs: lerp(a.tAbs, b.tAbs, t), kt: lerp(a.kt, b.kt, t), bas: lerp(a.bas, b.bas, t) });
+    /** Avance de 0 à 1 avec un départ (a) et une arrivée (b) en douceur : on démarre, on file, on freine. */
+    const elan = (v: number, a: number, b: number) => {
+      const T = 1 - a / 2 - b / 2;
+      return v < a ? (v * v) / (2 * a) / T : v > 1 - b ? 1 - ((1 - v) * (1 - v)) / (2 * b) / T : (v - a / 2) / T;
+    };
+
+    // Distance déjà parcourue au sommet (pour km · alt).
+    const monte = o.sens === 'descente' ? 0 : s0.depart ? c.total - s0.d : s0.d;
+    const montee = (v: number): Pose => {
+      const w = elan(v, 0.08, 0.1);
+      if (s0.depart) { const d = lerp(c.total, s0.d, w); return { ...auSol(d, -1), d: c.total - d, s: d }; }
+      return auSol(w * s0.d, 1);
+    };
+    const sensD = s0.retour ? -1 : 1;
+    const descente = (v: number): Pose => {
+      // « Feu » : départ franc ; puis la caméra prend de la hauteur et du recul (on se détend, on voit loin).
+      const w = elan(v, 0.1, 0.12), s = lerp(s0.d, s0.fin, w), dd = monte + Math.abs(s - s0.d);
+      // Le regard ne plonge pas sous 18° : on garde l'horizon et la vallée dans l'image, comme un skieur.
+      const p = { ...auSol(s, sensD, lerp(1.5, 4, doux(borne((v - 0.12) / 0.6)))), bas: -18 };
+      return { ...(gopro ? p : mix(p, large(s, sensD), doux(borne(v / 0.15)))), d: dd, s };
+    };
+    /** Au sommet (v de 0 à 1) : s'élever, tourner, replonger dans l'axe de la descente, attendre. */
+    const sommet = (v: number): Pose => {
+      const a = o.sens === 'descente' ? null : montee(1), z = o.sens === 'montee' ? null : descente(0);
+      let cap: number, k: number, base: Pose;
+      if (a && z) {
+        // Le plus petit tour d'au moins un demi-tour qui finit face à la descente.
+        const e = ecartAngle(a.cap, z.cap), tour = [e, e + 360, e - 360].filter((x) => Math.abs(x) >= 179).sort((x, y) => Math.abs(x) - Math.abs(y))[0];
+        cap = a.cap + tour * elan(borne((v - 0.04) / 0.58), 0.3, 0.3);
+        k = v < 0.4 ? doux(borne(v / 0.2)) : 1 - doux(borne((v - 0.56) / 0.24));
+        base = v < 0.4 ? a : z;
+      } else if (a) {
+        cap = a.cap + 360 * doux(borne((v - 0.1) / 0.9)); k = doux(borne(v / 0.3)); base = a;
+      } else {
+        cap = z!.cap - 360 * (1 - doux(borne(v / 0.6))); k = 1 - doux(borne((v - 0.56) / 0.24)); base = z!;
+      }
+      return { ...mix(base, drone(cap), k), d: monte, s: s0.d, sommet: s0.alt };
+    };
+    /** À l'arrivée (w de 0 à 1) : on se retourne vers le sommet ; si on le voit, on s'élève un peu et on s'en approche. */
+    const z1 = o.sens === 'montee' ? null : descente(1);
+    const arrivee = (() => {
+      if (!z1) return null;
+      const Ls = Math.hypot(S.x - z1.ex, S.y - z1.ey), gE = alt(z1.ex, z1.ey) ?? s0.alt, oeil = gE + z1.rel + Math.max(30, 0.06 * Ls);
+      // Visible : rien ne coupe la ligne entre la caméra (une fois élevée) et le sommet ; on ne regarde pas les
+      // derniers 10 %, où la ligne rase forcément la pente du sommet.
+      let visible = Ls > 300;
+      for (let i = 1; i <= 36 && visible; i++) { const f = i / 40, g = alt(lerp(z1.ex, S.x, f), lerp(z1.ey, S.y, f)); if (g != null && g > lerp(oeil, s0.alt + 20, f)) visible = false; }
+      return { Ls, gE, visible, cap: capVers(z1.ex, z1.ey, S.x, S.y) };
+    })();
+    const final = (w: number): Pose => {
+      const f = arrivee!, e = z1!, q = elan(borne(w / 0.6), 0.3, 0.3), a = f.visible ? 0.35 * doux(borne((w - 0.3) / 0.7)) : 0;
+      const vers: Pose = { ...e, ex: lerp(e.ex, S.x, a), ey: lerp(e.ey, S.y, a), cap: f.cap, L: Math.max(50, f.Ls * (1 - a)),
+        abs: lerp(f.gE, s0.alt, a) + e.rel + Math.max(30, 0.06 * f.Ls) * doux(w), k: 1, tAbs: s0.alt, kt: 1 };
+      return mix({ ...e, ex: vers.ex, ey: vers.ey }, vers, q);
+    };
+    const corpsAlpi = (u: number): Pose => {
+      const [m1, m2, m3] = o.sens === 'montee' ? [0.66, 1.01, 2] : o.sens === 'descente' ? [0, 0.32, 0.85] : [0.38, 0.7, 0.87];
+      return u < m1 ? montee(u / m1) : u < m2 ? sommet((u - m1) / (m2 - m1)) : u < m3 ? descente((u - m2) / (m3 - m2)) : final((u - m3) / (1 - m3));
+    };
+
+    const i0 = Math.ceil(debut * n - 1e-9), P: Pose[] = [];
+    for (let i = i0; i <= n; i++) P.push(corpsAlpi((i / n - debut) / (1 - debut)));
+    const k = n / 600, m = P.length;
+    // Sol sous l'œil (et à mi-chemin de l'image voisine) et hauteur de l'œil.
+    const g = P.map((p, i) => {
+      const q = P[Math.min(m - 1, i + 1)], v = Math.max(solSous(p.ex, p.ey), solSous((p.ex + q.ex) / 2, (p.ey + q.ey) / 2));
+      return Number.isFinite(v) ? v : -Infinity;
+    });
+    const ez = P.map((p) => p.abs);
+    // Jamais dans la montagne : là où le sol dépasse (bosse, crête), l'œil est relevé, à l'avance et en douceur.
+    const marge = P.map((p) => lerp(Math.max(2, 0.3 * maille), 30, p.k));
+    const besoin = P.map((_, i) => Math.max(0, g[i] + marge[i] - ez[i])), r = Math.ceil(12 * k) + 1;
+    const leve = flou(besoin.map((_, i) => Math.max(...besoin.slice(Math.max(0, i - r), i + r + 1))), 4 * k);
+    const cible = P.map((p) => ({ x: p.ex + p.L * Math.sin(p.cap * rad), y: p.ey + p.L * Math.cos(p.cap * rad) }));
+    const gc = flou(cible.map((t, i) => alt(t.x, t.y) ?? P[i].tAbs), 6 * k);
+    const corps: Cam[] = P.map((p, i) => {
+      const z = ez[i] + leve[i], ll = c.pr.depuis(cible[i]);
+      // Au sol, on vise 8° sous la trace devant soi (la pente remplit l'image, le ciel reste en haut), entre `bas` et
+      // PITCH_MAX. L'altitude du point visé est libre : c'est elle qu'on règle.
+      const vise = Math.atan2(gc[i] - z, p.L) / rad - 8, auSolA = Math.max(p.bas, Math.min(PITCH_MAX - 90, vise));
+      const tz = Math.min(lerp(z + p.L * Math.tan(auSolA * rad), p.tAbs, p.kt), z + p.L * Math.tan((PITCH_MAX - 90) * rad));
+      return { lon: ll.lon, lat: ll.lat, zoom: zoomPourDistance(Math.hypot(p.L, tz - z), ll.lat, H), pitch: 90 + Math.atan2(tz - z, p.L) / rad, bearing: p.cap,
+        d: p.d, point: c.pr.depuis(c.at(p.s)), sommet: p.sommet, elevation: tz, garde: lerp(1.5, 25, p.k) };
+    });
+    // L'intro arrive sur la première image du corps.
+    const c0 = corps[0], depart: Brut = { ...cible[0], zoom: c0.zoom, pitch: c0.pitch, bearing: c0.bearing, d: 0, s: P[0].s };
+    const out: Cam[] = [];
+    for (let i = 0; i < i0; i++) {
+      const t = i / n, b = intro(t, depart), ll = c.pr.depuis(b), u = t / debut;
+      out.push({ lon: ll.lon, lat: ll.lat, zoom: b.zoom, pitch: b.pitch, bearing: b.bearing, d: 0, point: c0.point,
+        elevation: plongee ? c0.elevation : lerp(rl.alt(ll) ?? c0.elevation!, c0.elevation!, doux(u)), garde: lerp(25, c0.garde!, u * u) });
+    }
+    out.push(...corps);
+    for (let i = 1; i < out.length; i++) out[i].bearing = out[i - 1].bearing + ecartAngle(out[i - 1].bearing, out[i].bearing);
+    return out;
+  };
+  if (style === 'alpi' && som && o.relief) return filmAlpi();
+  const brut: Brut[] = [];
+  const depart = corps(0);
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    if (t < debut) {
+      brut.push(intro(t, depart));
     } else if (t <= fin) {
       brut.push(corps((t - debut) / (fin - debut)));
     } else {
@@ -342,20 +481,10 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
   const cap = flou(brut.map((x) => x.bearing), 70 * k), x = flou(brut.map((v) => v.x), 24 * k), y = flou(brut.map((v) => v.y), 24 * k);
   let zoom = flou(brut.map((v) => v.zoom), 30 * k);
   let pitch = flou(brut.map((v) => v.pitch), 30 * k);
-  // 🧗 Caméra au sol : déjà douce, on la garde telle quelle (le flou la décollerait du sol ou l'y enfoncerait) ;
-  // seuls les raccords (départ, sommet) sont fondus.
-  const ws = flou(brut.map((v) => (v.sol ? 1 : 0)), 24 * k).map((w, i) => (brut[i].sol ? Math.max(0, Math.min(1, 2 * w - 1)) : 0));
-  for (let i = 0; i < brut.length; i++) {
-    const w = ws[i];
-    if (!w) continue;
-    cap[i] = lerp(cap[i], brut[i].bearing, w); x[i] = lerp(x[i], brut[i].x, w); y[i] = lerp(y[i], brut[i].y, w);
-    zoom[i] = lerp(zoom[i], brut[i].zoom, w); pitch[i] = lerp(pitch[i], brut[i].pitch, w);
-  }
   const centres = brut.map((_, i) => c.pr.depuis({ x: x[i], y: y[i] }));
-  const sol = ws.map((w) => w > 0.5);
-  if (o.relief) ({ pitch, zoom } = degager(centres, zoom, pitch, cap, o.relief, H, k, sol));
-  return brut.map((v, i) => ({ lon: centres[i].lon, lat: centres[i].lat, zoom: zoom[i], pitch: Math.min(PITCH_MAX, pitch[i]), bearing: cap[i], d: v.d,
-    point: c.pr.depuis(c.at(v.s)), sommet: v.sommet, sol: sol[i] || undefined }));
+  if (o.relief) ({ pitch, zoom } = degager(centres, zoom, pitch, cap, o.relief, o.hauteurPx ?? 800, k));
+  return brut.map((v, i) => ({ lon: centres[i].lon, lat: centres[i].lat, zoom: zoom[i], pitch: pitch[i], bearing: cap[i], d: v.d,
+    point: c.pr.depuis(c.at(v.s)), sommet: v.sommet }));
 }
 
 /** Inclinaison qui suit la pente : + ½ de la pente en montée (regard vers le haut), − ¾ en descente (regard vers le bas). */
@@ -373,16 +502,6 @@ export function zoomPourDistance(D: number, lat: number, hauteurPx: number): num
   return Math.log2((1.5 * hauteurPx * 40_075_016.7 * Math.cos((lat * Math.PI) / 180)) / (512 * D));
 }
 
-/** Réglages MapLibre d'une caméra posée en `cam` (altitude a) qui regarde le point au sol `cible` (altitude b). */
-export function regard(cam: Plan, a: number, cible: Plan, b: number, lat: number, hauteurPx: number) {
-  const dx = cible.x - cam.x, dy = cible.y - cam.y, L = Math.hypot(dx, dy), dz = b - a;
-  return { x: cible.x, y: cible.y, zoom: zoomPourDistance(Math.hypot(L, dz), lat, hauteurPx),
-    pitch: 90 + (Math.atan2(dz, L) * 180) / Math.PI, bearing: (Math.atan2(dx, dy) * 180) / Math.PI };
-}
-
-const melange = (a: Brut, b: Brut, t: number): Brut => ({ ...a, x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), zoom: lerp(a.zoom, b.zoom, t),
-  pitch: lerp(a.pitch, b.pitch, t), bearing: a.bearing + ecartAngle(a.bearing, b.bearing) * t });
-
 /** Point au sol à `m` mètres derrière le centre (à l'opposé du cap). */
 function derriere(p: LonLat, cap: number, m: number): LonLat {
   const a = (cap * Math.PI) / 180;
@@ -390,16 +509,15 @@ function derriere(p: LonLat, cap: number, m: number): LonLat {
 }
 
 /** La caméra (et le début de son regard) passe-t-elle au-dessus du relief, avec une marge ? */
-export function camLibre(centre: LonLat, zoom: number, pitch: number, cap: number, relief: Relief, hauteurPx: number, sol = false): boolean {
+export function camLibre(centre: LonLat, zoom: number, pitch: number, cap: number, relief: Relief, hauteurPx: number): boolean {
   const D = distanceCamera(zoom, centre.lat, hauteurPx), base = relief.alt(centre);
   if (base == null) return true;
-  // Marge large : le relief lu ici arrondit les crêtes que MapLibre dessine plus fines.
-  // 🧗 Caméra au sol : relief fin (7 m), on frôle : 2 m sous la caméra et le début du regard, sur 10 m autour.
-  const p = (pitch * Math.PI) / 180, marge = sol ? 2 : 60 + 0.05 * D, a = (cap * Math.PI) / 180, autour = sol ? 10 : 80;
-  for (const f of sol ? [1, 0.97, 0.94] : [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.5, 0.4]) {
-    const recul = f * D * Math.sin(p), haut = base + f * D * Math.cos(p), m = sol ? marge : marge * Math.max(f, 0.5);
+  // Marge large : le relief lu ici (mailles de 30 à 55 m) arrondit les crêtes que MapLibre dessine plus fines.
+  const p = (pitch * Math.PI) / 180, marge = 60 + 0.05 * D, a = (cap * Math.PI) / 180;
+  for (const f of [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.5, 0.4]) {
+    const recul = f * D * Math.sin(p), haut = base + f * D * Math.cos(p), m = marge * Math.max(f, 0.5);
     const ici = derriere(centre, cap, recul);
-    const points = f === 1 ? [ici, derriere(centre, cap, recul + autour), decaler(ici, a, autour), decaler(ici, a, -autour)] : [ici];
+    const points = f === 1 ? [ici, derriere(centre, cap, recul + 80), decaler(ici, a, 80), decaler(ici, a, -80)] : [ici];
     for (const q of points) {
       const sol = relief.alt(q);
       if (sol != null && haut < sol + m) return false;
@@ -417,14 +535,12 @@ function decaler(p: LonLat, a: number, m: number): LonLat {
  * Jamais dans la montagne (Seb, 25/11 : « on voit l'envers de la montagne ») : là où la caméra passerait sous le relief,
  * on la redresse (moins inclinée = plus haute et moins loin derrière). La limite est anticipée et lissée : pas d'à-coup.
  */
-function degager(centres: LonLat[], zoom: number[], pitch: number[], cap: number[], relief: Relief, hauteurPx: number, k: number, sol: boolean[]) {
+function degager(centres: LonLat[], zoom: number[], pitch: number[], cap: number[], relief: Relief, hauteurPx: number, k: number) {
   // Pour chaque image : inclinaison la plus forte qui passe ; si même redressée à 20° ça ne passe pas, on recule (zoom).
-  // Au sol (🧗), on se redresse par pas de 0,5° : la caméra est proche, un petit pas la soulève déjà de quelques mètres.
   const lim = pitch.map((p, i) => {
     let q = p, z = zoom[i];
-    const pas = sol[i] ? 0.5 : 2;
-    while (q > 20 && !camLibre(centres[i], z, q, cap[i], relief, hauteurPx, sol[i])) q -= pas;
-    while (z > zoom[i] - 3 && !camLibre(centres[i], z, q, cap[i], relief, hauteurPx, sol[i])) z -= 0.1;
+    while (q > 20 && !camLibre(centres[i], z, q, cap[i], relief, hauteurPx)) q -= 2;
+    while (z > zoom[i] - 3 && !camLibre(centres[i], z, q, cap[i], relief, hauteurPx)) z -= 0.1;
     return { q, recul: zoom[i] - z };
   });
   // Pire cas à ± 1,5 s, puis flou : la caméra se redresse (ou recule) à l'avance et doucement, sans jamais dépasser la limite.
@@ -433,7 +549,7 @@ function degager(centres: LonLat[], zoom: number[], pitch: number[], cap: number
   const qMin = fenetre(lim.map((l) => l.q), Math.min), reculMax = fenetre(lim.map((l) => l.recul), Math.max);
   const q = flou(qMin, 20 * k), recul = flou(reculMax, 20 * k);
   return {
-    pitch: pitch.map((p, i) => Math.min(p, q[i], qMin[i] + (sol[i] ? 0.5 : 2))),
+    pitch: pitch.map((p, i) => Math.min(p, q[i], qMin[i] + 2)),
     zoom: zoom.map((z, i) => z - Math.max(recul[i], reculMax[i] - 0.1)),
   };
 }
@@ -443,7 +559,9 @@ export function cameraA(track: Cam[], t: number): Cam {
   const n = track.length - 1, f = Math.max(0, Math.min(1, t)) * n, i = Math.min(n - 1, Math.floor(f)), u = f - i;
   const a = track[i], b = track[i + 1];
   return { lon: lerp(a.lon, b.lon, u), lat: lerp(a.lat, b.lat, u), zoom: lerp(a.zoom, b.zoom, u), pitch: lerp(a.pitch, b.pitch, u),
-    bearing: lerp(a.bearing, b.bearing, u), d: lerp(a.d, b.d, u), sol: a.sol && b.sol,
+    bearing: lerp(a.bearing, b.bearing, u), d: lerp(a.d, b.d, u),
+    elevation: a.elevation != null && b.elevation != null ? lerp(a.elevation, b.elevation, u) : undefined,
+    garde: a.garde != null && b.garde != null ? lerp(a.garde, b.garde, u) : undefined,
     point: { lon: lerp(a.point.lon, b.point.lon, u), lat: lerp(a.point.lat, b.point.lat, u) }, sommet: u < 0.5 ? a.sommet : b.sommet };
 }
 

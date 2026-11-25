@@ -6,7 +6,7 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_MAX, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
@@ -124,7 +124,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     // Tous les styles s'en servent aussi pour que la caméra ne passe jamais dans la montagne.
     redresse = 0;
     setAvance('Lecture du relief…');
-    const relief: Relief | null = await chargerRelief(zone, ctl.signal).catch(() => null);
+    const relief: Relief | null = await chargerRelief(zone, ctl.signal, r.style === 'alpi').catch(() => null);
     if (ctl.signal.aborted) { setEtape('reglages'); return; }
     if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee === 'nuages' ? partPlongee(r.duree) : r.plongee === 'simple',
@@ -132,7 +132,12 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
     if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
     const pitchAvant = map.getMaxPitch();
-    if (pitchAvant < PITCH_GOPRO + 2) map.setMaxPitch(PITCH_GOPRO + 2);
+    // 🧗 La caméra au sol lève les yeux au-dessus de l'horizon : il faut un ciel, et on impose l'altitude du point visé.
+    const auSol = track.some((x) => x.elevation != null), cielAvant = map.getSky();
+    const zoomAvant = map.getMaxZoom();
+    if (pitchAvant < PITCH_MAX + 2) map.setMaxPitch(PITCH_MAX + 2);
+    // Au ras du sol, la caméra est plus près que le zoom le plus fort de la carte : on le relève le temps du film.
+    if (auSol) { map.setCenterClampedToGround(false); map.setSky(CIEL_FILM); map.setMaxZoom(22); }
     const dessine = r.trace && r.dessine;
     for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', r.trace && !dessine ? 'visible' : 'none');
     const progression = dessine ? traceQuiAvance(map, trail.color) : null;
@@ -251,6 +256,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       ombres?.retirer();
       retirerTraceQuiAvance(map);
       if (pentesAvant !== undefined && map.getLayer('slopes')) map.setLayoutProperty('slopes', 'visibility', pentesAvant);
+      if (auSol) { map.setCenterClampedToGround(true); map.setSky(cielAvant); map.setMaxZoom(zoomAvant); }
       map.setMaxPitch(pitchAvant);
       arret.current = null;
     }
@@ -505,22 +511,30 @@ const HAUTEUR_ZOOM: Record<Hauteur, number> = { bas: 15, moyen: 14, haut: 13 };
 /** Garde-fou pendant le tournage : redressement en cours (°), qui retombe doucement quand le relief le permet. */
 let redresse = 0;
 
-/** La caméra est-elle sous le relief que MapLibre dessine (avec 25 m de marge) ? */
-function sousRelief(map: MlMap): boolean {
+/** Ciel du film quand la caméra voit l'horizon (🧗 au sol) : bleu en haut, brume claire au loin. */
+const CIEL_FILM = { 'sky-color': '#6fa8e0', 'horizon-color': '#e4edf3', 'fog-color': '#e4edf3', 'sky-horizon-blend': 0.7,
+  'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.75, 'atmosphere-blend': 0 };
+
+/** La caméra est-elle sous le relief que MapLibre dessine, à `marge` mètres près ? */
+function sousRelief(map: MlMap, marge: number): boolean {
   // Position de la caméra : interne à MapLibre 6 (map._camera.transform) ; absente, pas de garde-fou.
   const t = (map as unknown as { _camera?: { transform?: { getCameraLngLat?: () => LngLat; getCameraAltitude?: () => number } } })._camera?.transform;
   if (!t?.getCameraLngLat || !t.getCameraAltitude) return false;
   const sol = map.queryTerrainElevation(t.getCameraLngLat());
-  return sol != null && t.getCameraAltitude() < sol + 25;
+  return sol != null && t.getCameraAltitude() < sol + marge;
 }
 
-/** Pose la caméra ; si, malgré la trajectoire calculée, elle tombe dans la montagne, on la redresse encore. */
+/**
+ * Pose la caméra ; si, malgré la trajectoire calculée, elle tombe dans la montagne, on la redresse encore.
+ * 🧗 Au sol : on frôle (marge de la trajectoire, 1,5 m, pas de 0,5°) ; ailleurs 25 m, pas de 3°.
+ */
 function poser(map: MlMap, c: Cam) {
-  let r = Math.max(0, redresse - 0.4);
-  for (let i = 0; i < 20; i++) {
-    map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: Math.max(0, c.pitch - r), bearing: c.bearing });
-    if (c.pitch - r <= 0 || !sousRelief(map)) break;
-    r += 3;
+  const marge = c.garde ?? 25, pas = marge < 10 ? 0.5 : 3;
+  let r = Math.max(0, redresse - (marge < 10 ? 0.1 : 0.4));
+  for (let i = 0; i < 40; i++) {
+    map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: Math.max(0, c.pitch - r), bearing: c.bearing, ...(c.elevation != null ? { elevation: c.elevation } : {}) });
+    if (c.pitch - r <= 0 || !sousRelief(map, marge)) break;
+    r += pas;
   }
   redresse = r;
 }
