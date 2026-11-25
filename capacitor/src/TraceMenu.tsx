@@ -57,7 +57,8 @@ export function TraceMenu({ trail, onFilm, onEdit, pique, onPique, pin, onPinTex
     <section className={`trace-menu${sheet.classe}`}>
       <div {...sheet.prise}><div className="handle" />
       <div className="head">
-        <b><i className="swatch" style={{ background: trail.color }} />{trail.name}</b>
+        {/* Pas de titre (Seb 25/11) : l'onglet de saisie au-dessus suffit. */}
+        <b />
         <button className="close" onClick={onFilm} disabled={trail.segments.flat().length < 2} aria-label="Filmer un survol 3D de la trace"><CameraIcon /></button>
         <button className="close" onClick={onEdit} disabled={trail.segments.flat().length < 2} aria-label="Modifier la trace"><PencilIcon /></button>
         <button className={`close${pique ? ' on' : ''}`} onClick={onPique} aria-pressed={pique} aria-label="Piquer des points sur la carte"><PinIcon /></button>
