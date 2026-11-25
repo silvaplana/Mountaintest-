@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cutSpurs, moveNode, nearestIndex, replaceSlice, snapToWays, splineNodes, splineNodesEvery, wayRunsOf } from '../src/trails/edit';
+import { cutSpurs, moveNode, piecesOf, nearestIndex, replaceSlice, snapToWays, splineNodes, splineNodesEvery, wayRunsOf } from '../src/trails/edit';
 import { readPins } from '../src/trails/savedTraces';
 import { distanceM } from '../src/gps/adaptive';
 import type { LonLat } from '../src/trails/osmTrails';
@@ -103,5 +103,19 @@ describe('✏ ronds du mode souple selon le zoom', () => {
     expect(splineNodesEvery(l, 2000)).toHaveLength(3);
     expect(splineNodesEvery(l, 1).length).toBeLessThanOrEqual(50);
     expect(splineNodesEvery(l, 1e6)).toEqual([0, 49]);
+  });
+});
+
+describe('✏ recoller un long morceau par petits bouts', () => {
+  it('coupe en morceaux d’au plus 1,5 km qui se touchent', () => {
+    const l = ligne(50); // ~3,97 km
+    const p = piecesOf(l, 1500);
+    expect(p.length).toBe(3);
+    expect(p[0][0]).toBe(0);
+    expect(p[p.length - 1][1]).toBe(49);
+    for (let i = 1; i < p.length; i++) expect(p[i][0]).toBe(p[i - 1][1]);
+  });
+  it('un court morceau reste entier', () => {
+    expect(piecesOf(ligne(5), 1500)).toEqual([[0, 4]]);
   });
 });

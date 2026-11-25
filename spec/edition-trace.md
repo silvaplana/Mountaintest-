@@ -31,3 +31,10 @@ gardé sur le téléphone. Le point tracé ou glissé se pose 1 cm au-dessus du 
 de la main (en haut à gauche pour un droitier, en haut à droite pour un gaucher).
 Réglage à part (Seb : la colonne à gauche d'office « fait bizarre ») : « Icônes de la carte : À gauche / À droite »,
 à droite par défaut. À gauche : bulles d'aide et variantes à sa droite, l'échelle et les bandeaux du haut à droite.
+
+## Recoller : réseau d'abord (Seb, 25/11)
+Recoller demande le réseau (chemins OSM via Overpass, puis calcul d'itinéraire IGN). Un serveur qui ne répond pas en 25 s
+laisse la place au suivant ; les morceaux sur chemin sont coupés en bouts de 1,5 km, trois calculs à la fois, 15 s chacun
+au plus (sinon le tracé reste posé sur le chemin). Avancement affiché, « ↻ Réessayer » si le réseau ne répond pas.
+Sans réseau : à faire (garder la forme des chemins avec les cartes hors ligne), règle de Seb : en ligne d'abord, le local
+seulement sans réseau ou si le réseau échoue.

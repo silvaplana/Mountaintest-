@@ -2,8 +2,8 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { distanceM } from './gps/adaptive';
-import { cutSpurs, moveNode, nearestIndex, replaceSlice, snapToWays, splineNodesEvery, wayRunsOf, type Snap } from './trails/edit';
-import { fetchWayLines } from './trails/junctions';
+import { cutSpurs, moveNode, piecesOf, nearestIndex, replaceSlice, snapToWays, splineNodesEvery, wayRunsOf, type Snap } from './trails/edit';
+import { avecDelai, fetchWayLines } from './trails/junctions';
 import type { LonLat, Trail } from './trails/osmTrails';
 import { lineLengthM, routeOnPaths, waypoints } from './trails/route';
 import { formatKm } from './track/stats';
@@ -105,6 +105,9 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
   const [A, setA] = useState<number | null>(null);
   const [B, setB] = useState<number | null>(null);
   const [apercu, setApercu] = useState<Snap | 'calcul' | 'erreur' | null>(null);
+  /** Recoller : avancement du suivi des chemins (morceaux faits / à faire) ; `essai` relance après une panne. */
+  const [etape, setEtape] = useState<{ fait: number; total: number } | null>(null);
+  const [essai, setEssai] = useState(0);
   const [prolonge, setProlonge] = useState<'droit' | 'chemin'>(() => (localStorage.getItem('prolonge') === 'droit' ? 'droit' : 'chemin'));
   const [densite, setDensite] = useState(1);
   /** Zoom de la carte (au demi-cran) : les ronds se replacent quand il change. */
@@ -191,31 +194,44 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
     arret.current?.abort();
     const ctrl = new AbortController();
     arret.current = ctrl;
-    setApercu('calcul');
+    setApercu('calcul'); setEtape(null);
     void (async () => {
       try {
         const ways = await fetchWayLines(seg, NEAR_M + 10, ctrl.signal);
         const snap = snapToWays(seg, ways, NEAR_M);
         // Sur un chemin, on suit son vrai tracé (lacets compris) avec le calcul d'itinéraire IGN, si le réseau le permet.
+        // Morceaux de 1,5 km au plus, trois calculs à la fois, 15 s chacun au plus : sinon on garde le tracé posé
+        // sur le chemin (Seb, 25/11 : 10 km de côte restaient sur « Recherche des chemins… »).
+        const runs = wayRunsOf(snap).flatMap(([a, b]) => piecesOf(snap.line.slice(a, b + 1), 1500).map(([i, j]) => [a + i, a + j] as [number, number]));
+        const paths: LonLat[][] = runs.map(([a, b]) => snap.line.slice(a, b + 1));
+        let fait = 0, suivant = 0;
+        setEtape({ fait, total: runs.length });
+        const calcul = async () => {
+          while (suivant < runs.length) {
+            const n = suivant++, run = paths[n];
+            const d = avecDelai(ctrl.signal, 15_000);
+            try {
+              const r = await routeOnPaths(waypoints(run, 12), d.signal);
+              if (lineLengthM(r) <= 3 * lineLengthM(run) + 100) paths[n] = cutSpurs([run[0], ...r, run[run.length - 1]], run);
+            } catch (e) { if (ctrl.signal.aborted) throw e; } finally { d.fin(); }
+            if (!ctrl.signal.aborted) setEtape({ fait: ++fait, total: runs.length });
+          }
+        };
+        await Promise.all([calcul(), calcul(), calcul()]);
         const out: LonLat[] = [], on: boolean[] = [];
         let k = 0;
-        for (const [a, b] of wayRunsOf(snap)) {
+        runs.forEach(([a, b], n) => {
           for (; k < a; k++) { out.push(snap.line[k]); on.push(snap.onWay[k]); }
-          const run = snap.line.slice(a, b + 1);
-          let path = run;
-          try {
-            const r = await routeOnPaths(waypoints(run, 8), ctrl.signal);
-            if (lineLengthM(r) <= 3 * lineLengthM(run) + 100) path = cutSpurs([run[0], ...r, run[run.length - 1]], run);
-          } catch (e) { if (ctrl.signal.aborted) throw e; }
-          path.forEach((p) => { out.push(p); on.push(true); });
+          // Deux morceaux qui se suivent partagent leur point : on ne le met qu'une fois.
+          paths[n].forEach((p, i) => { if (i === 0 && out.length && k > a) return; out.push(p); on.push(true); });
           k = b + 1;
-        }
+        });
         for (; k < snap.line.length; k++) { out.push(snap.line[k]); on.push(snap.onWay[k]); }
         if (!ctrl.signal.aborted) setApercu({ line: out, onWay: on, share: snap.share });
       } catch { if (!ctrl.signal.aborted) setApercu('erreur'); }
     })();
     return () => ctrl.abort();
-  }, [outil, A, B, line]);
+  }, [outil, A, B, line, essai]);
 
   // Mode souple : les ronds, qu'on fait glisser du doigt ; la trace suit en douceur entre ses deux voisins.
   useEffect(() => {
@@ -292,8 +308,11 @@ export function TraceEdit({ map, trail, onLine, onBack, onToast }: {
       <p className="edit-aide"><span className="edit-n fin">■</span>Touche la <b>fin</b> du morceau</p>
       <div className="survol-choix"><button onClick={() => setB(line.length - 1)}>⇥ Jusqu’au bout</button></div></>;
     else aide = <>
-      {apercu === 'calcul' && <p className="edit-aide muted">Recherche des chemins…</p>}
-      {apercu === 'erreur' && <p className="edit-aide">Chemins introuvables : il faut du réseau pour recoller.</p>}
+      {apercu === 'calcul' && <p className="edit-aide muted">{etape
+        ? <>Suivi des chemins : {etape.fait} sur {etape.total}…</> : 'Recherche des chemins autour du morceau…'}</p>}
+      {apercu === 'erreur' && <>
+        <p className="edit-aide">Le réseau ne répond pas : chemins introuvables pour l'instant.</p>
+        <div className="survol-choix"><button onClick={() => setEssai((n) => n + 1)}>↻ Réessayer</button></div></>}
       {apercu && typeof apercu === 'object' && <p className="edit-aide small">Chemin trouvé sur <b>{apercu.share} %</b> du morceau.
         <i className="edit-leg on" /> recollé <i className="edit-leg off" /> pas de chemin, ton tracé reste</p>}
       <div className="edit-actions">

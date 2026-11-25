@@ -106,6 +106,18 @@ export function cutSpurs(line: LonLat[], ref: LonLat[], maxM = 400): LonLat[] {
   return out;
 }
 
+/** Coupe une ligne en morceaux d'au plus `maxM` mètres (indices [a, b], les bouts partagés). */
+export function piecesOf(line: LonLat[], maxM: number): [number, number][] {
+  const out: [number, number][] = [];
+  let a = 0, m = 0;
+  for (let i = 1; i < line.length; i++) {
+    m += distanceM(line[i - 1], line[i]);
+    if (m >= maxM && i < line.length - 1) { out.push([a, i]); a = i; m = 0; }
+  }
+  if (line.length > 1) out.push([a, line.length - 1]);
+  return out;
+}
+
 /** Morceaux continus sur chemin (indices dans `snap.line`), d'au moins `minM` mètres. */
 export function wayRunsOf(snap: Snap, minM = 80): [number, number][] {
   const out: [number, number][] = [];
