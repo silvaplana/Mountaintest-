@@ -693,6 +693,28 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   `epingle` et `position` prennent `groupe` à la place de `sortie`. Seuls les membres du Buddy Group s'y épinglent et
   voient ces positions (pas le Me Time) ; oubliées après 48 h comme les autres.
 
+### 7.15 👥 Associer une trace à un Buddy Time (Seb, 25 novembre 2026)
+
+- **Demande de Seb** : « il faut pouvoir associer une trace à un buddy group et plutôt même un buddy time » ; proposer
+  d'abord le Buddy Group ou Buddy Time ouvert, puis les derniers ouverts. Et l'autre sens : depuis un Buddy Time, voir
+  ses traces associées et en associer une en regardant dans le répertoire des traces. Maquette :
+  `maquettes/trace-buddy-time/`.
+- **Depuis la trace** : dans son menu, une ligne « 👥 Associer à un Buddy Time » (pointillés), puis, une fois associée,
+  la vignette du Buddy Time, son nom et « Buddy Group · changer ». Le panneau : « Proposés » (le Buddy Time ouvert sur
+  la carte, déjà choisi, marqué « ouvert », puis les derniers ouverts, puis ceux à venir), puis « Ou chercher dans un
+  Buddy Group » (les derniers ouverts d'abord, Me Time compris) ; un Buddy Group montre ses Buddy Times (à venir puis
+  souvenirs) et « Le Buddy Group seulement ». « Enlever » défait le lien.
+- **Depuis le Buddy Time** : dans son bandeau sur la carte et dans son carnet, « 〰 Traces associées » (toucher = la
+  voir sur la carte) et « ＋ Associer une de mes traces », qui ouvre 📂 Mes traces (celles enregistrées).
+- **Ce que fait le lien** : la trace est partagée dans le Buddy Time (op `partager_trace`, rien de neuf au serveur)
+  et apparaît sur sa carte chez tous ; le lien est gardé avec la trace (`lien` : Buddy Group + Buddy Time, dans
+  `tracesAffichees` et `tracesEnregistrees`) ; le film 🎥 prend les photos de l'album de ce Buddy Time même s'il n'est
+  pas ouvert. Une trace ouverte depuis un Buddy Time arrive déjà associée.
+- **Derniers ouverts** : gardés sur le téléphone (`localStorage` « buddiesOuverts ») quand on ouvre un Buddy Group,
+  la carte d'un Buddy Time, son album, son carnet, son Buddy count ou son hébergement.
+- **Pas encore** : une trace modifiée après l'association n'est pas renvoyée (on l'associe à nouveau) ; une trace
+  associée depuis le Buddy Time ne change pas le lien de sa copie déjà affichée sur la carte.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

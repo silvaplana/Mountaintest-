@@ -13,6 +13,8 @@ import { PencilIcon } from './TraceEdit';
 import type { Pin } from './trails/edit';
 import { useSheet } from './useSheet';
 import { TrashIcon } from './icones';
+import { Carre } from './buddies/Buddies';
+import type { Sortie } from './buddies/store';
 
 function hours(h: number) {
   const m = Math.round(h * 60);
@@ -23,12 +25,14 @@ function hours(h: number) {
  * Menu du bas de la trace violette (tracée au doigt ou chargée) : on y coche la pente et le profil,
  * on l'enregistre sur le téléphone ou on l'efface de la carte. Même menu côté Kotlin.
  */
-export function TraceMenu({ trail, onFilm, onEdit, pique, onPique, pin, onPinText, onPinDone, onPinDelete, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onShare, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
+export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPique, pin, onPinText, onPinDone, onPinDelete, elevated, slopes, onSlopes, showProfile, onShowProfile, cursor, onCursor, savedId, onSave, onDelete, onShare, onClose, navigating, onNavigate, onStopNav, paused, onPause, onResume, offline, onOffline, onGo, vtt, ways, wayTypes, onWayTypes, runs }: {
   trail: Trail; elevated: ElevatedTrail | 'loading' | 'error' | null;
   /** 🎥 Survol 3D le long de la trace (grisé tant que la trace n'a pas deux points). */
   onFilm: () => void;
   /** ✏ Écran « Modifier » de la trace. */
   onEdit: () => void;
+  /** 👥 Buddy Time (ou Buddy Group) associé, et ouvrir le choix (Seb, 25/11). */
+  lien: { titre: string; sous: string; sortie?: Sortie } | null; onAssocier: () => void;
   /** 📍 allumé : toucher la carte pique un point (pas d'écran à part, demande de Seb). */
   pique: boolean; onPique: () => void;
   /** Point dont on écrit le mot (après l'avoir piqué ou touché). */
@@ -75,6 +79,12 @@ export function TraceMenu({ trail, onFilm, onEdit, pique, onPique, pin, onPinTex
       ) : pique && <span className="hint">📍 Touche la carte pour piquer un point. Sur un point : un appui montre ou cache son mot, appui long pour le déplacer, très long pour l’enlever.</span>}
       <span className="hint">{formatKm(trail.distanceM)} · D+ {el ? `${Math.round(el.gainM)} m` : wait} · D− {el ? `${Math.round(el.lossM)} m` : wait}
         {el && (vtt ? ` · ${hours(bikeHours(trail.distanceM, el.gainM))} à VTT` : ` · ${hours(walkingHours(trail.distanceM, el.gainM, el.lossM))} de marche`)}</span>
+      <button className={`trace-lien${lien ? ' oui' : ''}`} onClick={onAssocier}>
+        {lien?.sortie ? <Carre x={lien.sortie} taille={44} /> : <span className="trace-lien-ic">👥</span>}
+        <span className="bd-texte"><b>{lien ? lien.titre : 'Associer à un Buddy Time'}</b>
+          <small>{lien ? `${lien.sous} · changer` : 'ses photos iront dans le film'}</small></span>
+        <span className="bd-fleche">›</span>
+      </button>
       <div className="checks">
         <label><input type="checkbox" checked={slopes} onChange={(e) => onSlopes(e.target.checked)} /> Afficher la pente</label>
         <label><input type="checkbox" checked={showProfile} onChange={(e) => onShowProfile(e.target.checked)} /> Afficher le profil</label>

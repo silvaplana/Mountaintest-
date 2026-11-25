@@ -3,6 +3,8 @@ import type { Map as MlMap } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { useSheet } from '../useSheet';
+import { noterOuvert } from './recents';
+import { TracesAssociees } from './Associer';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
@@ -289,7 +291,7 @@ export function quandSortie(x: Sortie) {
 }
 
 /** Photo carrée datée (même code dans la liste, le groupe et le panneau de partage). */
-function Carre({ x, taille = 56 }: { x: Sortie; taille?: number }) {
+export function Carre({ x, taille = 56 }: { x: Sortie; taille?: number }) {
   const { j, m } = jourMois(x.debut);
   return <span className="bd-carre" style={{ width: taille, height: taille, background: x.photo ? `center/cover url("${x.photo}")` : couleur(x.id) }}>
     <span className="bd-date"><small>{m}</small><b>{j}</b></span></span>;
@@ -329,6 +331,12 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const compte = useCompte();
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
     : depart?.ecran === 'conv' ? depart : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
+  // Derniers ouverts (proposés en premier pour associer une trace) : le Buddy Group, le Buddy Time de l'album, du carnet…
+  useEffect(() => {
+    if (vue.ecran === 'groupe') noterOuvert('groupes', vue.id);
+    else if ('id' in vue && ['album', 'carnet', 'ecrire', 'count', 'depense', 'dodo'].includes(vue.ecran)) noterOuvert('sorties', vue.id);
+    if ('groupe' in vue && vue.groupe) noterOuvert('groupes', vue.groupe);
+  }, [vue]);
   // Ouvert : on regarde les nouveautés toutes les minutes ; fermé, la pastille de 👥 repart de maintenant.
   useEffect(() => {
     const sync = () => { void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };
@@ -762,7 +770,8 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
             {rs.some((r) => r.moi && r.actif) ? ' · tu es visible' : ''}</small></span>
           <span className="bd-fleche">›</span>
         </button>}
-        {!traces.length && <p className="hint">Partage une trace dans ce Buddy Time depuis Mes traces (icône de partage) : elle apparaîtra ici chez tout le monde.</p>}
+        {/* 👥 Traces associées, et en associer une de 📂 Mes traces (Seb, 25/11). */}
+        <TracesAssociees x={x} traces={v.traces.filter((t) => t.sortie === x.id)} onVoir={voirTrace} onToast={onToast} />
         {photos.length > 0 && <button className="bd-bande-photos" onClick={onAlbum}>
           <span className="bd-section"><b>📸 {photos.length} photo{photos.length > 1 ? 's' : ''}</b><small>de {auteurs} {auteurs > 1 ? 'buddies' : 'buddy'}</small></span>
           <span className="bd-bande-images">{photos.slice(0, 4).map((p, i) => <span key={p.id} className="bd-bande-image"><PhotoImage p={p} />
