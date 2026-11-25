@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { choisirMain, main, type Main } from './doigt';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -71,6 +72,22 @@ function quand(ms?: number) {
 }
 
 /** Écran « Mon compte » (maquettes 2 et 3, /mnt/project-files/maquettes/comptes). Même écran côté Kotlin (AccountPanel.kt). */
+/** Main pour tracer (Seb, 25/11) : le point se pose au-dessus du doigt, du côté opposé à la main. */
+function ChoixMain() {
+  const [m, setM] = useState<Main>(main);
+  const pose = (v: Main) => { choisirMain(v); setM(v); };
+  return (
+    <div className="acc-main">
+      <p className="acc-main-titre">Pour tracer, je suis…</p>
+      <div className="acc-main-choix">
+        <button className={m === 'gaucher' ? 'on' : ''} onClick={() => pose('gaucher')}>Gaucher</button>
+        <button className={m === 'droitier' ? 'on' : ''} onClick={() => pose('droitier')}>Droitier</button>
+      </div>
+      <p className="hint">Pour les traces : le point se pose un peu au-dessus de ton doigt, {m === 'gaucher' ? 'à droite' : 'à gauche'}, pour que tu le voies.</p>
+    </div>
+  );
+}
+
 export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m: string) => void }) {
   const e = useCompte();
   const [email, setEmail] = useState(e.email ?? '');
@@ -114,6 +131,7 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
         </label>
         <button className="primary" disabled={occupe} onClick={() => void seConnecter()}>{occupe ? 'Ouverture…' : 'Recevoir un code'}</button>
         <p className="hint acc-centre">Une seule fois : ensuite tu restes connecté, même des semaines sans réseau.</p>
+        <ChoixMain />
         <button className="acc-plus-tard" onClick={onClose}>Plus tard</button>
       </div>
     );
@@ -146,6 +164,7 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
         try { await synchroniser(); onToast('Synchronisé'); } catch (err) { onToast(err instanceof HorsLigne ? 'Pas de réseau' : String((err as Error).message)); }
         finally { setOccupe(false); }
       }}>🔄 Synchroniser</button>
+      <ChoixMain />
       <span style={{ flex: 1 }} />
       <button className="acc-deco" onClick={() => { if (confirm('Se déconnecter ? Tes traces restent sur le téléphone.')) { void deconnecter(); onToast('Déconnecté'); } }}>Se déconnecter</button>
       <p className="hint acc-centre">Se déconnecter garde tes traces sur le téléphone.</p>

@@ -17,6 +17,7 @@ import { ScaleBar } from './map/ScaleBar';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte } from './Account';
+import { appliquerMain } from './doigt';
 import { connecte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
@@ -298,6 +299,7 @@ export function App() {
   useEffect(() => { void offTrackVibrateEnabled().then(setOffVibrate); }, []);
   // 👥 Retour de la page de connexion (fr.assomoutain.rando://callback) et synchro du compte au retour du réseau.
   useEffect(() => ecouterCompte(setToast, () => setAccount(true)), []);
+  useEffect(() => appliquerMain(), []);
   // 👥 Liens d'invitation (fr.assomoutain.rando://rejoindre?c=…) et synchro des Buddies.
   useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
   // 📞 Appel : la sonnerie (écran 10) et, une fois en ligne, la carte à l'écran avec la barre d'appel (écran 24).

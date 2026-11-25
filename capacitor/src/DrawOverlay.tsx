@@ -1,7 +1,7 @@
 import type { Map as MlMap } from 'maplibre-gl';
 import { useRef, useState } from 'react';
 import type { LonLat } from './trails/osmTrails';
-import { DOIGT_PX } from './doigt';
+import { decalage } from './doigt';
 
 /**
  * Tracé au doigt : un calque posé sur la carte capte le doigt et dessine la ligne ;
@@ -25,7 +25,8 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
 
   const local = (e: React.PointerEvent): [number, number] => {
     const r = el.current!.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top - DOIGT_PX];
+    const [dx, dy] = decalage();
+    return [e.clientX - r.left + dx, e.clientY - r.top + dy];
   };
   const toD = (p: [number, number][]) => p.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('');
 

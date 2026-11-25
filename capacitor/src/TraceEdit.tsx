@@ -8,7 +8,7 @@ import type { LonLat, Trail } from './trails/osmTrails';
 import { lineLengthM, routeOnPaths, waypoints } from './trails/route';
 import { formatKm } from './track/stats';
 import { useSheet } from './useSheet';
-import { DOIGT_PX } from './doigt';
+import { decalage } from './doigt';
 
 type Outil = 'snap' | 'add' | 'spline';
 /** Mode souple : nombre de ronds sur la trace (Peu, Moyen, Beaucoup). */
@@ -76,7 +76,8 @@ function glissable(map: MlMap, mk: maplibregl.Marker, onDrag: (ll: maplibregl.Ln
   el.addEventListener('pointermove', (e) => {
     if (!actif) return;
     const r = map.getContainer().getBoundingClientRect();
-    mk.setLngLat(map.unproject([e.clientX - r.left, e.clientY - r.top - DOIGT_PX]));
+    const [dx, dy] = decalage();
+    mk.setLngLat(map.unproject([e.clientX - r.left + dx, e.clientY - r.top + dy]));
     bouge = true;
     onDrag(mk.getLngLat());
   });

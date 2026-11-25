@@ -24,3 +24,9 @@ Même place que le menu, ← pour y revenir, bouton « ↶ Annuler » pour reven
 - **Souple** : ronds sur la trace, espacés à l'écran (Peu 110 px, Moyen 70 px, Beaucoup 45 px) et replacés après chaque zoom ; pendant le glissé, l'ancien tracé est caché ; on en fait glisser un, la trace change en courbe douce
   entre ses deux voisins seulement.
 - Chaque changement est gardé tout de suite ; une trace enregistrée dans 📂 Mes traces est mise à jour (et son fichier GPX).
+
+## Gaucher / droitier (Seb, 25/11)
+Dans 👤 Mon compte (avec ou sans connexion) : « Pour tracer, je suis… Gaucher / Droitier », droitier par défaut,
+gardé sur le téléphone. Le point tracé ou glissé se pose 1 cm au-dessus du doigt et un peu de côté, à l'opposé
+de la main (en haut à gauche pour un droitier, en haut à droite pour un gaucher). Pour un gaucher, la colonne
+d'icônes passe à gauche (bulles d'aide et variantes à sa droite), l'échelle et les bandeaux du haut à droite.
