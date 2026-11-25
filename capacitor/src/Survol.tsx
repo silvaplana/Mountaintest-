@@ -115,15 +115,13 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     const centre = ens?.center ? LngLat.convert(ens.center) : map.getCenter();
     const c0 = { lon: centre.lng, lat: centre.lat };
     // 🧗 et 🎬 ont besoin du relief (sommets, crêtes, points de vue) ; sans lui, le film fait un suivi.
-    let relief: Relief | null = null;
-    if (r.style === 'alpi' || r.style === 'cine') {
-      setAvance('Lecture du relief…');
-      relief = await chargerRelief(zone, ctl.signal).catch(() => null);
-      if (ctl.signal.aborted) { setEtape('reglages'); return; }
-      if (!relief) onToast('Relief indisponible ici : film en suivi');
-    }
+    // Tous les styles s'en servent aussi pour que la caméra ne passe jamais dans la montagne.
+    setAvance('Lecture du relief…');
+    const relief: Relief | null = await chargerRelief(zone, ctl.signal).catch(() => null);
+    if (ctl.signal.aborted) { setEtape('reglages'); return; }
+    if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee === 'nuages' ? partPlongee(r.duree) : r.plongee === 'simple',
-      { style: r.style, descente: r.descente, relief, nuages: r.plongee === 'nuages' });
+      { style: r.style, descente: r.descente, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight });
     const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
     if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
     const pitchAvant = map.getMaxPitch();

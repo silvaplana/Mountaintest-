@@ -229,3 +229,35 @@ describe('survol 3D : plongée simple', () => {
     expect(cameraA(t, 0.35).pitch).toBeGreaterThan(55);
   });
 });
+
+describe('survol 3D : jamais dans la montagne, mouvements lissés', () => {
+  // La trace descend une pente à 45° vers le nord-est : derrière la caméra, le versant monte plus vite qu'elle.
+  const mur = { alt: (p: { lon: number; lat: number }) => 2000 - ((p.lon - 6.0) * 78_700 * 0.6 + (p.lat - 45.0) * 110_540 * 0.8), sommets: [] };
+  it('redresse la caméra plutôt que de la mettre sous le relief', async () => {
+    const { camLibre } = await import('../src/survol/camera');
+    const libre = trajectoire(line, 'bas', ensemble, 600, false, { relief: mur, hauteurPx: 800 });
+    const sans = trajectoire(line, 'bas', ensemble, 600);
+    let dedans = 0, avant = 0;
+    for (let i = 100; i < 500; i++) {
+      const a = libre[i], b = sans[i];
+      if (!camLibre(a, a.zoom, a.pitch, a.bearing, mur, 800)) dedans++;
+      if (!camLibre(b, b.zoom, b.pitch, b.bearing, mur, 800)) avant++;
+    }
+    expect(avant).toBeGreaterThan(50);
+    expect(dedans).toBe(0);
+  });
+  it('sur une trace chaotique (lacets serrés, bruit GPS), la caméra regarde loin et tourne doucement', () => {
+    let g = 3; const al = () => ((g = (g * 16807) % 2147483647) / 2147483647) - 0.5;
+    // 3 km : lacets de 30 m vers le nord, bruit GPS ±15 m, puis virage franc vers l'est.
+    const chaos = Array.from({ length: 300 }, (_, i) => {
+      const d = i * 10, lac = 30 * Math.sin(d / 25);
+      const x = d < 1500 ? lac : d - 1500, y = d < 1500 ? d : 1500 + lac;
+      return { lon: 6 + (x + al() * 30) / 78_700, lat: 45 + (y + al() * 30) / 110_540 };
+    });
+    const track = trajectoire(chaos, 'moyen', { center: { lon: 6.01, lat: 45.01 }, zoom: 12 });
+    let max = 0, total = 0;
+    for (let i = 100; i < 500; i++) { const a = Math.abs(ecartAngle(track[i - 1].bearing, track[i].bearing)); max = Math.max(max, a); total += a; }
+    expect(max).toBeLessThan(0.6);
+    expect(total).toBeLessThan(100); // le virage de 90° et presque rien d'autre
+  });
+});
