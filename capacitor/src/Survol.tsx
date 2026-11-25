@@ -11,6 +11,7 @@ import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
 import { ambianceCiel, type Ambiance } from './survol/ciel-gl';
+import { CREDIT_PHOTO, poserPhoto } from './survol/photo';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
 import { preparerOmbres, type OmbresSurvol } from './survol/ombres';
@@ -26,11 +27,13 @@ interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: 
   plongee: Plongee; rapide: boolean; dessine: boolean;
   /** ☁ Nuages de la plongée : mer lisse dorée, cumulus dorés ou cumulus bleu-gris. */
   ciel: Ambiance;
+  /** Fond du film : la carte affichée, ou les 📷 photos aériennes (chargées pendant le tournage seulement). */
+  fond: 'carte' | 'photo';
   /** 🎬 style de prise de vue, descente du style alpiniste, ◭ pentes dans le film (la carte ne change pas). */
   style: Style; descente: Descente; sens: Sens; pentes: boolean }
 type Plongee = 'non' | 'simple' | 'nuages';
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
+const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', fond: 'carte', rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
 function lire(): Reglages {
   try {
     const r = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') };
@@ -135,6 +138,9 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee === 'nuages' ? partPlongee(r.duree) : r.plongee === 'simple',
       { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight });
+    const photo = r.fond === 'photo' && navigator.onLine;
+    if (r.fond === 'photo' && !photo) onToast('Pas de réseau : film sur la carte');
+    const retirerPhoto = photo ? poserPhoto(map) : null;
     const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
     if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
     const pitchAvant = map.getMaxPitch();
@@ -156,7 +162,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         if (!ombres && !ctl.signal.aborted) onToast('Relief indisponible ici : film sans les ombres');
       }
       const dessin = { heure: r.ombres && ombres ? heureTexte(heures[0]) : undefined, infos: '', nuages: r.plongee === 'nuages' ? 0 : undefined } as Incrustation;
-      const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages, titre: dessin.titre });
+      const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages, titre: dessin.titre, credit: photo ? CREDIT_PHOTO : undefined });
       const ciel = voile.current?.getContext('2d') ?? null;
       if (voile.current) { voile.current.width = voile.current.offsetWidth; voile.current.height = voile.current.offsetHeight; }
       /** Place la caméra au temps t (0 → 1) du film, avec l'heure des ombres, les km · altitude et les nuages. */
@@ -260,6 +266,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       setEtape('reglages');
     } finally {
       ombres?.retirer();
+      retirerPhoto?.();
       retirerTraceQuiAvance(map);
       if (pentesAvant !== undefined && map.getLayer('slopes')) map.setLayoutProperty('slopes', 'visibility', pentesAvant);
       if (auSol) { map.setCenterClampedToGround(true); map.setSky(cielAvant); map.setMaxZoom(zoomAvant); }
@@ -413,6 +420,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
               <div className="survol-choix deux">{(Object.keys(STYLES) as Style[]).map((k) => (
                 <button key={k} className={r.style === k ? 'on' : ''} onClick={() => maj({ style: k })}>{STYLES[k].i} {STYLES[k].nom}</button>))}</div>
               <p className="survol-dit">{STYLES[r.style].dit}</p>
+              <div className="survol-choix">{([['carte', '🗺 Carte'], ['photo', '📷 Photo aérienne']] as [Reglages['fond'], string][]).map(([k, t]) => (
+                <button key={k} className={r.fond === k ? 'on' : ''} onClick={() => maj({ fond: k })}>{t}</button>))}</div>
               {r.style === 'alpi' && <div className="survol-choix">{([['montee', '↗ Montée'], ['deux', '↗↘ Les deux'], ['descente', '↘ Descente']] as [Sens, string][]).map(([k, t]) => (
                 <button key={k} className={r.sens === k ? 'on' : ''} onClick={() => maj({ sens: k })}>{t}</button>))}</div>}
               {r.style === 'alpi' && r.sens !== 'montee' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
