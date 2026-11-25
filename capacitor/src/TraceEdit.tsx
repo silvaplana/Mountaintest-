@@ -68,6 +68,8 @@ function glissable(map: MlMap, mk: maplibregl.Marker, onDrag: (ll: maplibregl.Ln
   const el = mk.getElement();
   let actif = false, bouge = false;
   for (const ev of ['mousedown', 'touchstart', 'click', 'dblclick']) el.addEventListener(ev, (e) => e.stopPropagation());
+  // L'appui long sur un point ne doit pas aussi poser le gros repère « Point choisi sur la carte » (Seb, 25/11).
+  el.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); });
   el.addEventListener('pointerdown', (e) => {
     e.stopPropagation(); e.preventDefault();
     el.setPointerCapture(e.pointerId);

@@ -502,7 +502,11 @@ export function App() {
   useEffect(() => {
     if (!map) return;
     // Pendant un appel, l'appui long montre l'endroit aux autres (👉, spec §5.7) au lieu d'y aller.
-    const onLong = (e: maplibregl.MapMouseEvent) => montrer(e.lngLat.lng, e.lngLat.lat) || setTarget({ lon: e.lngLat.lng, lat: e.lngLat.lat, label: 'Point choisi sur la carte' });
+    const onLong = (e: maplibregl.MapMouseEvent) => {
+      // Pas sur une épingle ou un rond de « Modifier » (on les déplace par appui long), ni pendant « Modifier ».
+      if ((e.originalEvent?.target as Element | null)?.closest?.('.pin, .edit-rond') || document.querySelector('.trace-edit')) return;
+      if (!montrer(e.lngLat.lng, e.lngLat.lat)) setTarget({ lon: e.lngLat.lng, lat: e.lngLat.lat, label: 'Point choisi sur la carte' });
+    };
     map.on('contextmenu', onLong);
     return () => { map.off('contextmenu', onLong); };
   }, [map]);
