@@ -52,7 +52,7 @@ export function simplify(line: LonLat[], tolM = 5): LonLat[] {
 }
 
 /** Requêtes Overpass : chemins (highway) à moins de 25 m de la trace, par morceaux de 300 points. */
-export function junctionQueries(line: LonLat[], aroundM = AROUND_M): string[] {
+export function junctionQueries(line: LonLat[], aroundM = AROUND_M, gr = true): string[] {
   const pts = simplify(line);
   const out: string[] = [];
   for (let i = 0; pts.length; i += CHUNK - 1) {
@@ -62,8 +62,8 @@ export function junctionQueries(line: LonLat[], aroundM = AROUND_M): string[] {
     const lats = part.map((p) => p.lat), lons = part.map((p) => p.lon);
     const box = [Math.min(...lats) - 0.001, Math.min(...lons) - 0.0013, Math.max(...lats) + 0.001, Math.max(...lons) + 0.0013].map((v) => v.toFixed(5)).join(',');
     // + les relations GR / GR de Pays de ces chemins (🚵 type de chemin : portions sur GR).
-    out.push(`[out:json][timeout:90];way["highway"](around:${aroundM},${coords})->.w;.w out body geom(${box}) qt;`
-      + 'rel(bw.w)["route"~"^(hiking|foot)$"]["network"~"^(iwn|nwn|rwn)$"];out body qt;');
+    out.push(`[out:json][timeout:${gr ? 90 : 25}];way["highway"](around:${aroundM},${coords})->.w;.w out body geom(${box}) qt;`
+      + (gr ? 'rel(bw.w)["route"~"^(hiking|foot)$"]["network"~"^(iwn|nwn|rwn)$"];out body qt;' : ''));
     if (i + CHUNK >= pts.length) break;
   }
   return out;
@@ -103,19 +103,30 @@ export function parseJunctions(json: { elements?: OsmWay[] }, line: LonLat[]): L
   return kept;
 }
 
+/** Un signal qui s'arrête avec `signal` ou au bout de `ms` ; `fin()` range la minuterie. */
+export function avecDelai(signal: AbortSignal | undefined, ms: number): { signal: AbortSignal; fin: () => void } {
+  const c = new AbortController();
+  const stop = () => c.abort();
+  const t = setTimeout(stop, ms);
+  signal?.addEventListener('abort', stop);
+  if (signal?.aborted) c.abort();
+  return { signal: c.signal, fin: () => { clearTimeout(t); signal?.removeEventListener('abort', stop); } };
+}
+
 /** Appel réseau : chemins autour de la trace (plusieurs requêtes si elle est longue). */
-async function fetchWays(line: LonLat[], signal?: AbortSignal, aroundM = AROUND_M): Promise<OsmWay[]> {
+async function fetchWays(line: LonLat[], signal?: AbortSignal, aroundM = AROUND_M, gr = true, delaiMs = 0): Promise<OsmWay[]> {
   const elements: OsmWay[] = [];
   // Deux morceaux à la fois (Overpass accepte deux requêtes simultanées par appareil).
-  const qs = junctionQueries(line, aroundM);
+  const qs = junctionQueries(line, aroundM, gr);
   let next = 0;
   const worker = async () => { while (next < qs.length) await fetchOne(qs[next++]); };
   const fetchOne = async (q: string) => {
     const body = new URLSearchParams({ data: q });
     let last: unknown = null, ok = false;
     for (const url of OVERPASS_URLS) {
+      const d = delaiMs ? avecDelai(signal, delaiMs) : null;
       try {
-        const res = await fetch(url, { method: 'POST', body, signal });
+        const res = await fetch(url, { method: 'POST', body, signal: d?.signal ?? signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         elements.push(...((await res.json()).elements ?? []));
         ok = true;
@@ -123,7 +134,7 @@ async function fetchWays(line: LonLat[], signal?: AbortSignal, aroundM = AROUND_
       } catch (e) {
         if (signal?.aborted) throw e;
         last = e;
-      }
+      } finally { d?.fin(); }
     }
     if (!ok) throw last instanceof Error ? last : new Error(String(last));
   };
@@ -134,7 +145,8 @@ async function fetchWays(line: LonLat[], signal?: AbortSignal, aroundM = AROUND_
 /** ✏ Recoller : forme des chemins et routes utiles à moins de `aroundM` d'un morceau de trace (réseau). */
 export async function fetchWayLines(line: LonLat[], aroundM: number, signal?: AbortSignal): Promise<LonLat[][]> {
   const seen = new Set<number>(), out: LonLat[][] = [];
-  for (const w of await fetchWays(line, signal, aroundM)) {
+  // Sans les relations GR, et un serveur qui ne répond pas en 25 s laisse la place au suivant (Seb, 25/11 : « ça rame »).
+  for (const w of await fetchWays(line, signal, aroundM, false, 25_000)) {
     if (w.type !== 'way' || !w.geometry || seen.has(w.id) || !usefulWay(w.tags ?? {})) continue;
     seen.add(w.id);
     let run: LonLat[] = [];

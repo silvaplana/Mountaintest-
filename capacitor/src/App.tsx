@@ -513,11 +513,22 @@ export function App() {
     return () => { map.off('contextmenu', onLong); };
   }, [map]);
 
+  // Le repère « Point choisi » ne reste jamais seul sur la carte (Seb, 25/11) : il part quand on touche la carte
+  // ailleurs, quand une trace ou « Modifier » s'ouvre, et ne s'affiche qu'avec son bandeau (✕ pour l'enlever).
+  useEffect(() => { if (traceMenu || modifier) setTarget(null); }, [traceMenu, modifier]);
+  useEffect(() => {
+    if (!map || !target) return;
+    // Seulement si c'est encore ce repère : toucher une rando en pose un nouveau, qu'on garde.
+    const off = () => setTarget((cur) => (cur === target ? null : cur));
+    // Un peu plus tard : le doigt qu'on lève après l'appui long fait aussi un « toucher ».
+    const t = setTimeout(() => map.once('click', off), 700);
+    return () => { clearTimeout(t); map.off('click', off); };
+  }, [map, target]);
   useEffect(() => {
     marker.current?.remove();
     marker.current = null;
-    if (map && target) marker.current = new maplibregl.Marker({ color: '#c0392b' }).setLngLat([target.lon, target.lat]).addTo(map);
-  }, [map, target]);
+    // Plus de gros repère rouge sur la carte (Seb, 25/11 : « il faut vraiment l'enlever ») : le bandeau suffit.
+  }, [map, target, searching]);
 
   async function startRecording() {
     setStatus('');
