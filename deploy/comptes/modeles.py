@@ -177,8 +177,10 @@ class Photo(Base):
     lat: Mapped[float | None] = mapped_column(Float)
     # ⭐ : retenue pour le carnet (n'importe quel participant peut la choisir).
     etoile: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    # La grande image est arrivée (avant : 🕓 chez tout le monde).
+    # La grande image est arrivée (avant : 🕓 chez tout le monde) ; pour un film, la vidéo est arrivée.
     envoyee: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # 🎥 Film du survol 3D d'une trace : petite et grande sont l'image de couverture, le film est la taille « video ».
+    video: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
 

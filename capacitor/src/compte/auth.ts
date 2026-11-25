@@ -196,7 +196,7 @@ export async function apiFichier(methode: 'GET' | 'PUT', chemin: string, corps?:
   const t = await jetonAcces();
   const r = await requete(`${API_URL}${chemin}`, {
     method: methode, body: corps,
-    headers: { Authorization: `Bearer ${t}`, ...(corps ? { 'Content-Type': 'image/jpeg' } : {}) },
+    headers: { Authorization: `Bearer ${t}`, ...(corps ? { 'Content-Type': corps.type || 'image/jpeg' } : {}) },
   });
   if (r.status === 401) { ecrire({ ...lire(), access: undefined }); throw new Refuse('Jeton refusé'); }
   if (!r.ok) throw new Error(`Serveur : erreur ${r.status}`);

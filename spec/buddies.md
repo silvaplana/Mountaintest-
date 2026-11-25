@@ -383,6 +383,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Hors ligne** : la photo est réduite sur le téléphone (400 px pour la grille, 1600 px pour la voir,
   JPEG), gardée et montrée tout de suite avec 🕓 ; elle part au retour du réseau. Les photos des
   autres, une fois vues, restent sur le téléphone : l'album s'ouvre sans réseau.
+- **🎥 Films de survol 3D** (Seb, 25/11) : le film tourné depuis la caméra du menu d'une trace se range
+  dans l'album du Buddy Time ouvert sur la carte (sinon on choisit l'album). Il y est une « photo »
+  marquée vidéo (colonne `photos.video`) : petite et grande = image de couverture, le film (MP4 ou
+  WebM, 100 Mo au plus) part en plus (`PUT /buddies/photos/<id>/video`). Vignette avec ▶ ; en grand,
+  le film se lit. Il compte comme arrivé quand le film est arrivé.
 - **Heure et lieu** : lus dans la photo (EXIF). Sans heure, celle du fichier ; sans lieu (le choix de
   photos d'Android retire parfois la position), la photo n'est pas sur la carte. Vidéos : plus tard.
 - **Serveur** : table `photos` (Buddy Time, auteur, heure, lieu, ⭐, arrivée) et opérations

@@ -58,6 +58,7 @@ export function Image({ p, taille = 'petite', className }: { p: PhotoBuddy; tail
 function Vignette({ p, onClick }: { p: PhotoBuddy; onClick: () => void }) {
   return <button className={`bd-vignette${p.attente ? ' attente' : ''}`} onClick={onClick}>
     <Image p={p} />
+    {p.video && <span className="bd-film">▶</span>}
     {p.etoile && <span className="bd-etoile">⭐</span>}
     {p.attente && <span className="bd-montre">🕓</span>}
     <span className="bd-auteur"><Visage b={p.par} taille={24} /></span>
@@ -117,6 +118,18 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
   </div>;
 }
 
+/** 🎥 Film d'un survol 3D : lu sur le serveur la première fois, puis gardé sur le téléphone. */
+function Film({ p }: { p: PhotoBuddy }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    void adresse(p.id, 'video', p.envoyee).then((u) => { if (vivant) setSrc(u); });
+    return () => { vivant = false; };
+  }, [p.id, p.envoyee]);
+  return src ? <video className="bd-vis-image" src={src} controls playsInline onClick={(ev) => ev.stopPropagation()} />
+    : <span className="bd-vis-image bd-img-vide">🕓</span>;
+}
+
 /** Une photo en grand : ‹ ›, ⭐ pour le carnet, « Retirer » pour l'auteur. */
 function Visionneuse({ l, i, onI, onFermer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void }) {
   const p = l[i];
@@ -127,7 +140,7 @@ function Visionneuse({ l, i, onI, onFermer }: { l: PhotoBuddy[]; i: number; onI:
       <span className="bd-texte"><b>{p.par.pseudo}</b><small>{jourLong(p.prise_le.slice(0, 10))} · {p.prise_le.slice(11, 16).replace(':', ' h ')}</small></span>
       <button aria-label="Fermer" onClick={onFermer}>✕</button>
     </div>
-    <Image p={p} taille="grande" className="bd-vis-image" />
+    {p.video ? <Film p={p} /> : <Image p={p} taille="grande" className="bd-vis-image" />}
     <div className="bd-vis-bas" onClick={(ev) => ev.stopPropagation()}>
       <button aria-label="Précédente" disabled={i === 0} onClick={() => onI(i - 1)}>‹</button>
       <button className={p.etoile ? 'oui' : ''} onClick={() => mettreEtoile(p.id, !p.etoile)}>{p.etoile ? '⭐ Dans le carnet' : '☆ Pour le carnet'}</button>

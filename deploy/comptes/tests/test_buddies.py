@@ -343,6 +343,34 @@ def test_album_deposer_voir_etoile_retirer(client, photos):
     assert r["ids_photos"] == [] and list(photos.iterdir()) == []
 
 
+MP4 = b"\x00\x00\x00\x18ftypmp42" + b"v" * 100
+
+
+def test_album_film_du_survol(client, photos):
+    """🎥 Film d'un survol 3D rangé dans l'album : couverture JPEG (petite, grande) + le film ; arrivé quand le film l'est."""
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    film = {**nouvelle_photo(so["sortie"]), "video": True}
+    r = sync(client, ops=[so, film])
+    assert r["refus"] == [] and r["photos"][0]["video"] is True
+    url = f"/buddies/photos/{film['photo']}"
+    assert client.put(url + "/video", content=JPEG, headers=entete(sub="seb")).status_code == 422  # pas un film
+    for t in ("petite", "grande"):
+        assert client.put(url + f"/{t}", content=JPEG, headers=entete(sub="seb")).status_code == 200
+    assert sync(client, sub="julie")["photos"][0]["envoyee"] is False  # la couverture seule ne suffit pas
+    assert client.put(url + "/video", content=MP4, headers=entete(sub="seb")).status_code == 200
+    lu = client.get(url + "/video", headers=entete(sub="julie"))
+    assert lu.status_code == 200 and lu.content == MP4 and lu.headers["content-type"] == "video/mp4"
+    assert sync(client, sub="julie")["photos"][0]["envoyee"] is True
+    # Une photo ordinaire n'accepte pas de film.
+    ph = nouvelle_photo(so["sortie"])
+    sync(client, ops=[ph])
+    assert client.put(f"/buddies/photos/{ph['photo']}/video", content=MP4, headers=entete(sub="seb")).status_code == 422
+    # Retirer le film efface aussi la vidéo.
+    sync(client, ops=[{"id": "z", "type": "retirer_photo", "photo": film["photo"]}])
+    assert not any(f.name.startswith(film["photo"]) for f in photos.iterdir())
+
+
 def test_photo_refusee(client, photos):
     so = nouvelle_sortie("me-time")
     sync(client, ops=[so])

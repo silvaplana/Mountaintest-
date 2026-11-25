@@ -1148,7 +1148,7 @@ export function App() {
           onStop: () => { setNavPaused(false); setDrawing(false); void stopFree(); } } : null} />}
       {navTrail && !drawing && <NavBar trail={navTrail} state={nav} waiting={!navPos} paused={navPaused} nextJunctionM={nextJunction} onOpen={startDrawing} />}
       {survol && traceMenu && selected && isMine(selected.id) && !drawing && map && (
-        <Survol map={map} trail={selected} onClose={() => setSurvol(false)} onToast={setToast} />
+        <Survol map={map} trail={selected} sortie={carteSortie?.sortie ?? null} sorties={lireBuddies().sorties} onClose={() => setSurvol(false)} onToast={setToast} />
       )}
       {!survol && traceMenu && selected && isMine(selected.id) && !drawing && (
         <TraceMenu trail={selected} onFilm={() => { setShowShade(false); setSurvol(true); }} elevated={elevated} slopes={drawnSlopes} onSlopes={setDrawnSlopes}

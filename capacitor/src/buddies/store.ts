@@ -51,6 +51,8 @@ export type Planning = {
 export type PhotoBuddy = {
   id: string; sortie: string; par: Buddy; prise_le: string; lon: number | null; lat: number | null; etoile: boolean;
   envoyee: boolean; modifie_le: string; attente?: boolean;
+  /** 🎥 Film d'un survol 3D : petite et grande sont sa couverture, le film est la taille « video » (album.ts). */
+  video?: boolean;
 };
 /** Buddy count (spec §5.10) : une dépense d'un Buddy Time ; montant en centimes, pour = identifiants des buddies. */
 export type Depense = {
@@ -212,7 +214,8 @@ export function vue(e: Etat): {
       p.attente = true;
     } else if (op.type === 'ajouter_photo' && !photos.some((x) => x.id === op.photo)) {
       photos.push({ id: String(op.photo), sortie: String(op.sortie), par: moiBuddy(e), prise_le: String(op.prise_le),
-        lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null, etoile: false, envoyee: false, modifie_le: quand(op), attente: true });
+        lon: (op.lon as number) ?? null, lat: (op.lat as number) ?? null, etoile: false, envoyee: false, modifie_le: quand(op), attente: true,
+        ...(op.video ? { video: true } : {}) });
       const x = sorties.find((y) => y.id === op.sortie);
       if (x) x.modifie_le = quand(op);
     } else if (op.type === 'etoile') {
@@ -478,7 +481,7 @@ export function creerPlanning(n: { groupe: string; nom: string; dates: [string, 
 export const repondre = (planning: string, debut: string, etat: Etat3 | '', mot = '') =>
   ajouter({ type: 'dispo', planning, debut, etat, mot: mot.trim().slice(0, 200) });
 /** Déposer des photos déjà réduites et gardées sur le téléphone (album.ts) : elles partent au retour du réseau. */
-export function deposerPhotos(sortie: string, l: { photo: string; prise_le: string; lon: number | null; lat: number | null }[]) {
+export function deposerPhotos(sortie: string, l: { photo: string; prise_le: string; lon: number | null; lat: number | null; video?: boolean }[]) {
   if (!l.length) return;
   ecrire({ ...lire(), envois: [...(lire().envois ?? []), ...l.map((x) => x.photo)] });
   ajouter(...l.map((x) => ({ type: 'ajouter_photo', sortie, ...x })));

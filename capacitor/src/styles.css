@@ -1092,3 +1092,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .survol-film { position: absolute; left: 0; right: 0; top: 0; z-index: 3; background: #000; display: flex; align-items: center; justify-content: center; }
 .survol-film video { max-width: 100%; max-height: 100%; }
 .survol-play { position: absolute; width: 84px; height: 84px; border-radius: 50%; border: 0; background: #000a; color: #fff; font-size: 36px; }
+.survol-fin.deux { grid-template-columns: 1fr 1fr; }
+.survol-fin button.primary { color: #fff; }
+.survol-albums { display: flex; flex-direction: column; gap: 6px; }
+.survol-albums button { min-height: 48px; text-align: left; padding: 0 12px; font-size: 17px; }
+.bd-film { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 50%; background: #000a; color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; }

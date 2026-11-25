@@ -60,6 +60,8 @@ export function enregistrer(map: MlMap, vertical: boolean, texte: () => Incrusta
   map.on('render', dessiner);
   map.triggerRepaint();
   return {
+    /** Image du moment (couverture du film dans l'album). */
+    instantane: () => createImageBitmap(toile),
     arreter: () => new Promise<Blob>((ok) => {
       fini = true;
       map.off('render', dessiner);

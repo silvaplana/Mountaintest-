@@ -4,6 +4,8 @@ import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
+import { garder, heureLocale, PX, reduire } from './buddies/album';
+import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
 import { cameraA, heuresOmbres, heureTexte, IMAGES, NUAGES, trajectoire, type Cam, type Hauteur } from './survol/camera';
 import { dessinerNuages } from './survol/nuages';
 import { enregistrer, extension } from './survol/enregistreur';
@@ -29,12 +31,18 @@ type Etape = 'reglages' | 'preparation' | 'tournage' | 'pret';
  * ⏺ prépare les cartes puis tourne le film (la carte en 3D le long de la trace, caméra lissée), puis
  * ▶ revoir, partager, refaire ou jeter. Ce qu'on voit sur la carte (fond, pentes) est ce qui est filmé.
  */
-export function Survol({ map, trail, onClose, onToast }: { map: MlMap; trail: Trail; onClose: () => void; onToast: (t: string) => void }) {
+export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
+  map: MlMap; trail: Trail; onClose: () => void; onToast: (t: string) => void;
+  /** 📸 Buddy Time ouvert sur la carte : le film va dans son album ; sinon on choisit parmi mes Buddy Times. */
+  sortie: Sortie | null; sorties: Sortie[];
+}) {
   const [r, setR] = useState<Reglages>(lire);
   const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | null>(null);
   const [etape, setEtape] = useState<Etape>('reglages');
   const [avance, setAvance] = useState('');
-  const [film, setFilm] = useState<{ blob: Blob; url: string } | null>(null);
+  const [film, setFilm] = useState<{ blob: Blob; url: string; couverture: ImageBitmap | null } | null>(null);
+  const [choixAlbum, setChoixAlbum] = useState(false);
+  const [range, setRange] = useState<string | null>(null);
   const [joue, setJoue] = useState(false);
   const panneau = useRef<HTMLElement>(null);
   const video = useRef<HTMLVideoElement>(null);
@@ -106,6 +114,7 @@ export function Survol({ map, trail, onClose, onToast }: { map: MlMap; trail: Tr
       const ciel = voile.current?.getContext('2d') ?? null;
       if (voile.current) { voile.current.width = voile.current.offsetWidth; voile.current.height = voile.current.offsetHeight; }
       const D = r.duree * 1000;
+      let couverture: Promise<ImageBitmap> | null = null;
       const t0 = performance.now();
       await new Promise<void>((fin) => {
         const pas = (now: number) => {
@@ -121,6 +130,7 @@ export function Survol({ map, trail, onClose, onToast }: { map: MlMap; trail: Tr
             nuages = t / NUAGES;
             if (ciel && voile.current) { ciel.clearRect(0, 0, voile.current.width, voile.current.height); dessinerNuages(ciel, voile.current.width, voile.current.height, nuages); }
           }
+          if (!couverture && t >= 0.6) couverture = rec.instantane();
           setAvance(`${Math.round(t * 100)} %`);
           if (t < 1 && !ctl.signal.aborted) requestAnimationFrame(pas); else fin();
         };
@@ -129,7 +139,8 @@ export function Survol({ map, trail, onClose, onToast }: { map: MlMap; trail: Tr
       const blob = await rec.arreter();
       son?.arreter();
       if (!blob.size) throw new Error('vidéo vide');
-      setFilm({ blob, url: URL.createObjectURL(blob) });
+      setFilm({ blob, url: URL.createObjectURL(blob), couverture: await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null });
+      setRange(null);
       setEtape('pret');
     } catch (e) {
       onToast(`Film impossible : ${(e as Error).message}`);
@@ -158,6 +169,26 @@ export function Survol({ map, trail, onClose, onToast }: { map: MlMap; trail: Tr
       if ((e as Error).name !== 'AbortError') onToast(`Partage impossible : ${(e as Error).message}`);
     }
   }
+
+  /** 📸 Range le film dans l'album : couverture (petite, grande) + film, gardés ici et envoyés au retour du réseau. */
+  async function ranger(x: Sortie) {
+    if (!film) return;
+    setChoixAlbum(false);
+    try {
+      const id = uuid();
+      if (film.couverture) {
+        await garder(id, 'petite', await reduire(film.couverture, PX.petite, 0.7));
+        await garder(id, 'grande', await reduire(film.couverture, PX.grande, 0.8));
+      }
+      await garder(id, 'video', film.blob);
+      deposerPhotos(x.id, [{ photo: id, prise_le: heureLocale(), lon: line[0].lon, lat: line[0].lat, video: true }]);
+      setRange(x.nom);
+      onToast(navigator.onLine ? `Film rangé dans l'album « ${x.nom} »` : `Film rangé : il partira au retour du réseau 🕓`);
+    } catch (e) {
+      onToast(`Album impossible : ${(e as Error).message}`);
+    }
+  }
+  const albums = [...sorties].filter((x) => x.debut <= aujourdhui()).sort((a, b) => b.debut.localeCompare(a.debut));
 
   const occupe = etape === 'preparation' || etape === 'tournage';
   return (
@@ -219,7 +250,15 @@ export function Survol({ map, trail, onClose, onToast }: { map: MlMap; trail: Tr
           <div className="survol-bas"><span />
             <button className="survol-rec stop" onClick={() => arret.current?.abort()} aria-label="Arrêter"><i /></button></div>
         </>}
-        {etape === 'pret' && <div className="survol-fin">
+        {etape === 'pret' && choixAlbum && <div className="survol-albums">
+          <b>Dans quel album ?</b>
+          {albums.slice(0, 6).map((x) => <button key={x.id} onClick={() => void ranger(x)}>📸 {x.nom}</button>)}
+          <button onClick={() => setChoixAlbum(false)}>Annuler</button>
+        </div>}
+        {etape === 'pret' && !choixAlbum && <div className={`survol-fin ${albums.length || sortie ? 'deux' : ''}`}>
+          {(sortie || albums.length > 0) && <button className="primary" disabled={range != null}
+            onClick={() => { if (sortie) void ranger(sortie); else setChoixAlbum(true); }}>
+            <span className="gros">📸</span>{range ? `✓ Dans « ${range} »` : sortie ? `Album « ${sortie.nom} »` : 'Ranger dans un album'}</button>}
           <button onClick={() => void partager()}><ShareIcon />Partager</button>
           <button onClick={() => { setFilm(null); setEtape('reglages'); }}><span className="gros">🔁</span>Refaire</button>
           <button className="danger" onClick={onClose}><TrashIcon />Jeter</button>
