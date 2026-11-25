@@ -62,8 +62,8 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer }: {
   useEffect(() => {
     if (!map.getLayer('trails')) return;
     const ids = prise.traces;
-    map.setPaintProperty('trails', 'line-width', ids.length ? ['case', ['in', ['get', 'id'], ['literal', ids]], 8, 3] : 3);
-    return () => { if (map.getLayer('trails')) map.setPaintProperty('trails', 'line-width', 3); };
+    map.setPaintProperty('trails', 'line-width', ids.length ? ['case', ['in', ['get', 'id'], ['literal', ids]], 8, 4] : 4);
+    return () => { if (map.getLayer('trails')) map.setPaintProperty('trails', 'line-width', 4); };
   }, [map, prise.traces.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fin = useRef(onFin);

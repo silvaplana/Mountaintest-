@@ -44,7 +44,7 @@ const STYLES: Record<Style, { i: string; nom: string; dit: string }> = {
   cine: { i: '🎬', nom: 'Ciné', dit: 'Monté tout seul : bas dans les vallées, haut aux crêtes, arrêts sur les beaux points de vue, grand recul à la fin.' },
 };
 /** Couches de la trace cachées quand « trace » n'est pas coché. */
-const COUCHES_TRACE = ['trails', 'trail-sel-halo', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
+const COUCHES_TRACE = ['trails-casing', 'trails', 'trail-sel-halo', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
 
 type Etape = 'reglages' | 'preparation' | 'tournage' | 'pret';
 
