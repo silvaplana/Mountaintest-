@@ -182,11 +182,11 @@ sa gauche, on en choisit une.
   retour aux Buddies. Rien n'est effacé sur le serveur (même opération que Bud, §7.12).
 - **Renommer un Buddy Group** (Seb, 25 novembre 2026) : crayon au trait en haut de l'écran du Buddy Group (ou toucher
   son nom), feuille « Nom du Buddy Group ». Tout membre peut le faire (opération `renommer_groupe`).
-- **Plus de Me Time** (Seb, 25 novembre 2026) : le serveur n'en crée plus. À la synchro, un ancien Me Time vide est
-  retiré ; un ancien Me Time qui a des Buddy Times ou des traces devient un Buddy Group normal « Mes sorties » (à
-  renommer), rien n'est perdu, les copains invités à une de ses sorties la gardent. Un téléphone pas encore à jour
-  qui range une sortie dans « me-time » la met dans ce Buddy Group « Mes sorties ». Le paragraphe suivant (inviter
-  à une seule sortie) ne vaut plus que pour ces anciennes sorties.
+- **Plus de Me Time** (Seb, 25 novembre 2026) : le serveur n'en crée plus. À la synchro, l'ancien Me Time de chacun
+  est **effacé avec tout ce qu'il contient**, pour tout le monde (choix de Seb : « Tout effacer ») : ses Buddy Times
+  et leurs traces, photos (fichiers compris), dépenses, messages, hébergements, carnets. Un téléphone pas encore à
+  jour qui range une sortie dans « me-time » est refusé (« Choisis un Buddy Group »). Le paragraphe suivant (inviter
+  à une seule sortie sans Buddy Group) ne vaut plus.
 - Crayon et poubelle aussi **à côté de chaque Buddy Time** des listes (Seb, 25 novembre 2026) : la liste des Buddies
   (l'heure de la ligne laisse sa place) et les affiches d'un Buddy Group (en haut à droite de l'image). Le crayon
   ouvre une feuille « Nom du Buddy Time » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.

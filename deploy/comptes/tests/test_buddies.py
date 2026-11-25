@@ -43,17 +43,14 @@ def ancien_me_time(sub, avec_sortie):
 
 
 def test_plus_de_me_time(client):
-    """Seb, 25 novembre : le Me Time disparaît. Plus de groupe créé d'office ; un ancien Me Time vide est retiré,
-    un ancien Me Time avec des Buddy Times devient un Buddy Group « Mes sorties », rien n'est perdu."""
+    """Seb, 25 novembre : le Me Time disparaît, effacé avec ses Buddy Times (choix « Tout effacer »)."""
     assert sync(client)["groupes"] == []
     vide = ancien_me_time("seb", avec_sortie=False)
     assert vide not in sync(client)["ids"]
     sync(client, sub="julie")
-    plein = ancien_me_time("julie", avec_sortie=True)
+    ancien_me_time("julie", avec_sortie=True)
     r = sync(client, sub="julie")
-    g = next(x for x in r["groupes"] if x["id"] == plein)
-    assert g["nature"] == "bande" and g["nom"] == "Mes sorties" and g["membres"][0]["role"] == "admin"
-    assert r["sorties"][0]["groupe"] == plein
+    assert r["ids"] == [] and r["ids_sorties"] == []
 
 
 def test_creer_un_groupe_hors_ligne_puis_renvoyer(client):
@@ -209,17 +206,16 @@ def test_buddy_time_dans_un_groupe(client):
 
 
 def test_ancien_telephone_range_dans_me_time(client):
-    """Un téléphone pas encore à jour range une sortie dans « me-time » : elle va dans son Buddy Group « Mes sorties »."""
-    op = nouvelle_sortie("me-time", nom="Sainte-Victoire", debut="2026-11-29", fin="2026-11-29")
-    r = sync(client, ops=[op])
-    g = next(g for g in r["groupes"] if g["nom"] == "Mes sorties")
-    assert g["nature"] == "bande" and r["sorties"][0]["groupe"] == g["id"]
+    """Un téléphone pas encore à jour range une sortie dans « me-time » : refusé, il dit de choisir un Buddy Group."""
+    r = sync(client, ops=[nouvelle_sortie("me-time")])
+    assert "Buddy Group" in r["refus"][0]["raison"] and r["ids_sorties"] == []
 
 
 def test_inviter_un_copain_a_une_seule_sortie(client):
-    op = nouvelle_sortie("me-time")
+    g = nouveau_groupe()
+    op = nouvelle_sortie(g["groupe"])
     inv = {**invitation(None, code="SortieCode0123456789"), "groupe": None, "sortie": op["sortie"]}
-    r = sync(client, ops=[op, inv])
+    r = sync(client, ops=[g, op, inv])
     assert r["refus"] == [] and r["sorties"][0]["invitations"][0]["nom"] == "Julie"
     assert client.get("/invitations/SortieCode0123456789").json()["sortie"] is True
     # Paul rejoint la sortie, sans entrer dans le Buddy Group de Seb.
@@ -251,16 +247,19 @@ def test_partager_une_trace_dans_un_buddy_time_et_un_groupe(client):
     {"nom": "  "},
 ])
 def test_buddy_time_refuse(client, mauvais):
-    op = {**nouvelle_sortie("me-time"), **mauvais}
-    assert sync(client, ops=[op])["refus"]
+    g = nouveau_groupe()
+    op = {**nouvelle_sortie(g["groupe"]), **mauvais}
+    assert sync(client, ops=[g, op])["refus"]
 
 
 def test_trace_refusee(client):
-    op = {"id": "t", "type": "partager_trace", "trace": str(uuid.uuid4()), "groupe": "me-time", "nom": "x", "ligne": [[1, 2]]}
-    assert sync(client, ops=[op])["refus"]
+    g = nouveau_groupe()
+    op = {"id": "t", "type": "partager_trace", "trace": str(uuid.uuid4()), "groupe": g["groupe"], "nom": "x", "ligne": [[1, 2]]}
+    assert sync(client, ops=[g, op])["refus"]
     # Buddy Time d'un autre : invisible
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     op = {**op, "ligne": [[1, 2], [3, 4]], "groupe": None, "sortie": so["sortie"]}
     assert sync(client, sub="luc", ops=[op])["refus"]
 
@@ -394,8 +393,9 @@ def test_album_film_du_survol(client, photos):
 
 
 def test_photo_refusee(client, photos):
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     assert sync(client, ops=[nouvelle_photo(so["sortie"], prise_le="hier")])["refus"]
     assert sync(client, sub="luc", ops=[nouvelle_photo(so["sortie"])])["refus"]  # Buddy Time d'un autre
     # Sans position (photo sans GPS) : acceptée.
@@ -444,14 +444,16 @@ def test_carnet_recits_fiches_conditions(client):
     {"type": "fiche", "jour": "2026-12-12", "distance": "loin"},
 ])
 def test_fiche_refusee(client, mauvais):
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     assert sync(client, ops=[op(sortie=so["sortie"], **mauvais)])["refus"]
 
 
 def test_carnet_d_un_autre_refuse(client):
-    so = nouvelle_sortie("me-time")
-    sync(client, ops=[so])
+    g = nouveau_groupe()
+    so = nouvelle_sortie(g["groupe"])
+    sync(client, ops=[g, so])
     for o in (op("recit", sortie=so["sortie"], texte="intrus"), op("carnet", sortie=so["sortie"], meteo="pluie")):
         assert sync(client, sub="luc", ops=[o])["refus"]
     c = sync(client)["sorties"][0]["carnet"]

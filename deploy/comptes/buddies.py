@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
@@ -68,45 +68,25 @@ def photo_valide(p: Any) -> str | None:
     return p
 
 
-def me_time(s: Session, u: Utilisateur) -> Groupe:
-    """Le Me Time n'existe plus (Seb, 25 novembre : « celui qui veut ses sorties perso se crée un Buddy Group »).
-    Un ancien téléphone qui range encore une sortie dans « me-time » la met dans un Buddy Group à lui, « Mes sorties »
-    (même identifiant qu'avant : son ancien Me Time devenu Buddy Group, s'il en avait un)."""
-    gid = uuid.uuid5(ESPACE_ME_TIME, str(u.id))
-    g = s.get(Groupe, gid)
-    if g is None:
-        g = Groupe(id=gid, nom="Mes sorties", nature="bande", cree_par=u.id)
-        s.add(g)
-        s.flush()
-        s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role="admin"))
-        s.flush()
-    elif g.nature == "me_time":
-        devenir_buddy_group(g)
-    return g
-
-
-def devenir_buddy_group(g: Groupe) -> None:
-    g.nature = "bande"
-    if g.nom == "Me Time":
-        g.nom = "Mes sorties"
-    toucher(g)
-
-
 def ranger_me_time(s: Session, u: Utilisateur) -> None:
-    """À la synchro, l'ancien Me Time disparaît : vide, il est retiré ; avec des Buddy Times ou des traces, il devient
-    un Buddy Group normal (« Mes sorties », à renommer), pour ne rien perdre."""
+    """Le Me Time n'existe plus (Seb, 25 novembre : « celui qui veut ses sorties perso se crée un Buddy Group »).
+    À la synchro, l'ancien Me Time de la personne est effacé avec tout ce qu'il contient, pour tout le monde
+    (choix de Seb : « Tout effacer ») : ses Buddy Times et, par cascade de la base, leurs traces, photos (fichiers
+    compris), dépenses, messages, hébergements, positions, carnets."""
     g = s.get(Groupe, uuid.uuid5(ESPACE_ME_TIME, str(u.id)))
     if g is None or g.nature != "me_time":
         return
-    if s.scalar(select(Sortie.id).where(Sortie.groupe_id == g.id).limit(1)) is not None \
-            or s.scalar(select(TracePartagee.id).where(TracePartagee.groupe_id == g.id).limit(1)) is not None:
-        devenir_buddy_group(g)
-        return
-    for t in (Membre, Invitation):
-        for x in s.scalars(select(t).where(t.groupe_id == g.id)).all():
-            s.delete(x)
-    s.flush()
-    s.delete(g)
+    sids = list(s.scalars(select(Sortie.id).where(Sortie.groupe_id == g.id)))
+    photos = list(s.scalars(select(Photo.id).where(Photo.sortie_id.in_(sids)))) if sids else []
+    s.execute(delete(Sortie).where(Sortie.groupe_id == g.id))
+    s.execute(delete(Groupe).where(Groupe.id == g.id))
+    s.expire_all()
+    for pid in photos:
+        for taille in TAILLES:
+            try:
+                os.remove(fichier_photo(pid, taille))
+            except OSError:
+                pass
 
 
 def duo(s: Session, u: Utilisateur, op: dict) -> None:
@@ -133,8 +113,9 @@ def toucher(g: Groupe) -> None:
 
 
 def groupe_de(s: Session, u: Utilisateur, gid: Any, admin: bool = False) -> Groupe:
-    # « me-time » : le téléphone n'avait pas encore reçu l'identifiant de son Me Time.
-    g = me_time(s, u) if gid == "me-time" else s.get(Groupe, uuid.UUID(str(gid)))
+    if gid == "me-time":  # ancien téléphone : le Me Time n'existe plus
+        raise Refus("Choisis un Buddy Group (le Me Time n'existe plus)")
+    g = s.get(Groupe, uuid.UUID(str(gid)))
     m = membre(s, g.id, u.id) if g else None
     if g is None or m is None:
         raise Refus("Buddy Group inconnu")
