@@ -1361,12 +1361,16 @@ export function App() {
       <BarreAppel />
       <EcranSonnerie onToast={setToast} />
       {toast && <div className="toast">{toast}</div>}
-      {/* Nouvelle version : petit bandeau qui ne bloque rien, caché pendant un suivi de trace, une sortie enregistrée ou un survol. */}
+      {/* Nouvelle version : fenêtre au centre, bien lisible (Seb 25/11), cachée pendant un suivi de trace, une sortie enregistrée ou un survol. */}
       {maj.build && navId == null && !recording && !survol && (
-        <div className="maj-bandeau" role="status">
-          <span>Mise à jour</span>
-          <button className="primary" onClick={maj.installer}>Installer</button>
-          <button onClick={maj.plusTard} aria-label="Plus tard">✕</button>
+        <div className="maj-voile">
+          <div className="maj-fenetre" role="dialog" aria-label="Nouvelle version">
+            <span className="maj-icone">⬇️</span>
+            <b>Nouvelle version</b>
+            <span>Version {maj.build} prête à installer.</span>
+            <button className="primary" onClick={maj.installer}>Installer</button>
+            <button className="maj-plus-tard" onClick={maj.plusTard}>Plus tard</button>
+          </div>
         </div>
       )}
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
