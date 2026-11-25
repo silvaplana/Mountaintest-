@@ -312,6 +312,17 @@ def remettre_sortie(s: Session, u: Utilisateur, op: dict) -> None:
         toucher(s.get(Groupe, so.groupe_id))
 
 
+def renommer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
+    """Changer le nom d'un Buddy Time (Seb, 25 novembre) : tout buddy qui le voit, comme le nom d'un groupe WhatsApp."""
+    so = sortie_de(s, u, op["sortie"])
+    nom = propre(op.get("nom"), 80)
+    if not nom:
+        raise Refus("Donne un nom au Buddy Time")
+    if so.nom != nom:
+        so.nom, so.modifie_le = nom, maintenant()
+        toucher(s.get(Groupe, so.groupe_id))
+
+
 def partager_trace(s: Session, u: Utilisateur, op: dict) -> None:
     tid = uuid.UUID(str(op["trace"]))
     if s.get(TracePartagee, tid) is not None:
@@ -894,7 +905,7 @@ OPERATIONS = {
     "creer_groupe": creer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
-    "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
+    "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,

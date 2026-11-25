@@ -9,7 +9,7 @@ const so = { id: 's', groupe: 'g', nom: 'Queyras', photo: null, debut: '2026-12-
   participants: [b('seb', 'Seb'), b('julie', 'Julie')], invitations: [] } as unknown as Sortie;
 const pl = { id: 'p', groupe: 'g', nom: 'Saison ski', par: b('seb', 'Seb'), dates: [['2027-01-10', '2027-01-11']], limite: '2027-01-01',
   modifie_le: '', dispos: [] } as unknown as Planning;
-const vide: ActionDemandee = { type: 'depense', titre: null, montant_euros: null, paye_par: null, pour: [], nom: null, debut: null, fin: null, lieu: null, etat: null };
+const vide: ActionDemandee = { type: 'depense', titre: null, montant_euros: null, paye_par: null, pour: [], nom: null, nouveau_nom: null, debut: null, fin: null, lieu: null, etat: null };
 const donnees = { nom: '', sortie: so, membres: so.participants, moi: 'seb', traces: [], hebergements: [], depenses: [], plannings: [pl], messages: [],
   groupe: { id: 'g', nature: 'bande', membres: so.participants } };
 
@@ -39,6 +39,14 @@ describe('Bud agit à ma demande', () => {
     expect(lire().attente[1]).toMatchObject({ type: 'remettre_sortie', sortie: 's', copie: { nom: 'Queyras' } });
     expect(vue({ ...lire(), sorties: [so] }).sorties.map((x) => x.id)).toEqual(['s']);
     expect(vue({ ...lire(), sorties: [so], attente: lire().attente.slice(0, 1) }).sorties).toEqual([]);
+  });
+  it('renomme un Buddy Time, puis Annuler remet l’ancien nom', () => {
+    const { faites, refus } = agir([{ ...vide, type: 'renommer_buddy_time', nouveau_nom: '  Raquettes au Queyras ' }], { sortie: 's' }, donnees);
+    expect(refus).toEqual([]);
+    expect(lire().attente[0]).toMatchObject({ type: 'renommer_sortie', sortie: 's', nom: 'Raquettes au Queyras' });
+    expect(vue({ ...lire(), sorties: [so] }).sorties[0].nom).toBe('Raquettes au Queyras');
+    annuler(faites);
+    expect(vue({ ...lire(), sorties: [so] }).sorties[0].nom).toBe('Queyras');
   });
   it('ne supprime pas le Buddy Time d’un autre si je ne suis pas admin', () => {
     const { faites, refus } = agir([{ ...vide, type: 'supprimer_buddy_time' }], { sortie: 's' }, { ...donnees, sortie: { ...so, par: 'julie' } });

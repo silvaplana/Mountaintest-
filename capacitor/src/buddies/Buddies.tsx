@@ -21,7 +21,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, autreDuDuo, monEpingle, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
-  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, retirer, suivre, synchroniser, vue as vueSorties,
+  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, renommerSortie, retirer, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -700,10 +700,24 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   const auteurs = new Set(photos.map((p) => p.par.id)).size;
   const km = traces.reduce((n, t) => n + longueur(t.ligne), 0) / 1000;
   const venir = x.fin >= aujourdhui();
+  // ✏ Toucher le nom pour le changer (Seb, 25 novembre) : le nom à jour vient du stockage, pas de la copie ouverte.
+  const nom = v.sorties.find((y) => y.id === x.id)?.nom ?? x.nom;
+  const [titre, setTitre] = useState<string | null>(null);
+  const valider = () => {
+    try { if (titre !== null && titre.trim() !== nom) renommerSortie(x.id, titre); setTitre(null); } catch (err) { onToast((err as Error).message); }
+  };
+  if (titre !== null) return <>
+    <div className="bd-carte-haut">
+      <button onClick={() => setTitre(null)} aria-label="Annuler">✕</button>
+      <input className="bd-titre" value={titre} maxLength={80} autoFocus aria-label="Nom du Buddy Time"
+        onChange={(ev) => setTitre(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') valider(); }} />
+      <button className="primary" onClick={valider} aria-label="Valider le nom">✓</button>
+    </div>
+  </>;
   return <>
     <div className="bd-carte-haut">
       <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
-      <span className="bd-texte"><b>{x.nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
+      <span className="bd-texte" onClick={() => setTitre(nom)} title="Toucher pour changer le nom"><b>{nom} <small>✏</small></b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
         : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
     </div>
     <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}${sheet.classe}`}>

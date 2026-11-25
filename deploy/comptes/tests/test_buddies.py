@@ -754,6 +754,19 @@ def test_bud_supprime_un_buddy_time(client, photos):
     assert so["sortie"] in sync(client, sub="julie")["ids_sorties"]
 
 
+def test_renommer_un_buddy_time(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    sync(client, ops=[so])
+    # Un participant peut changer le nom ; vide : refusé.
+    assert sync(client, sub="julie", ops=[{"id": "v", "type": "renommer_sortie", "sortie": so["sortie"], "nom": "  "}])["refus"]
+    r = sync(client, sub="julie", ops=[{"id": "n", "type": "renommer_sortie", "sortie": so["sortie"], "nom": " Raquettes  au Queyras "}])
+    assert r["refus"] == []
+    assert next(x for x in sync(client)["sorties"] if x["id"] == so["sortie"])["nom"] == "Raquettes au Queyras"
+    # Quelqu'un qui ne le voit pas : refusé.
+    assert sync(client, sub="luc", ops=[{"id": "l", "type": "renommer_sortie", "sortie": so["sortie"], "nom": "Pirate"}])["refus"]
+
+
 def test_notification_des_nouveaux_messages(client, monkeypatch):
     """Étape 4 (§7.13) : un nouveau message prévient les autres (pas l'auteur), une seule fois, même renvoyé."""
     import appels

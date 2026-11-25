@@ -8,7 +8,7 @@ import { IA_MOT_DE_PASSE_INTEGRE, RELAIS_URL } from '../trails/webHikes';
 import { compte, euros } from './count';
 import { longueurTrace, type Dest } from './messages';
 import {
-  aujourdhui, creerSortie, enregistrerDepense, remettreSortie, repondre, retirerDepense, retirerSortie, supprimerSortie,
+  aujourdhui, creerSortie, enregistrerDepense, remettreSortie, renommerSortie, repondre, retirerDepense, retirerSortie, supprimerSortie,
   type ActionBud, type Buddy, type Depense, type Hebergement, type MessageBuddy, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -84,7 +84,7 @@ export type ReponseBud = {
 };
 /** Ce que Bud propose de faire (§7.12) : une dépense, un Buddy Time (le créer ou le supprimer), ma dispo à un planning. */
 export type ActionDemandee = {
-  type: 'depense' | 'buddy_time' | 'supprimer_buddy_time' | 'dispo'; titre: string | null; montant_euros: number | null; paye_par: string | null; pour: string[];
+  type: 'depense' | 'buddy_time' | 'supprimer_buddy_time' | 'renommer_buddy_time' | 'dispo'; nouveau_nom: string | null; titre: string | null; montant_euros: number | null; paye_par: string | null; pour: string[];
   nom: string | null; debut: string | null; fin: string | null; lieu: string | null; etat: 'oui' | 'peut' | 'non' | null;
 };
 
@@ -120,12 +120,17 @@ export function agir(actions: ActionDemandee[], d: Dest, x: Donnees & { groupe?:
         const fin = a.fin && JOUR.test(a.fin) && a.fin >= a.debut ? a.fin : a.debut;
         const sid = creerSortie({ groupe: g.id, nom: a.nom, photo: null, debut: a.debut, fin, lieu: (a.lieu ?? '').slice(0, 120), participants: qui });
         faites.push({ genre: 'sortie', id: sid, texte: `📅 Buddy Time « ${a.nom} » · ${a.debut}` });
-      } else if (a.type === 'supprimer_buddy_time') {
+      } else if (a.type === 'supprimer_buddy_time' || a.type === 'renommer_buddy_time') {
         // Celui de cette conversation, ou celui de la bande qui porte ce nom (et cette date si Bud la donne).
         const groupe = x.sortie?.groupe ?? d.groupe;
         const so = !a.nom && x.sortie ? x.sortie : (x.sorties ?? []).filter((y) => y.groupe === groupe && !!a.nom && meme(y.nom, a.nom)
           && (!a.debut || y.debut === a.debut)).at(0);
         if (!so) throw new Error('je ne trouve pas ce Buddy Time');
+        if (a.type === 'renommer_buddy_time') {
+          const n = renommerSortie(so.id, a.nouveau_nom ?? '');
+          faites.push({ genre: 'renommage', id: so.id, avant: so.nom, texte: `✏ « ${so.nom} » devient « ${n} »` });
+          continue;
+        }
         const admin = x.groupe?.membres.find((b) => b.id === x.moi)?.role === 'admin';
         if (so.par && so.par !== x.moi && !admin) throw new Error('seul celui qui a créé le Buddy Time (ou un admin) peut le supprimer');
         supprimerSortie(so.id);
@@ -150,6 +155,7 @@ export function annuler(faites: ActionBud[]) {
     if (a.genre === 'depense') retirerDepense(a.id);
     else if (a.genre === 'sortie') retirerSortie(a.id);
     else if (a.genre === 'suppression') remettreSortie(a.copie);
+    else if (a.genre === 'renommage') renommerSortie(a.id, a.avant);
     else repondre(a.planning, a.debut, a.avant.etat, a.avant.mot);
   }
 }
