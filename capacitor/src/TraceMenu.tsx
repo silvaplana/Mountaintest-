@@ -108,14 +108,23 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
 }
 
 /** 📂 Charger des traces : 📥 un fichier du téléphone, ou une de Mes traces (toucher pour l'afficher, 🗑 pour l'effacer). */
-export function TraceList({ traces, onPick, onDelete, onShare, onClose, onFile }: {
+export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose, onFile }: {
   traces: SavedTrace[]; onPick: (t: SavedTrace) => void; onDelete: (t: SavedTrace) => void; onClose: () => void;
+  /** ✏ Renommer la trace (Seb, 25/11). */
+  onRename: (t: SavedTrace, name: string) => void;
   /** 📤 Partager le fichier GPX (mail, WhatsApp…). */
   onShare: (t: SavedTrace) => void;
   /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone. */
   onFile: () => void;
 }) {
   const [showFolder, setShowFolder] = useState(false);
+  /** Trace dont on change le nom, et le nom en cours de frappe. */
+  const [nommer, setNommer] = useState<{ id: number; nom: string } | null>(null);
+  const valider = (t: SavedTrace) => {
+    const nom = nommer?.nom.trim();
+    if (nom && nom !== t.name) onRename(t, nom);
+    setNommer(null);
+  };
   const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sheet = useSheet('traces');
   return (
@@ -135,15 +144,25 @@ export function TraceList({ traces, onPick, onDelete, onShare, onClose, onFile }
       {!traces.length && <p className="hint">Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder ».</p>}
       <ul className="trail-list">
         {traces.map((t) => (
+          nommer?.id === t.id ? (
+          <li key={t.id} className="trace-nommer">
+            <input autoFocus value={nommer.nom} aria-label="Nom de la trace" enterKeyHint="done"
+              onChange={(e) => setNommer({ id: t.id, nom: e.target.value })}
+              onKeyDown={(e) => { if (e.key === 'Enter') valider(t); if (e.key === 'Escape') setNommer(null); }} />
+            <button className="del" onClick={() => setNommer(null)} aria-label="Annuler le nouveau nom">✕</button>
+            <button className="primary" onClick={() => valider(t)} aria-label="Garder ce nom">✓</button>
+          </li>
+          ) : (
           <li key={t.id}>
             <button onClick={() => onPick(t)}>
               <i style={{ background: '#7b3fe4' }} />
               <span><b>{t.name}</b><small>{formatKm(traceLengthM(t))}{t.onPaths ? ' · recalée sur les chemins' : ''}</small></span>
             </button>
+            <button className="del crayon" onClick={() => setNommer({ id: t.id, nom: t.name })} aria-label={`Renommer ${t.name}`}><PencilIcon size={24} /></button>
             <button className="del" onClick={() => onShare(t)} aria-label={`Partager ${t.name}`}><ShareTraceIcon /></button>
             <button className="del" onClick={() => onDelete(t)} aria-label={`Effacer ${t.name}`}><TrashIcon /></button>
           </li>
-        ))}
+          )))}
       </ul>
     </section>
   );

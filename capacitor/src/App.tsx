@@ -52,7 +52,7 @@ import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { TraceList, TraceMenu } from './TraceMenu';
-import { defaultTraceName, deleteTrace, listTraces, readLien, readPins, saveTrace, traceLine, updateTrace, type SavedTrace } from './trails/savedTraces';
+import { defaultTraceName, deleteTrace, listTraces, readLien, readPins, renameTrace, saveTrace, traceLine, updateTrace, type SavedTrace } from './trails/savedTraces';
 import { TraceEdit } from './TraceEdit';
 import { PinLayer } from './PinLayer';
 import { SelectBox, type Prise } from './SelectBox';
@@ -1285,6 +1285,13 @@ export function App() {
       {traceList && !drawing && (
         <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}
           onShare={(t) => setPartage({ nom: t.name, ligne: t.line, ailleurs: () => void shareTrace(t).catch((e) => setToast(`Partage impossible : ${(e as Error).message}`)) })}
+          onRename={(t, name) => {
+            // Le fichier GPX porte le nom de la trace : on enlève l'ancien et on écrit le nouveau.
+            void removeTraceFile(t);
+            void renameTrace(t.id, name).then((st) => { if (st) void writeTraceFile(st); }).then(listTraces).then(setTraceList);
+            setTrails((prev) => prev.map((x) => (x.savedId === t.id ? { ...x, name } : x)));
+            setSelected((cur) => (cur?.savedId === t.id ? { ...cur, name } : cur));
+          }}
           onDelete={(t) => {
             if (!window.confirm(`Effacer « ${t.name} » du téléphone ?`)) return;
             void removeTraceFile(t);
