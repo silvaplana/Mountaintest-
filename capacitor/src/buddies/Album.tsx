@@ -16,7 +16,8 @@ const JOURS = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric
 const jourLong = (j: string) => JOURS.format(new Date(`${j}T12:00:00`));
 
 /** Choisir des photos du téléphone, les réduire, les garder et les annoncer (elles partent au retour du réseau). */
-export async function deposer(x: Sortie, files: FileList | File[], onToast: (m: string) => void): Promise<string[]> {
+/** ici : position à donner aux photos qui n'en ont pas (photos qu'on vient de prendre) ; muet : sans bandeau. */
+export async function deposer(x: Sortie, files: FileList | File[], onToast: (m: string) => void, ici?: { lon: number; lat: number } | null, muet = false): Promise<string[]> {
   const l: { photo: string; prise_le: string; lon: number | null; lat: number | null }[] = [];
   for (const f of [...files]) {
     if (!f.type.startsWith('image/')) continue;
@@ -24,11 +25,11 @@ export async function deposer(x: Sortie, files: FileList | File[], onToast: (m: 
       const p = await preparer(f);
       const photo = uuid();
       await garder(photo, 'petite', p.petite); await garder(photo, 'grande', p.grande);
-      l.push({ photo, prise_le: p.prise_le, lon: p.lon, lat: p.lat });
+      l.push({ photo, prise_le: p.prise_le, lon: p.lon ?? ici?.lon ?? null, lat: p.lat ?? ici?.lat ?? null });
     } catch { onToast(`Photo illisible : ${f.name}`); }
   }
   deposerPhotos(x.id, l);
-  if (l.length) onToast(navigator.onLine ? `${l.length} photo${l.length > 1 ? 's' : ''} déposée${l.length > 1 ? 's' : ''}` : `${l.length} photo${l.length > 1 ? 's partiront' : ' partira'} au retour du réseau 🕓`);
+  if (l.length && !muet) onToast(navigator.onLine ? `${l.length} photo${l.length > 1 ? 's' : ''} déposée${l.length > 1 ? 's' : ''}` : `${l.length} photo${l.length > 1 ? 's partiront' : ' partira'} au retour du réseau 🕓`);
   return l.map((y) => y.photo);
 }
 

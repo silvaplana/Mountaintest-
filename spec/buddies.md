@@ -411,6 +411,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Depuis WhatsApp ou la galerie** (Seb, 25/11) : sur Android, « Partager » des photos propose
   Mountain Buddies ; l'appli demande dans quel album les ranger (50 photos au plus par partage),
   puis ouvre l'album. WhatsApp retire la position : on les place avec 📍.
+- **Avec le bouton 📷** (Seb, 25/11) : il ouvre toujours l'appareil photo du téléphone ; au retour
+  dans l'appli, les photos prises depuis vont seules dans l'album du Buddy Time du jour (bandeau
+  « n photos dans … · Annuler », 8 s), ou l'appli demande l'album s'il y en a plusieurs ou aucun
+  (« Ne pas ranger »). Heure lue dans la photo ; lieu lu dans la photo, sinon position du téléphone.
+  Android : accès aux photos demandé une fois (30 photos au plus par retour).
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
   les ⭐ d'abord) s'ouvrent dans le film là où elles ont été prises, 3 s chacune ; on les décoche
   avant de filmer (📷 dans le panneau du survol).
@@ -435,7 +440,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   trace) ; sur la carte d'un Buddy Time commencé, « 📖 Carnet » à côté de « 📷 Ajouter » et « 📸 Album ».
 - **Écran 12** : couverture (la photo du Buddy Time, sinon la première photo choisie), nom, dates, qui est
   venu. « ⭐ 12 photos choisies sur 42 » : les ⭐ de l'album ; sans ⭐, un choix automatique fait sur le
-  téléphone (au plus 12, réparties sur tout le Buddy Time, signalé ✨). « Changer » ouvre l'album sur la vue
+  téléphone (au plus 12, réparties sur tout le Buddy Time, signalé ✨). « Choisir les photos pour le carnet » (sous la mosaïque ; « Changer » n'était pas compris, Seb 25/11) ouvre l'album sur la vue
   ⭐ Carnet. Puis les récits, chacun signé du visage de son auteur, puis « 〰 La trace » : un petit plan,
   une couleur par jour ; un toucher ouvre le Buddy Time sur la carte.
 - **Une couleur par jour** : quand il y a autant de traces partagées que de jours, la 1re trace partagée

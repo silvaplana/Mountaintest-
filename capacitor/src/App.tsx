@@ -1415,7 +1415,7 @@ export function App() {
       <DoigtsSurCarte map={map} onToast={setToast} />
       <BarreAppel />
       <EcranSonnerie onToast={setToast} />
-      <PhotosRecues onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
+      <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       {toast && <div className="toast">{toast}</div>}
       {/* Nouvelle version : fenêtre au centre, bien lisible (Seb 25/11), cachée pendant un suivi de trace, une sortie enregistrée ou un survol. */}
       {maj.build && navId == null && !recording && !survol && (

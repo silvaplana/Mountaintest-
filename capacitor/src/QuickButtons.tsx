@@ -13,7 +13,7 @@ const PocketMode = registerPlugin<{
   addListener(e: 'pocket', f: (r: { black: boolean }) => void): Promise<{ remove: () => Promise<void> }>;
 }>('PocketMode');
 /** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : ouvre l'application Appareil photo. */
-const Photo = registerPlugin<{ open(): Promise<void> }>('Photo');
+import { noterPrise, Photo } from './buddies/photoPrise';
 /** Plugin natif (shared/Weather.java) : ouvre l'appli Météo-France, ou sa page Météo montagne. */
 const Weather = registerPlugin<{ open(o: { mountain: boolean }): Promise<void> }>('Weather');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
@@ -314,6 +314,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
       <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
         onClick={() => {
+          noterPrise();
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
         }}>📷</button>
       {all && <>
