@@ -21,7 +21,7 @@ Même place que le menu, ← pour y revenir, bouton « ↶ Annuler » pour reven
   Sur un morceau de chemin, le calcul d'itinéraire IGN suit le vrai tracé (lacets). Aperçu vert / orange avant ✓ Recoller. Les « houppettes » (aller-retour en pointe à plus de 15 m du dessin) sont enlevées.
   Demande du réseau.
 - **Prolonger** : seulement à la fin (Seb) ; toucher la carte allonge la trace, 📏 tout droit ou 🥾 par les chemins (IGN).
-- **Souple** : ronds sur la trace, espacés à l'écran (Peu 110 px, Moyen 70 px, Beaucoup 45 px) et replacés après chaque zoom ; pendant le glissé, l'ancien tracé est caché ; on en fait glisser un, la trace change en courbe douce
+- **Souple** : ronds sur la trace, espacés à l'écran (choix « Ronds : ○ · ○○ · ○○○ » = 110, 70 ou 45 px) et replacés après chaque zoom ; pendant le glissé, l'ancien tracé est caché ; on en fait glisser un, la trace change en courbe douce
   entre ses deux voisins seulement.
 - Chaque changement est gardé tout de suite ; une trace enregistrée dans 📂 Mes traces est mise à jour (et son fichier GPX).
 
