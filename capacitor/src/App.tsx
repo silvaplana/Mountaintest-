@@ -53,6 +53,7 @@ import { TraceList, TraceMenu } from './TraceMenu';
 import { defaultTraceName, deleteTrace, listTraces, readPins, saveTrace, traceLine, updateTrace, type SavedTrace } from './trails/savedTraces';
 import { TraceEdit } from './TraceEdit';
 import { PinLayer } from './PinLayer';
+import { SelectBox, type Prise } from './SelectBox';
 import type { Pin } from './trails/edit';
 import { removeTraceFile, shareTrace, writeTraceFile } from './trails/traceShare';
 import { Profile, WayLegend } from './Profile';
@@ -241,6 +242,8 @@ export function App() {
   const [survol, setSurvol] = useState(false);
   /** ✏ Écran « Modifier » de la trace choisie, et 📍 piquer des points (maquette validée le 25/11). */
   const [modifier, setModifier] = useState(false);
+  /** ⬚ Appui long sur la carte : rectangle de sélection, parti de ce point (pixels de la carte). */
+  const [selection, setSelection] = useState<{ x: number; y: number } | null>(null);
   const [pique, setPique] = useState(false);
   const [pinEdit, setPinEdit] = useState<{ id: number; i: number } | null>(null);
   useEffect(() => { if (!traceMenu) { setSurvol(false); setModifier(false); setPique(false); setPinEdit(null); } }, [traceMenu]);
@@ -333,7 +336,6 @@ export function App() {
   const [navPos, setNavPos] = useState<{ lon: number; lat: number; acc: number } | null>(null);
   /** 📶 Hors ligne de la trace sélectionnée : message affiché dans son menu. */
   const [traceOffline, setTraceOffline] = useState<{ id: number; msg: string } | null>(null);
-  // Par défaut : ligne libre (le recalage peut dévier) ; le choix est retenu.
   /** Curseur de pente : distance le long de la rando affichée. */
   const [profCursor, setProfCursor] = useState<number | null>(null);
   const profile = useMemo(() => (elevated && typeof elevated === 'object' ? buildProfile(elevated.segments) : null), [elevated]);
@@ -378,8 +380,8 @@ export function App() {
   // Dès qu'une de mes traces s'affiche (dessinée, chargée, rouverte), ses types de chemin sont calculés en avance et gardés.
   useEffect(() => { for (const t of trails) if (isMine(t.id)) prefetchWays(t.segments.flat()); }, [trails]);
   const wayLines = useMemo(() => (selected && Array.isArray(selRuns) ? wayRunLines(selected.segments.flat(), selRuns) : []), [selected, selRuns]);
-  const [onPaths, setOnPathsState] = useState(() => { try { return localStorage.getItem('recaler') === '1'; } catch { return false; } });
-  const setOnPaths = (v: boolean) => { setOnPathsState(v); try { localStorage.setItem('recaler', v ? '1' : '0'); } catch { /* ignoré */ } };
+  // « recaler sur sentiers » : toujours décoché quand on ouvre ✏, rien n'est retenu (Seb, 25/11).
+  const [onPaths, setOnPaths] = useState(false);
   const trailsAbort = useRef<AbortController | null>(null);
   // Randos trouvées sur le web par Claude (via le relais du VPS) : un point par rando.
   const [iaPassword, setIaPassword] = useState('');
@@ -507,7 +509,8 @@ export function App() {
     const onLong = (e: maplibregl.MapMouseEvent) => {
       // Pas sur une épingle ou un rond de « Modifier » (on les déplace par appui long), ni pendant « Modifier ».
       if ((e.originalEvent?.target as Element | null)?.closest?.('.pin, .edit-rond') || document.querySelector('.trace-edit')) return;
-      if (!montrer(e.lngLat.lng, e.lngLat.lat)) setTarget({ lon: e.lngLat.lng, lat: e.lngLat.lat, label: 'Point choisi sur la carte' });
+      // Sinon : rectangle de sélection des traces et épingles (Seb, 25/11, à la place du « Point choisi »).
+      if (!montrer(e.lngLat.lng, e.lngLat.lat)) setSelection({ x: e.point.x, y: e.point.y });
     };
     map.on('contextmenu', onLong);
     return () => { map.off('contextmenu', onLong); };
@@ -857,7 +860,7 @@ export function App() {
     }
     // Nouveau tracé : les traces déjà affichées restent sur la carte (chacune sa couleur).
     setTraceMenu(false); setTraceList(null);
-    setDrawing(true); setOpen(false); setSearching(false);
+    setDrawing(true); setOnPaths(false); setOpen(false); setSearching(false);
   }
 
   async function drawDone(line: LonLat[]) {
@@ -971,6 +974,28 @@ export function App() {
     } catch (e) {
       setToast(`Enregistrement impossible : ${(e as Error).message}`);
     }
+  }
+
+  /** ⬚ Effacer ce que le rectangle a pris : les traces quittent la carte (celles enregistrées restent dans
+   *  📂 Mes traces), les épingles sont enlevées. Rend de quoi tout remettre (↶ Annuler). */
+  function effacerPrise(p: Prise): () => void {
+    const avant = trails;
+    const pins = new Map<number, Pin[]>();
+    for (const { id, i } of p.pins) {
+      const t = trails.find((x) => x.id === id);
+      if (!t) continue;
+      if (!pins.has(id)) pins.set(id, (t.pins ?? []).slice());
+      pins.get(id)![i] = null as unknown as Pin;
+    }
+    for (const [id, l] of pins) changeMine(id, { pins: l.filter(Boolean) });
+    setTrails((prev) => prev.filter((x) => !p.traces.includes(x.id)).map((x) => (pins.has(x.id) ? { ...x, pins: pins.get(x.id)!.filter(Boolean) } : x)));
+    if (navId != null && p.traces.includes(navId)) setNavId(null);
+    if (selected && p.traces.includes(selected.id)) void selectTrail(null);
+    setPinEdit(null);
+    return () => {
+      setTrails((prev) => [...avant.filter((x) => p.traces.includes(x.id)), ...prev.map((x) => avant.find((y) => y.id === x.id) ?? x)]);
+      for (const id of pins.keys()) { const t = avant.find((x) => x.id === id); if (t?.savedId != null) void updateTrace(t.savedId, t.segments.flat(), t.pins ?? []); }
+    };
   }
 
   /** 🗑 Supprimer : la trace quitte la carte (une trace enregistrée reste dans 📂 Mes traces). */
@@ -1198,6 +1223,8 @@ export function App() {
           onLine={(l) => { setElevated(null); changeMine(selected.id, { line: l }); }}
           onBack={() => { setModifier(false); void selectTrail(selected); }} />
       )}
+      {map && selection && <SelectBox map={map} depart={selection} trails={trails.filter((t) => isMine(t.id))}
+        onFin={() => setSelection(null)} onEffacer={effacerPrise} />}
       {map && <PinLayer map={map} trails={trails.filter((t) => isMine(t.id) && t.pins?.length || t.id === selected?.id)}
         pique={pique && traceMenu && !modifier && !survol} targetId={traceMenu && selected && isMine(selected.id) ? selected.id : null}
         editing={pinEdit} onEditing={setPinEdit} onPins={(id, pins) => changeMine(id, { pins })} />}
