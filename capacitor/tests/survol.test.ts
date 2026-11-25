@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cameraA, capAutour, chemin, distanceCamera, ecartAngle, heuresOmbres, heureTexte, partPlongee, PITCH_MAX, PLONGEE_NUAGES_S, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
+import { dureeFilm } from '../src/survol/camera';
 import { pixelsNeige } from '../src/survol/neige';
 import { cameraCiel } from '../src/survol/ciel-gl';
 import { CIEL } from '../src/survol/nuages';
@@ -296,6 +297,32 @@ describe('survol 3D : 🧗 caméra au sol, sommet en drone, regard final', () =>
     }
     const plongee = trajectoire(lacets, 'bas', vue, 600, 0.3, { style: 'alpi', relief: cone, hauteurPx: 800 });
     expect(Math.min(...plongee.map((c) => oeil(c).sol))).toBeGreaterThan(2);
+  });
+  it('vitesse choisie : la durée suit la trace, la descente a son temps, deux fois moins vite = deux fois plus long', () => {
+    // Trace de 2,4 km qui finit au sommet : on redescend par le même chemin.
+    const a = dureeFilm(lacets, 200, { style: 'alpi', sens: 'deux', relief: cone }), [m1, m2, m3] = a.temps!;
+    const tm = m1 * a.corps, td = (m3 - m2) * a.corps;
+    expect(tm).toBeGreaterThan(41); expect(tm).toBeLessThan(45);           // 2,4 km à 200 km/h ≈ 43 s
+    expect(td).toBeGreaterThan(27); expect(td).toBeLessThan(31);           // descente une fois et demie plus vite
+    expect((m2 - m1) * a.corps).toBeCloseTo(12, 0);                        // le sommet garde ses 12 s
+    expect((1 - m3) * a.corps).toBeCloseTo(5, 0);
+    const lent = dureeFilm(lacets, 100, { style: 'alpi', sens: 'deux', relief: cone });
+    expect(lent.temps![0] * lent.corps).toBeCloseTo(2 * tm, 0);
+    expect(dureeFilm(lacets, 200, { style: 'alpi', sens: 'montee', relief: cone }).temps).toEqual([expect.any(Number), 1.01, 2]);
+    // Sans relief ou autre style : la trace à la vitesse choisie, entre 12 s et 4 min.
+    expect(dureeFilm(lacets, 200).corps).toBe(48);
+    expect(dureeFilm(lacets.slice(0, 10), 400).corps).toBe(12);
+    const longue = Array.from({ length: 400 }, (_, i) => ({ lon: 6 + i * 0.002, lat: 45 }));
+    expect(dureeFilm(longue, 100).corps).toBe(240);
+    // Le film suit ces temps : au milieu de la descente, on est bien à mi-pente.
+    const t = film('bas', { temps: a.temps }), i = Math.round(600 * (m2 + m3) / 2);
+    expect(t[i].d).toBeGreaterThan(2400 + 700); expect(t[i].d).toBeLessThan(2400 + 1700);
+    expect(t[600].d).toBeCloseTo(4810, -2);
+    // Et la caméra reste hors de la montagne à ce rythme, avec les images d'un film de 87 s.
+    for (const ht of ['bas', 'moyen'] as const) {
+      const f = trajectoire(lacets, ht, vue, 1740, false, { style: 'alpi', relief: cone, hauteurPx: 800, temps: a.temps, debut: 4 / 87 });
+      expect(Math.min(...f.map((c) => oeil(c).sol)), ht).toBeGreaterThan(2);
+    }
   });
   it('« Bas » colle au sol en montée ; Moyen et Haut s\'éloignent', () => {
     const moy = (ht: 'bas' | 'moyen' | 'haut') => { const t = film(ht).slice(...MONTEE); return t.reduce((s, c) => s + oeil(c).sol, 0) / t.length; };

@@ -124,6 +124,8 @@ export interface Relief { alt: (p: LonLat) => number | null; sommets: (LonLat & 
   maille?: number }
 /** nuages : l'intro plongée attend derrière les nuages (par défaut) ; false = plongée simple, on descend tout de suite. */
 export interface Options { style?: Style; descente?: Descente; sens?: Sens; relief?: Relief | null; nuages?: boolean;
+  /** Part du film prise par l'intro, et pour 🧗 les moments (0 → 1 du survol) où finissent montée, sommet et descente : voir dureeFilm. */
+  debut?: number; temps?: [number, number, number];
   /** Hauteur de la carte à l'écran (px) : donne la distance de la caméra, pour ne jamais passer sous le relief. */
   hauteurPx?: number }
 
@@ -206,6 +208,33 @@ export function sommetTrace(c: ReturnType<typeof chemin>, relief: Relief) {
   return { d, alt: h, retour, depart, fin: retour ? 0 : c.total };
 }
 
+/** Vitesses du film au choix (km/h le long de la trace) : on choisit une allure, pas une durée (Seb, 25/11). */
+export const VITESSES = [100, 200, 400];
+/** Durées fixes (s) : au sommet (s'élever, tourner, replonger, attendre), regard final, intro simple ou plongée. */
+const T_SOMMET = 12, T_FINAL = 5;
+export const T_INTRO = 4, T_PLONGEE = 8;
+/** Bornes (s) du survol de la trace : une trace très longue va plus vite que demandé plutôt que de durer des heures. */
+export const SURVOL_MIN = 12, SURVOL_MAX = 240;
+
+/**
+ * Durée (s) du survol de la trace, sans l'intro, à la vitesse `kmh` : la trace défile à cette vitesse (la descente
+ * de 🧗 une fois et demie plus vite), le sommet et le regard final ont une durée fixe. Pour 🧗, `temps` donne les
+ * moments où finissent la montée, le sommet et la descente.
+ */
+export function dureeFilm(line: LonLat[], kmh: number, o: Options = {}): { corps: number; temps?: [number, number, number] } {
+  const c = chemin(line), v = kmh / 3.6;
+  if (o.style !== 'alpi' || !o.relief) return { corps: Math.round(Math.max(SURVOL_MIN, Math.min(SURVOL_MAX, c.total / v + T_FINAL))) };
+  const s = sommetTrace(c, o.relief);
+  const lm = o.sens === 'descente' ? 0 : s.depart ? c.total - s.d : s.d, ld = o.sens === 'montee' ? 0 : Math.abs(s.fin - s.d);
+  const fixe = T_SOMMET + (ld ? T_FINAL : 0);
+  let tm = lm / v, td = ld / (1.5 * v);
+  // Chaque partie garde au moins 5 s ; au-delà de la durée la plus longue, on accélère d'autant.
+  const k = Math.min(1, (SURVOL_MAX - fixe) / (tm + td));
+  tm = lm ? Math.max(5, tm * k) : 0; td = ld ? Math.max(5, td * k) : 0;
+  const T = tm + td + fixe;
+  return { corps: Math.round(T), temps: ld ? [tm / T, (tm + T_SOMMET) / T, (tm + T_SOMMET + td) / T] : [tm / T, 1.01, 2] };
+}
+
 /**
  * Trajectoire complète (IMAGES + 1 positions, du début à la fin du film), puis lissée : cap, inclinaison,
  * zoom et position passent dans un flou gaussien large. La caméra ne fait jamais de roulis (MapLibre n'en a pas).
@@ -218,7 +247,7 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
   const h = HAUTEURS[hauteur];
   const style: Style = (o.style === 'alpi' || o.style === 'cine') && !o.relief ? 'suivi' : o.style ?? 'suivi';
   // plongee : true (part par défaut) ou la part du film prise par l'intro (partPlongee).
-  const debut = typeof plongee === 'number' ? plongee : plongee ? DEBUT_PLONGEE : style === 'cine' ? 0.12 : DEBUT;
+  const debut = o.debut != null ? o.debut : typeof plongee === 'number' ? plongee : plongee ? DEBUT_PLONGEE : style === 'cine' ? 0.12 : DEBUT;
   const fin = style === 'alpi' ? 1 : style === 'cine' ? 0.82 : FIN;
   const vue = { ...c.pr.vers(ensemble.center), zoom: ensemble.zoom, pitch: 45, bearing: 0 };
   const b = o.relief ? beaute(c, o.relief) : null;
@@ -417,7 +446,7 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
       return mix({ ...e, ex: vers.ex, ey: vers.ey }, vers, q);
     };
     const corpsAlpi = (u: number): Pose => {
-      const [m1, m2, m3] = o.sens === 'montee' ? [0.66, 1.01, 2] : o.sens === 'descente' ? [0, 0.32, 0.85] : [0.38, 0.7, 0.87];
+      const [m1, m2, m3] = o.temps ?? (o.sens === 'montee' ? [0.66, 1.01, 2] : o.sens === 'descente' ? [0, 0.32, 0.85] : [0.38, 0.7, 0.87]);
       return u < m1 ? montee(u / m1) : u < m2 ? sommet((u - m1) / (m2 - m1)) : u < m3 ? descente((u - m2) / (m3 - m2)) : final((u - m3) / (1 - m3));
     };
 

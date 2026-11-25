@@ -6,7 +6,7 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, partPlongee, PITCH_MAX, PLONGEE_NUAGES_S, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, dureeFilm, PITCH_MAX, PLONGEE_NUAGES_S, T_INTRO, T_PLONGEE, trajectoire, VITESSES, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Sens, type Style } from './survol/camera';
 import { chargerRelief } from './survol/relief';
 import { films as lireFilms, garderFilm, oublierFilm, videoDe, type FilmGarde } from './survol/films';
 import { dessinerNuages } from './survol/nuages';
@@ -23,7 +23,7 @@ import { TrashIcon } from './icones';
 /** Réglages du film, gardés d'une fois sur l'autre. */
 /** rapide : ⚡ les images n'attendent pas leurs cartes (tournage ≈ durée du film) ; sinon ✨ soigné, chaque image attend.
  *  dessine : ✏ la trace se construit derrière la caméra (comme au Tour de France). */
-interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: boolean; infos: boolean; ombres: boolean; h0: number; h1: number;
+interface Reglages { /** Vitesse du film le long de la trace (km/h) : la durée en découle. */ vitesse: number; hauteur: Hauteur; vertical: boolean; trace: boolean; infos: boolean; ombres: boolean; h0: number; h1: number;
   /** Intro : ⤓ plongée simple (on descend du ciel sur le départ) ou ☁ plongée dans les nuages façon clip. */
   plongee: Plongee; rapide: boolean; dessine: boolean;
   /** ☁ Nuages de la plongée : mer lisse dorée, cumulus dorés ou cumulus bleu-gris. */
@@ -36,7 +36,7 @@ interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: 
   style: Style; descente: Descente; sens: Sens; pentes: boolean }
 type Plongee = 'non' | 'simple' | 'nuages';
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', fond: 'carte', neige: 0, rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
+const DEFAUT: Reglages = { vitesse: 200, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: 'non', ciel: 'dore', fond: 'carte', neige: 0, rapide: true, dessine: false, style: 'cine', descente: 'gopro', sens: 'deux', pentes: false };
 function lire(): Reglages {
   try {
     const r = { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') };
@@ -44,7 +44,8 @@ function lire(): Reglages {
     return { ...r, plongee: r.plongee === true ? 'nuages' : r.plongee === false ? 'non' : r.plongee };
   } catch { return DEFAUT; }
 }
-const DUREES = [5, 10, 15, 30];
+/** 75 → « 1 min 15 ». */
+const minutes = (s: number) => (s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')}`);
 const NOMS: Record<Hauteur, string> = { bas: 'Bas', moyen: 'Moyen', haut: 'Haut' };
 /** Styles de prise de vue (maquette validée le 25/11) : icône, nom, une phrase. */
 const STYLES: Record<Style, { i: string; nom: string; dit: string }> = {
@@ -133,14 +134,16 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     // Tous les styles s'en servent aussi pour que la caméra ne passe jamais dans la montagne.
     redresse = 0;
     ambianceCiel(r.ciel, !r.rapide);
-    // La plongée dans les nuages s'ajoute à la durée choisie : le survol de la trace garde tout son temps.
-    const duree = r.duree + (r.plongee === 'nuages' ? PLONGEE_NUAGES_S : 0);
     setAvance('Lecture du relief…');
     const relief: Relief | null = await chargerRelief(zone, ctl.signal, r.style === 'alpi').catch(() => null);
     if (ctl.signal.aborted) { setEtape('reglages'); return; }
     if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
-    const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee === 'nuages' ? partPlongee(r.duree) : r.plongee === 'simple',
-      { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight });
+    // On choisit une vitesse, pas une durée (Seb, 25/11) : le film dure ce que demande la trace, plus l'intro.
+    const corps = dureeFilm(line, r.vitesse, { style: r.style, sens: r.sens, relief });
+    const tIntro = r.plongee === 'nuages' ? PLONGEE_NUAGES_S : r.plongee === 'simple' ? T_PLONGEE : T_INTRO;
+    const duree = corps.corps + tIntro, debut = tIntro / duree;
+    const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, Math.max(IMAGES, Math.min(3000, Math.round(duree * 20))), r.plongee !== 'non',
+      { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight, debut, temps: corps.temps });
     const photo = r.fond === 'photo' && navigator.onLine;
     if (r.fond === 'photo' && !photo) onToast('Pas de réseau : film sur la carte');
     const retirerPhoto = photo ? poserPhoto(map) : null;
@@ -190,7 +193,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           dessin.infos = `${(cam.d / 1000).toFixed(1).replace('.', ',')} km${alt != null ? ` · ${Math.round(alt)} m` : ''}`;
         }
         if (dessin.nuages != null) {
-          dessin.nuages = t / partPlongee(r.duree);
+          dessin.nuages = t / debut;
           if (ciel && voile.current) { ciel.clearRect(0, 0, voile.current.width, voile.current.height); dessinerNuages(ciel, voile.current.width, voile.current.height, dessin.nuages); }
         }
         setAvance(`${Math.round(t * 100)} %`);
@@ -414,7 +417,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         </div></div>
         {etape === 'reglages' && <>
           {ouvert === 'duree' ? (
-            <div className="survol-choix">{DUREES.map((d) => <button key={d} className={r.duree === d ? 'on' : ''} onClick={() => { maj({ duree: d }); setOuvert(null); }}>{d} s</button>)}</div>
+            <div className="survol-choix">{VITESSES.map((v) => <button key={v} className={r.vitesse === v ? 'on' : ''} onClick={() => { maj({ vitesse: v }); setOuvert(null); }}>{v} km/h<br /><small>≈ {minutes(dureeFilm(line, v).corps)}</small></button>)}</div>
           ) : ouvert === 'hauteur' ? (
             <div className="survol-choix">{(['bas', 'moyen', 'haut'] as Hauteur[]).map((h) => (
               <button key={h} className={r.hauteur === h ? 'on' : ''} onClick={() => { maj({ hauteur: h }); setOuvert(null); }}><HauteurIcon h={h} size={26} /> {NOMS[h]}</button>))}</div>
@@ -454,7 +457,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           ) : (
             <div className="survol-grille">
               <button className="pastille" onClick={() => setOuvert('style')} aria-label="Style de prise de vue">{STYLES[r.style].i} {STYLES[r.style].nom}</button>
-              <button className="pastille" onClick={() => setOuvert('duree')} aria-label="Durée du film">⏱ {r.duree} s</button>
+              <button className="pastille" onClick={() => setOuvert('duree')} aria-label="Vitesse du film">⏱ {r.vitesse} km/h</button>
               <button className="pastille" onClick={() => setOuvert('hauteur')} aria-label="Hauteur de la caméra"><HauteurIcon h={r.hauteur} size={26} /> {NOMS[r.hauteur]}</button>
               <button className="bascule-format" onClick={() => maj({ vertical: !r.vertical })} aria-label="Format du film">
                 <span className={r.vertical ? '' : 'couche'}>📱</span> {r.vertical ? 'vertical' : 'horiz.'}</button>
