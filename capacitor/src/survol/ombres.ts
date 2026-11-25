@@ -37,10 +37,36 @@ export function fondreBords(px: Uint8ClampedArray, w: number, h: number, part = 
   return px;
 }
 
-/** Calcule les images (une par heure de `heures`, aujourd'hui) et les pose sur la carte, la première visible. */
+/** Bords lissés : l'opacité de chaque maille devient la moyenne de ses 3 × 3 voisines (plus d'escaliers de près). */
+export function adoucir(px: Uint8ClampedArray, w: number, h: number) {
+  const a = new Uint8ClampedArray(w * h);
+  for (let i = 0; i < a.length; i++) a[i] = px[i * 4 + 3];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let s = 0, n = 0, r = 0, g = 0, b = 0;
+      for (let j = Math.max(0, y - 1); j <= Math.min(h - 1, y + 1); j++) {
+        for (let i = Math.max(0, x - 1); i <= Math.min(w - 1, x + 1); i++) {
+          const k = j * w + i, v = a[k];
+          s += v; n++;
+          if (v) { r += px[k * 4] * v; g += px[k * 4 + 1] * v; b += px[k * 4 + 2] * v; }
+        }
+      }
+      const k = (y * w + x) * 4;
+      if (s) { px[k] = r / s; px[k + 1] = g / s; px[k + 2] = b / s; }
+      px[k + 3] = s / n;
+    }
+  }
+  return px;
+}
+
+/** Relief à 7 m (zoom 14) en ✨ soigné : jusqu'à 12 × 12 tuiles, soit une image de 3072 px au plus de côté. */
+const TUILES_FIN = 144;
+
+/** Calcule les images (une par heure de `heures`, aujourd'hui) et les pose sur la carte, la première visible.
+ * fin : ✨ soigné, relief le plus détaillé possible et bords lissés ; sinon la qualité habituelle. */
 export async function preparerOmbres(map: MlMap, zone: Bbox, zoom: number, heures: number[], signal: AbortSignal,
-  progres: (fait: number, total: number) => void): Promise<OmbresSurvol | null> {
-  const grid = await loadGrid(gridFor(zoneElargie(zone), zoom), signal);
+  progres: (fait: number, total: number) => void, fin = false): Promise<OmbresSurvol | null> {
+  const grid = await loadGrid(fin ? gridFor(zoneElargie(zone), 15, TUILES_FIN) : gridFor(zoneElargie(zone), zoom), signal);
   if (signal.aborted || grid.missing === grid.spec.nx * grid.spec.ny) return null;
   const now = new Date();
   const urls: string[] = [];
@@ -50,7 +76,9 @@ export async function preparerOmbres(map: MlMap, zone: Bbox, zoom: number, heure
     if (signal.aborted) { urls.forEach((u) => URL.revokeObjectURL(u)); return null; }
     const h = heures[i];
     const f = computeFrame(grid, new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(h), (h % 1) * 60));
-    urls.push(await versUrl(fondreBords(framePixels(f.codes ?? new Uint8Array(grid.w * grid.h).fill(NIGHT)), grid.w, grid.h), grid.w, grid.h));
+    const px = framePixels(f.codes ?? new Uint8Array(grid.w * grid.h).fill(NIGHT));
+    if (fin) adoucir(px, grid.w, grid.h);
+    urls.push(await versUrl(fondreBords(px, grid.w, grid.h), grid.w, grid.h));
   }
   const [w, s, e, n] = gridBbox(grid.spec);
   const coordinates: [[number, number], [number, number], [number, number], [number, number]] = [[w, n], [e, n], [e, s], [w, s]];

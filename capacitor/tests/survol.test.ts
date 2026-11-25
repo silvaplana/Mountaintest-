@@ -200,3 +200,23 @@ describe('survol 3D : relief', () => {
     expect(r.alt(s[0])).toBeGreaterThan(1850);
   });
 });
+
+describe('survol 3D : ombres fines (✨ soigné)', () => {
+  it('lisse les bords : une maille seule devient un dégradé autour', async () => {
+    const { adoucir } = await import('../src/survol/ombres');
+    const w = 5, h = 5, px = new Uint8ClampedArray(w * h * 4);
+    px.set([20, 30, 85, 117], (2 * w + 2) * 4);
+    adoucir(px, w, h);
+    expect(px[(2 * w + 2) * 4 + 3]).toBe(13);
+    expect(px[(1 * w + 1) * 4 + 3]).toBe(13);
+    expect(px[(1 * w + 1) * 4 + 2]).toBe(85);
+    expect(px[3]).toBe(0);
+  });
+  it('prend le relief à 7 m quand la zone le permet', async () => {
+    const { zoneElargie } = await import('../src/survol/ombres');
+    const { gridFor } = await import('../src/shade/dem');
+    const zone: [number, number, number, number] = [6.8, 45.85, 6.9, 45.92];
+    expect(gridFor(zoneElargie(zone), 15, 144).z).toBe(14);
+    expect(gridFor(zoneElargie(zone), 14).z).toBeLessThan(14);
+  });
+});

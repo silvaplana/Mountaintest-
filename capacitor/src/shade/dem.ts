@@ -55,12 +55,12 @@ export function mntZoomFor(mapZoom: number): number {
 export interface GridSpec { z: number; x0: number; y0: number; nx: number; ny: number }
 
 /** Tuiles de relief couvrant la vue avec la marge ; zoom réduit si la vue est trop grande. */
-export function gridFor(view: Bbox, mapZoom: number): GridSpec {
+export function gridFor(view: Bbox, mapZoom: number, maxTiles = MAX_GRID_TILES): GridSpec {
   for (let z = mntZoomFor(mapZoom); ; z--) {
     const x0 = lonToTileX(view[0], z) - MNT_MARGIN, x1 = lonToTileX(view[2], z) + MNT_MARGIN;
     const y0 = latToTileY(view[3], z) - MNT_MARGIN, y1 = latToTileY(view[1], z) + MNT_MARGIN;
     const spec = { z, x0, y0, nx: x1 - x0 + 1, ny: y1 - y0 + 1 };
-    if (spec.nx * spec.ny <= MAX_GRID_TILES || z <= MNT_MIN_ZOOM) return spec;
+    if (spec.nx * spec.ny <= maxTiles || z <= MNT_MIN_ZOOM) return spec;
   }
 }
 
