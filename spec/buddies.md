@@ -727,7 +727,7 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   d'abord le Buddy Group ou Buddy Time ouvert, puis les derniers ouverts. Et l'autre sens : depuis un Buddy Time, voir
   ses traces associées et en associer une en regardant dans le répertoire des traces. Maquette :
   `maquettes/trace-buddy-time/`.
-- **Depuis la trace** : dans son menu, une ligne « 👥 Associer à un Buddy Time » (pointillés), puis, une fois associée,
+- **Depuis la trace** : tout en bas de son menu (Seb, 25/11), une ligne « 👥 Associer à un Buddy Time » (pointillés), puis, une fois associée,
   la vignette du Buddy Time, son nom et « Buddy Group · changer ». Le panneau : « Proposés » (le Buddy Time ouvert sur
   la carte, déjà choisi, marqué « ouvert », puis les derniers ouverts, puis ceux à venir), puis « Ou chercher dans un
   Buddy Group » (les derniers ouverts d'abord, Me Time compris) ; un Buddy Group montre ses Buddy Times (à venir puis
