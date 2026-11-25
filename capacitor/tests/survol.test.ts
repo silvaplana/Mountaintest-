@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cameraA, capAutour, chemin, distanceCamera, ecartAngle, heuresOmbres, heureTexte, partPlongee, PITCH_MAX, PLONGEE_NUAGES_S, trajectoire, ZOOM_CIEL } from '../src/survol/camera';
 import { dureeFilm } from '../src/survol/camera';
+import { horlogePhotos, momentPhoto, photosDeLaTrace } from '../src/survol/photos-film';
 import { pixelsNeige } from '../src/survol/neige';
 import { cameraCiel } from '../src/survol/ciel-gl';
 import { CIEL } from '../src/survol/nuages';
@@ -430,5 +431,44 @@ describe('survol 3D : ❄ neige posée sur les photos', () => {
   it('le versant au soleil est plus clair que le versant à l\'ombre', () => {
     const rouge = (d: Float32Array) => pixelsNeige(d, 40, 40, 10, 1000)[(20 * 40 + 20) * 4];
     expect(rouge(plan(2600, 0.5, 'sud'))).toBeGreaterThan(rouge(plan(2600, 0.5, 'nord')) + 40);
+  });
+});
+
+describe('survol 3D : 📷 photos de la sortie dans le film', () => {
+  const line = Array.from({ length: 101 }, (_, i) => ({ lon: 6 + i * 0.0005, lat: 45 }));   // ≈ 3,9 km vers l'est
+  const ph = (i: number, o: object = {}) => ({ id: `p${i}`, lon: 6 + i * 0.0005, lat: 45.0005, prise_le: `2026-05-0${1 + (i % 9)}T10:${String(i).padStart(2, '0')}`, ...o });
+  it('garde les photos prises près de la trace, pas les films ni les photos sans position ou loin', () => {
+    const l = photosDeLaTrace([ph(10), ph(20, { video: true }), ph(30, { lon: null, lat: null }), ph(40, { lat: 45.01 }), ph(50)], line);
+    expect(l.map((p) => p.id)).toEqual(['p10', 'p50']);
+  });
+  it('au-delà de 8, les ⭐ d\'abord et les autres réparties', () => {
+    const l = photosDeLaTrace(Array.from({ length: 30 }, (_, i) => ph(i + 1, { prise_le: `2026-05-01T10:${String(i).padStart(2, '0')}`, etoile: i === 13 })), line);
+    expect(l).toHaveLength(8);
+    expect(l.some((p) => p.id === 'p14')).toBe(true);
+    expect(l[0].id).toBe('p1'); expect(l[7].id).toBe('p30');
+  });
+  it('le film s\'allonge de 3 s par photo, ralentit sans reculer et montre chaque photo à son endroit', () => {
+    const h = horlogePhotos(40, [0.5, 0.25]);
+    expect(h.total).toBe(46);
+    let avant = -1, vues: (number | null)[] = [];
+    for (let k = 0; k <= 460; k++) {
+      const x = h.a(k / 460);
+      expect(x.t).toBeGreaterThanOrEqual(avant); avant = x.t;
+      if (x.photo !== vues.at(-1)) vues.push(x.photo);
+      if (x.photo != null) { expect(x.q).toBeGreaterThanOrEqual(0); expect(x.q).toBeLessThanOrEqual(1); expect(Math.abs(x.t - [0.5, 0.25][x.photo])).toBeLessThan(0.016); }
+    }
+    expect(vues).toEqual([null, 1, null, 0, null]);
+    expect(h.a(0).t).toBeCloseTo(0, 3); expect(h.a(1).t).toBeCloseTo(1, 3);
+    // Deux photos au même endroit passent l'une après l'autre.
+    const d = horlogePhotos(40, [0.5, 0.5]);
+    expect(new Set(Array.from({ length: 461 }, (_, k) => d.a(k / 460).photo)).size).toBe(3);
+    // Sans photo, rien ne change.
+    expect(horlogePhotos(40, []).a(0.3).t).toBeCloseTo(0.3, 5);
+  });
+  it('trouve le moment où le film passe près de la photo, après l\'intro', () => {
+    const track = Array.from({ length: 101 }, (_, i) => ({ point: line[Math.max(0, i - 20)] })) as never;
+    expect(momentPhoto(track, { lon: 6 + 40 * 0.0005, lat: 45.0005 }, 0.2)).toBeCloseTo(0.6, 2);
+    expect(momentPhoto(track, { lon: 6, lat: 45.0005 }, 0.2)).toBeCloseTo(0.21, 2);
+    expect(momentPhoto(track, { lon: 7, lat: 45 }, 0.2)).toBeNull();
   });
 });

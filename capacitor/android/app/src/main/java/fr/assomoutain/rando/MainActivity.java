@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(WeatherPlugin.class);
         registerPlugin(StorageUsagePlugin.class);
         registerPlugin(TraceFilePlugin.class);
+        registerPlugin(PhotosRecuesPlugin.class);
         registerPlugin(TraceWakePlugin.class);
         registerPlugin(TraceSharePlugin.class);
         registerPlugin(BuddiesPlugin.class);

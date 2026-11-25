@@ -1237,3 +1237,25 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .sel-barre .sel-effacer { color: #c62828; border-color: #c6282866; }
 .pin-del { display: flex; align-items: center; justify-content: center; }
 .trace-edit .head .edit-fini { flex: 0 0 56px; width: 56px; min-height: 48px; padding: 0; font-size: 26px; font-weight: 700; border-radius: 12px; }
+/* 📷 Photos de la sortie à mettre dans le film : vignettes à cocher. */
+.survol-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 40vh; overflow-y: auto; }
+.survol-photos button { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: #dfe5e1; opacity: 0.45; }
+.survol-photos button.on { opacity: 1; outline: 3px solid #2f9e5f; outline-offset: -3px; }
+.survol-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.survol-photos span:last-child { position: absolute; right: 4px; top: 4px; width: 24px; height: 24px; border-radius: 12px; background: #2f9e5f; color: #fff; font-weight: 700; line-height: 24px; }
+/* 📍 Placer sur la carte une photo sans position (album « Sur la carte »). */
+.bd-placer { position: fixed; z-index: 30; top: calc(env(safe-area-inset-top, 0px) + 70px); left: 76px; right: 76px; display: flex; align-items: center; gap: 8px;
+  padding: 8px; border-radius: 14px; background: #fffffff0; box-shadow: 0 2px 10px #0004; font-size: 17px; }
+.bd-placer > img, .bd-placer > .bd-img-vide { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; flex: 0 0 48px; }
+.bd-placer b { flex: 1; font-weight: 600; line-height: 1.25; }
+.bd-placer button { min-height: 48px; }
+.bd-placer-ouvrir { flex: 1; }
+.bd-placer-photos { flex: 1; display: flex; gap: 6px; overflow-x: auto; }
+.bd-placer-photos button { flex: 0 0 56px; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; }
+.bd-placer-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 📸 Photos partagées depuis une autre appli : choix de l'album. */
+.bd-recues-fond { position: fixed; inset: 0; z-index: 60; background: #0007; display: flex; align-items: flex-end; }
+.bd-recues { width: 100%; background: var(--bg); border-radius: 18px 18px 0 0; padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 14px); display: flex; flex-direction: column; gap: 8px; font-size: 17px; }
+.bd-recues-liste { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.bd-recues button { min-height: 48px; text-align: left; padding: 0 12px; font-size: 17px; }
+.bd-recues p { margin: 0; }

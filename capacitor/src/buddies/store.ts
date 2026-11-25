@@ -221,6 +221,8 @@ export function vue(e: Etat): {
       if (x) x.modifie_le = quand(op);
     } else if (op.type === 'etoile') {
       photos = photos.map((x) => x.id === op.photo ? { ...x, etoile: !!op.etoile } : x);
+    } else if (op.type === 'placer_photo') {
+      photos = photos.map((x) => x.id === op.photo ? { ...x, lon: op.lon as number, lat: op.lat as number } : x);
     } else if (op.type === 'retirer_photo') {
       photos = photos.filter((x) => x.id !== op.photo);
     } else if (op.type === 'depense') {
@@ -493,6 +495,8 @@ export function deposerPhotos(sortie: string, l: { photo: string; prise_le: stri
   ajouter(...l.map((x) => ({ type: 'ajouter_photo', sortie, ...x })));
 }
 export const mettreEtoile = (photo: string, etoile: boolean) => ajouter({ type: 'etoile', photo, etoile });
+/** 📍 Place (ou replace) une photo sur la carte. */
+export const placerPhoto = (photo: string, lon: number, lat: number) => ajouter({ type: 'placer_photo', photo, lon, lat });
 export function retirerPhoto(photo: string) {
   ecrire({ ...lire(), envois: (lire().envois ?? []).filter((x) => x !== photo) });
   ajouter({ type: 'retirer_photo', photo });

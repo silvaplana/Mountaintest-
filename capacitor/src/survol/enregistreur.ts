@@ -23,7 +23,9 @@ export function cadrage(w: number, h: number, vertical: boolean) {
 
 /** nuages : avancée dans les nuages de l'intro plongée (0 → 1), absente sans plongée. */
 /** credit : mention de la source du fond (« © IGN » sur les photos aériennes), en petit en bas à droite. */
-export interface Incrustation { heure?: string; infos?: string; nuages?: number; titre?: string; credit?: string }
+export interface Incrustation { heure?: string; infos?: string; nuages?: number; titre?: string; credit?: string;
+  /** 📷 Photo de la sortie posée sur l'image, comme un tirage ; q de 0 à 1 : elle s'ouvre, reste, se referme. */
+  photo?: { image: HTMLImageElement; q: number } }
 
 /**
  * Toile du film : chaque image de la carte y est recopiée juste après son dessin (l'image WebGL n'est lisible
@@ -55,6 +57,20 @@ export function toileFilm(map: MlMap, vertical: boolean, texte: () => Incrustati
       ctx.textBaseline = 'alphabetic'; ctx.shadowColor = '#000'; ctx.shadowBlur = 3 * echelle; ctx.fillStyle = '#fffc';
       ctx.fillText(t.credit, c.ow - ctx.measureText(t.credit).width - 8 * echelle, c.oh - 8 * echelle);
       ctx.shadowBlur = 0;
+    }
+    if (t.photo) {
+      const { image, q } = t.photo, a = Math.min(1, q / 0.12, (1 - q) / 0.12), o = a * a * (3 - 2 * a);
+      const k = Math.min((c.ow * 0.84) / image.naturalWidth, (c.oh * 0.6) / image.naturalHeight) * (0.55 + 0.45 * o);
+      const w = image.naturalWidth * k, hh = image.naturalHeight * k, b = 7 * echelle;
+      ctx.save();
+      ctx.fillStyle = `rgba(0,0,0,${0.35 * o})`; ctx.fillRect(0, 0, c.ow, c.oh);
+      ctx.globalAlpha = o;
+      ctx.translate(c.ow / 2, c.oh * 0.46); ctx.rotate((-2 * Math.PI) / 180);
+      ctx.shadowColor = '#000a'; ctx.shadowBlur = 18 * echelle; ctx.shadowOffsetY = 6 * echelle;
+      ctx.fillStyle = '#fff'; ctx.fillRect(-w / 2 - b, -hh / 2 - b, w + 2 * b, hh + 2 * b);
+      ctx.shadowColor = 'transparent';
+      ctx.drawImage(image, -w / 2, -hh / 2, w, hh);
+      ctx.restore();
     }
     if (t.titre) {
       // « ▲ Sommet · 2 153 m » au milieu, en grand (🧗).

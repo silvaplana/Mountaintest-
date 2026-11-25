@@ -45,7 +45,8 @@ public class TraceFilePlugin extends Plugin {
     @Override
     protected void handleOnNewIntent(Intent intent) {
         Uri uri = sharedUri(intent);
-        if (uri == null || intent.getBooleanExtra(DONE, false)) return;
+        // Un partage de photos n'est pas une trace : c'est PhotosRecuesPlugin qui le prend.
+        if (uri == null || intent.getBooleanExtra(DONE, false) || PhotosRecuesPlugin.estPartagePhotos(intent)) return;
         intent.putExtra(DONE, true);
         Context ctx = getContext();
         new Thread(() -> {

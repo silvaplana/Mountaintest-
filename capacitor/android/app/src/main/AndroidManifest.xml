@@ -76,6 +76,13 @@
                 <data android:mimeType="text/xml" />
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
+            <!-- 📸 « Partager » des photos vers un album de Buddy Time, depuis WhatsApp, la galerie… (PhotosRecuesPlugin). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
 
         </activity>
 

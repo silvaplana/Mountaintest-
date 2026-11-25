@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { adresse, garder, preparer } from './album';
-import { aujourdhui, deposerPhotos, lire, mettreEtoile, parJour, retirerPhoto, uuid, type PhotoBuddy, type Sortie } from './store';
+import { aujourdhui, deposerPhotos, lire, mettreEtoile, parJour, placerPhoto, retirerPhoto, uuid, type PhotoBuddy, type Sortie } from './store';
 import { Visage } from './Buddies';
 
 /**
@@ -131,7 +131,7 @@ function Film({ p }: { p: PhotoBuddy }) {
 }
 
 /** Une photo en grand : ‹ ›, ⭐ pour le carnet, « Retirer » pour l'auteur. */
-function Visionneuse({ l, i, onI, onFermer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void }) {
+function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void; onPlacer?: (p: PhotoBuddy) => void }) {
   const p = l[i];
   const moi = p.par.id === (lire().moi ?? 'moi');
   return <div className="bd-visionneuse" onClick={onFermer}>
@@ -144,6 +144,7 @@ function Visionneuse({ l, i, onI, onFermer }: { l: PhotoBuddy[]; i: number; onI:
     <div className="bd-vis-bas" onClick={(ev) => ev.stopPropagation()}>
       <button aria-label="Précédente" disabled={i === 0} onClick={() => onI(i - 1)}>‹</button>
       <button className={p.etoile ? 'oui' : ''} onClick={() => mettreEtoile(p.id, !p.etoile)}>{p.etoile ? '⭐ Dans le carnet' : '☆ Pour le carnet'}</button>
+      {onPlacer && !p.video && <button onClick={() => onPlacer(p)}>📍 Déplacer</button>}
       {moi && <button onClick={() => { retirerPhoto(p.id); onFermer(); }}>Retirer</button>}
       <button aria-label="Suivante" disabled={i === l.length - 1} onClick={() => onI(i + 1)}>›</button>
     </div>
@@ -153,7 +154,17 @@ function Visionneuse({ l, i, onI, onFermer }: { l: PhotoBuddy[]; i: number; onI:
 /** Sur la carte (écran 7) : chaque photo là où elle a été prise. Un toucher l'ouvre en grand. */
 export function PhotosSurCarte({ map, photos }: { map: MlMap | null; photos: PhotoBuddy[] }) {
   const [ouverte, setOuverte] = useState<number | null>(null);
+  // 📍 Photos sans position (vieilles photos, position retirée par le téléphone) : on en choisit une, puis on touche la carte.
+  const [liste, setListe] = useState(false);
+  const [aPlacer, setAPlacer] = useState<PhotoBuddy | null>(null);
   const placees = photos.filter((p) => p.lon != null && p.lat != null);
+  const sansPlace = photos.filter((p) => !p.video && (p.lon == null || p.lat == null));
+  useEffect(() => {
+    if (!map || !aPlacer) return;
+    const poser = (ev: maplibregl.MapMouseEvent) => { placerPhoto(aPlacer.id, ev.lngLat.lng, ev.lngLat.lat); setAPlacer(null); };
+    map.once('click', poser);
+    return () => { map.off('click', poser); };
+  }, [map, aPlacer]);
   const cle = placees.map((p) => `${p.id}${p.envoyee}`).join();
   useEffect(() => {
     if (!map || !placees.length) return;
@@ -167,5 +178,16 @@ export function PhotosSurCarte({ map, photos }: { map: MlMap | null; photos: Pho
     return () => ms.forEach((m) => m.remove());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, cle]);
-  return ouverte != null && placees[ouverte] ? <Visionneuse l={placees} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} /> : null;
+  return <>
+    {aPlacer ? <div className="bd-placer">
+      <Image p={aPlacer} /><b>Touche la carte là où la photo a été prise</b>
+      <button onClick={() => setAPlacer(null)}>Annuler</button>
+    </div> : sansPlace.length > 0 && <div className="bd-placer">
+      {liste ? <><div className="bd-placer-photos">{sansPlace.map((p) => <button key={p.id} aria-label="Placer cette photo" onClick={() => setAPlacer(p)}><Image p={p} /></button>)}</div>
+        <button onClick={() => setListe(false)}>Fermer</button></>
+        : <button className="bd-placer-ouvrir" onClick={() => setListe(true)}>📍 {sansPlace.length} photo{sansPlace.length > 1 ? 's' : ''} à placer</button>}
+    </div>}
+    {ouverte != null && placees[ouverte] && <Visionneuse l={placees} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)}
+      onPlacer={(p) => { setOuverte(null); setAPlacer(p); }} />}
+  </>;
 }

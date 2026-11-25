@@ -382,6 +382,16 @@ def etoile(s: Session, u: Utilisateur, op: dict) -> None:
     p.modifie_le = maintenant()
 
 
+def placer_photo(s: Session, u: Utilisateur, op: dict) -> None:
+    """📍 Place (ou replace) une photo sur la carte : les vieilles photos n'ont pas gardé leur position."""
+    p = photo_de(s, u, op["photo"])
+    lon, lat = float(op["lon"]), float(op["lat"])
+    if not (-180 <= lon <= 180 and -90 <= lat <= 90):
+        raise Refus("Position impossible")
+    p.lon, p.lat = lon, lat
+    p.modifie_le = maintenant()
+
+
 def retirer_photo(s: Session, u: Utilisateur, op: dict) -> None:
     """Seul l'auteur retire sa photo (le fichier est effacé par le serveur)."""
     try:
@@ -857,7 +867,7 @@ OPERATIONS = {
     "creer_groupe": creer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
-    "ajouter_photo": ajouter_photo, "etoile": etoile, "retirer_photo": retirer_photo,
+    "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
     "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
