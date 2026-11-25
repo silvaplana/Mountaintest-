@@ -22,7 +22,7 @@ export function cadrage(w: number, h: number, vertical: boolean) {
 }
 
 /** nuages : avancée dans les nuages de l'intro plongée (0 → 1), absente sans plongée. */
-export interface Incrustation { heure?: string; infos?: string; nuages?: number }
+export interface Incrustation { heure?: string; infos?: string; nuages?: number; titre?: string }
 
 /**
  * Toile du film : chaque image de la carte y est recopiée juste après son dessin (l'image WebGL n'est lisible
@@ -49,6 +49,13 @@ export function toileFilm(map: MlMap, vertical: boolean, texte: () => Incrustati
     if (t.nuages != null) dessinerNuages(ctx, c.ow, c.oh, t.nuages);
     if (t.heure) pastille(`🕘 ${t.heure}`, 12 * echelle, 12 * echelle);
     if (t.infos) pastille(t.infos, 12 * echelle, c.oh - 42 * echelle);
+    if (t.titre) {
+      // « ▲ Sommet · 2 153 m » au milieu, en grand (🧗).
+      ctx.font = `700 ${Math.round(24 * echelle)}px system-ui, sans-serif`;
+      const w = ctx.measureText(t.titre).width, p = 14 * echelle, hh = 46 * echelle, x = (c.ow - w) / 2 - p, y = c.oh * 0.38 - hh / 2;
+      ctx.fillStyle = '#000000b0'; ctx.beginPath(); ctx.roundRect(x, y, w + 2 * p, hh, 14 * echelle); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(t.titre, x + p, y + hh / 2 + echelle);
+    }
     apres?.();
   };
   map.on('render', dessiner);

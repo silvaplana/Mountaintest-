@@ -6,7 +6,8 @@ import type { Bbox } from './config';
 import { Natif } from './buddies/Buddies';
 import { garder, heureLocale, PX, reduire } from './buddies/album';
 import { aujourdhui, deposerPhotos, uuid, type Sortie } from './buddies/store';
-import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, NUAGES, trajectoire, ZOOM_CIEL, type Cam, type Hauteur } from './survol/camera';
+import { cameraA, debutTrace, heuresOmbres, heureTexte, IMAGES, NUAGES, PITCH_GOPRO, trajectoire, ZOOM_CIEL, type Cam, type Descente, type Hauteur, type Relief, type Style } from './survol/camera';
+import { chargerRelief } from './survol/relief';
 import { dessinerNuages } from './survol/nuages';
 import { cadrage, enregistrer, extension, toileFilm, type Incrustation } from './survol/enregistreur';
 import { codecVideo, creerFilm, IPS, preparerSon } from './survol/encodeur';
@@ -16,14 +17,23 @@ import type { Trail } from './trails/osmTrails';
 /** Réglages du film, gardés d'une fois sur l'autre. */
 /** rapide : ⚡ les images n'attendent pas leurs cartes (tournage ≈ durée du film) ; sinon ✨ soigné, chaque image attend.
  *  dessine : ✏ la trace se construit derrière la caméra (comme au Tour de France). */
-interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: boolean; infos: boolean; ombres: boolean; h0: number; h1: number; plongee: boolean; rapide: boolean; dessine: boolean }
+interface Reglages { duree: number; hauteur: Hauteur; vertical: boolean; trace: boolean; infos: boolean; ombres: boolean; h0: number; h1: number; plongee: boolean; rapide: boolean; dessine: boolean;
+  /** 🎬 style de prise de vue, descente du style alpiniste, ◭ pentes dans le film (la carte ne change pas). */
+  style: Style; descente: Descente; pentes: boolean }
 const CLE = 'survol';
-const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: false, rapide: true, dessine: false };
+const DEFAUT: Reglages = { duree: 15, hauteur: 'moyen', vertical: true, trace: true, infos: true, ombres: false, h0: 8, h1: 12, plongee: false, rapide: true, dessine: false, style: 'cine', descente: 'gopro', pentes: false };
 function lire(): Reglages {
   try { return { ...DEFAUT, ...JSON.parse(localStorage.getItem(CLE) ?? '{}') }; } catch { return DEFAUT; }
 }
 const DUREES = [5, 10, 15, 30];
 const NOMS: Record<Hauteur, string> = { bas: 'Bas', moyen: 'Moyen', haut: 'Haut' };
+/** Styles de prise de vue (maquette validée le 25/11) : icône, nom, une phrase. */
+const STYLES: Record<Style, { i: string; nom: string; dit: string }> = {
+  suivi: { i: '🎥', nom: 'Suivi', dit: 'Derrière toi, la trace droit devant.' },
+  cote: { i: '🎞', nom: 'De côté', dit: 'Travelling de côté : le relief de profil, la trace passe devant.' },
+  alpi: { i: '🧗', nom: 'Alpiniste', dit: 'On monte, pause panoramique au sommet, puis on redescend vite.' },
+  cine: { i: '🎬', nom: 'Ciné', dit: 'Monté tout seul : bas dans les vallées, haut aux crêtes, arrêts sur les beaux points de vue, grand recul à la fin.' },
+};
 /** Couches de la trace cachées quand « trace » n'est pas coché. */
 const COUCHES_TRACE = ['trails', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
 
@@ -40,7 +50,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
   sortie: Sortie | null; sorties: Sortie[];
 }) {
   const [r, setR] = useState<Reglages>(lire);
-  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | null>(null);
+  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | null>(null);
   const [etape, setEtape] = useState<Etape>('reglages');
   const [avance, setAvance] = useState('');
   const [film, setFilm] = useState<{ blob: Blob; url: string; couverture: ImageBitmap | null } | null>(null);
@@ -90,7 +100,19 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     const ens = map.cameraForBounds([[zone[0], zone[1]], [zone[2], zone[3]]], { padding: 50, pitch: 45 });
     const centre = ens?.center ? LngLat.convert(ens.center) : map.getCenter();
     const c0 = { lon: centre.lng, lat: centre.lat };
-    const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee);
+    // 🧗 et 🎬 ont besoin du relief (sommets, crêtes, points de vue) ; sans lui, le film fait un suivi.
+    let relief: Relief | null = null;
+    if (r.style === 'alpi' || r.style === 'cine') {
+      setAvance('Lecture du relief…');
+      relief = await chargerRelief(zone, ctl.signal).catch(() => null);
+      if (ctl.signal.aborted) { setEtape('reglages'); return; }
+      if (!relief) onToast('Relief indisponible ici : film en suivi');
+    }
+    const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, IMAGES, r.plongee, { style: r.style, descente: r.descente, relief });
+    const pentesAvant = map.getLayer('slopes') ? map.getLayoutProperty('slopes', 'visibility') : undefined;
+    if (pentesAvant !== undefined) map.setLayoutProperty('slopes', 'visibility', r.pentes ? 'visible' : 'none');
+    const pitchAvant = map.getMaxPitch();
+    if (pitchAvant < PITCH_GOPRO + 2) map.setMaxPitch(PITCH_GOPRO + 2);
     const dessine = r.trace && r.dessine;
     for (const l of COUCHES_TRACE) if (map.getLayer(l)) map.setLayoutProperty(l, 'visibility', r.trace && !dessine ? 'visible' : 'none');
     const progression = dessine ? traceQuiAvance(map, trail.color) : null;
@@ -103,7 +125,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
         if (!ombres && !ctl.signal.aborted) onToast('Relief indisponible ici : film sans les ombres');
       }
       const dessin = { heure: r.ombres && ombres ? heureTexte(heures[0]) : undefined, infos: '', nuages: r.plongee ? 0 : undefined } as Incrustation;
-      const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages });
+      const texte = () => ({ heure: dessin.heure, infos: r.infos ? dessin.infos : undefined, nuages: dessin.nuages, titre: dessin.titre });
       const ciel = voile.current?.getContext('2d') ?? null;
       if (voile.current) { voile.current.width = voile.current.offsetWidth; voile.current.height = voile.current.offsetHeight; }
       /** Place la caméra au temps t (0 → 1) du film, avec l'heure des ombres, les km · altitude et les nuages. */
@@ -117,6 +139,7 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           // Plongée : les ombres apparaissent en descendant (vues du ciel, on verrait leur bord).
           if (r.plongee) ombres.opacite(Math.max(0, Math.min(1, (cam.zoom - ZOOM_CIEL - 1) / 2.5)));
         }
+        dessin.titre = cam.sommet != null ? `▲ Sommet · ${Math.round(cam.sommet)} m` : undefined;
         if (progression) { const pts = debutTrace(line, cam.d); progression(pts, pts.at(-1) ?? null); }
         if (r.infos) {
           const alt = map.queryTerrainElevation([cam.point.lon, cam.point.lat]);
@@ -202,6 +225,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     } finally {
       ombres?.retirer();
       retirerTraceQuiAvance(map);
+      if (pentesAvant !== undefined && map.getLayer('slopes')) map.setLayoutProperty('slopes', 'visibility', pentesAvant);
+      map.setMaxPitch(pitchAvant);
       arret.current = null;
     }
   }
@@ -223,6 +248,15 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
     } catch (e) {
       if ((e as Error).name !== 'AbortError') onToast(`Partage impossible : ${(e as Error).message}`);
     }
+  }
+
+  /** ← Retour : referme le choix ouvert, sinon revient à l'écran d'avant (film prêt → réglages → menu de la trace). */
+  function retour() {
+    if (ouvert) setOuvert(null);
+    else if (choixAlbum) setChoixAlbum(false);
+    else if (etape === 'pret') { setFilm(null); setEtape('reglages'); }
+    else if (etape === 'preparation' || etape === 'tournage') arret.current?.abort();
+    else onClose();
   }
 
   /** 📸 Range le film dans l'album : couverture (petite, grande) + film, gardés ici et envoyés au retour du réseau. */
@@ -257,7 +291,8 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
       )}
       <section className="trace-menu survol" ref={panneau}>
         <div className="head">
-          <b><i className="swatch" style={{ background: trail.color }} /><CameraIcon size={22} /> Survol de {trail.name}</b>
+          <button className="retour" onClick={retour} aria-label="Retour">←</button>
+          <b><CameraIcon size={22} /> Survol</b>
           <button className="close" onClick={() => { arret.current?.abort(); onClose(); }} aria-label="Fermer le survol">✕</button>
         </div>
         {etape === 'reglages' && <>
@@ -266,8 +301,23 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
           ) : ouvert === 'hauteur' ? (
             <div className="survol-choix">{(['bas', 'moyen', 'haut'] as Hauteur[]).map((h) => (
               <button key={h} className={r.hauteur === h ? 'on' : ''} onClick={() => { maj({ hauteur: h }); setOuvert(null); }}><HauteurIcon h={h} size={26} /> {NOMS[h]}</button>))}</div>
+          ) : ouvert === 'style' ? (
+            <div className="survol-styles">
+              <div className="survol-choix deux">{(Object.keys(STYLES) as Style[]).map((k) => (
+                <button key={k} className={r.style === k ? 'on' : ''} onClick={() => maj({ style: k })}>{STYLES[k].i} {STYLES[k].nom}</button>))}</div>
+              <p className="survol-dit">{STYLES[r.style].dit}</p>
+              {r.style === 'alpi' && <div className="survol-choix">{([['gopro', '🎯 GoPro'], ['large', '🔭 Large']] as [Descente, string][]).map(([k, t]) => (
+                <button key={k} className={r.descente === k ? 'on' : ''} onClick={() => maj({ descente: k })}>{t}</button>))}</div>}
+              <div className="survol-bas">
+                <button className={`bascule ${r.plongee ? 'on' : ''}`} onClick={() => maj({ plongee: !r.plongee })} aria-label="Intro plongée depuis les nuages">☁ plongée</button>
+                <button className={`bascule ${musique ? 'on' : ''}`} aria-label="Musique du film"
+                  onClick={() => { if (musique) setMusique(null); else choixMusique.current?.click(); }}>🎵 {musique ? musique.name.replace(/\.[^.]+$/, '').slice(0, 10) : 'musique'}</button>
+                <button className="pastille ok" onClick={() => setOuvert(null)}>OK</button>
+              </div>
+            </div>
           ) : (
             <div className="survol-grille">
+              <button className="pastille" onClick={() => setOuvert('style')} aria-label="Style de prise de vue">{STYLES[r.style].i} {STYLES[r.style].nom}</button>
               <button className="pastille" onClick={() => setOuvert('duree')} aria-label="Durée du film">⏱ {r.duree} s</button>
               <button className="pastille" onClick={() => setOuvert('hauteur')} aria-label="Hauteur de la caméra"><HauteurIcon h={r.hauteur} size={26} /> {NOMS[r.hauteur]}</button>
               <button className="bascule-format" onClick={() => maj({ vertical: !r.vertical })} aria-label="Format du film">
@@ -293,15 +343,14 @@ export function Survol({ map, trail, sortie, sorties, onClose, onToast }: {
             </div>
           )}
           {r.ombres && !ouvert && <button className="pastille" onClick={() => setOuvert('plage')} aria-label="Heures des ombres">🕘 ombres de {heureTexte(r.h0)} à {heureTexte(r.h1)}</button>}
-          <div className="survol-bas">
+          {ouvert !== 'style' && <div className="survol-bas">
             {ouvert === 'plage' ? <button className="pastille" onClick={() => setOuvert(null)}>OK</button>
               : ouvert ? <span /> : <>
-                <button className={`bascule ${r.plongee ? 'on' : ''}`} onClick={() => maj({ plongee: !r.plongee })} aria-label="Intro plongée depuis les nuages">☁ plongée</button>
-                <button className={`bascule ${musique ? 'on' : ''}`} aria-label="Musique du film"
-                  onClick={() => { if (musique) setMusique(null); else choixMusique.current?.click(); }}>🎵 {musique ? musique.name.replace(/\.[^.]+$/, '').slice(0, 10) : 'musique'}</button>
+                <button className={`bascule ${r.pentes ? 'on' : ''}`} onClick={() => maj({ pentes: !r.pentes })} aria-label="Pentes dans le film">◭ pentes</button>
+                <span />
               </>}
             <button className="survol-rec" onClick={() => void tourner()} aria-label="Filmer"><i /></button>
-          </div>
+          </div>}
           <input ref={choixMusique} type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setMusique(f); e.target.value = ''; }} />
         </>}
         {occupe && <>

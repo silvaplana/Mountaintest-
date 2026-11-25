@@ -13,7 +13,8 @@ export const HAUTEURS: Record<Hauteur, { pitch: number; zoom: number }> = {
 };
 
 /** Une image de la caméra ; d = distance parcourue sur la trace (m), point = où l'on en est. */
-export interface Cam { lon: number; lat: number; zoom: number; pitch: number; bearing: number; d: number; point: LonLat }
+/** sommet : altitude affichée pendant la pause au sommet (🧗). */
+export interface Cam { lon: number; lat: number; zoom: number; pitch: number; bearing: number; d: number; point: LonLat; sommet?: number }
 
 /** Parts du film : vue d'ensemble → départ, puis suivi, puis tour de l'arrivée. */
 export const DEBUT = 0.15, FIN = 0.85;
@@ -78,44 +79,173 @@ function flou(v: number[], sigma: number): number[] {
   });
 }
 
+/** 🎬 Styles de prise de vue (maquette validée par Seb le 25/11). */
+export type Style = 'suivi' | 'cote' | 'alpi' | 'cine';
+export type Descente = 'gopro' | 'large';
+/** Relief lu dans le MNT IGN (relief.ts) : altitude d'un point, et les sommets marquants de la zone. */
+export interface Relief { alt: (p: LonLat) => number | null; sommets: (LonLat & { alt: number })[] }
+export interface Options { style?: Style; descente?: Descente; relief?: Relief | null }
+
+/** Inclinaison de la caméra GoPro de la descente (au ras de la pente). */
+export const PITCH_GOPRO = 76;
+
+interface Brut { x: number; y: number; zoom: number; pitch: number; bearing: number; d: number; s: number; sommet?: number }
+
+/**
+ * Note de beauté le long de la trace (🎬 Ciné), avec le relief : pente raide, crête (plus haut que les alentours),
+ * et 👀 points de vue = un sommet haut et proche sur le côté de la marche (50° à 130°). Rend aussi les 2 meilleurs
+ * points de vue, assez loin l'un de l'autre, où la caméra tournera la tête.
+ */
+export function beaute(c: ReturnType<typeof chemin>, relief: Relief) {
+  const alt = (p: Plan) => relief.alt(c.pr.depuis(p)) ?? 0;
+  const pics = relief.sommets.map((x) => ({ ...c.pr.vers(x), alt: x.alt }));
+  const crete = (p: Plan) => {
+    let m = 0;
+    for (let k = 0; k < 8; k++) m += alt({ x: p.x + 600 * Math.cos((k * Math.PI) / 4), y: p.y + 600 * Math.sin((k * Math.PI) / 4) });
+    return alt(p) - m / 8;
+  };
+  const pente = (d: number) => Math.abs(alt(c.at(d + 25)) - alt(c.at(d - 25))) / 50;
+  const vues: { d: number; cap: number; note: number }[] = [];
+  for (let i = 4; i <= 96; i += 2) {
+    const d = (c.total * i) / 100, p = c.at(d), cap = capAutour(c, d), h = alt(p);
+    for (const k of pics) {
+      const dist = Math.hypot(k.x - p.x, k.y - p.y);
+      if (dist < 800 || dist > 8000 || k.alt <= h) continue;
+      const b = (Math.atan2(k.x - p.x, k.y - p.y) * 180) / Math.PI, e = Math.abs(ecartAngle(cap, b));
+      if (e >= 50 && e <= 130) vues.push({ d, cap: b, note: ((k.alt - h) / dist) * 1000 });
+    }
+  }
+  vues.sort((u, v) => v.note - u.note);
+  const choisis: typeof vues = [];
+  for (const v of vues) { if (choisis.every((w) => Math.abs(w.d - v.d) > c.total * 0.25)) choisis.push(v); if (choisis.length === 2) break; }
+  const largeur = c.total * 0.09;
+  const regard = (d: number) => {
+    let w = 0, cap: number | null = null;
+    for (const v of choisis) { const e = Math.abs(d - v.d) / largeur; if (e < 1) { const k = Math.sin((Math.PI / 2) * (1 - e)) ** 2; if (k > w) { w = k; cap = v.cap; } } }
+    return { w, cap };
+  };
+  /** Sommet vers lequel regarder en avançant (devant, à moins de 75°), ou null. */
+  const devant = (d: number) => {
+    const p = c.at(d), cap = capAutour(c, d), h = alt(p);
+    let best: number | null = null, note = 0;
+    for (const k of pics) {
+      const dist = Math.hypot(k.x - p.x, k.y - p.y);
+      if (dist < 800 || dist > 8000 || k.alt <= h) continue;
+      const b = (Math.atan2(k.x - p.x, k.y - p.y) * 180) / Math.PI;
+      if (Math.abs(ecartAngle(cap, b)) > 75) continue;
+      const n = (k.alt - h) / dist;
+      if (n > note) { note = n; best = b; }
+    }
+    return best;
+  };
+  // Le temps passé sur chaque morceau suit sa beauté : ralenti sur les beaux passages, accéléré sur le plat.
+  const N = 200, cumul = [0];
+  for (let i = 1; i <= N; i++) {
+    const d = (c.total * i) / N, p = c.at(d);
+    const b = Math.min(1, pente(d) / 0.7) + Math.max(0, Math.min(1, crete(p) / 150)) + 2.5 * regard(d).w;
+    cumul.push(cumul[i - 1] + 1 + 1.6 * b);
+  }
+  const distA = (u: number) => {
+    const cible = u * cumul[N];
+    let i = 1;
+    while (i < N && cumul[i] < cible) i++;
+    const f = (cible - cumul[i - 1]) / (cumul[i] - cumul[i - 1] || 1);
+    return (c.total * (i - 1 + f)) / N;
+  };
+  return { crete, regard, devant, distA, vues: choisis, alt };
+}
+
+/** Point le plus haut de la trace (🧗) ; retour = la trace finit au sommet, on redescend par le même chemin. */
+export function sommetTrace(c: ReturnType<typeof chemin>, relief: Relief) {
+  let d = 0, h = -Infinity;
+  for (let i = 0; i <= 200; i++) { const x = (c.total * i) / 200, a = relief.alt(c.pr.depuis(c.at(x))) ?? -Infinity; if (a > h) { h = a; d = x; } }
+  const retour = c.total - d < c.total * 0.2;
+  return { d, alt: h, retour, fin: retour ? 0 : c.total };
+}
+
 /**
  * Trajectoire complète (IMAGES + 1 positions, du début à la fin du film), puis lissée : cap, inclinaison,
  * zoom et position passent dans un flou gaussien large. La caméra ne fait jamais de roulis (MapLibre n'en a pas).
+ * Styles : 🎥 suivi (derrière), 🎞 de côté, 🧗 alpiniste/skieur (montée, pause au sommet, descente GoPro ou large),
+ * 🎬 ciné (bas aux vallées, haut aux crêtes, regard vers les sommets et les points de vue, grand recul à la fin).
+ * Sans relief, alpiniste et ciné font un suivi.
  */
-export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center: LonLat; zoom: number }, n = IMAGES, plongee = false): Cam[] {
-  const debut = plongee ? DEBUT_PLONGEE : DEBUT;
+export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center: LonLat; zoom: number }, n = IMAGES, plongee = false, o: Options = {}): Cam[] {
   const c = chemin(line);
   const h = HAUTEURS[hauteur];
+  const style: Style = (o.style === 'alpi' || o.style === 'cine') && !o.relief ? 'suivi' : o.style ?? 'suivi';
+  const debut = plongee ? DEBUT_PLONGEE : style === 'cine' ? 0.12 : DEBUT;
+  const fin = style === 'alpi' ? 1 : style === 'cine' ? 0.82 : FIN;
   const vue = { ...c.pr.vers(ensemble.center), zoom: ensemble.zoom, pitch: 45, bearing: 0 };
-  const brut: { x: number; y: number; zoom: number; pitch: number; bearing: number; d: number }[] = [];
+  const b = o.relief ? beaute(c, o.relief) : null;
+  const som = o.relief && style === 'alpi' ? sommetTrace(c, o.relief) : null;
+  const gopro = o.descente !== 'large';
+
+  /** Le corps du film (u de 0 à 1), selon le style. */
+  const corps = (u: number): Brut => {
+    if (style === 'cote') {
+      const d = u * c.total, p = c.at(d);
+      return { ...p, zoom: h.zoom - 0.2, pitch: Math.min(66, h.pitch + 4), bearing: capAutour(c, d) + 75, d, s: d };
+    }
+    if (style === 'alpi' && som) {
+      if (u < 0.5) { const d = (u / 0.5) * som.d, p = c.at(d); return { ...p, zoom: h.zoom, pitch: h.pitch, bearing: capAutour(c, d), d, s: d }; }
+      if (u < 0.65) {
+        // Pause au sommet : demi-tour panoramique, la caméra recule un peu et regarde plus loin.
+        const v = doux((u - 0.5) / 0.15), bosse = Math.sin(v * Math.PI), p = c.at(som.d);
+        return { ...p, zoom: h.zoom - 0.7 * bosse, pitch: h.pitch - 10 * bosse, bearing: capAutour(c, som.d) + 180 * v, d: som.d, s: som.d, sommet: som.alt };
+      }
+      const v = (u - 0.65) / 0.35, s = lerp(som.d, som.fin, v), p = c.at(s);
+      const cap = som.retour ? capAutour(c, s) + 180 : capAutour(c, s);
+      return { ...p, zoom: gopro ? h.zoom + 1 : h.zoom - 0.4, pitch: gopro ? PITCH_GOPRO : Math.min(64, h.pitch + 2), bearing: cap, d: som.d + Math.abs(s - som.d), s };
+    }
+    if (style === 'cine' && b) {
+      const d = b.distA(u), p = c.at(d), k = Math.max(0, Math.min(1, (b.crete(p) + 40) / 160)), cap = capAutour(c, d);
+      const sommet = b.devant(d), c1 = sommet == null ? cap : cap + ecartAngle(cap, sommet) * 0.5;
+      const r = b.regard(d), c2 = r.cap == null ? c1 : c1 + ecartAngle(c1, r.cap) * 0.85 * r.w;
+      return { ...p, zoom: lerp(h.zoom + 0.3, h.zoom - 0.7, k) - 0.6 * r.w, pitch: lerp(Math.min(70, h.pitch + 8), h.pitch - 8, k) - 10 * r.w, bearing: c2, d, s: d };
+    }
+    const d = u * c.total, p = c.at(d);
+    return { ...p, zoom: h.zoom, pitch: h.pitch, bearing: capAutour(c, d), d, s: d };
+  };
+
+  const brut: Brut[] = [];
+  const depart = corps(0);
   for (let i = 0; i <= n; i++) {
     const t = i / n;
     if (plongee && t < debut) {
       // Au-dessus du départ, regard vers le bas : on plonge (de plus en plus vite), puis on se redresse en tournant.
-      const u = t / debut, p = c.at(0), cap = capAutour(c, 0), chute = Math.min(1, u / 0.6), redresse = doux(Math.max(0, (u - 0.6) / 0.4));
-      brut.push({ x: p.x, y: p.y, zoom: lerp(ZOOM_CIEL, h.zoom - 0.3, chute * chute) + 0.3 * redresse, pitch: lerp(0, h.pitch, redresse),
-        bearing: ecartAngle(0, cap) * redresse, d: 0 });
+      const u = t / debut, chute = Math.min(1, u / 0.6), redresse = doux(Math.max(0, (u - 0.6) / 0.4));
+      brut.push({ x: depart.x, y: depart.y, zoom: lerp(ZOOM_CIEL, depart.zoom - 0.3, chute * chute) + 0.3 * redresse, pitch: lerp(0, depart.pitch, redresse),
+        bearing: ecartAngle(0, depart.bearing) * redresse, d: 0, s: 0 });
+    } else if (t < debut && style === 'cine') {
+      // Ciné : on découvre le départ de près, en tournant autour.
+      const u = doux(t / debut);
+      brut.push({ ...depart, zoom: depart.zoom + 0.5 * (1 - u), pitch: lerp(Math.min(70, depart.pitch + 6), depart.pitch, u), bearing: depart.bearing - 110 * (1 - u) });
     } else if (t < debut) {
-      const u = doux(t / debut), p = c.at(0), cap = capAutour(c, 0);
-      brut.push({ x: lerp(vue.x, p.x, u), y: lerp(vue.y, p.y, u), zoom: lerp(vue.zoom, h.zoom, u), pitch: lerp(vue.pitch, h.pitch, u),
-        bearing: vue.bearing + ecartAngle(vue.bearing, cap) * u, d: 0 });
-    } else if (t <= FIN) {
-      const d = ((t - debut) / (FIN - debut)) * c.total, p = c.at(d);
-      brut.push({ x: p.x, y: p.y, zoom: h.zoom, pitch: h.pitch, bearing: capAutour(c, d), d });
+      const u = doux(t / debut);
+      brut.push({ x: lerp(vue.x, depart.x, u), y: lerp(vue.y, depart.y, u), zoom: lerp(vue.zoom, depart.zoom, u), pitch: lerp(vue.pitch, depart.pitch, u),
+        bearing: vue.bearing + ecartAngle(vue.bearing, depart.bearing) * u, d: 0, s: 0 });
+    } else if (t <= fin) {
+      brut.push(corps((t - debut) / (fin - debut)));
     } else {
-      const u = (t - FIN) / (1 - FIN), p = c.at(c.total);
-      brut.push({ x: p.x, y: p.y, zoom: lerp(h.zoom, h.zoom - 0.4, u), pitch: lerp(h.pitch, 55, u),
-        bearing: capAutour(c, c.total) + TOUR_ARRIVEE * u, d: c.total });
+      const u = (t - fin) / (1 - fin), a = corps(1);
+      if (style === 'cine') {
+        // Grand recul final sur toute la trace, en tournant lentement.
+        const v = doux(u);
+        brut.push({ x: lerp(a.x, vue.x, v), y: lerp(a.y, vue.y, v), zoom: lerp(a.zoom, vue.zoom, v), pitch: lerp(a.pitch, 48, v), bearing: a.bearing + 100 * v, d: a.d, s: a.s });
+      } else {
+        brut.push({ ...a, zoom: lerp(a.zoom, a.zoom - 0.4, u), pitch: lerp(a.pitch, Math.min(a.pitch, 55), u), bearing: a.bearing + TOUR_ARRIVEE * u });
+      }
     }
   }
   // Cap déroulé (pas de saut 179° → −179°) avant le flou.
   for (let i = 1; i < brut.length; i++) brut[i].bearing = brut[i - 1].bearing + ecartAngle(brut[i - 1].bearing, brut[i].bearing);
   const k = n / 600;
-  const cap = flou(brut.map((b) => b.bearing), 45 * k), x = flou(brut.map((b) => b.x), 12 * k), y = flou(brut.map((b) => b.y), 12 * k);
-  const zoom = flou(brut.map((b) => b.zoom), 30 * k), pitch = flou(brut.map((b) => b.pitch), 30 * k);
-  return brut.map((b, i) => {
+  const cap = flou(brut.map((x) => x.bearing), 45 * k), x = flou(brut.map((v) => v.x), 12 * k), y = flou(brut.map((v) => v.y), 12 * k);
+  const zoom = flou(brut.map((v) => v.zoom), 30 * k), pitch = flou(brut.map((v) => v.pitch), 30 * k);
+  return brut.map((v, i) => {
     const centre = c.pr.depuis({ x: x[i], y: y[i] });
-    return { lon: centre.lon, lat: centre.lat, zoom: zoom[i], pitch: pitch[i], bearing: cap[i], d: b.d, point: c.pr.depuis(c.at(b.d)) };
+    return { lon: centre.lon, lat: centre.lat, zoom: zoom[i], pitch: pitch[i], bearing: cap[i], d: v.d, point: c.pr.depuis(c.at(v.s)), sommet: v.sommet };
   });
 }
 
@@ -124,7 +254,8 @@ export function cameraA(track: Cam[], t: number): Cam {
   const n = track.length - 1, f = Math.max(0, Math.min(1, t)) * n, i = Math.min(n - 1, Math.floor(f)), u = f - i;
   const a = track[i], b = track[i + 1];
   return { lon: lerp(a.lon, b.lon, u), lat: lerp(a.lat, b.lat, u), zoom: lerp(a.zoom, b.zoom, u), pitch: lerp(a.pitch, b.pitch, u),
-    bearing: lerp(a.bearing, b.bearing, u), d: lerp(a.d, b.d, u), point: u < 0.5 ? a.point : b.point };
+    bearing: lerp(a.bearing, b.bearing, u), d: lerp(a.d, b.d, u),
+    point: { lon: lerp(a.point.lon, b.point.lon, u), lat: lerp(a.point.lat, b.point.lat, u) }, sommet: u < 0.5 ? a.sommet : b.sommet };
 }
 
 /** Heures des ombres du film : de h0 à h1 toutes les 30 min (h en heures décimales). */
