@@ -375,9 +375,10 @@ progress { width: 100%; }
 .ski-title .ski-stars { font-size: 22px; }
 .ski-meta { margin: 4px 0; }
 .ski-info dt { color: #7aa7d8; }
-.ski-link { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; }
+.ski-link { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-right: 8px; }
+.ski-text a { color: inherit; text-decoration: underline; }
 .ski-link a { color: inherit; text-decoration: underline; }
-.ski-pin { min-width: 0; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+.ski-pin { flex-shrink: 0; min-width: 0; margin-left: 6px; padding: 2px 8px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
 .ski-info dt { font-weight: 700; min-width: 92px; }
 .ski-info dd { margin: 0; flex: 1; }
 .ski-text { white-space: pre-line; margin: 0; line-height: 1.45; }
@@ -1099,6 +1100,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .survol-film { position: absolute; left: 0; right: 0; top: 0; z-index: 3; background: #000; display: flex; align-items: center; justify-content: center; }
 .survol-film video { max-width: 100%; max-height: 100%; }
 .survol-play { position: absolute; width: 84px; height: 84px; border-radius: 50%; border: 0; background: #000a; color: #fff; font-size: 36px; }
+.survol-plein { position: absolute; top: 10px; right: 10px; width: 52px; height: 52px; border-radius: 50%; border: 0; background: #000a; color: #fff; font-size: 26px; z-index: 1; }
+.survol-film.plein { position: fixed; inset: 0; z-index: 60; }
+.survol-film.plein video { width: 100%; height: 100%; object-fit: contain; }
 .survol-fin.deux { grid-template-columns: 1fr 1fr; }
 .survol-fin button.primary { color: #fff; }
 .survol-albums { display: flex; flex-direction: column; gap: 6px; }

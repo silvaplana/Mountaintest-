@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { fetchTopo, savedTopo, topoRowOf, type TopoSheet } from './ski/skitour';
+import { fetchTopo, savedTopo, topoId, topoRowOf, type TopoSheet } from './ski/skitour';
+import { BbText } from './ski/bbcode';
 import { storedPhoto } from './ski/photoStore';
 
 /** Une photo : la copie gardée sur le téléphone si elle existe, sinon celle de skitour.fr. */
@@ -22,18 +23,30 @@ export const gmapsTo = (p: { nom: string; lat?: number | null; lon?: number | nu
 
 /**
  * Fiche d'un topo dans l'appli : infos, départ (Google Maps), présentation, itinéraire… ; les 50 derniers ouverts sont
- * gardés sur le téléphone. Le bouton retour d'Android fait comme « ← ».
+ * gardés sur le téléphone. Le bouton retour d'Android fait comme « ← ». Un lien vers un autre topo s'ouvre ici même.
  */
-export function TopoView({ topo, password, backLabel, onBack, onClose, onMap }: {
+export function TopoView({ topo: first, password, backLabel, onBack, onClose, onMap }: {
   topo: { id: number; nom: string; url: string }; password: string; backLabel: string; onBack: () => void; onClose: () => void;
   /** « 🗺 Sur la carte » : carte des topos centrée sur celui-ci (départ, sommets, itinéraire). */
   onMap?: (t: TopoSheet) => void;
 }) {
-  const [t, setT] = useState<TopoSheet | null>(() => savedTopo(topo.id));
+  // Topos ouverts par les liens du texte : « ← » revient au précédent.
+  const [stack, setStack] = useState([first]);
+  useEffect(() => { setStack([first]); }, [first.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const topo = stack[stack.length - 1];
+  const back = stack.length > 1 ? () => setStack((s) => s.slice(0, -1)) : onBack;
+  const onLink = (url: string, label: string) => {
+    const id = topoId(url);
+    if (id == null || !/skitour\.fr/.test(url)) go(url);
+    else if (id !== topo.id) setStack((s) => [...s, { id, nom: label, url }]);
+  };
+  const [t, setT] = useState<TopoSheet | null>(() => savedTopo(first.id));
   const [msg, setMsg] = useState('');
   const [big, setBig] = useState<number | null>(null);
   const bigRef = useRef<number | null>(null);
   bigRef.current = big;
+  const backRef = useRef(back);
+  backRef.current = back;
   useEffect(() => {
     let live = true;
     const saved = savedTopo(topo.id);
@@ -45,9 +58,9 @@ export function TopoView({ topo, password, backLabel, onBack, onClose, onMap }: 
   }, [topo.id, password]);
   useEffect(() => {
     let sub: { remove: () => void } | null = null, live = true;
-    void CapApp.addListener('backButton', () => { if (bigRef.current != null) setBig(null); else onBack(); }).then((h) => { if (live) sub = h; else void h.remove(); }).catch(() => { /* web */ });
+    void CapApp.addListener('backButton', () => { if (bigRef.current != null) setBig(null); else backRef.current(); }).then((h) => { if (live) sub = h; else void h.remove(); }).catch(() => { /* web */ });
     return () => { live = false; sub?.remove(); };
-  }, [onBack]);
+  }, []);
   const photos = t?.photos ?? [];
   const pt = (p: { nom: string; altitude?: number | null }) => p.nom + (p.altitude ? ` (${p.altitude} m)` : '');
   const info: [string, React.ReactNode][] = t ? [
@@ -62,12 +75,12 @@ export function TopoView({ topo, password, backLabel, onBack, onClose, onMap }: 
     ['Remarques', t.remarques], ['Matériel', t.materiel], ['Bibliographie', t.biblio ?? '']] : [];
   return (
     <div className="ski-page">
-      <div className="travel-head"><button onClick={onBack}>← {backLabel}</button>
+      <div className="travel-head"><button onClick={back}>← {stack.length > 1 ? 'Topo' : backLabel}</button>
         <span className="head-btns"><button onClick={onClose} aria-label="Fermer">✕</button></span></div>
       <div className="ski-title"><h2>📖 {t?.nom || topo.nom}</h2></div>
       {msg && <p className="hint">{msg}</p>}
       <dl className="ski-info">{info.filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k} :</dt><dd>{v}</dd></div>)}</dl>
-      {sections.filter(([, v]) => v).map(([k, v]) => <div key={k}><h3>{k}</h3><p className="ski-text">{v}</p></div>)}
+      {sections.filter(([, v]) => v).map(([k, v]) => <div key={k}><h3>{k}</h3><p className="ski-text"><BbText text={v} onLink={onLink} /></p></div>)}
       {photos.length > 0 && <><h3>Photos</h3>
         <div className="ski-photos">{photos.map((p, i) => <figure key={p.url}><Photo url={p.url} alt={p.legende || `Photo de ${p.auteur}`} onOpen={() => setBig(i)} /><figcaption>© {p.auteur}</figcaption></figure>)}</div></>}
       {big != null && photos[big] && <div className="ski-big" onClick={() => setBig(null)}>

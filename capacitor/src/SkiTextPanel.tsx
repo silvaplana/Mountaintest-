@@ -6,6 +6,7 @@ import { LIMITS, MASSIF_GROUPS } from './ski/massifs';
 import { storedPhoto } from './ski/photoStore';
 import { App as CapApp } from '@capacitor/app';
 import { TopoView } from './TopoView';
+import { BbText } from './ski/bbcode';
 import { SkiTabs, type SkiMode } from './SkiTabs';
 
 /** Une photo : la copie gardée sur le téléphone si elle existe, sinon celle de skitour.fr. */
@@ -165,9 +166,9 @@ export function SkiTextPanel({ password, start, onShowOnMap, onOpenMap, onMode, 
         <p className="ski-meta">👤 {o.auteurs}</p>
         {sheetMsg && <p className="hint">{sheetMsg}</p>}
         <dl className="ski-info">{info.filter(([, v]) => v && (!Array.isArray(v) || v.length)).map(([k, v]) => <div key={k}><dt>{k} :</dt><dd>{v}</dd></div>)}</dl>
-        {f?.conditions && <><h3>❄ Conditions nivologiques, accès et météo</h3><p className="ski-text">{f.conditions}</p></>}
+        {f?.conditions && <><h3>❄ Conditions nivologiques, accès et météo</h3><p className="ski-text"><BbText text={f.conditions} onLink={(url, nom) => openTopo({ nom, url })} /></p></>}
         {f && f.neige.length > 0 && <><h3>Neige observée</h3><ul className="ski-text">{f.neige.map((n, i) => <li key={i}>{n}</li>)}</ul></>}
-        {f?.recit && <><h3>Récit</h3><p className="ski-text">{f.recit}</p></>}
+        {f?.recit && <><h3>Récit</h3><p className="ski-text"><BbText text={f.recit} onLink={(url, nom) => openTopo({ nom, url })} /></p></>}
         {photos.length > 0 && <><h3>Photos</h3>
           <div className="ski-photos">{photos.map((p, i) => <figure key={p.url}><Photo p={p} onOpen={() => setBig(i)} /><figcaption>© {p.auteur}</figcaption></figure>)}</div></>}
         {big != null && photos[big] && <div className="ski-big" onClick={() => setBig(null)}>
