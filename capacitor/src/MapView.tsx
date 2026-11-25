@@ -156,8 +156,10 @@ export function MapView(props: MapViewProps) {
           { id: 'c2c-lines', type: 'line', source: 'c2cLines', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#00897b', 'line-width': 3 } },
           { id: 'c2c-lines-hit', type: 'line', source: 'c2cLines', paint: { 'line-color': '#000', 'line-width': 18, 'line-opacity': 0 } },
           { id: 'c2c', type: 'circle', source: 'c2c', paint: { 'circle-radius': 6, 'circle-color': '#00897b', 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' } },
-          { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#fff', 'line-width': 8 } },
-          { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 5 } },
+          // Trace choisie bien visible (Seb, 25/11) : halo jaune large sous un liseré blanc.
+          { id: 'trail-sel-halo', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#ffd600', 'line-width': 20, 'line-opacity': 0.85, 'line-blur': 1 } },
+          { id: 'trail-sel-casing', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 10 } },
+          { id: 'trail-sel', type: 'line', source: 'trailSel', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 6 } },
           // Liseré sombre : le jaune (chemin) et le gris (hors chemin) restent lisibles sur le SCAN 25.
           { id: 'way-types-casing', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': '#222', 'line-width': ['+', ['get', 'w'], 2] } },
           { id: 'way-types', type: 'line', source: 'wayTypes', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'w'] } },

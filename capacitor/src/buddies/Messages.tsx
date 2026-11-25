@@ -15,6 +15,7 @@ import {
   appliquer, autreDuDuo, contacts, DELAI_MODIFIER, presence, envoyerMessage, estAdmin, lire, marquerLu, modifierMessage, noterActionsBud, nonLus, proposerHebergement, reagir, retirerMessage, signalerEcrit, statut,
   synchroniser, transferer, voter, vue, type Buddy, type FichierMessage, type Groupe, type Hebergement, type Lecture, type MessageBuddy, type Sortie, type TraceBuddy,
 } from './store';
+import { TrashIcon } from '../icones';
 
 /**
  * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par Buddy Group et par Buddy Time.
@@ -197,7 +198,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
       <button onClick={copier}>📋<small>Copier</small></button>
       {aTransferer.length > 0 && <button onClick={() => { setTransfert(aTransferer); setSelection([]); }}>↪️<small>Transférer</small></button>}
       {peutModifier && <button onClick={() => { setReponse(null); setEdition(seul); setTexte(seul!.texte); setSelection([]); requestAnimationFrame(() => saisie.current?.focus()); }}>✏️<small>Modifier</small></button>}
-      {peutSupprimer && <button onClick={supprimer}>🗑️<small>Supprimer</small></button>}
+      {peutSupprimer && <button onClick={supprimer}><TrashIcon size={26} /><small>Supprimer</small></button>}
     </div>}
     <div className="bd-fil">
       {!bulles.length && <p className="bd-vide">Pas encore de message. Écris, dicte avec le micro, ou joins une photo, un fichier, ta position ou un sondage avec 📎.</p>}

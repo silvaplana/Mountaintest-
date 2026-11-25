@@ -18,7 +18,7 @@ Même place que le menu, ← pour y revenir, bouton « ↶ Annuler » pour reven
 - **Recoller** : on touche le début ▶ puis la fin ■ du morceau sur la trace (bornes à faire glisser),
   ou « Toute la trace » / « Jusqu'au bout ». Les chemins OSM à moins de 40 m sont cherchés (Overpass) :
   chaque point proche est posé sur le chemin, le reste garde le tracé (« par morceaux », pas de chemin partout).
-  Sur un morceau de chemin, le calcul d'itinéraire IGN suit le vrai tracé (lacets). Aperçu vert / orange avant ✓ Recoller. Les « houppettes » (aller-retour en pointe à plus de 15 m du dessin) sont enlevées.
+  Sur un morceau de chemin, le calcul d'itinéraire IGN suit le vrai tracé (lacets). Aperçu vert / orange avant ✓ Recoller. Les « houppettes » et culs-de-sac (aller-retour jusqu’à 3 km, sur tout le morceau) sont enlevés, sauf si le dessin fait lui-même l’aller-retour.
   Demande du réseau.
 - **Prolonger** : seulement à la fin (Seb) ; toucher la carte allonge la trace, 📏 tout droit ou 🥾 par les chemins (IGN).
 - **Souple** : ronds sur la trace, espacés à l'écran (choix « Ronds : ○ · ○○ · ○○○ » = 110, 70 ou 45 px) et replacés après chaque zoom ; pendant le glissé, l'ancien tracé est caché ; on en fait glisser un, la trace change en courbe douce
@@ -38,3 +38,13 @@ laisse la place au suivant ; les morceaux sur chemin sont coupés en bouts de 1,
 au plus (sinon le tracé reste posé sur le chemin). Avancement affiché, « ↻ Réessayer » si le réseau ne répond pas.
 Sans réseau : à faire (garder la forme des chemins avec les cartes hors ligne), règle de Seb : en ligne d'abord, le local
 seulement sans réseau ou si le réseau échoue.
+
+## Rectangle de sélection (Seb, 25/11)
+L'appui long sur la carte ne pose plus de « Point choisi » (gros repère rouge supprimé) : il ouvre un rectangle qu'on
+étire du doigt. Mes traces (dès qu'un point est dedans) et les épingles dedans sont prises, la trace prise grossit.
+Barre en bas : « 2 traces · 3 📍 », poubelle dessinée (même trait que le micro), ✕. La poubelle efface : les traces
+quittent la carte (celles enregistrées restent dans 📂 Mes traces), les épingles sont enlevées ; « ↶ Annuler » 6 s.
+Pendant un appel, l'appui long montre toujours l'endroit aux autres. Trace choisie : halo jaune sous un liseré blanc.
+
+## Tracé au doigt ✏ (Seb, 25/11)
+« recaler sur sentiers » est toujours décoché quand on ouvre ✏ ; le dernier choix n'est pas retenu.

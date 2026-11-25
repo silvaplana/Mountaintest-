@@ -119,3 +119,14 @@ describe('✏ recoller un long morceau par petits bouts', () => {
     expect(piecesOf(ligne(5), 1500)).toEqual([[0, 4]]);
   });
 });
+
+describe('✏ houppette longue, en cul-de-sac (Seb, 25/11)', () => {
+  it('enlève un aller-retour de 300 m que le dessin ne fait pas', () => {
+    const d = ligne(5);
+    const m = d[2];
+    const aller = Array.from({ length: 10 }, (_, k) => ({ lon: m.lon, lat: m.lat + 0.0003 * (k + 1) }));
+    const tracé = [d[0], d[1], m, ...aller, ...aller.slice(0, -1).reverse(), { ...m, lon: m.lon + 0.00003 }, d[3], d[4]];
+    const r = cutSpurs(tracé, d);
+    expect(r.length).toBe(6);
+  });
+});
