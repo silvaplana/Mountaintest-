@@ -391,6 +391,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   l'écran 7, « 📍 n photos à placer » ouvre les photos sans position ; on en choisit une puis on
   touche la carte. Une photo déjà placée se déplace depuis sa vue en grand (« 📍 Déplacer »). Tout
   buddy du Buddy Time peut le faire (op `placer_photo`).
+- **Depuis WhatsApp ou la galerie** (Seb, 25/11) : sur Android, « Partager » des photos propose
+  Mountain Buddies ; l'appli demande dans quel album les ranger (50 photos au plus par partage),
+  puis ouvre l'album. WhatsApp retire la position : on les place avec 📍.
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
   les ⭐ d'abord) s'ouvrent dans le film là où elles ont été prises, 3 s chacune ; on les décoche
   avant de filmer (📷 dans le panneau du survol).

@@ -71,6 +71,7 @@ import { fetchLines, type Bike, type C2cActivity, type C2cRoute } from './topos/
 import { fetchOtherSheet, srcLabel } from './topos/sources';
 import { offTrackVibrateEnabled, setOffTrackVibrateEnabled, setTraceWakeEnabled, startTraceWake, stopTraceWake, traceWakeAvailable, traceWakeEnabled } from './trails/traceWake';
 import { NavBar } from './NavBar';
+import { PhotosRecues } from './buddies/PhotosRecues';
 import type { LonLat } from './trails/osmTrails';
 import { Versions } from './Versions';
 import { Usage } from './Usage';
@@ -1363,6 +1364,7 @@ export function App() {
       <DoigtsSurCarte map={map} onToast={setToast} />
       <BarreAppel />
       <EcranSonnerie onToast={setToast} />
+      <PhotosRecues onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       {toast && <div className="toast">{toast}</div>}
       {/* Nouvelle version : fenêtre au centre, bien lisible (Seb 25/11), cachée pendant un suivi de trace, une sortie enregistrée ou un survol. */}
       {maj.build && navId == null && !recording && !survol && (
