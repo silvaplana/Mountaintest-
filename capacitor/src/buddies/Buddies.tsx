@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Map as MlMap } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { useSheet } from '../useSheet';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
@@ -658,7 +659,10 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   x: Sortie; traces: TraceBuddy[]; parler?: boolean; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void; onDodo: () => void;
   onToast: (m: string) => void; map: MlMap | null;
 }) {
-  const [replie, setReplie] = useState(false);
+  // Bandeau réglé par la poignée (useSheet) : replié = cran réduit.
+  const sheet = useSheet('buddyTime', { masque: false });
+  const replie = sheet.cran === 0;
+  const setReplie = (v: boolean) => sheet.setCran(v ? 0 : 1);
   // 💬 Écrans 6 et 24 : la conversation du Buddy Time, carte au-dessus ; repliée, seulement les derniers mots.
   const [msg, setMsg] = useState(!!parler);
   const [point, setPoint] = useState<{ lon: number; lat: number; nom: string } | null>(null);
@@ -689,8 +693,8 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
       <span className="bd-texte"><b>{x.nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
         : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
     </div>
-    <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}`}>
-      <button className="handle" aria-label={replie ? 'Déplier' : 'Replier'} onClick={() => setReplie(!replie)} />
+    <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}${sheet.classe}`}>
+      <div {...sheet.prise} aria-label="Régler la hauteur du bandeau"><div className="handle" /></div>
       {msg && <>
         {!replie && <div className="bd-entre"><b className="bd-gros">💬 Messagerie</b><button className="bd-lien" onClick={() => { setMsg(false); setPoint(null); }}>Retour</button></div>}
         <Conversation dest={{ sortie: x.id }} membres={x.participants} sortie={x} court={replie} onToast={onToast}

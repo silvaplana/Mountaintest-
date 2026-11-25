@@ -1098,3 +1098,11 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .survol-albums { display: flex; flex-direction: column; gap: 6px; }
 .survol-albums button { min-height: 48px; text-align: left; padding: 0 12px; font-size: 17px; }
 .bd-film { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 50%; background: #000a; color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+
+/* Poignée des panneaux du bas (useSheet, maquettes/poignee) : poignée fine + barre de titre = zone de prise, 3 crans. */
+.sheet-grip { position: sticky; top: 0; z-index: 2; background: var(--bg); touch-action: none; cursor: grab; display: flex; flex-direction: column; gap: 8px; }
+.sheet-grip > .handle { margin: 0 auto; width: 40px; height: 4px; border-radius: 2px; }
+.cran-1 { max-height: 50% !important; overflow-y: auto; }
+.cran-2 { max-height: calc(100% - 72px) !important; overflow-y: auto; }
+.cran-0.cran-masque:not(.glisse) > :not(.sheet-grip) { display: none !important; }
+.bd-carte-bas > .sheet-grip { padding: 6px 0 10px; }
