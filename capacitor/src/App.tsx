@@ -84,6 +84,7 @@ import { fetchTrails, MAX_ZONE_DEG, OSM_ATTRIBUTION, zoneTooBig, type Trail } fr
 import { BDFORET_ATTRIBUTION, fetchForests, forestZoneTooBig, formatHa, groupByEssence, MAX_FOREST_DEG, type Forest } from './forests/bdForet';
 import { computeStats, formatDuration, formatKm } from './track/stats';
 import { useSheet } from './useSheet';
+import { useMiseAJour } from './miseAJour';
 
 type Tab = 'sortie' | 'randos' | 'forets' | 'horsligne' | 'mesures' | 'versions' | 'usage';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
@@ -196,6 +197,7 @@ export function App() {
   const [target, setTarget] = useState<{ lon: number; lat: number; label: string } | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
   const [visible, setVisible] = useState(true);
+  const maj = useMiseAJour(visible);
 
   // Sortie
   const recorder = useRef(new TrackRecorder());
@@ -1319,6 +1321,14 @@ export function App() {
       <BarreAppel />
       <EcranSonnerie onToast={setToast} />
       {toast && <div className="toast">{toast}</div>}
+      {/* Nouvelle version : petit bandeau qui ne bloque rien, caché pendant un suivi de trace, une sortie enregistrée ou un survol. */}
+      {maj.build && navId == null && !recording && !survol && (
+        <div className="maj-bandeau" role="status">
+          <span>Mise à jour</span>
+          <button className="primary" onClick={maj.installer}>Installer</button>
+          <button onClick={maj.plusTard} aria-label="Plus tard">✕</button>
+        </div>
+      )}
       {showShade && map && <ShadeFilm map={map} hidden={framing || drawing} onClose={() => setShowShade(false)} />}
       {showWeather && map && <WeatherLayer map={map} hidden={framing || drawing} below={showShade} onToast={setToast} onClose={() => setShowWeather(false)} />}
 

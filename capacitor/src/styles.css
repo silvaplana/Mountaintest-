@@ -1187,3 +1187,10 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .edit-ronds > span { font-size: 17px; font-weight: 600; flex: none; }
 .edit-ronds button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .edit-ronds button i { width: 14px; height: 14px; border-radius: 50%; border: 3px solid currentColor; background: #fff; box-sizing: border-box; }
+
+/* Bandeau « Nouvelle version · Installer » (miseAJour.ts) : en haut, entre les boutons, ne bloque rien. */
+.maj-bandeau { position: absolute; z-index: 8; top: calc(env(safe-area-inset-top) + 10px); left: 64px; right: 64px; margin: 0 auto; max-width: 340px;
+  display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 24px; padding: 4px 4px 4px 14px; box-shadow: 0 1px 8px #0004; font-size: 16px; }
+.maj-bandeau span { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.maj-bandeau button { min-height: 44px; border-radius: 22px; padding: 0 14px; font-size: 16px; }
+.maj-bandeau button:last-child { width: 44px; padding: 0; border: 0; background: none; }
