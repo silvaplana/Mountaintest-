@@ -50,6 +50,7 @@ import { CORRIDOR_M, lineBbox, tilesForBbox, tilesForCorridor, type TileCoord } 
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
 import { clearPlaceNames, savePlaceNames } from './places/placeNames';
+import { clearDroneZones, localDroneZones, saveDroneZones } from './drones/droneZones';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
@@ -127,6 +128,10 @@ export function App() {
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [showDrones, setShowDrones] = useState(false);
+  const [droneZones, setDroneZones] = useState<GeoJSON.FeatureCollection>({ type: 'FeatureCollection', features: [] });
+  useEffect(() => { void localDroneZones().then(setDroneZones).catch(() => {}); }, []);
+  /** Zones drones du rectangle, gardées pour les voir sans réseau (rien à faire si elles sont déjà là). */
+  const saveDrones = (b: Bbox) => saveDroneZones(b).then(async (n) => { if (n) setDroneZones(await localDroneZones()); }).catch(() => {});
   /** Film des ombres du relief (8 h → midi). */
   const [showShade, setShowShade] = useState(false);
   // 🌦 Météo posée sur la carte (Météo-France via Open-Meteo).
@@ -685,7 +690,7 @@ export function App() {
     setStatus(`Rectangle : ${total} tuiles, environ ${formatMo(total * TILE_BYTES_ESTIMATE)}.`);
     const r = await runDownload(steps);
     // Noms des sommets, cols, lieux-dits… de la zone : la loupe 🔍 les trouve ensuite sans réseau.
-    if (!r.aborted) await savePlaceNames(bbox).catch(() => 0);
+    if (!r.aborted) { await savePlaceNames(bbox).catch(() => 0); await saveDrones(bbox); }
   }
 
   /** 📶 Cartes et relief dans un couloir d'environ 1 km autour d'une de mes traces. */
@@ -710,7 +715,7 @@ export function App() {
     for (const st of steps) { const store = await getTileStore(st.layer); missing.push(st.tiles.filter((x) => !store.has(x)).length); }
     const total = missing.reduce((a, b) => a + b, 0);
     // Noms des lieux autour de la trace, pour la loupe 🔍 sans réseau (rien à faire s'ils sont déjà là).
-    const names = () => savePlaceNames(lineBbox(t.segments.flat(), CORRIDOR_M)).catch(() => 0);
+    const names = () => Promise.all([savePlaceNames(lineBbox(t.segments.flat(), CORRIDOR_M)).catch(() => 0), saveDrones(lineBbox(t.segments.flat(), CORRIDOR_M))]);
     if (!total) { void junctionsFor(t.segments.flat()).catch(() => null); void names(); setTraceOffline({ id: t.id, msg: '✓ Cartes et relief déjà disponibles hors ligne autour de cette trace.' }); return; }
     const mapTiles = missing.slice(0, -1).reduce((a, b) => a + b, 0);
     if (mapTiles > MAX_ZONE_TILES) {
@@ -731,6 +736,8 @@ export function App() {
   async function clearZone() {
     for (const l of [LAYERS.scan25, LAYERS.planign, MNT_LAYER]) await (await getTileStore(l)).clear();
     await clearPlaceNames();
+    await clearDroneZones();
+    setDroneZones({ type: 'FeatureCollection', features: [] });
     await refreshStored();
     setProgress(null);
   }
@@ -1228,7 +1235,7 @@ export function App() {
   return (
     <div className={`app ${nature ? 'nature' : ''}`}>
       {nature && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
-      <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} recorded={recorded} imported={imported}
+      <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} droneZones={droneZones} onDroneZone={setToast} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
@@ -1656,7 +1663,7 @@ export function App() {
             </div>
             <p className="hint">« Tracer un rectangle » : trace du doigt le coin de la rando sur la carte, ses tuiles se téléchargent. Fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
               .map((p) => `${LAYERS[p.layer].label} z${p.minZoom}-${p.maxZoom}`).join(' + ')}.
-              En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}), {stored.mnt} tuiles de relief pour les ombres ({formatMo(stored.mntBytes)}).</p>
+              En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}), {stored.mnt} tuiles de relief pour les ombres ({formatMo(stored.mntBytes)}), {droneZones.features.length} zones drones.</p>
             <p className="hint"><b>Place prise sur le téléphone : {formatMo(stored.scan25Bytes + stored.planignBytes + stored.mntBytes)}</b>. Les tuiles sont gardées quand l'appli se met à jour ; seule la désinstallation les efface.</p>
             <div className="row">
               <button className="primary" disabled={!map} onClick={() => { setFramingFor('horsligne'); setFraming(true); setOpen(false); }}>Tracer un rectangle</button>

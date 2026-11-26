@@ -23,6 +23,9 @@ export interface MapViewProps {
   showSlopes: boolean;
   /** Calque des zones interdites ou limitées aux drones de loisir. */
   showDrones: boolean;
+  /** Zones drones gardées sur le téléphone : dessinées à la place du calque image quand il n'y a pas de réseau. */
+  droneZones: GeoJSON.FeatureCollection;
+  onDroneZone?: (text: string) => void;
   recorded: TrackPoint[];
   imported: TrackPoint[];
   position: { lat: number; lon: number } | null;
@@ -102,6 +105,15 @@ export function MapView(props: MapViewProps) {
   /** Trace sur laquelle la carte a été cadrée en dernier. */
   const cadree = useRef<number | null>(null);
   const [ready, setReady] = useState(false);
+  // Réseau : calque image des zones drones en ligne, contours gardés sur le téléphone sinon.
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(navigator.onLine);
+    window.addEventListener('online', on); window.addEventListener('offline', on);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', on); };
+  }, []);
+  const onDroneZone = useRef(props.onDroneZone);
+  onDroneZone.current = props.onDroneZone;
   const onTrailClick = useRef(props.onTrailClick);
   onTrailClick.current = props.onTrailClick;
   const onHikeClick = useRef(props.onHikeClick);
@@ -143,7 +155,7 @@ export function MapView(props: MapViewProps) {
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailEnds: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
-          forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' }, relief: RELIEF_SOURCE },
+          forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' }, droneZones: { type: 'geojson', data: EMPTY }, relief: RELIEF_SOURCE },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
           // Plan IGN sous le SCAN 25 : en mode Auto, le SCAN 25 apparaît en fondu par-dessus en zoomant.
@@ -151,6 +163,8 @@ export function MapView(props: MapViewProps) {
           { id: 'scan25', type: 'raster', source: 'scan25' },
           { id: 'slopes', type: 'raster', source: 'slopes', paint: { 'raster-opacity': 0.6 }, layout: { visibility: 'none' } },
           { id: 'drones', type: 'raster', source: 'drones', paint: { 'raster-opacity': 0.7 }, layout: { visibility: 'none' } },
+          { id: 'drone-zones', type: 'fill', source: 'droneZones', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.4 }, layout: { visibility: 'none' } },
+          { id: 'drone-zones-line', type: 'line', source: 'droneZones', paint: { 'line-color': ['get', 'color'], 'line-width': 1.5 }, layout: { visibility: 'none' } },
           // Forêts sous les randos : couleur par essence, contour plus soutenu.
           { id: 'forests', type: 'fill', source: 'forests', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 } },
           { id: 'forests-line', type: 'line', source: 'forests', paint: { 'line-color': ['get', 'color'], 'line-width': 1.2 } },
@@ -274,6 +288,10 @@ export function MapView(props: MapViewProps) {
       const id = e.features?.[0]?.properties?.id;
       if (id != null) onTrailClick.current?.(Number(id), { lon: e.lngLat.lng, lat: e.lngLat.lat });
     });
+    m.on('click', 'drone-zones', (e) => {
+      const t = e.features?.[0]?.properties?.text;
+      if (t) onDroneZone.current?.(String(t));
+    });
     m.on('click', 'forests', (e) => {
       // Une rando touchée passe avant la forêt dessous.
       if (m.queryRenderedFeatures(e.point, { layers: ['trails-hit', 'web-hikes'] }).length) return;
@@ -304,8 +322,14 @@ export function MapView(props: MapViewProps) {
     m.setPaintProperty('scan25', 'raster-opacity',
       auto ? ['interpolate', ['linear'], ['zoom'], AUTO_SCAN_FROM, 0, AUTO_PLAN_UNTIL, 1] : 1);
     m.setLayoutProperty('slopes', 'visibility', props.showSlopes ? 'visible' : 'none');
-    m.setLayoutProperty('drones', 'visibility', props.showDrones ? 'visible' : 'none');
-  }, [props.baseLayer, props.showSlopes, props.showDrones, ready]);
+    m.setLayoutProperty('drones', 'visibility', props.showDrones && online ? 'visible' : 'none');
+    for (const id of ['drone-zones', 'drone-zones-line']) m.setLayoutProperty(id, 'visibility', props.showDrones && !online ? 'visible' : 'none');
+  }, [props.baseLayer, props.showSlopes, props.showDrones, online, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    (map.current!.getSource('droneZones') as GeoJSONSource).setData(props.droneZones);
+  }, [props.droneZones, ready]);
 
   useEffect(() => {
     if (!props.visible || !ready) return;
