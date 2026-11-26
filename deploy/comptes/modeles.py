@@ -310,6 +310,10 @@ class Depense(Base):
     par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+    # Remboursement (Seb, 26 novembre) : vide = une dépense ; « annonce » = « J'ai payé » (pas encore dans les
+    # équilibres) ; « recu » = confirmé par celui qui a reçu. `moyen` : virement, wero, especes, autre.
+    remb: Mapped[str | None] = mapped_column(String(10))
+    moyen: Mapped[str | None] = mapped_column(String(10))
 
 
 class Position(Base):

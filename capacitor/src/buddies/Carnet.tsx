@@ -184,7 +184,7 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onEcrire, onCh
     {pratique && <div className="bd-pratique-corps">
       {x.lieu && <p>📍 {x.lieu}</p>}
       <p>👥 {x.participants.map((p) => p.pseudo).join(', ')}</p>
-      <button className="bd-lien" onClick={onCount}>💶 {depenses.length ? `${euros(depenses.reduce((n, d) => n + d.montant, 0))} à ${x.participants.length} · les comptes ›` : 'Buddy count ›'}</button>
+      <button className="bd-lien" onClick={onCount}>💶 {depenses.length ? `${euros(depenses.reduce((n, d) => n + (d.remb ? 0 : d.montant), 0))} à ${x.participants.length} · les comptes ›` : 'Buddy count ›'}</button>
       <p className="hint">L’hébergement et les messages s’ajouteront ici.</p>
     </div>}
     <span style={{ flex: 1 }} />

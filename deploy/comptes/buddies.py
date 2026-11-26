@@ -634,6 +634,8 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
     pour = sorted({str(uuid.UUID(str(x))) for x in op.get("pour") or []})
     if paye_par not in qui or not pour or any(uuid.UUID(x) not in qui for x in pour):
         raise Refus("Seuls les buddies de la sortie partagent ses frais")
+    if d is not None and d.remb:
+        raise Refus("Un remboursement ne se modifie pas : retire-le")
     champs = {"titre": titre, "montant": montant, "paye_par": paye_par, "pour": json.dumps(pour), "jour": jour(op.get("jour"))}
     if d is None:
         if isinstance(lieu, Sortie):
@@ -644,6 +646,59 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
         for k, v in champs.items():
             setattr(d, k, v)
         d.modifie_le = maintenant()
+    toucher(lieu)
+
+
+MOYENS = {"virement": "par virement", "wero": "par Wero", "especes": "en espèces", "autre": ""}
+
+
+def prevenir_paiement(s: Session, u: Utilisateur, qui: uuid.UUID, lieu: Any, c: BuddyCount | None, texte: str) -> None:
+    """Notification à une seule personne (même forme qu'un message : la toucher ouvre la conversation)."""
+    so = lieu if isinstance(lieu, Sortie) else None
+    s.info.setdefault("paiements_a_prevenir", []).append(([qui], {
+        "type": "message", "cle": str(so.id if so else lieu.id), "groupe": "" if so else str(lieu.id), "sortie": str(so.id) if so else "",
+        "titre": so.nom if so else (c.nom if c else lieu.nom), "de": personne(u)["pseudo"], "texte": texte, "duo": "",
+        "envoye_le": str(int(datetime.now(timezone.utc).timestamp() * 1000))}))
+
+
+def paye(s: Session, u: Utilisateur, op: dict) -> None:
+    """« J'ai payé » (Seb, 26 novembre) : je dis avoir remboursé un buddy ; il est prévenu. Rien ne compte dans les
+    équilibres avant son « OK, reçu »."""
+    did = uuid.UUID(str(op["depense"]))
+    if s.get(Depense, did) is not None:
+        return  # déjà reçue
+    lieu, qui, _, c = caisse(s, u, op.get("sortie"), op.get("count"))
+    a = uuid.UUID(str(op["a"]))
+    if a == u.id or a not in qui or u.id not in qui:
+        raise Refus("On rembourse un buddy de ce Buddy count")
+    montant = int(op.get("montant"))
+    if not 1 <= montant <= 10_000_000:
+        raise Refus("Montant hors limites")
+    moyen = op.get("moyen") if op.get("moyen") in MOYENS else "autre"
+    champs = {"titre": "Remboursement", "montant": montant, "paye_par": u.id, "pour": json.dumps([str(a)]), "jour": jour(op.get("jour") or maintenant().date().isoformat()),
+              "remb": "annonce", "moyen": moyen, "par": u.id}
+    if isinstance(lieu, Sortie):
+        s.add(Depense(id=did, sortie_id=lieu.id, **champs))
+    else:
+        s.add(Depense(id=did, count_id=c.id, **champs))
+    toucher(lieu)
+    prevenir_paiement(s, u, a, lieu, c, f"dit t'avoir payé {montant // 100} € {MOYENS[moyen]}".strip())
+
+
+def recu(s: Session, u: Utilisateur, op: dict) -> None:
+    """« OK, reçu » (le remboursement compte) ou « Pas reçu » (il disparaît, celui qui a payé est prévenu)."""
+    d = s.get(Depense, uuid.UUID(str(op["depense"])))
+    if d is None or d.remb != "annonce":
+        return  # déjà fait
+    if json.loads(d.pour) != [str(u.id)]:
+        raise Refus("Seul celui qui a reçu l'argent le confirme")
+    lieu, _, _, c = caisse(s, u, d.sortie_id, d.count_id)
+    if op.get("ok"):
+        d.remb, d.modifie_le = "recu", maintenant()
+        prevenir_paiement(s, u, d.paye_par, lieu, c, f"a bien reçu tes {d.montant // 100} €")
+    else:
+        s.delete(d)
+        prevenir_paiement(s, u, d.paye_par, lieu, c, f"n'a pas reçu tes {d.montant // 100} €")
     toucher(lieu)
 
 
@@ -1084,7 +1139,7 @@ OPERATIONS = {
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
     "supprimer_sortie": supprimer_sortie, "supprimer_groupe": supprimer_groupe, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
-    "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense, "buddy_count": buddy_count,
+    "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense, "paye": paye, "recu": recu, "buddy_count": buddy_count,
     "epingle": epingle, "position": position, "voiture": voiture, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
     "message": message, "retirer_message": retirer_message, "duo": duo, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
@@ -1197,7 +1252,7 @@ def soldes(depenses: list[Depense]) -> dict[uuid.UUID, float]:
     sol: dict[uuid.UUID, float] = {}
     for d in depenses:
         pour = [uuid.UUID(x) for x in json.loads(d.pour or "[]")]
-        if not pour:
+        if not pour or d.remb == "annonce":  # « J'ai payé » pas encore confirmé : ne compte pas
             continue
         sol[d.paye_par] = sol.get(d.paye_par, 0) + d.montant
         for q in pour:
@@ -1286,7 +1341,8 @@ def vue_count(c: BuddyCount) -> dict[str, Any]:
 
 def vue_depense(x: Depense) -> dict[str, Any]:
     return {"id": str(x.id), "sortie": str(x.sortie_id) if x.sortie_id else None, "count": str(x.count_id) if x.count_id else None, "titre": x.titre, "montant": x.montant, "paye_par": str(x.paye_par),
-            "pour": json.loads(x.pour), "jour": x.jour, "par": str(x.par), "modifie_le": iso(x.modifie_le)}
+            "pour": json.loads(x.pour), "jour": x.jour, "par": str(x.par), "modifie_le": iso(x.modifie_le),
+            "remb": x.remb, "moyen": x.moyen}
 
 
 def vue_hebergement(s: Session, h: Hebergement) -> dict[str, Any]:

@@ -62,7 +62,7 @@ export function contexte(d: Dest, x: Donnees): string {
     const dep = x.depenses.filter((y) => y.sortie === so.id);
     if (dep.length) {
       const c = compte(so, dep, x.moi);
-      l.push(`Dépenses (Buddy count) : total ${euros(c.total)}, ${dep.length} dépense(s) : ${dep.map((y) => `${y.titre} ${euros(y.montant)} payé par ${nom(y.paye_par)}`).join(' ; ')}.`);
+      l.push(`Dépenses (Buddy count) : total ${euros(c.total)}, ${dep.length} dépense(s) : ${dep.filter((y) => y.remb !== 'annonce').map((y) => `${y.titre} ${euros(y.montant)} payé par ${nom(y.paye_par)}`).join(' ; ')}.`);
       l.push(c.virements.length ? `Pour équilibrer : ${c.virements.map((v) => `${nom(v.from)} doit ${v.amount.toFixed(2)} € à ${nom(v.to)}`).join(' ; ')}.` : 'Les comptes sont équilibrés.');
     }
   }

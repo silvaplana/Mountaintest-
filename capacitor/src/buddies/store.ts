@@ -65,6 +65,8 @@ export type PhotoBuddy = {
 export type Depense = {
   id: string; sortie: string; count?: string | null; titre: string; montant: number; paye_par: string; pour: string[]; jour: string; par: string; modifie_le: string;
   attente?: boolean;
+  /** Remboursement (Seb, 26/11) : « annonce » = « J'ai payé », pas encore compté ; « recu » = confirmé par celui qui a reçu. */
+  remb?: 'annonce' | 'recu' | null; moyen?: string | null;
 };
 /** Un Buddy count (Seb, 26/11, §7.20) : de groupe (`groupe`, avec un nom) ou de sortie (`sortie`) ; ouvert ou fermé. */
 export type BuddyCountEtat = {
@@ -252,6 +254,12 @@ export function vue(e: Etat): {
       depenses = [...depenses.filter((x) => x.id !== d.id), d];
     } else if (op.type === 'retirer_depense') {
       depenses = depenses.filter((x) => x.id !== op.depense);
+    } else if (op.type === 'paye' && !depenses.some((x) => x.id === op.depense)) {
+      depenses = [...depenses, { id: String(op.depense), sortie: String(op.count ?? op.sortie), count: op.count ? String(op.count) : null, titre: 'Remboursement',
+        montant: Number(op.montant), paye_par: moi, pour: [String(op.a)], jour: String(op.jour), par: moi, modifie_le: quand(op), attente: true,
+        remb: 'annonce', moyen: String(op.moyen) }];
+    } else if (op.type === 'recu') {
+      depenses = op.ok ? depenses.map((x) => x.id === op.depense ? { ...x, remb: 'recu', attente: true } : x) : depenses.filter((x) => x.id !== op.depense);
     } else if (op.type === 'proposer_hebergement' && !hebergements.some((h) => h.id === op.hebergement)) {
       hebergements.push({ id: String(op.hebergement), sortie: String(op.sortie), nom: String(op.nom), nature: String(op.nature ?? ''),
         prix_nuit: op.prix_nuit == null ? null : Math.round(Number(op.prix_nuit)), adresse: String(op.adresse ?? ''), url: String(op.url ?? ''),
@@ -574,6 +582,14 @@ export function enregistrerDepense(d: { depense?: string; sortie: string; titre:
   ajouter({ type: 'depense', ...reste, ...ou, depense, titre: d.titre.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Dépense', montant: Math.round(d.montant) });
   return depense;
 }
+/** « J'ai payé » (Seb, 26/11) : je dis avoir remboursé `a` ; il confirme ensuite (« OK, reçu ») ou non. */
+export function annoncerPaiement(d: { sortie: string; a: string; montant: number; moyen: string }) {
+  if (!(d.montant > 0)) throw new Error('Indique le montant');
+  const ou = mesCounts().some((c) => c.id === d.sortie && c.groupe) ? { count: d.sortie } : { sortie: d.sortie };
+  ajouter({ type: 'paye', depense: uuid(), ...ou, a: d.a, montant: Math.round(d.montant), moyen: d.moyen, jour: aujourdhui() });
+}
+/** « OK, reçu » (`ok`) ou « Pas reçu » : seul celui qui a reçu l'argent répond. */
+export const confirmerRecu = (depense: string, ok: boolean) => ajouter({ type: 'recu', depense, ok });
 /** Les Buddy counts connus (serveur + changements en attente), supprimés compris. */
 export function mesCounts(e: Etat = lire()): BuddyCountEtat[] {
   let l = (e.counts ?? []).map((c) => ({ ...c }));
