@@ -39,8 +39,8 @@ class Utilisateur(Base):
 
 
 class Groupe(Base):
-    """Buddy Group (spec/buddies.md §5.3). `nature` = « bande » (copains invités) ou « me_time » (le
-    Buddy Group par défaut de chacun, créé par le serveur, un seul membre) ou « duo » (discussion à deux, §7.13)."""
+    """Groupe (spec/buddies.md §5.3). `nature` = « bande » (copains invités) ou « me_time » (le
+    groupe par défaut de chacun, créé par le serveur, un seul membre) ou « duo » (discussion à deux, §7.13)."""
 
     __tablename__ = "groupes"
 
@@ -79,7 +79,7 @@ class Invitation(Base):
     invite_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     email: Mapped[str | None] = mapped_column(String(320))
     # Ce que montre l'appli dans « Dans la bande » : « Julie Martin · invitée par SMS ».
-    # Invitation à un Buddy Time seulement (une sortie de Me Time) : on devient participant, pas membre du groupe.
+    # Invitation à une sortie seulement (une sortie de Me Time) : on devient participant, pas membre du groupe.
     sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"))
     canal: Mapped[str] = mapped_column(String(10), nullable=False, default="lien")
     nom: Mapped[str] = mapped_column(String(80), nullable=False, default="")
@@ -90,7 +90,7 @@ class Invitation(Base):
 
 
 class Sortie(Base):
-    """Buddy Time (spec/buddies.md §5.4) : une sortie ou un week-end, rangé dans un Buddy Group (ou Me Time).
+    """Sortie (spec/buddies.md §5.4) : une sortie ou un week-end, rangé dans un groupe (ou Me Time).
     Le voient les membres du groupe et les participants (copains invités à une sortie de Me Time)."""
 
     __tablename__ = "sorties"
@@ -111,7 +111,7 @@ class Sortie(Base):
 
 
 class Participant(Base):
-    """Qui part dans ce Buddy Time."""
+    """Qui part dans cette sortie."""
 
     __tablename__ = "participants"
 
@@ -121,7 +121,7 @@ class Participant(Base):
 
 
 class TracePartagee(Base):
-    """Trace partagée dans un Buddy Time ou un Buddy Group (panneau de partage, spec §3.4)."""
+    """Trace partagée dans une sortie ou un groupe (panneau de partage, spec §3.4)."""
 
     __tablename__ = "traces"
 
@@ -137,7 +137,7 @@ class TracePartagee(Base):
 
 
 class Planning(Base):
-    """Planning de saison (spec/buddies.md §5.5) : des dates proposées à un Buddy Group, chacun dit s'il est dispo."""
+    """Planning de saison (spec/buddies.md §5.5) : des dates proposées à un groupe, chacun dit s'il est dispo."""
 
     __tablename__ = "plannings"
 
@@ -165,7 +165,7 @@ class Dispo(Base):
 
 
 class Photo(Base):
-    """Album d'un Buddy Time (spec/buddies.md §5.8) : chacun dépose ses photos. Le fichier JPEG (petite
+    """Album d'une sortie (spec/buddies.md §5.8) : chacun dépose ses photos. Le fichier JPEG (petite
     400 px et grande 1600 px) est envoyé à part (PUT /buddies/photos/…) et rangé dans COMPTES_DOSSIER/photos."""
 
     __tablename__ = "photos"
@@ -188,7 +188,7 @@ class Photo(Base):
 
 
 class Recit(Base):
-    """Carnet d'un Buddy Time (spec/buddies.md §5.8) : le texte de chaque buddy, signé de son visage.
+    """Carnet d'une sortie (spec/buddies.md §5.8) : le texte de chaque buddy, signé de son visage.
     Un texte par personne ; le dernier envoyé gagne."""
 
     __tablename__ = "recits"
@@ -228,7 +228,7 @@ class Carnet(Base):
 
 
 class Depense(Base):
-    """Buddy count d'un Buddy Time (spec/buddies.md §5.10) : une dépense, partagée entre téléphones.
+    """Buddy count d'une sortie (spec/buddies.md §5.10) : une dépense, partagée entre téléphones.
     N'importe quel participant l'ajoute, la corrige ou la retire ; la dernière version envoyée gagne."""
 
     __tablename__ = "depenses"
@@ -247,7 +247,7 @@ class Depense(Base):
 
 
 class Position(Base):
-    """Position des buddies (spec/buddies.md §5.9) : la dernière position d'un buddy dans un Buddy Time, et son
+    """Position des buddies (spec/buddies.md §5.9) : la dernière position d'un buddy dans une sortie, et son
     épingle. Personne n'apparaît sans avoir enfoncé l'épingle ; elle se relève seule le soir. Heures en ms (epoch)."""
 
     __tablename__ = "positions"
@@ -264,7 +264,7 @@ class Position(Base):
 
 
 class PositionGroupe(Base):
-    """Position partagée avec un Buddy Group, hors Buddy Time (📍 de la colonne de Buddies, spec/buddies.md §7.14) :
+    """Position partagée avec un groupe, hors sortie (📍 de la colonne de Buddies, spec/buddies.md §7.14) :
     même épingle et mêmes règles que `positions`, mais vue par les membres du groupe. Heures en ms (epoch)."""
 
     __tablename__ = "positions_groupes"
@@ -281,7 +281,7 @@ class PositionGroupe(Base):
 
 
 class Hebergement(Base):
-    """Hébergement proposé dans un Buddy Time (spec/buddies.md §5.11, écrans 9 et 23) : chacun met un ♥, on en
+    """Hébergement proposé dans une sortie (spec/buddies.md §5.11, écrans 9 et 23) : chacun met un ♥, on en
     retient un (✅). N'importe quel participant propose, retient ou retire."""
 
     __tablename__ = "hebergements"
@@ -312,9 +312,9 @@ class Coeur(Base):
 
 
 class MessageBuddy(Base):
-    """Messagerie (spec/buddies.md §5.6, écran 6) : un message dans la conversation d'un Buddy Group ou d'un Buddy
-    Time (l'un ou l'autre). Identifiant choisi par le téléphone (envoi hors ligne sans doublon, comme le client_id
-    d'AppBase). nature : texte, point (lon/lat), photo (une photo de l'album du Buddy Time)."""
+    """Messagerie (spec/buddies.md §5.6, écran 6) : un message dans la conversation d'un groupe ou d'une
+    sortie (l'un ou l'autre). Identifiant choisi par le téléphone (envoi hors ligne sans doublon, comme le client_id
+    d'AppBase). nature : texte, point (lon/lat), photo (une photo de l'album de la sortie)."""
 
     __tablename__ = "messages_buddies"
 
@@ -380,7 +380,7 @@ class VoteBuddy(Base):
 
 
 class LectureBuddy(Base):
-    """Jusqu'où un buddy a lu une conversation (cle = id du Buddy Group ou du Buddy Time) : les coches bleues."""
+    """Jusqu'où un buddy a lu une conversation (cle = id du groupe ou de la sortie) : les coches bleues."""
 
     __tablename__ = "lectures_buddies"
 
@@ -401,7 +401,7 @@ class Appareil(Base):
 
 
 class Appel(Base):
-    """📞 Un appel de groupe (§5.7) : la conversation vocale d'un Buddy Group ou d'un Buddy Time. Le son passe par
+    """📞 Un appel de groupe (§5.7) : la conversation vocale d'un groupe ou d'une sortie. Le son passe par
     LiveKit (sur le VPS) ; ici on garde seulement qui a appelé, qui est en ligne, et la fin."""
 
     __tablename__ = "appels"

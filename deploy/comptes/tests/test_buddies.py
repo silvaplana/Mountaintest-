@@ -1,4 +1,4 @@
-"""Buddies bloc 1 : Buddy Groups, Me Time, invitations, synchro (même faux Logto que test_serveur)."""
+"""Buddies bloc 1 : Groupes, Me Time, invitations, synchro (même faux Logto que test_serveur)."""
 import uuid
 
 import pytest
@@ -43,7 +43,7 @@ def ancien_me_time(sub, avec_sortie):
 
 
 def test_plus_de_me_time(client):
-    """Seb, 25 novembre : le Me Time disparaît, effacé avec ses Buddy Times (choix « Tout effacer »)."""
+    """Seb, 25 novembre : le Me Time disparaît, effacé avec ses sorties (choix « Tout effacer »)."""
     assert sync(client)["groupes"] == []
     vide = ancien_me_time("seb", avec_sortie=False)
     assert vide not in sync(client)["ids"]
@@ -177,7 +177,7 @@ def test_colonnes_ajoutees_a_une_base_existante(monkeypatch):
         assert {"canal", "nom", "contact", "acceptee_par"} <= {x["name"] for x in inspect(c).get_columns("invitations")}
 
 
-# ------------------------------------------------------------------ bloc 2 : Buddy Times et traces partagées
+# ------------------------------------------------------------------ bloc 2 : Sorties et traces partagées
 
 def nouvelle_sortie(gid, participants=(), nom="Week-end Queyras", debut="2026-12-12", fin="2026-12-13"):
     return {"id": str(uuid.uuid4()), "type": "creer_sortie", "sortie": str(uuid.uuid4()), "groupe": gid, "nom": nom,
@@ -195,7 +195,7 @@ def bande_avec_julie(client):
 def test_buddy_time_dans_un_groupe(client):
     gid, julie = bande_avec_julie(client)
     op = nouvelle_sortie(gid, participants=[julie, str(uuid.uuid4())])  # un inconnu est ignoré
-    r = sync(client, ops=[op, op])  # renvoyé deux fois : un seul Buddy Time
+    r = sync(client, ops=[op, op])  # renvoyé deux fois : une seule sortie
     assert r["refus"] == [] and r["ids_sorties"] == [op["sortie"]]
     so = r["sorties"][0]
     assert so["groupe"] == gid and so["debut"] == "2026-12-12" and so["lieu"] == "Ceillac"
@@ -206,9 +206,9 @@ def test_buddy_time_dans_un_groupe(client):
 
 
 def test_ancien_telephone_range_dans_me_time(client):
-    """Un téléphone pas encore à jour range une sortie dans « me-time » : refusé, il dit de choisir un Buddy Group."""
+    """Un téléphone pas encore à jour range une sortie dans « me-time » : refusé, il dit de choisir un groupe."""
     r = sync(client, ops=[nouvelle_sortie("me-time")])
-    assert "Buddy Group" in r["refus"][0]["raison"] and r["ids_sorties"] == []
+    assert "groupe" in r["refus"][0]["raison"] and r["ids_sorties"] == []
 
 
 def test_inviter_un_copain_a_une_seule_sortie(client):
@@ -218,7 +218,7 @@ def test_inviter_un_copain_a_une_seule_sortie(client):
     r = sync(client, ops=[g, op, inv])
     assert r["refus"] == [] and r["sorties"][0]["invitations"][0]["nom"] == "Julie"
     assert client.get("/invitations/SortieCode0123456789").json()["sortie"] is True
-    # Paul rejoint la sortie, sans entrer dans le Buddy Group de Seb.
+    # Paul rejoint la sortie, sans entrer dans le groupe de Seb.
     rp = sync(client, sub="paul", ops=[{"id": "p", "type": "rejoindre", "code": "SortieCode0123456789"}])
     assert rp["ids_sorties"] == [op["sortie"]]
     assert rp["ids"] == []
@@ -256,7 +256,7 @@ def test_trace_refusee(client):
     g = nouveau_groupe()
     op = {"id": "t", "type": "partager_trace", "trace": str(uuid.uuid4()), "groupe": g["groupe"], "nom": "x", "ligne": [[1, 2]]}
     assert sync(client, ops=[g, op])["refus"]
-    # Buddy Time d'un autre : invisible
+    # Sortie d'un autre : invisible
     g = nouveau_groupe()
     so = nouvelle_sortie(g["groupe"])
     sync(client, ops=[g, so])
@@ -350,7 +350,7 @@ def test_album_deposer_voir_etoile_retirer(client, photos):
     assert client.put(url + "/grande", content=JPEG, headers=entete(sub="seb")).status_code == 200
     lu = client.get(url + "/grande", headers=entete(sub="julie"))
     assert lu.status_code == 200 and lu.content == JPEG
-    assert client.get(url + "/grande", headers=entete(sub="luc")).status_code == 404  # hors du Buddy Time
+    assert client.get(url + "/grande", headers=entete(sub="luc")).status_code == 404  # hors de la sortie
     # Julie met une ⭐ ; elle ne peut pas retirer la photo de Seb.
     r = sync(client, sub="julie", ops=[{"id": "e", "type": "etoile", "photo": ph["photo"], "etoile": True},
                                        {"id": "x", "type": "retirer_photo", "photo": ph["photo"]}])
@@ -397,7 +397,7 @@ def test_photo_refusee(client, photos):
     so = nouvelle_sortie(g["groupe"])
     sync(client, ops=[g, so])
     assert sync(client, ops=[nouvelle_photo(so["sortie"], prise_le="hier")])["refus"]
-    assert sync(client, sub="luc", ops=[nouvelle_photo(so["sortie"])])["refus"]  # Buddy Time d'un autre
+    assert sync(client, sub="luc", ops=[nouvelle_photo(so["sortie"])])["refus"]  # Sortie d'un autre
     # Sans position (photo sans GPS) : acceptée.
     assert sync(client, ops=[nouvelle_photo(so["sortie"], lon=None, lat=None)])["photos"][0]["lon"] is None
 
@@ -423,7 +423,7 @@ def test_carnet_recits_fiches_conditions(client):
     assert c["fiches"] == [{"jour": "2026-12-12", "nom": "Castello → refuge", "depart": "07:10", "duree": 320, "distance": 11000,
                             "denivele": 1240}]
     assert (c["difficulte"], c["meteo"], c["conditions"]) == ("T3", "☀️ 4°", "Lac gelé sur les bords")
-    # Julie ajoute son texte, signé ; elle le voit dans la synchro suivante (le Buddy Time a bougé).
+    # Julie ajoute son texte, signé ; elle le voit dans la synchro suivante (la sortie a bougé).
     curseur = sync(client, sub="julie")["curseur"]
     r = sync(client, sub="julie", ops=[op("recit", sortie=sid, texte="Polenta et génépi.")], depuis=curseur)
     assert [x["par"]["id"] for x in r["sorties"][0]["carnet"]["recits"]] == [seb, julie]
@@ -479,7 +479,7 @@ def test_buddy_count_partage_entre_telephones(client):
     r = sync(client, sub="julie", ops=[{**gite, "id": "c", "montant": 25000}, essence])
     assert r["refus"] == []
     assert {d["titre"]: d["montant"] for d in r["depenses"]} == {"Gîte Les Baladins": 25000, "Essence + péage": 12500}
-    # Seb retire l'essence ; Luc (hors du Buddy Time) ne voit rien et ne peut rien ajouter.
+    # Seb retire l'essence ; Luc (hors de la sortie) ne voit rien et ne peut rien ajouter.
     r = sync(client, ops=[op("retirer_depense", depense=essence["depense"])])
     assert r["ids_depenses"] == [gite["depense"]]
     assert sync(client, sub="luc")["ids_depenses"] == []
@@ -496,7 +496,7 @@ def test_depense_refusee(client):
         assert sync(client, ops=[mauvaise])["refus"], mauvaise
 
 
-T0 = 1_797_000_000_000  # un matin pendant le Buddy Time (ms)
+T0 = 1_797_000_000_000  # un matin pendant la sortie (ms)
 
 
 def test_position_des_buddies_avec_l_epingle(client):
@@ -519,7 +519,7 @@ def test_position_des_buddies_avec_l_epingle(client):
                       op("position", sortie=sid, lat=44.7, lon=6.8, prise_le=T0 + 3600_000)])
     p, = sync(client, sub="julie")["positions"]
     assert p["jusqu"] == T0 + 120_000 and p["lat"] == 44.61
-    # Luc, hors du Buddy Time, ne voit rien et ne peut pas s'épingler.
+    # Luc, hors de la sortie, ne voit rien et ne peut pas s'épingler.
     assert sync(client, sub="luc")["positions"] == []
     assert sync(client, sub="luc", ops=[op("epingle", sortie=sid, enfoncee=True, quand=T0, jusqu=T0 + 1000)])["refus"]
 
@@ -536,7 +536,7 @@ def test_epingle_limitee_a_un_jour(client):
 def test_position_partagee_avec_un_buddy_group_hors_buddy_time(client):
     gid, julie = bande_avec_julie(client)
     seb = sync(client)["moi"]
-    # 📍 de la colonne : Seb s'épingle dans le Buddy Group, sans Buddy Time ; Julie le voit.
+    # 📍 de la colonne : Seb s'épingle dans le groupe, sans sortie ; Julie le voit.
     r = sync(client, ops=[op("epingle", groupe=gid, enfoncee=True, quand=T0, jusqu=T0 + 3600_000),
                           op("position", groupe=gid, lat=44.61, lon=6.71, alt=1500, prise_le=T0 + 60_000)])
     assert r["refus"] == []
@@ -573,7 +573,7 @@ def test_hebergement_propose_coeurs_et_retenu(client):
                                        op("retenir_hebergement", hebergement=gite["hebergement"], retenu=True)])
     assert r["refus"] == []
     assert {x["nom"]: (x["retenu"], len(x["coeurs"])) for x in r["hebergements"]} == {"Gîte Les Baladins": (True, 1), "Refuge de la Cime": (False, 1)}
-    # Seb retire son ♥ et le refuge ; Luc (hors du Buddy Time) ne voit rien et ne peut rien faire.
+    # Seb retire son ♥ et le refuge ; Luc (hors de la sortie) ne voit rien et ne peut rien faire.
     r = sync(client, ops=[op("coeur", hebergement=gite["hebergement"], coeur=False), op("retirer_hebergement", hebergement=refuge["hebergement"])])
     assert r["ids_hebergements"] == [gite["hebergement"]]
     assert sync(client, sub="luc")["ids_hebergements"] == []
@@ -676,7 +676,7 @@ def test_repondre_modifier_supprimer_reagir(client, photos):
         x.cree_le = x.cree_le - timedelta(minutes=16)
         s.commit()
     assert sync(client, ops=[{"id": "t", "type": "modifier_message", "message": m1["message"], "texte": "trop tard"}])["refus"]
-    # L'admin du Buddy Group supprime le message de Julie (modération).
+    # L'admin du groupe supprime le message de Julie (modération).
     r = sync(client, ops=[{"id": "s", "type": "retirer_message", "message": rep["message"]}])
     assert r["refus"] == [] and next(m for m in r["messages"] if m["id"] == rep["message"])["supprime"]
 
@@ -747,14 +747,14 @@ def test_annuler_un_buddy_time(client, photos):
     assert sync(client, sub="julie", ops=[{"id": "a", "type": "retirer_sortie", "sortie": so["sortie"]}])["refus"]
     r = sync(client, ops=[{"id": "b", "type": "retirer_sortie", "sortie": so["sortie"]}] * 2)
     assert r["refus"] == [] and so["sortie"] not in r["ids_sorties"]
-    # Un Buddy Time qui a déjà servi reste.
+    # Une sortie qui a déjà servi reste.
     so2 = nouvelle_sortie(gid)
     sync(client, ops=[so2, nouveau_message(sortie=so2["sortie"])])
     assert sync(client, ops=[{"id": "c", "type": "retirer_sortie", "sortie": so2["sortie"]}])["refus"]
 
 
 def test_bud_supprime_un_buddy_time(client, photos):
-    """§7.12 : supprimer un Buddy Time qui a déjà servi (caché de tous), puis « Annuler » le remet avec son contenu."""
+    """§7.12 : supprimer une sortie qui a déjà servi (caché de tous), puis « Annuler » le remet avec son contenu."""
     gid, julie = bande_avec_julie(client)
     so = nouvelle_sortie(gid, participants=[julie])
     msg = nouveau_message(sortie=so["sortie"])

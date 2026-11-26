@@ -14,7 +14,7 @@ export interface SavedTrace {
   line: [number, number][];
   /** 📍 Points piqués avec leur petit mot. */
   pins?: Pin[];
-  /** 👥 Buddy Group et Buddy Time associés. */
+  /** 👥 Groupe et sortie associés. */
   lien?: { groupe: string; sortie: string | null } | null;
 }
 
@@ -67,7 +67,7 @@ export function readPins(v: unknown): Pin[] {
     .map((p) => ({ lon: Number(p.lon), lat: Number(p.lat), txt: String(p.txt ?? ''), vu: p.vu !== false }));
 }
 
-/** Lien 👥 lu d'un JSON : un Buddy Group, et peut-être un Buddy Time. */
+/** Lien 👥 lu d'un JSON : un groupe, et peut-être une sortie. */
 export function readLien(v: unknown): SavedTrace['lien'] {
   const o = v as { groupe?: unknown; sortie?: unknown } | null;
   return o && typeof o.groupe === 'string' ? { groupe: o.groupe, sortie: typeof o.sortie === 'string' ? o.sortie : null } : null;

@@ -1,5 +1,5 @@
 /**
- * Album d'un Buddy Time (spec/buddies.md §5.8) : les fichiers des photos.
+ * Album d'une sortie (spec/buddies.md §5.8) : les fichiers des photos.
  *
  * - Déposer : la photo est réduite sur le téléphone (petite 400 px pour la grille, grande 2560 px au plus pour la voir, sans recompresser une photo déjà à cette taille),
  *   gardée ici (IndexedDB) et envoyée au retour du réseau (PUT /buddies/photos/<id>/<taille>).

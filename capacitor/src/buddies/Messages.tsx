@@ -18,8 +18,8 @@ import {
 import { TrashIcon } from '../icones';
 
 /**
- * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par Buddy Group et par Buddy Time.
- * Celle d'un Buddy Time s'ouvre sur sa carte (bandeau du bas) ; celle d'un Buddy Group dans le panneau.
+ * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par groupe et par sortie.
+ * Celle d'une sortie s'ouvre sur sa carte (bandeau du bas) ; celle d'un groupe dans le panneau.
  * Mêmes écrans côté Kotlin (Messages.kt, BuddiesPanel.kt, BandeauSortie.kt).
  */
 
@@ -110,7 +110,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
       const donnees = { nom: appliquer(e).find((g) => g.id === dest.groupe)?.nom ?? '', sortie, membres, moi, traces: v.traces,
         hebergements: v.hebergements, depenses: v.depenses, plannings: v.plannings, messages: v.messages, sorties: v.sorties };
       const r = await demander(question, contexte(dest, donnees));
-      // Ce que je lui ai demandé de faire (dépense, Buddy Time, ma dispo) : fait en mon nom, « Annuler » sous sa bulle.
+      // Ce que je lui ai demandé de faire (dépense, sortie, ma dispo) : fait en mon nom, « Annuler » sous sa bulle.
       const { faites, refus } = agir(r.actions, dest, { ...donnees, groupe: appliquer(e).find((g) => g.id === (sortie?.groupe ?? dest.groupe)) });
       const id = envoyerMessage(dest, { texte: r.texte || 'C’est fait.', bud: true });
       if (faites.length && id) noterActionsBud(id, faites);
@@ -141,7 +141,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
     try { envoyerMessage(dest, { nature: 'point', ...await maPosition() }); } catch { onToast('Position introuvable : le GPS est-il allumé ?'); }
     setOccupe(false);
   };
-  // 📎 et 📷 (hors Buddy Time) : photos, vidéos, documents, gardés sur le téléphone puis envoyés au retour du réseau.
+  // 📎 et 📷 (hors sortie) : photos, vidéos, documents, gardés sur le téléphone puis envoyés au retour du réseau.
   const joindre = async (l: FileList | null) => {
     if (!l?.length) return;
     setOccupe(true);
@@ -524,7 +524,7 @@ export function Conversations({ groupes, sorties, onGroupe, onSortie, onContact,
   return <div className="bd-corps bd-convs">
     <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>💬 Messages</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
     <input className="bd-cherche" type="search" value={cherche} onChange={(ev) => setCherche(ev.target.value)} placeholder="🔍 Rechercher" />
-    {!l.length && <p className="bd-vide">Crée un Buddy Group ou un Buddy Time avec des copains : vous pourrez vous écrire ici.</p>}
+    {!l.length && <p className="bd-vide">Crée un groupe ou une sortie avec des copains : vous pourrez vous écrire ici.</p>}
     {q && trouvees.length > 0 && <h3 className="bd-section">Discussions</h3>}
     {trouvees.map((c) => <button key={c.id} className="bd-ligne" onClick={c.ouvrir}>
       <Visage b={c.visage} taille={48} />
@@ -541,7 +541,7 @@ export function Conversations({ groupes, sorties, onGroupe, onSortie, onContact,
   </div>;
 }
 
-/** Nouvelle discussion (comme AppBase) : « Nouveau Buddy Group » en tête, puis mes buddies par ordre alphabétique. */
+/** Nouvelle discussion (comme AppBase) : « Nouveau groupe » en tête, puis mes buddies par ordre alphabétique. */
 export function NouvelleDiscussion({ onContact, onNouveauGroupe, onRetour, onClose }: {
   onContact: (b: Buddy) => void; onNouveauGroupe: () => void; onRetour: () => void; onClose: () => void;
 }) {
@@ -552,8 +552,8 @@ export function NouvelleDiscussion({ onContact, onNouveauGroupe, onRetour, onClo
   return <div className="bd-corps">
     <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouvelle discussion</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
     <input className="bd-cherche" type="search" value={cherche} onChange={(ev) => setCherche(ev.target.value)} placeholder="🔍 Rechercher un buddy" />
-    <button className="bd-ligne" onClick={onNouveauGroupe}><span className="bd-faces"><i /><i /><i /></span><span className="bd-texte"><b>Nouveau Buddy Group</b></span></button>
-    {!contacts(e).length && <p className="bd-vide">Invite des copains dans un Buddy Group : tu pourras ensuite leur écrire à deux.</p>}
+    <button className="bd-ligne" onClick={onNouveauGroupe}><span className="bd-faces"><i /><i /><i /></span><span className="bd-texte"><b>Nouveau groupe</b></span></button>
+    {!contacts(e).length && <p className="bd-vide">Invite des copains dans un groupe : tu pourras ensuite leur écrire à deux.</p>}
     {l.map((c) => <button key={c.b.id} className="bd-ligne" onClick={() => onContact(c.b)}>
       <Visage b={c.b} taille={48} /><span className="bd-texte"><b>{c.b.pseudo}</b><small>{c.bandes.join(', ')}</small></span>
     </button>)}

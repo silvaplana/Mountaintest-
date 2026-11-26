@@ -29,8 +29,8 @@ import {
 } from './store';
 
 /**
- * Buddies (spec/buddies.md) : la liste façon WhatsApp (écran 2), un Buddy Group (3), nouveau Buddy Group et
- * invitations (20), nouveau Buddy Time (21), le bandeau d'un Buddy Time sur la carte (4) et le panneau de
+ * Buddies (spec/buddies.md) : la liste façon WhatsApp (écran 2), un groupe (3), nouveau groupe et
+ * invitations (20), nouvelle sortie (21), le bandeau d'une sortie sur la carte (4) et le panneau de
  * partage (22). Mêmes écrans côté Kotlin (BuddiesPanel.kt, SharePanel.kt).
  */
 
@@ -87,7 +87,7 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: () => voi
     const code = new URL(url.replace(/^[a-z.]+:\/\//, 'https://x/')).searchParams.get('c') ?? '';
     rejoindre(code);
     onOuvrir();
-    onToast(connecte() ? 'Invitation reçue : tu entres dans le Buddy Group' : 'Connecte-toi (👤) pour entrer dans le Buddy Group');
+    onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
   };
   const subs: Promise<{ remove: () => Promise<void> }>[] = [];
   if (Capacitor.isNativePlatform()) {
@@ -172,27 +172,42 @@ function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: 
   </button>;
 }
 
-/** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
-  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
+/**
+ * Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement.
+ * Rétractable (Seb, 26/11) : ✕ toujours en haut, dessous une flèche qui fait descendre les icônes puis les remonte.
+ */
+function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
+  onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
   onAppel?: () => void; onPosition?: () => void;
 }) {
   const visible = !!monEpingle(useBuddies());
+  const [ouverte, setOuverte] = useState(false);
   return <div className="bd-colonne">
+    <button onClick={onClose} aria-label="Fermer">✕</button>
+    <button className={`bd-col-fleche${ouverte ? ' ouverte' : ''}`} onClick={() => setOuverte(!ouverte)}
+      aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
+    <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
     <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
     <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
     <button aria-label="Buddy count" onClick={onExpenses}>💶</button>
     <button aria-label="Hébergement" onClick={onLodging}>🏨</button>
-    {/* 📍 Partager ma position avec mes buddies, même hors Buddy Time (Seb, 25/11) ; verte tant qu'ils me voient. */}
+    {/* 📍 Partager ma position avec mes buddies, même hors sortie (Seb, 25/11) ; verte tant qu'ils me voient. */}
     <button aria-label="Ma position" className={`bd-col-pin${visible ? ' actif' : ''}`}
       onClick={onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position'))}><PinIcon /></button>
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Voyage en voiture" onClick={onTravel}>🚗</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Moi : mon compte" onClick={onAccount}>👤</button>
+    </div>
   </div>;
+}
+
+/** Flèche au trait (règle icônes de Seb) ; la colonne la retourne quand les icônes sont sorties. */
+function ChevronIcon() {
+  return <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 9l6 6 6-6" /></svg>;
 }
 
 function Qr({ texte }: { texte: string }) {
@@ -214,13 +229,13 @@ type Formulaire = { canal: 'mail' | 'sms'; nom: string; contact: string };
  */
 function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   nomGroupe: string; qrExistant?: string; onInvite: (i: NouvelleInvitation) => void; onToast: (m: string) => void;
-  /** Invitation à un Buddy Time (une sortie de Me Time) plutôt qu'à un Buddy Group. */
+  /** Invitation à une sortie (une sortie de Me Time) plutôt qu'à un groupe. */
   sortie?: boolean;
 }) {
   const [form, setForm] = useState<Formulaire | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const texte = (code: string) => `${nomAffiche()} t'invite ${sortie ? 'à' : 'dans'} « ${nomGroupe} » sur Mountain Buddies, pour nos sorties montagne : ${lien(code)}`;
-  const pret = () => { if (!nomGroupe.trim()) { onToast(`Donne d’abord un nom au ${sortie ? 'Buddy Time' : 'Buddy Group'}`); return false; } return true; };
+  const pret = () => { if (!nomGroupe.trim()) { onToast(`Donne d’abord un nom ${sortie ? 'à la sortie' : 'au groupe'}`); return false; } return true; };
 
   const envoyer = async (canal: Canal, nom: string, contact: string) => {
     const code = nouveauCode();
@@ -278,7 +293,7 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   </>;
 }
 
-// ------------------------------------------------------------------ Buddy Times
+// ------------------------------------------------------------------ Sorties
 
 const MOIS = ['JANV', 'FÉVR', 'MARS', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
 const jourMois = (d: string) => ({ j: String(+d.slice(8, 10)), m: MOIS[+d.slice(5, 7) - 1] ?? '' });
@@ -298,7 +313,7 @@ export function Carre({ x, taille = 56 }: { x: Sortie; taille?: number }) {
     <span className="bd-date"><small>{m}</small><b>{j}</b></span></span>;
 }
 
-/** Grande image d'un Buddy Time (le prochain en haut de la liste, les cartes d'un groupe). */
+/** Grande image d'une sortie (le prochain en haut de la liste, les cartes d'un groupe). */
 function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; onClick: () => void }) {
   return <button className={`bd-affiche${petite ? ' petite' : ''}`} onClick={onClick}
     style={{ background: x.photo ? `linear-gradient(#0000 40%, #000a), center/cover url("${x.photo}")` : `linear-gradient(#0000 30%, #0008), ${couleur(x.id)}` }}>
@@ -308,7 +323,7 @@ function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; 
   </button>;
 }
 
-/** Celui qui a créé le Buddy Time (ou pas encore synchronisé : c'est moi) ou un admin de son Buddy Group peut le supprimer. */
+/** Celui qui a créé la sortie (ou pas encore synchronisé : c'est moi) ou un admin de son groupe peut le supprimer. */
 export const peutSupprimer = (x: Sortie, e: Etat) => !x.par || x.par === e.moi || appliquer(e).some((g) => g.id === x.groupe && estAdmin(g, e));
 
 /** Poubelle (Seb, 25 novembre) : supprimé tout de suite, « Annuler » 10 secondes ; le serveur garde tout. */
@@ -327,7 +342,7 @@ function useSuppression() {
   return { supprimer, bandeau };
 }
 
-/** Feuille « Nom du … » : changer le nom d'un Buddy Time, d'un Buddy Group ou du Me Time. */
+/** Feuille « Nom du … » : changer le nom d'une sortie, d'un groupe ou du Me Time. */
 function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
   titre: string; nom: string; onEnregistrer: (nom: string) => void; onFermer: () => void; onToast: (m: string) => void;
 }) {
@@ -344,7 +359,7 @@ function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
   </div></div>;
 }
 
-/** ✏ et poubelle, au trait, à côté de chaque Buddy Time des listes (Seb, 25 novembre). */
+/** ✏ et poubelle, au trait, à côté de chaque sortie des listes (Seb, 25 novembre). */
 function OutilsBuddyTime({ x, e, onSupprimer, onToast, surImage = false }: {
   x: Sortie; e: Etat; onSupprimer: (x: Sortie) => void; onToast: (m: string) => void; surImage?: boolean;
 }) {
@@ -352,7 +367,7 @@ function OutilsBuddyTime({ x, e, onSupprimer, onToast, surImage = false }: {
   return <span className={`bd-outils${surImage ? ' sur-image' : ''}`}>
     <button onClick={() => setNommer(true)} aria-label={`Changer le nom de ${x.nom}`}><PencilIcon size={22} /></button>
     {peutSupprimer(x, e) && <button onClick={() => onSupprimer(x)} aria-label={`Supprimer ${x.nom}`}><TrashIcon size={22} /></button>}
-    {nommer && <FeuilleNom titre="Nom du Buddy Time" nom={x.nom} onEnregistrer={(n) => renommerSortie(x.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
+    {nommer && <FeuilleNom titre="Nom de la sortie" nom={x.nom} onEnregistrer={(n) => renommerSortie(x.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
   </span>;
 }
 
@@ -363,16 +378,16 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
   | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' }
   | { ecran: 'position'; groupe?: string; sortie?: string };
-/** Ouvrir Buddies ailleurs que sur la liste : un Buddy Group (‹ depuis la carte), l'album ou le carnet d'un Buddy Time. */
+/** Ouvrir Buddies ailleurs que sur la liste : un groupe (‹ depuis la carte), l'album ou le carnet d'une sortie. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
 
-/** Ce qu'on montre sur la carte : un Buddy Time (sa conversation ouverte si `parler`), des traces, un point d'un message,
+/** Ce qu'on montre sur la carte : une sortie (sa conversation ouverte si `parler`), des traces, un point d'un message,
  * ou les buddies visibles (📍 de la colonne) centrés sur l'un d'eux (`positions` = son identifiant). */
 export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, depart }: {
   onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
-  /** Ouvrir un Buddy Time sur la carte (écran 4), ou une trace partagée dans un groupe. */
+  /** Ouvrir une sortie sur la carte (écran 4), ou une trace partagée dans un groupe. */
   onCarte: (x: CarteBuddies) => void;
   depart?: DepartBuddies;
 }) {
@@ -380,7 +395,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const compte = useCompte();
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
     : depart?.ecran === 'conv' ? depart : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
-  // Derniers ouverts (proposés en premier pour associer une trace) : le Buddy Group, le Buddy Time de l'album, du carnet…
+  // Derniers ouverts (proposés en premier pour associer une trace) : le groupe, la sortie de l'album, du carnet…
   useEffect(() => {
     if (vue.ecran === 'groupe') noterOuvert('groupes', vue.id);
     else if ('id' in vue && ['album', 'carnet', 'ecrire', 'count', 'depense', 'dodo'].includes(vue.ecran)) noterOuvert('sorties', vue.id);
@@ -395,10 +410,9 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }, [onToast]);
 
   if (!connecte(compte)) {
-    const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} onTravel={onTravel} onAccount={onAccount} />;
+    const colonne = <Colonne onClose={onClose} onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} onTravel={onTravel} onAccount={onAccount} />;
     return <div className="buddies">{colonne}<div className="bd-corps">
-      <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
-      <p className="bd-vide">Connecte-toi pour retrouver tes copains, créer tes Buddy Groups et partager vos sorties.</p>
+      <p className="bd-vide">Connecte-toi pour retrouver tes copains, créer tes groupes et partager vos sorties.</p>
       <button className="primary bd-grand" onClick={onAccount}>👤 Me connecter</button>
       {rejointsEnAttente(e).length > 0 && <p className="hint">🕓 Une invitation t'attend : elle s'ouvrira une fois connecté.</p>}
     </div></div>;
@@ -409,35 +423,35 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const parlerA = (b: Buddy) => void ouvrirDuo(b).then((id) => setVue({ ecran: 'conv', id })).catch((err: Error) => onToast(err.message));
   const { sorties, traces, plannings, photos, depenses, hebergements } = vueSorties(e);
   const ouvrir = (x: Sortie, parler = false) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id), parler });
-  // Un Buddy Time terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
+  // Une sortie terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
   // Ancien Me Time (retiré, Seb 25 novembre) : tant qu'un téléphone en garde un avant la synchro, on l'écarte comme avant.
   const meTime = groupes.find((x) => x.nature === 'me_time');
-  // 📅 : les plannings du Buddy Group ouvert, sinon de toutes mes bandes (spec §5.5).
+  // 📅 : les plannings du groupe ouvert, sinon de toutes mes bandes (spec §5.5).
   const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' || vue.ecran === 'conv' ? vue.id : undefined;
-  // 💶 : le Buddy count du Buddy Time ouvert, sinon tous ceux du Buddy Group ouvert (ou de tous).
+  // 💶 : le Buddy count de la sortie ouverte, sinon tous ceux du groupe ouvert (ou de tous).
   const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) ? vue.id : undefined;
-  // 🏨 : « Où on dort ? » du Buddy Time ouvert, sinon la recherche d'hébergement.
-  const colonne = <Colonne onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
+  // 🏨 : « Où on dort ? » de la sortie ouverte, sinon la recherche d'hébergement.
+  const colonne = <Colonne onClose={onClose} onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
     onPosition={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
     onMessages={() => {
-      // 💬 : la conversation du Buddy Time ouvert (sur sa carte), sinon celle du Buddy Group ouvert, sinon toutes.
+      // 💬 : la conversation de la sortie ouverte (sur sa carte), sinon celle du groupe ouvert, sinon toutes.
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
       if (x) ouvrir(x, true);
       else if (vue.ecran === 'groupe' && vue.id !== meTime?.id) setVue({ ecran: 'conv', id: vue.id });
       else setVue({ ecran: 'messages', groupe: ici });
     }}
     onAppel={() => {
-      // 📞 : toute la bande du Buddy Time ouvert, sinon du Buddy Group ouvert (spec §5.7).
+      // 📞 : toute la bande de la sortie ouverte, sinon du groupe ouvert (spec §5.7).
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
       const gr = vue.ecran === 'groupe' || vue.ecran === 'conv' ? groupes.find((y) => y.id === vue.id) : undefined;
       if (x) appelerBande({ sortie: x.id }, x.nom, onToast);
       else if (gr && gr.nature !== 'me_time') appelerBande({ groupe: gr.id }, gr.nom, onToast);
-      else onToast('Ouvre un Buddy Group ou un Buddy Time pour appeler toute la bande');
+      else onToast('Ouvre un groupe ou une sortie pour appeler toute la bande');
     }} />;
   const album = sortieIci ? sorties.find((x) => x.id === sortieIci) : undefined;
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
@@ -513,27 +527,27 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   </div>;
 }
 
-/** ＋ Buddy Time depuis la liste : dans quel Buddy Group ? (plus de Me Time : Seb, 25 novembre). */
+/** ＋ Sortie depuis la liste : dans quel groupe ? (plus de Me Time : Seb, 25 novembre). */
 function ChoixGroupe({ groupes, onChoix, onNouveau, onRetour, onClose }: {
   groupes: Groupe[]; onChoix: (id: string) => void; onNouveau: () => void; onRetour: () => void; onClose: () => void;
 }) {
   return <div className="bd-corps">
     <div className="xp-head">
-      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau Buddy Time</h2>
+      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouvelle sortie</h2>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    <h3 className="bd-section">Dans quel Buddy Group ?</h3>
+    <h3 className="bd-section">Dans quel groupe ?</h3>
     {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onChoix(g.id)}>
       <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} />
       <span className="bd-texte"><b>{g.nom}</b><small>{resume(g)}</small></span>
     </button>)}
-    {!groupes.length && <p className="bd-vide">Crée d'abord un Buddy Group : une bande de copains, ou rien que toi pour tes sorties perso.</p>}
+    {!groupes.length && <p className="bd-vide">Crée d'abord un groupe : une bande de copains, ou rien que toi pour tes sorties perso.</p>}
     <span style={{ flex: 1 }} />
-    <button className={groupes.length ? 'bd-grand' : 'primary bd-grand'} onClick={onNouveau}>＋ Buddy Group</button>
+    <button className={groupes.length ? 'bd-grand' : 'primary bd-grand'} onClick={onNouveau}>＋ Groupe</button>
   </div>;
 }
 
-function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, onNouveau, onNouvelle, onClose, onToast }: {
+function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, onNouveau, onNouvelle, onToast }: {
   e: Etat; groupes: Groupe[]; sorties: Sortie[]; plannings: Planning[]; onRemplir: (p: Planning) => void; onOuvrir: (id: string) => void; onSortie: (x: Sortie) => void;
   onNouveau: () => void; onNouvelle: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
@@ -542,12 +556,11 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
   const suppression = useSuppression();
   const nomGroupe = (x: Sortie) => groupes.find((g) => g.id === x.groupe)?.nom ?? '';
   return <div className="bd-corps">
-    <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
     <p className="hint">{enAttente ? `🕓 ${enAttente} changement${enAttente > 1 ? 's' : ''} partira au retour du réseau · ` : ''}{heure(e.synchro)}</p>
     {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     {haut && <Affiche x={haut} onClick={() => onSortie(haut)} />}
-    <h3 className="bd-section">Buddy Groups</h3>
+    <h3 className="bd-section">Groupes</h3>
     {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
       {g.nature === 'me_time' ? <Visage b={{ id: g.id, pseudo: nomAffiche(), photo: lireCompte().profil?.photo ?? null }} taille={56} />
         : <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} />}
@@ -555,7 +568,7 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
         <small>{g.nature === 'me_time' ? 'Mes sorties à moi' : resume(g)}</small></span>
       <small className="bd-quand">{g.attente ? '🕓' : quand(g.modifie_le)}</small>
     </button>)}
-    {sorties.length > 0 && <h3 className="bd-section">Buddy Times</h3>}
+    {sorties.length > 0 && <h3 className="bd-section">Sorties</h3>}
     {sorties.map((x) => <div key={x.id} className="bd-ligne-outils"><button className="bd-ligne" onClick={() => onSortie(x)}>
       <Carre x={x} />
       <span className="bd-texte"><b>{x.nom}</b>
@@ -566,9 +579,9 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
       <button className="primary" onClick={onNouveau}><span className="bd-faces"><i /><i /><i /></span>
-        <span className="bd-plus-texte"><b>＋ Buddy Group</b><small>une bande</small></span></button>
+        <span className="bd-plus-texte"><b>＋ Groupe</b></span></button>
       <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
-        <span className="bd-plus-texte"><b>＋ Buddy Time</b><small>une sortie</small></span></button>
+        <span className="bd-plus-texte"><b>＋ Sortie</b></span></button>
     </div>
   </div>;
 }
@@ -589,11 +602,11 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <span className="bd-titre" onClick={() => setNommer(true)}><b>{g.nom}</b><small>{me ? 'Mes sorties à moi' : `Buddy Group · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
+      <span className="bd-titre" onClick={() => setNommer(true)}><b>{g.nom}</b><small>{me ? 'Mes sorties à moi' : `Groupe · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
       <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={22} /></button>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    {nommer && <FeuilleNom titre={me ? 'Nom de mes sorties à moi' : 'Nom du Buddy Group'} nom={g.nom}
+    {nommer && <FeuilleNom titre={me ? 'Nom de mes sorties à moi' : 'Nom du groupe'} nom={g.nom}
       onEnregistrer={(n) => renommerGroupe(g.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
     {!me && <button className="bd-visages" onClick={() => setMembres(true)} aria-label="Les buddies">
       {g.membres.map((m) => <Visage key={m.id} b={m} taille={34} />)}
@@ -605,7 +618,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     <h3 className="bd-section">À venir</h3>
     {avenir.length ? avenir.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} onClick={() => onOuvrir(x)} />
       <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)
-      : <p className="bd-vide">{me ? 'Tes sorties à toi, seul ou avec un ou deux copains invités.' : 'Rien de prévu pour l’instant : ＋ Buddy Time quand vous êtes sûrs de partir.'}</p>}
+      : <p className="bd-vide">{me ? 'Tes sorties à toi, seul ou avec un ou deux copains invités.' : 'Rien de prévu pour l’instant : ＋ Sortie quand vous êtes sûrs de partir.'}</p>}
     {souvenirs.length > 0 && <><h3 className="bd-section">Souvenirs</h3>
       <div className="bd-grille">{souvenirs.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} petite onClick={() => onOuvrir(x)} />
         <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)}</div></>}
@@ -617,7 +630,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
       <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
-        <span className="bd-plus-texte"><b>＋ Buddy Time</b><small>une sortie</small></span></button>
+        <span className="bd-plus-texte"><b>＋ Sortie</b></span></button>
     </div>
     {membres && <Membres g={g} qr={qr} onToast={onToast} onFermer={() => setMembres(false)} onParti={onRetour} />}
   </div>;
@@ -650,7 +663,7 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
     <button className="acc-deco" onClick={() => {
       if (!confirm(`Quitter « ${g.nom} » ?`)) return;
       quitter(g.id); onToast(`Tu as quitté « ${g.nom} »`); onParti();
-    }}>Quitter le Buddy Group</button>
+    }}>Quitter le groupe</button>
     <button onClick={onFermer}>Fermer</button>
   </div></div>;
 }
@@ -668,7 +681,7 @@ function ChoixPhoto({ photo, onPhoto, onToast, grand = false }: { photo: string 
   </>;
 }
 
-/** Nouveau Buddy Group (écran 20) : photo, nom, invitations, puis « Créer le Buddy Group ». */
+/** Nouveau groupe (écran 20) : photo, nom, invitations, puis « Créer le groupe ». */
 function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) => void; onFini: (id: string) => void; onRetour: () => void; onClose: () => void }) {
   const [nom, setNom] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
@@ -683,7 +696,7 @@ function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) 
   };
   return <div className="bd-corps">
     <div className="xp-head">
-      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau Buddy Group</h2>
+      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau groupe</h2>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
     <ChoixPhoto photo={photo} onPhoto={setPhoto} onToast={onToast} />
@@ -699,12 +712,12 @@ function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) 
       <small className="bd-etat">{CANAL[i.canal]}</small></div>)}
     <p className="hint">Ils reçoivent un lien : il installe l'appli et les fait entrer dans le groupe.</p>
     <span style={{ flex: 1 }} />
-    <button className="primary bd-grand" disabled={!nom.trim()} onClick={creer}>Créer le Buddy Group</button>
+    <button className="primary bd-grand" disabled={!nom.trim()} onClick={creer}>Créer le groupe</button>
   </div>;
 }
 
 /**
- * Nouveau Buddy Time (écran 21) : il naît quand on est sûr de partir. Dans un Buddy Group, tout le monde est
+ * Nouvelle sortie (écran 21) : elle naît quand on est sûr de partir. Dans un groupe, tout le monde est
  * coché, on décoche ceux qui ne viennent pas ; dans Me Time, on invite un ou deux copains à l'unité.
  */
 function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
@@ -728,7 +741,7 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
   };
   return <div className="bd-corps">
     <div className="xp-head">
-      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouveau Buddy Time</h2>
+      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouvelle sortie</h2>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
     <ChoixPhoto grand photo={photo} onPhoto={setPhoto} onToast={onToast} />
@@ -744,7 +757,7 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
       {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">
         <Visage b={{ id: i.code, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
         <small className="bd-etat">{CANAL[i.canal]}</small></div>)}
-      {!invites.length && <p className="hint">Seul, ou invite un ou deux copains à cette sortie, sans créer de Buddy Group.</p>}
+      {!invites.length && <p className="hint">Seul, ou invite un ou deux copains à cette sortie, sans créer de groupe.</p>}
     </> : <div className="bd-qui">
       {g.membres.map((m) => <button key={m.id} className={qui.has(m.id) ? 'oui' : ''} disabled={m.id === moiId}
         onClick={() => setQui((q) => { const n = new Set(q); if (n.has(m.id)) n.delete(m.id); else n.add(m.id); return n; })}>
@@ -753,13 +766,13 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
     <h3 className="bd-section">Où <small>facultatif</small></h3>
     <input value={lieu} maxLength={120} placeholder="📍 Ceillac, Queyras" onChange={(ev) => setLieu(ev.target.value)} />
     <span style={{ flex: 1 }} />
-    <button className="primary bd-grand" disabled={!nom.trim()} onClick={creer}>Créer le Buddy Time</button>
+    <button className="primary bd-grand" disabled={!nom.trim()} onClick={creer}>Créer la sortie</button>
   </div>;
 }
 
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
-/** Haut et bas de la carte d'un Buddy Time : ‹ nom et dates en haut, bandeau rabattable en bas. */
+/** Haut et bas de la carte d'une sortie : ‹ nom et dates en haut, bandeau rabattable en bas. */
 export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, onCount, onDodo, onToast, map }: {
   x: Sortie; traces: TraceBuddy[]; parler?: boolean; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void; onDodo: () => void;
   onToast: (m: string) => void; map: MlMap | null;
@@ -768,10 +781,10 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   const sheet = useSheet('buddyTime', { masque: false });
   const replie = sheet.cran === 0;
   const setReplie = (v: boolean) => sheet.setCran(v ? 0 : 1);
-  // 💬 Écrans 6 et 24 : la conversation du Buddy Time, carte au-dessus ; repliée, seulement les derniers mots.
+  // 💬 Écrans 6 et 24 : la conversation de la sortie, carte au-dessus ; repliée, seulement les derniers mots.
   const [msg, setMsg] = useState(!!parler);
   const [point, setPoint] = useState<{ lon: number; lat: number; nom: string } | null>(null);
-  // 📍 Écran 15 : la position des buddies, à la place du bandeau (pendant le Buddy Time).
+  // 📍 Écran 15 : la position des buddies, à la place du bandeau (pendant la sortie).
   const [pos, setPos] = useState(false);
   const rs = useReperes(x);
   const visibles = nombreVisibles(rs);
@@ -798,7 +811,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   const valider = () => {
     try { if (titre !== null && titre.trim() !== nom) renommerSortie(x.id, titre); setTitre(null); } catch (err) { onToast((err as Error).message); }
   };
-  // Poubelle (Seb, 25 novembre) : pour celui qui l'a créé ou un admin du Buddy Group. Supprimé tout de suite,
+  // Poubelle (Seb, 25 novembre) : pour celui qui l'a créé ou un admin du groupe. Supprimé tout de suite,
   // « Annuler » 10 secondes (le serveur garde tout), puis retour aux Buddies.
   const [supprime, setSupprime] = useState<Sortie | null>(null);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -816,15 +829,15 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   if (supprime) return <>
     <div className="bd-carte-haut">
       <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
-      <span className="bd-texte"><b>{nom}</b><small>Buddy Time supprimé</small></span>
+      <span className="bd-texte"><b>{nom}</b><small>Sortie supprimé</small></span>
     </div>
-    <div className="bd-carte-bas"><div className="bd-bandeau">Buddy Time supprimé
+    <div className="bd-carte-bas"><div className="bd-bandeau">Sortie supprimé
       <button className="bd-lien" onClick={annulerSuppression}>Annuler</button></div></div>
   </>;
   if (titre !== null) return <>
     <div className="bd-carte-haut">
       <button onClick={() => setTitre(null)} aria-label="Annuler">✕</button>
-      <input className="bd-titre" value={titre} maxLength={80} autoFocus aria-label="Nom du Buddy Time"
+      <input className="bd-titre" value={titre} maxLength={80} autoFocus aria-label="Nom de la sortie"
         onChange={(ev) => setTitre(ev.target.value)} onKeyDown={(ev) => { if (ev.key === 'Enter') valider(); }} />
       <button className="primary" onClick={valider} aria-label="Valider le nom">✓</button>
     </div>
@@ -835,7 +848,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
       <span className="bd-texte" onClick={() => setTitre(nom)}><b>{nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
         : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
       <button onClick={() => setTitre(nom)} aria-label="Changer le nom"><PencilIcon size={22} /></button>
-      {peutSupprimer(x, eb) && <button onClick={supprimer} aria-label="Supprimer le Buddy Time"><TrashIcon size={22} /></button>}
+      {peutSupprimer(x, eb) && <button onClick={supprimer} aria-label="Supprimer la sortie"><TrashIcon size={22} /></button>}
     </div>
     <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}${sheet.classe}`}>
       <div {...sheet.prise} aria-label="Régler la hauteur du bandeau"><div className="handle" /></div>
@@ -913,13 +926,13 @@ function longueur(l: [number, number][]) {
 // ------------------------------------------------------------------ panneau de partage (écran 22, spec §3.4)
 
 /**
- * Le même panneau partout : « Dans un Buddy Time » (les plus actifs), « Ou à mes buddies » (mes Buddy Groups),
+ * Le même panneau partout : « Dans une sortie » (les plus actifs), « Ou à mes buddies » (mes groupes),
  * un petit mot, un seul bouton Partager, puis « Ou ailleurs » (les autres applis du téléphone).
- * Les copains un par un arriveront avec la messagerie : aujourd'hui une trace se range dans un Buddy Time ou un groupe.
+ * Les copains un par un arriveront avec la messagerie : aujourd'hui une trace se range dans une sortie ou un groupe.
  */
 export function PartagePanel({ nom, ligne, hebergement, onAilleurs, onFermer, onToast }: {
   nom: string; ligne: [number, number][]; onAilleurs: () => void; onFermer: () => void; onToast: (m: string) => void;
-  /** Un hébergement trouvé (écran 23) : il se range dans les Buddy Times choisis, où je pars. */
+  /** Un hébergement trouvé (écran 23) : il se range dans les sorties choisies, où je pars. */
   hebergement?: Lodging;
 }) {
   const e = useBuddies();
@@ -951,15 +964,15 @@ export function PartagePanel({ nom, ligne, hebergement, onAilleurs, onFermer, on
     <div className="xp-head"><h3>Partager « {nom} »</h3><small className="bd-quand">{hebergement ? prixHebergement(hebergement)
       : `${(longueur(ligne) / 1000).toFixed(1)} km`}</small></div>
     {connecte(compte) ? <>
-      {actives.length > 0 && <><h3 className="bd-section">Dans un Buddy Time <small>les plus actifs</small></h3>
+      {actives.length > 0 && <><h3 className="bd-section">Dans une sortie <small>les plus actives</small></h3>
         <div className="bd-defile">{actives.map((x) => <button key={x.id} className={`bd-tuile${choix.has(x.id) ? ' oui' : ''}`} onClick={() => basculer(x.id)}>
           <Carre x={x} taille={88} /><small>{x.nom}</small></button>)}</div></>}
       {groupes.length > 0 && <><h3 className="bd-section">Ou à mes buddies</h3>
         <div className="bd-defile">{(tous ? groupes : groupes.slice(0, 5)).map((g) => <button key={g.id} className={`bd-tuile rond${choix.has(g.id) ? ' oui' : ''}`} onClick={() => basculer(g.id)}>
           <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} /><small>{g.nom}</small></button>)}
           {!tous && groupes.length > 5 && <button className="bd-tuile rond" onClick={() => setTous(true)}><span className="bd-ajout">⋯</span><small>Tous</small></button>}</div></>}
-      {!actives.length && !groupes.length && <p className="hint">{hebergement ? 'Crée un Buddy Time (👥) pour y proposer un hébergement à tes buddies.'
-        : 'Crée un Buddy Group ou un Buddy Time (👥) pour y partager tes traces.'}</p>}
+      {!actives.length && !groupes.length && <p className="hint">{hebergement ? 'Crée une sortie (👥) pour y proposer un hébergement à tes buddies.'
+        : 'Crée un groupe ou une sortie (👥) pour y partager tes traces.'}</p>}
       <input value={mot} maxLength={300} placeholder="Un petit mot (facultatif)…" onChange={(ev) => setMot(ev.target.value)} />
       <button className="primary bd-grand" disabled={!choix.size} onClick={partager}>Partager</button>
     </> : <p className="hint">Connecte-toi (👤) pour partager tes traces avec tes buddies.</p>}

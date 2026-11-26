@@ -28,7 +28,7 @@ export interface Trail {
   savedId?: number | null;
   /** 📍 Points piqués sur la trace, avec leur petit mot (traces à moi seulement). */
   pins?: Pin[];
-  /** 👥 Buddy Group et Buddy Time auxquels la trace est associée (traces à moi seulement). */
+  /** 👥 Groupe et sortie auxquels la trace est associée (traces à moi seulement). */
   lien?: { groupe: string; sortie: string | null } | null;
 }
 

@@ -31,7 +31,7 @@ Le serveur redémarre tout seul quand une nouvelle version de `serveur.py` arriv
 
 ## Buddies (bloc 1)
 
-`buddies.py` : Buddy Groups, Me Time, invitations, et la synchro des téléphones (`POST /buddies/sync`, voir
+`buddies.py` : Groupes, Me Time, invitations, et la synchro des téléphones (`POST /buddies/sync`, voir
 `spec/buddies.md` §7.1). `GET /invitations/{code}` sert la page du lien d'invitation (`capacitor/public/rejoindre.html`).
 Les colonnes ajoutées aux tables déjà créées sur le VPS s'ajoutent seules au démarrage (`ajouter_colonnes`).
 

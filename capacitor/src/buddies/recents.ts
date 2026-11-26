@@ -1,4 +1,4 @@
-// Derniers Buddy Times et Buddy Groups ouverts (Seb, 25/11) : proposés en premier pour associer une trace.
+// Dernières sorties et groupes ouverts (Seb, 25/11) : proposés en premier pour associer une trace.
 import type { Sortie } from './store';
 
 const KEY = 'buddiesOuverts';
@@ -13,7 +13,7 @@ function lireOuverts(): Ouverts {
   } catch { return { sorties: [], groupes: [] }; }
 }
 
-/** On vient d'ouvrir ce Buddy Time ou ce Buddy Group : il passe en tête. */
+/** On vient d'ouvrir cette sortie ou ce groupe : il passe en tête. */
 export function noterOuvert(quoi: 'sorties' | 'groupes', id: string) {
   const o = lireOuverts();
   o[quoi] = [id, ...o[quoi].filter((x) => x !== id)].slice(0, MAX);
@@ -29,12 +29,12 @@ export function parDernierOuvert<T extends { id: string }>(l: T[], ouverts: stri
   return l.map((x, i) => ({ x, i })).sort((a, b) => rang(a.x) - rang(b.x) || a.i - b.i).map((y) => y.x);
 }
 
-/** Lien d'une de mes traces : un Buddy Group, et de préférence un de ses Buddy Times (Seb, 25/11). */
+/** Lien d'une de mes traces : un groupe, et de préférence un de ses sorties (Seb, 25/11). */
 export type LienBuddy = { groupe: string; sortie: string | null };
 
-/** Nom affiché du lien : le Buddy Time (et son groupe), ou le Buddy Group seul. */
+/** Nom affiché du lien : la sortie (et son groupe), ou le groupe seul. */
 export function nomLien(l: LienBuddy, sorties: Sortie[], groupes: { id: string; nom: string; nature: string }[]) {
   const g = groupes.find((x) => x.id === l.groupe), x = l.sortie ? sorties.find((y) => y.id === l.sortie) : undefined;
   const gn = g ? (g.nature === 'me_time' ? 'Me Time' : g.nom) : '';
-  return x ? { titre: x.nom, sous: gn, sortie: x } : { titre: gn || 'Buddy Group', sous: 'tout le Buddy Group', sortie: undefined };
+  return x ? { titre: x.nom, sous: gn, sortie: x } : { titre: gn || 'Groupe', sous: 'tout le groupe', sortie: undefined };
 }

@@ -30,7 +30,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   travel: { title: '🚗 Voyage en voiture', text: 'Km, coût, péages.' },
   lodging: { title: '🏨 Hébergement', text: 'Les meilleurs prix.' },
   expenses: { title: 'Partage des frais', text: 'Qui doit combien à qui.' },
-  groups: { title: '👥 Buddies', text: 'Mes Buddy Groups et mes sorties entre copains.' },
+  groups: { title: '👥 Buddies', text: 'Mes groupes et mes sorties entre copains.' },
   moi: { title: '👤 Moi', text: 'Mon compte, mon profil. Rond vert : connecté.' },
   drones: { title: 'Drones', text: 'Carte officielle des zones pour drone de loisir :' },
 };

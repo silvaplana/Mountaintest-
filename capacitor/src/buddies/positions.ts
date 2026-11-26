@@ -2,7 +2,7 @@
  * Position des buddies (spec/buddies.md §5.9, écran 15) : les calculs, sans écran.
  * Même calcul côté Kotlin (Positions.kt) : les garder identiques.
  *
- * - N'apparaissent que ceux qui ont enfoncé l'épingle dans ce Buddy Time (le serveur ne garde rien d'autre).
+ * - N'apparaissent que ceux qui ont enfoncé l'épingle dans cette sortie (le serveur ne garde rien d'autre).
  * - Chaque position porte l'heure de la dernière reçue et grise en vieillissant ; épingle relevée : grisée.
  */
 import { distanceM } from '../gps/adaptive';
@@ -14,7 +14,7 @@ export const SANS_NOUVELLES_MIN = 20;
 
 export type Repere = { b: Buddy; p: Position & { lat: number; lon: number; prise_le: number }; moi: boolean; actif: boolean; age: number };
 
-/** Les buddies visibles de ce Buddy Time (moi compris), les plus récents d'abord. */
+/** Les buddies visibles de cette sortie (moi compris), les plus récents d'abord. */
 export function reperes(x: Sortie, ps: Position[], moi: string, t = Date.now()): Repere[] {
   const out: Repere[] = [];
   for (const b of x.participants) {
@@ -55,7 +55,7 @@ export function detail(r: Repere, moi?: Repere): string {
 }
 
 /**
- * 📍 de la colonne (§7.14) : tous les buddies visibles, Buddy Groups et Buddy Times mêlés, une fois chacun (sa position
+ * 📍 de la colonne (§7.14) : tous les buddies visibles, groupes et sorties mêlés, une fois chacun (sa position
  * la plus récente), moi compris. `gens` : les buddies que je connais (membres et participants).
  */
 export function reperesTous(ps: Position[], gens: Buddy[], moi: string, t = Date.now()): Repere[] {
@@ -70,5 +70,5 @@ export function reperesTous(ps: Position[], gens: Buddy[], moi: string, t = Date
   return [...par.values()].sort((a, c) => Number(c.actif) - Number(a.actif) || c.p.prise_le - a.p.prise_le);
 }
 
-/** Pendant le Buddy Time (le jour même compris) : on peut enfoncer l'épingle. */
+/** Pendant la sortie (le jour même compris) : on peut enfoncer l'épingle. */
 export const pendant = (x: Sortie, auj: string) => x.debut <= auj && auj <= x.fin;

@@ -1,7 +1,7 @@
 // 📸 Photos qui arrivent dans l'appli sans passer par « Déposer » (Seb, 25/11) :
 // - « partagées » depuis WhatsApp, la galerie… (PhotosRecuesPlugin.java) : on demande dans quel album les ranger ;
 // - prises avec l'appareil photo ouvert par 📷 (photoPrise.ts) : au retour dans l'appli, elles vont seules dans
-//   l'album du Buddy Time du jour (bandeau « Annuler »), ou on demande lequel s'il y en a plusieurs ou aucun.
+//   l'album de la sortie du jour (bandeau « Annuler »), ou on demande lequel s'il y en a plusieurs ou aucun.
 //   Une photo sans lieu reçoit la position du téléphone.
 import { useEffect, useRef, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
@@ -72,7 +72,7 @@ export function PhotosRecues({ ici, onToast, onAlbum }: { ici: Ici; onToast: (m:
       <b>{n(lot.chemins.length)} : dans quel album ?</b>
       {occupe ? <p>🕓 Préparation…</p> : albums.length
         ? <div className="bd-recues-liste">{albums.map((x) => <button key={x.id} onClick={() => void ranger(x, lot)}>📸 {x.nom}</button>)}</div>
-        : <p>Crée d'abord un Buddy Time : son album recevra les photos.</p>}
+        : <p>Crée d'abord une sortie : son album recevra les photos.</p>}
       {!occupe && <button onClick={() => setLot(null)}>{lot.prises ? 'Ne pas ranger' : 'Annuler'}</button>}
     </div>
   </div>;

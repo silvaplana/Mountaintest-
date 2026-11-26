@@ -71,7 +71,7 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
   map: MlMap; trail: Trail; onClose: () => void; onToast: (t: string) => void;
   /** Panneau fermé pendant qu'un film se fabrique (ou attend d'être vu) : il ne reste qu'un bandeau, qui rouvre le panneau. */
   reduit: boolean; onFilm: (enCours: boolean) => void; onOuvrir: () => void;
-  /** 📸 Buddy Time ouvert sur la carte : le film va dans son album ; sinon on choisit parmi mes Buddy Times. */
+  /** 📸 Sortie ouvert sur la carte : le film va dans son album ; sinon on choisit parmi mes sorties. */
   sortie: Sortie | null; sorties: Sortie[];
 }) {
   const [r, setR] = useState<Reglages>(lire);
@@ -136,7 +136,7 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
   const photos = useMemo(() => photosDeLaTrace(lireBuddies().photos.filter((p) => !sortie || p.sortie === sortie.id), line),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [trail, sortie]);
-  // 🌗 Les ombres sont celles du jour du Buddy Time de la trace (sinon d'aujourd'hui).
+  // 🌗 Les ombres sont celles du jour de la sortie de la trace (sinon d'aujourd'hui).
   const jour = jourDesOmbres(sortie, photos);
   const jourTexte = jour ? ` · ${new Date(`${jour}T12:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}` : '';
   const zone: Bbox = [Math.min(...line.map((p) => p.lon)), Math.min(...line.map((p) => p.lat)), Math.max(...line.map((p) => p.lon)), Math.max(...line.map((p) => p.lat))];

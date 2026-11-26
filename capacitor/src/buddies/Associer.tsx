@@ -8,12 +8,12 @@ import { listTraces, readPins, traceLengthM, traceLine, updateTrace, type SavedT
 import { derniersOuverts, nomLien, parDernierOuvert, type LienBuddy } from './recents';
 
 /**
- * 👥 Associer une trace à un Buddy Time (maquettes/trace-buddy-time) : en haut le Buddy Time ouvert sur la carte,
- * puis les derniers ouverts ; dessous les Buddy Groups (derniers ouverts d'abord), chacun avec ses Buddy Times.
+ * 👥 Associer une trace à une sortie (maquettes/trace-buddy-time) : en haut la sortie ouverte sur la carte,
+ * puis les derniers ouverts ; dessous les groupes (derniers ouverts d'abord), chacun avec ses sorties.
  */
 export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
   nom: string; lien: LienBuddy | null;
-  /** Buddy Time ouvert sur la carte : proposé en premier, déjà choisi. */
+  /** Sortie ouvert sur la carte : proposé en premier, déjà choisi. */
   ouverte: Sortie | null;
   /** null : la trace n'est plus associée. */
   onChoisir: (l: LienBuddy | null) => void; onFermer: () => void;
@@ -37,16 +37,16 @@ export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
   const associer = (l: LienBuddy | null) => { onChoisir(l); onFermer(); };
 
   const bas = <button className="primary bd-grand" disabled={!choix || pareil(choix, lien)} onClick={() => choix && associer(choix)}>
-    {choisi ? `Associer à « ${choisi.titre} »` : 'Choisis un Buddy Time'}</button>;
+    {choisi ? `Associer à « ${choisi.titre} »` : 'Choisis une sortie'}</button>;
 
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille bd-partage" onClick={(ev) => ev.stopPropagation()}>
     {!connecte(compte) ? <>
       <div className="xp-head"><h3>Associer « {nom} »</h3><button onClick={onFermer} aria-label="Fermer">✕</button></div>
-      <p className="hint">Connecte-toi (👤) pour associer tes traces à tes Buddy Times.</p>
+      <p className="hint">Connecte-toi (👤) pour associer tes traces à tes sorties.</p>
     </> : g ? <>
       <div className="xp-head"><button onClick={() => setGroupeVu(null)} aria-label="Retour">‹</button>
         <h3>{g.nature === 'me_time' ? 'Me Time' : g.nom}</h3><button onClick={onFermer} aria-label="Fermer">✕</button></div>
-      <h3 className="bd-section">Ses Buddy Times</h3>
+      <h3 className="bd-section">Ses sorties</h3>
       {(() => {
         const ses = sorties.filter((x) => x.groupe === g.id);
         const l = [...ses.filter((x) => x.fin >= auj).sort((a, b) => a.debut.localeCompare(b.debut)),
@@ -54,9 +54,9 @@ export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
         return l.length ? l.map((x) => <button key={x.id} className={`bd-ligne bd-assoc${choix?.sortie === x.id ? ' oui' : ''}`} onClick={() => prendre(x)}>
           <Carre x={x} taille={56} /><span className="bd-texte"><b>{x.nom}</b><small>{quandSortie(x)} · {x.participants.length} partant{x.participants.length > 1 ? 's' : ''}</small></span>
           {choix?.sortie === x.id && <span className="bd-coche">✓</span>}</button>)
-          : <p className="bd-vide">Pas encore de Buddy Time dans ce groupe.</p>;
+          : <p className="bd-vide">Pas encore de sortie dans ce groupe.</p>;
       })()}
-      <button className="bd-grand" disabled={pareil({ groupe: g.id, sortie: null }, lien)} onClick={() => associer({ groupe: g.id, sortie: null })}>Le Buddy Group seulement</button>
+      <button className="bd-grand" disabled={pareil({ groupe: g.id, sortie: null }, lien)} onClick={() => associer({ groupe: g.id, sortie: null })}>Le groupe seulement</button>
       {bas}
     </> : <>
       <div className="xp-head"><h3>Associer « {nom} »</h3><button onClick={onFermer} aria-label="Fermer">✕</button></div>
@@ -66,12 +66,12 @@ export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
         <div className="bd-defile">{proposes.map((x) => <button key={x.id} className={`bd-tuile${choix?.sortie === x.id ? ' oui' : ''}`} onClick={() => prendre(x)}>
           <span className="bd-assoc-carre"><Carre x={x} taille={84} />{x.id === ouverte?.id && <i className="bd-ouvert">ouvert</i>}</span>
           <small>{x.nom}</small></button>)}</div></>}
-      {groupes.length > 0 && <h3 className="bd-section">Ou chercher dans un Buddy Group</h3>}
+      {groupes.length > 0 && <h3 className="bd-section">Ou chercher dans un groupe</h3>}
       {groupes.map((x) => {
         const n = sorties.filter((y) => y.groupe === x.id).length;
         return <button key={x.id} className="bd-ligne" onClick={() => setGroupeVu(x.id)}>
           <Visage b={{ id: x.id, nom: x.nature === 'me_time' ? 'Me Time' : x.nom, photo: x.photo }} taille={46} />
-          <span className="bd-texte"><b>{x.nature === 'me_time' ? 'Me Time' : x.nom}</b><small>{n} Buddy Time{n > 1 ? 's' : ''}</small></span>
+          <span className="bd-texte"><b>{x.nature === 'me_time' ? 'Me Time' : x.nom}</b><small>{n} sortie{n > 1 ? 's' : ''}</small></span>
           <span className="bd-fleche">›</span></button>;
       })}
       {bas}
@@ -80,7 +80,7 @@ export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
 }
 
 /**
- * L'autre sens (Seb, 25/11) : depuis un Buddy Time, ses traces associées, et « ＋ Associer une de mes traces »
+ * L'autre sens (Seb, 25/11) : depuis une sortie, ses traces associées, et « ＋ Associer une de mes traces »
  * qui ouvre 📂 Mes traces (celles enregistrées sur le téléphone).
  */
 export function TracesAssociees({ x, traces, onVoir, onToast }: {
@@ -125,11 +125,11 @@ function ChoisirMaTrace({ x, onFermer, onToast }: { x: Sortie; onFermer: () => v
 
 export type NomLien = ReturnType<typeof nomLien>;
 
-/** Ligne « 👥 Associer à un Buddy Time » (menu de la trace et panneau « Modifier »), ou le Buddy Time associé. */
+/** Ligne « 👥 Associer à une sortie » (menu de la trace et panneau « Modifier »), ou la sortie associé. */
 export function LigneLien({ lien, onClick }: { lien: NomLien | null; onClick: () => void }) {
   return <button className={`trace-lien${lien ? ' oui' : ''}`} onClick={onClick}>
     {lien?.sortie ? <Carre x={lien.sortie} taille={44} /> : <span className="trace-lien-ic">👥</span>}
-    <span className="bd-texte"><b>{lien ? lien.titre : 'Associer à un Buddy Time'}</b>
+    <span className="bd-texte"><b>{lien ? lien.titre : 'Associer à une sortie'}</b>
       <small>{lien ? `${lien.sous} · changer` : 'ses photos iront dans le film'}</small></span>
     <span className="bd-fleche">›</span>
   </button>;

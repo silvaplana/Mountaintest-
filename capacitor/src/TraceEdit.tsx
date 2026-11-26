@@ -108,7 +108,7 @@ function glissable(map: MlMap, mk: maplibregl.Marker, onDrag: (ll: maplibregl.Ln
  */
 export function TraceEdit({ map, trail, onLine, onBack, onToast, lien, onAssocier }: {
   map: MlMap; trail: Trail; onLine: (line: LonLat[]) => void; onBack: () => void; onToast: (t: string) => void;
-  /** 👥 Buddy Time associé : Seb le cherche aussi ici (25/11). */
+  /** 👥 Sortie associé : Seb le cherche aussi ici (25/11). */
   lien: NomLien | null; onAssocier: () => void;
 }) {
   const sheet = useSheet('modifier');

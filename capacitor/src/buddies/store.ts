@@ -1,5 +1,5 @@
 /**
- * Buddies, bloc 1 : copie locale des Buddy Groups et file d'attente (spec/buddies.md §3.1).
+ * Buddies, bloc 1 : copie locale des groupes et file d'attente (spec/buddies.md §3.1).
  * Même fonctionnement côté Kotlin (Buddies.kt) : les garder identiques. Serveur : deploy/comptes/buddies.py.
  *
  * - L'appli n'affiche que la copie locale : sans réseau tout s'ouvre, avec l'heure de la dernière synchro.
@@ -24,20 +24,20 @@ export type Groupe = {
   id: string; nom: string; nature: 'bande' | 'me_time' | 'duo'; photo: string | null; modifie_le: string;
   membres: Buddy[]; invitations: Invitation[]; attente?: boolean;
 };
-/** Carnet d'un Buddy Time (spec §5.8) : le texte de chaque buddy, une fiche par jour (facultative), ce que la trace ne dit pas. */
+/** Carnet d'une sortie (spec §5.8) : le texte de chaque buddy, une fiche par jour (facultative), ce que la trace ne dit pas. */
 export type Recit = { par: Buddy; texte: string; modifie_le: string; attente?: boolean };
 /** Ce qui est tapé à la main : duree en minutes, distance et denivele en mètres (null : pris dans la trace du jour). */
 export type Fiche = { jour: string; nom: string; depart: string; duree: number | null; distance: number | null; denivele: number | null };
 export type CarnetBuddy = { difficulte: string; meteo: string; conditions: string; recits: Recit[]; fiches: Fiche[] };
 export const carnetVide = (): CarnetBuddy => ({ difficulte: '', meteo: '', conditions: '', recits: [], fiches: [] });
-/** Buddy Time (spec §5.4). Dates du calendrier AAAA-MM-JJ. */
+/** Sortie (spec §5.4). Dates du calendrier AAAA-MM-JJ. */
 export type Sortie = {
   id: string; groupe: string; nom: string; photo: string | null; debut: string; fin: string; lieu: string; modifie_le: string;
-  /** Qui l'a créé (le serveur l'envoie ; absent sur un Buddy Time pas encore synchronisé : c'est moi). */
+  /** Qui l'a créé (le serveur l'envoie ; absent sur une sortie pas encore synchronisé : c'est moi). */
   par?: string;
   participants: Buddy[]; invitations: Invitation[]; carnet?: CarnetBuddy; attente?: boolean;
 };
-/** Trace partagée dans un Buddy Time ou un Buddy Group (panneau de partage, spec §3.4). */
+/** Trace partagée dans une sortie ou un groupe (panneau de partage, spec §3.4). */
 export type TraceBuddy = {
   id: string; sortie: string | null; groupe: string | null; nom: string; ligne: [number, number][]; mot: string;
   par: Buddy; cree_le: string; attente?: boolean;
@@ -49,24 +49,24 @@ export type Planning = {
   id: string; groupe: string; nom: string; par: Buddy; dates: [string, string][]; limite: string; modifie_le: string;
   dispos: Dispo[]; attente?: boolean;
 };
-/** Photo de l'album d'un Buddy Time (spec §5.8). prise_le : heure locale AAAA-MM-JJTHH:MM:SS. */
+/** Photo de l'album d'une sortie (spec §5.8). prise_le : heure locale AAAA-MM-JJTHH:MM:SS. */
 export type PhotoBuddy = {
   id: string; sortie: string; par: Buddy; prise_le: string; lon: number | null; lat: number | null; etoile: boolean;
   envoyee: boolean; modifie_le: string; attente?: boolean;
   /** 🎥 Film d'un survol 3D : petite et grande sont sa couverture, le film est la taille « video » (album.ts). */
   video?: boolean;
 };
-/** Buddy count (spec §5.10) : une dépense d'un Buddy Time ; montant en centimes, pour = identifiants des buddies. */
+/** Buddy count (spec §5.10) : une dépense d'une sortie ; montant en centimes, pour = identifiants des buddies. */
 export type Depense = {
   id: string; sortie: string; titre: string; montant: number; paye_par: string; pour: string[]; jour: string; par: string; modifie_le: string;
   attente?: boolean;
 };
-/** 🏨 Hébergement proposé dans un Buddy Time (§5.11) : ♥ de chacun (identifiants), ✅ retenu. Prix par nuit, en euros. */
+/** 🏨 Hébergement proposé dans une sortie (§5.11) : ♥ de chacun (identifiants), ✅ retenu. Prix par nuit, en euros. */
 export type Hebergement = {
   id: string; sortie: string; nom: string; nature: string; prix_nuit: number | null; adresse: string; url: string; resume: string;
   lon: number | null; lat: number | null; retenu: boolean; par: string; coeurs: string[]; cree_le?: string; modifie_le: string; attente?: boolean;
 };
-/** 💬 Message d'un Buddy Group ou d'un Buddy Time (§5.6) : texte, « je suis ici » (point) ou photo de l'album. */
+/** 💬 Message d'un groupe ou d'une sortie (§5.6) : texte, « je suis ici » (point) ou photo de l'album. */
 export type MessageBuddy = {
   id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo' | 'fichier' | 'sondage'; texte: string;
   lon: number | null; lat: number | null; photo: string | null; cree_le: string; attente?: boolean;
@@ -81,7 +81,7 @@ export type FichierMessage = { id: string; nom: string; mime: string; taille: nu
 export type Sondage = { question: string; multiple: boolean; options: string[]; votes: { qui: string; option: number }[] };
 /** ✓✓ Un buddy de mes conversations : sa dernière synchro (« reçu ») et jusqu'où il a lu chacune (« lu », bleu). */
 export type Lecture = { qui: string; vu_le: string | null; lus: Record<string, string> };
-/** 📍 Position d'un buddy dans un Buddy Time (§5.9) ou, hors Buddy Time, dans un Buddy Group (§7.14) : son épingle (ms)
+/** 📍 Position d'un buddy dans une sortie (§5.9) ou, hors sortie, dans un groupe (§7.14) : son épingle (ms)
  * et sa dernière position. */
 export type Position = {
   sortie?: string; groupe?: string; qui: string; depuis: number; jusqu: number; lon: number | null; lat: number | null; alt: number | null; prise_le: number | null;
@@ -110,11 +110,11 @@ export type Etat = {
   positions?: Position[];
   hebergements?: Hebergement[];
   messages?: MessageBuddy[];
-  /** 📞 Appels en cours dans mes Buddy Groups et Buddy Times (d'après la dernière synchro). */
+  /** 📞 Appels en cours dans mes groupes et sorties (d'après la dernière synchro). */
   appels?: AppelBuddy[];
   /** 🐻 Ce que Bud a fait à ma demande, par message de Bud (pour « Annuler » sur ce téléphone). */
   actionsBud?: Record<string, { faites: ActionBud[]; annule?: boolean }>;
-  /** 💬 Dernière lecture de chaque conversation (ms), par identifiant de Buddy Group ou de Buddy Time. */
+  /** 💬 Dernière lecture de chaque conversation (ms), par identifiant de groupe ou de sortie. */
   lus?: Record<string, number>;
   /** ✓✓ Ce que les autres ont reçu et lu (d'après la dernière synchro). */
   lectures?: Lecture[];
@@ -176,7 +176,7 @@ function moiBuddy(e: Etat): Buddy {
   return { id: e.moi ?? 'moi', pseudo: nomAffiche(c), photo: c.profil?.photo ?? null, role: 'admin' };
 }
 
-/** Buddy Times et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
+/** Sorties et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
 export function vue(e: Etat): {
   sorties: Sortie[]; traces: TraceBuddy[]; plannings: Planning[]; photos: PhotoBuddy[]; depenses: Depense[]; hebergements: Hebergement[];
   messages: MessageBuddy[];
@@ -326,11 +326,11 @@ export function positions(e: Etat): Position[] {
   }
   return l;
 }
-/** 📍 Où va ma position : un Buddy Time ou un Buddy Group. */
+/** 📍 Où va ma position : une sortie ou un groupe. */
 export type CiblePosition = { sortie: string; groupe?: undefined } | { groupe: string; sortie?: undefined };
 const cible = (o: { [k: string]: unknown }): CiblePosition => (o.groupe ? { groupe: String(o.groupe) } : { sortie: String(o.sortie) });
 export const memeCible = (a: { sortie?: string; groupe?: string }, b: CiblePosition) => (b.groupe ? a.groupe === b.groupe : a.sortie === b.sortie);
-/** Là où mon épingle est enfoncée en ce moment : un Buddy Time, ou un ou plusieurs Buddy Groups (même heure de fin). */
+/** Là où mon épingle est enfoncée en ce moment : une sortie, ou un ou plusieurs groupes (même heure de fin). */
 export function mesEpingles(e: Etat = lire(), t = Date.now()): Position[] {
   const moi = e.moi ?? 'moi';
   return positions(e).filter((p) => p.qui === moi && p.depuis <= t + 60_000 && p.jusqu > t).sort((a, b) => b.depuis - a.depuis);
@@ -341,7 +341,7 @@ export const monEpingle = (e: Etat = lire(), t = Date.now()): Position | undefin
 export function aujourdhui(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-/** Le Buddy Time en cours, sinon le prochain : en grand en haut de la liste. */
+/** La sortie en cours, sinon le prochain : en grand en haut de la liste. */
 export function prochaine(sorties: Sortie[], auj = aujourdhui()): Sortie | undefined {
   return sorties.filter((x) => x.fin >= auj).sort((a, b) => a.debut.localeCompare(b.debut))[0];
 }
@@ -370,12 +370,12 @@ export function datesPlanning(de: string, a: string, mode: 'weekends' | 'jours')
 export function aRemplir(p: Planning, moi: string, auj = aujourdhui()) {
   return p.dates.filter(([d, f]) => f >= auj && !p.dispos.some((x) => x.qui === moi && x.debut === d)).length;
 }
-/** Une ligne du planning devenue Buddy Time : le Buddy Time du groupe qui part ce jour-là. */
+/** Une ligne du planning devenue sortie : la sortie du groupe qui part ce jour-là. */
 export const sortieDeLigne = (sorties: Sortie[], p: Planning, debut: string) => sorties.find((x) => x.groupe === p.groupe && x.debut === debut);
 
 // ------------------------------------------------------------------ album (§5.8)
 
-/** Photos rangées par jour du Buddy Time : « Jour 1 », « Jour 2 »… (avant ou après : jour 0 ou au-delà).
+/** Photos rangées par jour de la sortie : « Jour 1 », « Jour 2 »… (avant ou après : jour 0 ou au-delà).
  * Les films passent devant, dans un groupe à part (jour '' ; Seb, 25/11 : le film du parcours en premier). */
 export function parJour(photos: PhotoBuddy[], x: Sortie) {
   const jours = new Map<string, PhotoBuddy[]>();
@@ -437,7 +437,7 @@ export function appliquer(e: Etat): Groupe[] {
 /** Invitations reçues (liens ouverts) qui attendent le réseau pour faire entrer dans le groupe. */
 export const rejointsEnAttente = (e: Etat = lire()) => e.attente.filter((o) => o.type === 'rejoindre');
 
-/** Nombre de Buddy Groups qui ont bougé depuis la dernière ouverture de Buddies (pastille de 👥). */
+/** Nombre de groupes qui ont bougé depuis la dernière ouverture de Buddies (pastille de 👥). */
 export function nouveautes(e: Etat = lire()): number {
   const vu = e.vu ?? 0;
   return e.serveur.filter((g) => Date.parse(g.modifie_le) > vu && g.nature === 'bande').length
@@ -458,10 +458,10 @@ function ajouter(...ops: Omit<Op, 'id' | 't'>[]) {
 
 export type NouvelleInvitation = { canal: Canal; nom: string; contact: string; code: string };
 
-/** Nouveau Buddy Group avec ses premières invitations (déjà envoyées par SMS, mail ou QR). */
+/** Nouveau groupe avec ses premières invitations (déjà envoyées par SMS, mail ou QR). */
 export function creerGroupe(nom: string, photo: string | null, invitations: NouvelleInvitation[]): string {
   const n = nom.replace(/\s+/g, ' ').trim().slice(0, 80);
-  if (!n) throw new Error('Donne un nom au Buddy Group');
+  if (!n) throw new Error('Donne un nom au groupe');
   const groupe = uuid();
   ajouter({ type: 'creer_groupe', groupe, nom: n, photo },
     ...invitations.map((i) => ({ type: 'inviter', groupe, invitation: uuid(), ...i })));
@@ -470,10 +470,10 @@ export function creerGroupe(nom: string, photo: string | null, invitations: Nouv
 export const inviter = (groupe: string, i: NouvelleInvitation) => ajouter({ type: 'inviter', groupe, invitation: uuid(), ...i });
 
 export type NouvelleSortie = { groupe: string; nom: string; photo: string | null; debut: string; fin: string; lieu: string; participants: string[] };
-/** Nouveau Buddy Time ; dans Me Time, les copains invités à l'unité (`invitations`). */
+/** Nouvelle sortie ; dans Me Time, les copains invités à l'unité (`invitations`). */
 export function creerSortie(n: NouvelleSortie, invitations: NouvelleInvitation[] = []): string {
   const nom = n.nom.replace(/\s+/g, ' ').trim().slice(0, 80);
-  if (!nom) throw new Error('Donne un nom au Buddy Time');
+  if (!nom) throw new Error('Donne un nom à la sortie');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(n.debut)) throw new Error('Choisis la date de départ');
   const fin = n.fin && n.fin >= n.debut ? n.fin : n.debut;
   const sortie = uuid();
@@ -481,7 +481,7 @@ export function creerSortie(n: NouvelleSortie, invitations: NouvelleInvitation[]
     ...invitations.map((i) => ({ type: 'inviter', sortie, invitation: uuid(), ...i })));
   return sortie;
 }
-/** Partager une trace dans des Buddy Times et des Buddy Groups (un envoi par destination). */
+/** Partager une trace dans des sorties et des groupes (un envoi par destination). */
 export function partagerTrace(nom: string, ligne: [number, number][], mot: string, dest: { sorties: string[]; groupes: string[] }) {
   const pts = ligne.map(([x, y]) => [+x.toFixed(5), +y.toFixed(5)]);
   ajouter(...dest.sorties.map((sortie) => ({ type: 'partager_trace', trace: uuid(), sortie, nom, ligne: pts, mot })),
@@ -538,7 +538,7 @@ export function finEpingle(d = new Date()): number {
   if (d.getHours() >= 21) f.setHours(23, 59, 59, 0);
   return f.getTime();
 }
-/** 📍 Enfoncer l'épingle dans ce Buddy Time ou ces Buddy Groups (et la relever ailleurs : une seule épingle à la fois). */
+/** 📍 Enfoncer l'épingle dans cette sortie ou ces groupes (et la relever ailleurs : une seule épingle à la fois). */
 export function enfoncerEpingle(cibles: CiblePosition[], t = Date.now()) {
   const avant = mesEpingles(lire(), t).filter((p) => !cibles.some((c) => memeCible(p, c)));
   const dest = (p: { sortie?: string; groupe?: string }) => (p.groupe ? { groupe: p.groupe } : { sortie: p.sortie });
@@ -559,14 +559,14 @@ export function envoyerPosition(f: { lat: number; lon: number; alt?: number | nu
   ecrire({ ...lire(), attente: [...lire().attente.filter((o) => o.type !== 'position'), ...ops] });
   void synchroniser().catch(() => undefined);
 }
-/** 🏨 Proposer un hébergement (trouvé par la recherche) dans un ou plusieurs Buddy Times. */
+/** 🏨 Proposer un hébergement (trouvé par la recherche) dans un ou plusieurs sorties. */
 export function proposerHebergement(sorties: string[], h: { nom: string; nature: string; prix_nuit: number | null; adresse: string; url: string;
   resume: string; lon: number | null; lat: number | null }) {
   if (sorties.length) ajouter(...sorties.map((sortie) => ({ type: 'proposer_hebergement', hebergement: uuid(), sortie, ...h,
     nom: h.nom.trim().slice(0, 80), nature: h.nature.slice(0, 40), adresse: h.adresse.slice(0, 160), resume: h.resume.slice(0, 300),
     url: /^https?:\/\//.test(h.url) ? h.url.slice(0, 500) : '' })));
 }
-/** 💬 Envoyer dans la conversation d'un Buddy Group ou d'un Buddy Time ; part au retour du réseau. */
+/** 💬 Envoyer dans la conversation d'un groupe ou d'une sortie ; part au retour du réseau. */
 export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string; bud?: boolean;
   repond_a?: string; fichier?: FichierMessage; sondage?: Omit<Sondage, 'votes'>; transfere?: boolean }) {
   const texte = (m.texte ?? '').trim().slice(0, 2000);
@@ -580,23 +580,23 @@ export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { 
   if (m.fichier && !m.transfere) ecrire({ ...lire(), envoisFichiers: [...(lire().envoisFichiers ?? []), m.fichier.id] });
   return message;
 }
-/** Annuler un Buddy Time qu'on vient de créer (le serveur refuse s'il a déjà servi). */
+/** Annuler une sortie qu'on vient de créer (le serveur refuse si elle a déjà servi). */
 export const retirerSortie = (sortie: string) => ajouter({ type: 'retirer_sortie', sortie });
-/** ✏ Changer le nom d'un Buddy Time (tout buddy qui le voit). */
+/** ✏ Changer le nom d'une sortie (tout buddy qui la voit). */
 export function renommerSortie(sortie: string, nom: string) {
   const n = nom.replace(/\s+/g, ' ').trim().slice(0, 80);
-  if (!n) throw new Error('Donne un nom au Buddy Time');
+  if (!n) throw new Error('Donne un nom à la sortie');
   ajouter({ type: 'renommer_sortie', sortie, nom: n });
   return n;
 }
-/** ✏ Changer le nom d'un Buddy Group (tout membre). */
+/** ✏ Changer le nom d'un groupe (tout membre). */
 export function renommerGroupe(groupe: string, nom: string) {
   const n = nom.replace(/\s+/g, ' ').trim().slice(0, 80);
   if (!n) throw new Error('Il faut un nom');
   ajouter({ type: 'renommer_groupe', groupe, nom: n });
   return n;
 }
-/** 🐻 Bud supprime un Buddy Time (§7.12) : caché de tous ; le serveur refuse si je ne l'ai pas créé ni n'administre la bande. */
+/** 🐻 Bud supprime une sortie (§7.12) : caché de tous ; le serveur refuse si je ne l'ai pas créé ni n'administre la bande. */
 export const supprimerSortie = (sortie: string) => ajouter({ type: 'supprimer_sortie', sortie });
 /** « Annuler » : il revient (la copie le remontre tout de suite, avant la synchro). */
 export const remettreSortie = (copie: Sortie) => ajouter({ type: 'remettre_sortie', sortie: copie.id, copie });
@@ -645,7 +645,7 @@ export async function ouvrirDuo(b: Buddy): Promise<string> {
   if (!appliquer(lire()).some((g) => g.id === id)) ajouter({ type: 'duo', groupe: id, buddy: b.id, pseudo: b.pseudo, photo: b.photo });
   return id;
 }
-/** Mes buddies (ceux de mes Buddy Groups), par ordre alphabétique, avec leurs bandes. */
+/** Mes buddies (ceux de mes groupes), par ordre alphabétique, avec leurs bandes. */
 export function contacts(e: Etat = lire()): { b: Buddy; bandes: string[] }[] {
   const moi = e.moi ?? 'moi';
   const l = new Map<string, { b: Buddy; bandes: string[] }>();

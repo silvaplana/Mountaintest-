@@ -40,7 +40,7 @@ export interface QuickProps {
   forests: boolean; onForests: () => void;
   /** Drone à gauche de 🌲 : zones interdites ou limitées aux drones de loisir (carte DGAC). */
   drones: boolean; onDrones: (on: boolean) => void;
-  /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de Buddy Groups qui ont bougé. */
+  /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de groupes qui ont bougé. */
   onBuddies: () => void;
   nouveautes: number;
   /** ⛷ 💬 : question en texte sur les sorties skitour. */

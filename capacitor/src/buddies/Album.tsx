@@ -12,7 +12,7 @@ import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Natif, Visage } from './Buddies';
 
 /**
- * Album d'un Buddy Time (spec/buddies.md §5.8, écrans 7 et 11) : chacun dépose ses photos, rangées par jour avec
+ * Album d'une sortie (spec/buddies.md §5.8, écrans 7 et 11) : chacun dépose ses photos, rangées par jour avec
  * le visage de l'auteur ; vues Toutes, Sur la carte, ⭐ Carnet. Mêmes écrans côté Kotlin (BuddiesPanel.kt, Album.kt).
  */
 
@@ -105,7 +105,7 @@ function Vignette({ p, onClick, onLong }: { p: PhotoBuddy; onClick: () => void; 
   </button>;
 }
 
-/** Les albums : un par Buddy Time (le plus récent en haut). */
+/** Les albums : un par sortie (le plus récent en haut). */
 export function Albums({ sorties, photos, onOuvrir, onRetour, onClose }: {
   sorties: Sortie[]; photos: PhotoBuddy[]; onOuvrir: (x: Sortie) => void; onRetour: () => void; onClose: () => void;
 }) {
@@ -122,7 +122,7 @@ export function Albums({ sorties, photos, onOuvrir, onRetour, onClose }: {
         <span className="bd-texte"><b>{x.nom}</b><small>{ph.length ? `${ph.length} photo${ph.length > 1 ? 's' : ''}` : 'pas encore de photo'}</small></span>
       </button>;
     })}
-    {!l.length && <p className="bd-vide">L’album d’un Buddy Time s’ouvre le jour du départ : chacun y dépose ses photos.</p>}
+    {!l.length && <p className="bd-vide">L’album d’une sortie s’ouvre le jour du départ : chacun y dépose ses photos.</p>}
   </div>;
 }
 

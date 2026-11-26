@@ -24,7 +24,7 @@ import java.io.OutputStream;
 /**
  * Photo.open() ouvre l'application Appareil photo (PhotoCapture). Photo.recentes({ depuis }) rend les photos
  * arrivées dans la galerie depuis ce moment (millisecondes), recopiées dans le cache de l'appli : celles qu'on
- * vient de prendre, pour les ranger dans l'album d'un Buddy Time (Seb, 25/11).
+ * vient de prendre, pour les ranger dans l'album d'une sortie (Seb, 25/11).
  */
 @CapacitorPlugin(name = "Photo", permissions = {
     @Permission(alias = "photos", strings = { Manifest.permission.READ_MEDIA_IMAGES }),

@@ -16,7 +16,7 @@ import {
 /**
  * « Bud, … », « bud : … », « Les Baladins 👍 Bud, la pente ? » : Bud est appelé. La dictée l'écrit souvent autrement
  * (Seb, 25 novembre) : en tête du message, « bad », « budd », « bude », « bod », « beud »… comptent aussi, avec ou
- * sans « OK », « hey », « dis » devant (« OK Bud » marche, sans être obligatoire). Pas « buddy » (Buddy Time…).
+ * sans « OK », « hey », « dis » devant (« OK Bud » marche, sans être obligatoire). Pas « buddy » (Sortie…).
  */
 const VARIANTES = '(?:bu(?:dd?e?|ds)|bad|bade|bod|bode|beud|bœud|bheud)';
 export const pourBud = (texte: string) => /(^|[\s.!?👍])bud{1,2}s?\s*[,:]/iu.test(texte)
@@ -25,7 +25,7 @@ export const pourBud = (texte: string) => /(^|[\s.!?👍])bud{1,2}s?\s*[,:]/iu.t
 export type Donnees = {
   nom: string; sortie?: Sortie; membres: Buddy[]; moi: string;
   traces: TraceBuddy[]; hebergements: Hebergement[]; depenses: Depense[]; plannings: Planning[]; messages: MessageBuddy[];
-  /** Les Buddy Times que je vois (Bud les nomme, et peut en supprimer un à ma demande). */
+  /** Les sorties que je vois (Bud les nomme, et peut en supprimer un à ma demande). */
   sorties?: Sortie[];
 };
 
@@ -35,14 +35,14 @@ export function contexte(d: Dest, x: Donnees): string {
   const l: string[] = [];
   const so = x.sortie;
   if (so) {
-    l.push(`Buddy Time « ${so.nom} » du ${so.debut} au ${so.fin}${so.lieu ? `, lieu : ${so.lieu}` : ''}.`);
+    l.push(`Sortie « ${so.nom} » du ${so.debut} au ${so.fin}${so.lieu ? `, lieu : ${so.lieu}` : ''}.`);
     l.push(`Qui vient : ${so.participants.map((p) => p.pseudo).join(', ')}.`);
     const inv = so.invitations.filter((i) => i.canal !== 'qr').map((i) => i.nom).filter(Boolean);
     if (inv.length) l.push(`Invités sans réponse : ${inv.join(', ')}.`);
   } else {
-    l.push(`Buddy Group « ${x.nom} » : ${x.membres.map((b) => b.pseudo).join(', ')}.`);
+    l.push(`Groupe « ${x.nom} » : ${x.membres.map((b) => b.pseudo).join(', ')}.`);
     const bts = (x.sorties ?? []).filter((y) => y.groupe === d.groupe);
-    if (bts.length) l.push(`Ses Buddy Times : ${bts.map((y) => `« ${y.nom} » du ${y.debut} au ${y.fin}`).join(' ; ')}.`);
+    if (bts.length) l.push(`Ses sorties : ${bts.map((y) => `« ${y.nom} » du ${y.debut} au ${y.fin}`).join(' ; ')}.`);
   }
   const ici = (y: { sortie?: string | null; groupe?: string | null }) => (d.sortie ? y.sortie === d.sortie : y.groupe === d.groupe);
   const traces = x.traces.filter(ici);
@@ -89,7 +89,7 @@ export type ReponseBud = {
   point: { nom: string; lat: number; lon: number } | null;
   actions: ActionDemandee[];
 };
-/** Ce que Bud propose de faire (§7.12) : une dépense, un Buddy Time (le créer ou le supprimer), ma dispo à un planning. */
+/** Ce que Bud propose de faire (§7.12) : une dépense, une sortie (la créer ou la supprimer), ma dispo à un planning. */
 export type ActionDemandee = {
   type: 'depense' | 'buddy_time' | 'supprimer_buddy_time' | 'renommer_buddy_time' | 'dispo'; nouveau_nom: string | null; titre: string | null; montant_euros: number | null; paye_par: string | null; pour: string[];
   nom: string | null; debut: string | null; fin: string | null; lieu: string | null; etat: 'oui' | 'peut' | 'non' | null;
@@ -100,7 +100,7 @@ const meme = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLow
 
 /**
  * 🐻 Fait ce que Bud propose, en mon nom (choix de Seb, 23 novembre) : seulement une dépense du Buddy count de ce
- * Buddy Time, un Buddy Time dans cette bande (le créer, ou le supprimer si je l'ai créé ou administre la bande : Seb,
+ * Sortie, une sortie dans cette bande (le créer, ou le supprimer si je l'ai créé ou administre la bande : Seb,
  * 25 novembre), ou ma propre dispo à un planning de la bande. Le reste est écarté.
  * Rend ce qui est fait (pour « Annuler ») et ce qui ne l'est pas (à dire).
  */
@@ -112,11 +112,11 @@ export function agir(actions: ActionDemandee[], d: Dest, x: Donnees & { groupe?:
     try {
       if (a.type === 'depense') {
         const so = x.sortie;
-        if (!so) throw new Error('une dépense va dans un Buddy Time');
+        if (!so) throw new Error('une dépense va dans une sortie');
         const montant = Math.round((a.montant_euros ?? 0) * 100);
         const paye = a.paye_par ? id([a.paye_par], so.participants)[0] : x.moi;
         const pour = a.pour.length ? id(a.pour, so.participants) : so.participants.map((p) => p.id);
-        if (!paye || pour.some((p) => !p)) throw new Error('seuls les buddies du Buddy Time partagent ses frais');
+        if (!paye || pour.some((p) => !p)) throw new Error('seuls les buddies de la sortie partagent ses frais');
         const titre = (a.titre ?? 'Dépense').slice(0, 80);
         const dep = enregistrerDepense({ sortie: so.id, titre, montant, paye_par: paye, pour: pour as string[], jour: aujourdhui() });
         faites.push({ genre: 'depense', id: dep, texte: `💶 ${titre} · ${euros(montant)}` });
@@ -126,22 +126,22 @@ export function agir(actions: ActionDemandee[], d: Dest, x: Donnees & { groupe?:
         const qui = g.nature === 'me_time' ? [] : (a.pour.length ? id(a.pour, g.membres) : g.membres.map((b) => b.id)).filter((p): p is string => !!p);
         const fin = a.fin && JOUR.test(a.fin) && a.fin >= a.debut ? a.fin : a.debut;
         const sid = creerSortie({ groupe: g.id, nom: a.nom, photo: null, debut: a.debut, fin, lieu: (a.lieu ?? '').slice(0, 120), participants: qui });
-        faites.push({ genre: 'sortie', id: sid, texte: `📅 Buddy Time « ${a.nom} » · ${a.debut}` });
+        faites.push({ genre: 'sortie', id: sid, texte: `📅 Sortie « ${a.nom} » · ${a.debut}` });
       } else if (a.type === 'supprimer_buddy_time' || a.type === 'renommer_buddy_time') {
         // Celui de cette conversation, ou celui de la bande qui porte ce nom (et cette date si Bud la donne).
         const groupe = x.sortie?.groupe ?? d.groupe;
         const so = !a.nom && x.sortie ? x.sortie : (x.sorties ?? []).filter((y) => y.groupe === groupe && !!a.nom && meme(y.nom, a.nom)
           && (!a.debut || y.debut === a.debut)).at(0);
-        if (!so) throw new Error('je ne trouve pas ce Buddy Time');
+        if (!so) throw new Error('je ne trouve pas cette sortie');
         if (a.type === 'renommer_buddy_time') {
           const n = renommerSortie(so.id, a.nouveau_nom ?? '');
           faites.push({ genre: 'renommage', id: so.id, avant: so.nom, texte: `✏ « ${so.nom} » devient « ${n} »` });
           continue;
         }
         const admin = x.groupe?.membres.find((b) => b.id === x.moi)?.role === 'admin';
-        if (so.par && so.par !== x.moi && !admin) throw new Error('seul celui qui a créé le Buddy Time (ou un admin) peut le supprimer');
+        if (so.par && so.par !== x.moi && !admin) throw new Error('seul celui qui a créé la sortie (ou un admin) peut la supprimer');
         supprimerSortie(so.id);
-        faites.push({ genre: 'suppression', copie: so, texte: `🗑 Buddy Time « ${so.nom} » supprimé` });
+        faites.push({ genre: 'suppression', copie: so, texte: `🗑 Sortie « ${so.nom} » supprimée` });
       } else if (a.type === 'dispo') {
         const groupe = x.sortie?.groupe ?? d.groupe;
         const p = x.plannings.find((y) => y.groupe === groupe && (!a.nom || meme(y.nom, a.nom))) ;

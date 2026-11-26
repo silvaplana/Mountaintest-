@@ -75,7 +75,7 @@ export function BandePositions({ x, onToast }: { x: Sortie; onToast: (m: string)
       <button onClick={() => { releverEpingle({ sortie: x.id }); onToast('📍 Épingle relevée : tes buddies ne te voient plus'); }}>Arrêter</button>
     </div> : <button className="primary bd-grand" onClick={() => void enfoncer()}>📍 Mes buddies peuvent me voir</button>}
     <p className="hint">{ici ? 'Sans réseau, tes positions sont gardées avec leur heure et partent au retour.'
-      : 'Ta position part toutes les 5 minutes, jusqu\'à ce soir, seulement vers les buddies de ce Buddy Time.'}</p>
+      : 'Ta position part toutes les 5 minutes, jusqu\'à ce soir, seulement vers les buddies de cette sortie.'}</p>
   </>;
 }
 
@@ -86,7 +86,7 @@ async function autoriser(onToast: (m: string) => void) {
   return p?.location === 'granted';
 }
 
-/** Tous les buddies que je connais (membres de mes Buddy Groups, participants de mes Buddy Times). */
+/** Tous les buddies que je connais (membres de mes groupes, participants de mes sorties). */
 function useTous() {
   const e = useBuddies();
   const gens = [...appliquer(e).flatMap((g) => g.membres), ...vue(e).sorties.flatMap((x) => x.participants)];
@@ -103,8 +103,8 @@ export function PinIcon({ size = 26 }: { size?: number }) {
 }
 
 /**
- * 📍 de la colonne de Buddies (spec §7.14) : partager ma position avec un ou plusieurs Buddy Groups, même hors
- * Buddy Time (même épingle : toutes les 5 minutes, jusqu'à ce soir), et voir les buddies qui se montrent.
+ * 📍 de la colonne de Buddies (spec §7.14) : partager ma position avec un ou plusieurs groupes, même hors
+ * Sortie (même épingle : toutes les 5 minutes, jusqu'à ce soir), et voir les buddies qui se montrent.
  */
 export function MaPosition({ groupes, sorties, ici, onVoir, onRetour, onClose, onToast }: {
   groupes: Groupe[]; sorties: Sortie[]; ici?: CiblePosition; onVoir: (r: Repere) => void; onRetour: () => void; onClose: () => void;
@@ -115,7 +115,7 @@ export function MaPosition({ groupes, sorties, ici, onVoir, onRetour, onClose, o
   const moi = rs.find((r) => r.moi);
   const autres = rs.filter((r) => !r.moi);
   const mes = mesEpingles(e);
-  // Avec qui : mes bandes, les Buddy Times d'aujourd'hui, puis les buddies de mes discussions à deux.
+  // Avec qui : mes bandes, les sorties d'aujourd'hui, puis les buddies de mes discussions à deux.
   const choix = [
     ...groupes.filter((g) => g.nature === 'bande').map((g) => ({ c: { groupe: g.id } as CiblePosition, nom: g.nom, visage: { id: g.id, nom: g.nom, photo: g.photo } })),
     ...sorties.filter((x) => pendant(x, aujourdhui()) && x.participants.length > 1)
@@ -153,7 +153,7 @@ export function MaPosition({ groupes, sorties, ici, onVoir, onRetour, onClose, o
         {choix.map((o) => <button key={cle(o.c)} className={qui.has(cle(o.c)) ? 'oui' : ''}
           onClick={() => setQui((q) => { const n = new Set(q); if (n.has(cle(o.c))) n.delete(cle(o.c)); else n.add(cle(o.c)); return n; })}>
           <Visage b={o.visage} taille={48} /><small>{qui.has(cle(o.c)) ? '✓ ' : ''}{o.nom}</small></button>)}
-      </div> : <p className="hint">Crée d'abord un Buddy Group avec tes copains.</p>}
+      </div> : <p className="hint">Crée d'abord un groupe avec tes copains.</p>}
       <span style={{ flex: 1 }} />
       <button className="primary bd-grand" disabled={!qui.size} onClick={() => void enfoncer()}>📍 Mes buddies peuvent me voir</button>
     </>}

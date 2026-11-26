@@ -43,7 +43,7 @@ describe('Buddies : copie locale et file d’attente', () => {
     expect(appliquer(lire())).toEqual([]);
   });
 
-  it('sans réseau, un Buddy Group créé apparaît tout de suite avec 🕓 et part au retour du réseau', async () => {
+  it('sans réseau, un groupe créé apparaît tout de suite avec 🕓 et part au retour du réseau', async () => {
     reseau(() => 'coupure');
     const id = creerGroupe('  Ski   du dimanche ', null, [{ canal: 'sms', nom: 'Julie', contact: '0612', code: nouveauCode() }]);
     await expect(synchroniser()).rejects.toBeInstanceOf(HorsLigne);
@@ -117,18 +117,18 @@ describe('Buddies : copie locale et file d’attente', () => {
     expect(nouveauCode()).not.toBe(c);
   });
 
-  it('pastille de 👥 : les Buddy Groups qui ont bougé depuis la dernière ouverture', async () => {
+  it('pastille de 👥 : les groupes qui ont bougé depuis la dernière ouverture', async () => {
     reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me', 'a'], refus: [], groupes: [ME, groupe('a', 'A', new Date().toISOString())] }));
     await synchroniser();
     expect(nouveautes()).toBe(1);
   });
 });
 
-describe('Buddy Times et traces partagées (bloc 2)', () => {
+describe('Sorties et traces partagées (bloc 2)', () => {
   const sortie = (id: string, debut: string, fin = debut): Sortie => ({ id, groupe: 'a', nom: id, photo: null, debut, fin, lieu: '',
     modifie_le: '2026-11-23T10:00:00+00:00', participants: [], invitations: [] });
 
-  it('un Buddy Time créé sans réseau apparaît tout de suite, avec les buddies cochés', async () => {
+  it('une sortie créé sans réseau apparaît tout de suite, avec les buddies cochés', async () => {
     reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me', 'a'], refus: [], ids_sorties: [], sorties: [], ids_traces: [], traces: [],
       groupes: [ME, { ...groupe('a', 'A'), membres: [{ id: 'u-seb', pseudo: 'Seb', photo: null, role: 'admin' }, { id: 'u-j', pseudo: 'Julie', photo: null, role: 'membre' }, { id: 'u-p', pseudo: 'Paul', photo: null, role: 'membre' }] }] }));
     await synchroniser();
@@ -151,7 +151,7 @@ describe('Buddy Times et traces partagées (bloc 2)', () => {
     expect(() => creerSortie({ groupe: 'me', nom: ' ', photo: null, debut: '2026-11-29', fin: '', lieu: '', participants: [] })).toThrow();
   });
 
-  it('partager une trace : un envoi par Buddy Time ou groupe choisi, visible tout de suite', () => {
+  it('partager une trace : un envoi par sortie ou groupe choisi, visible tout de suite', () => {
     reseau(() => 'coupure');
     partagerTrace('Col Girardin', [[6.700001, 44.6], [6.71, 44.61]], 'samedi ?', { sorties: ['s1'], groupes: ['a'] });
     const ops = lire().attente.filter((o) => o.type === 'partager_trace');
@@ -160,7 +160,7 @@ describe('Buddy Times et traces partagées (bloc 2)', () => {
     expect(vue(lire()).traces).toHaveLength(2);
   });
 
-  it('la synchro garde les Buddy Times et traces reçus', async () => {
+  it('la synchro garde les sorties et traces reçus', async () => {
     reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [], ids_sorties: ['s1'], sorties: [sortie('s1', '2026-12-12')],
       ids_traces: ['t1'], traces: [{ id: 't1', sortie: 's1', groupe: null, nom: 'Col', ligne: [[6, 44], [6.1, 44.1]], mot: '', par: { id: 'u-j', pseudo: 'Julie', photo: null }, cree_le: '2026-11-23T10:00:00+00:00' }] }));
     await synchroniser();
@@ -170,7 +170,7 @@ describe('Buddy Times et traces partagées (bloc 2)', () => {
     expect(vue(lire()).traces[0].par.pseudo).toBe('Julie');
   });
 
-  it('le Buddy Time en cours, sinon le prochain, va en haut', () => {
+  it('la sortie en cours, sinon le prochain, va en haut', () => {
     const l = [sortie('passé', '2026-11-01'), sortie('loin', '2027-01-10'), sortie('bientôt', '2026-12-12', '2026-12-13')];
     expect(prochaine(l, '2026-11-23')!.id).toBe('bientôt');
     expect(prochaine(l, '2026-12-13')!.id).toBe('bientôt');
@@ -205,7 +205,7 @@ describe('Planning de saison (bloc 3)', () => {
     expect(() => creerPlanning({ groupe: 'a', nom: 'x', dates: [], limite: '2026-11-30' })).toThrow();
   });
 
-  it('la synchro garde les plannings reçus ; une ligne devient un lien vers le Buddy Time du même jour', async () => {
+  it('la synchro garde les plannings reçus ; une ligne devient un lien vers la sortie du même jour', async () => {
     const p: Planning = { id: 'p1', groupe: 'a', nom: 'Saison', par: { id: 'u-seb', pseudo: 'Seb', photo: null }, dates: [['2026-12-12', '2026-12-13']],
       limite: '2026-11-30', modifie_le: '2026-11-23T10:00:00+00:00', dispos: [{ qui: 'u-j', debut: '2026-12-12', etat: 'oui', mot: '' }] };
     reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [], ids_plannings: ['p1'], plannings: [p] }));
@@ -248,8 +248,8 @@ describe('Album (bloc 4)', () => {
     reseau(() => 'coupure');
     deposerPhotos('s-inconnu', [{ photo: 'p1', prise_le: '2026-10-18T10:00:00', lon: null, lat: null }]);
     await synchroniser().catch(() => undefined);
-    reseau((a) => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [{ id: a.corps.ops[0].id, raison: 'Buddy Time inconnu' }], ids_photos: [], photos: [] }));
-    expect(await synchroniser()).toEqual(['Buddy Time inconnu']);
+    reseau((a) => ({ curseur: 'c', moi: 'u-seb', ids: ['me'], groupes: [ME], refus: [{ id: a.corps.ops[0].id, raison: 'Sortie inconnu' }], ids_photos: [], photos: [] }));
+    expect(await synchroniser()).toEqual(['Sortie inconnu']);
     expect(lire().envois).toEqual([]);
     expect(vue(lire()).photos).toEqual([]);
   });
@@ -414,12 +414,12 @@ describe('Position des buddies (bloc 7)', () => {
     expect(positions(lire()).find((p) => p.qui === 'u-seb' && p.sortie === 's1')?.jusqu).toBe(T);
   });
 
-  it('📍 de la colonne : partagée avec deux Buddy Groups hors Buddy Time, chaque position part vers les deux', () => {
+  it('📍 de la colonne : partagée avec deux groupes hors sortie, chaque position part vers les deux', () => {
     localStorage.setItem('buddies', JSON.stringify({ moi: 'u-seb', serveur: [], sorties: [x], traces: [], plannings: [], photos: [], attente: [] }));
     _reinitialiser();
     reseau(() => 'coupure');
     enfoncerEpingle([{ sortie: 's1' }], T);
-    enfoncerEpingle([{ groupe: 'a' }, { groupe: 'b' }], T + 1000); // relève celle du Buddy Time
+    enfoncerEpingle([{ groupe: 'a' }, { groupe: 'b' }], T + 1000); // relève celle de la sortie
     expect(mesEpingles(lire(), T + 2000).map((p) => p.groupe).sort()).toEqual(['a', 'b']);
     envoyerPosition({ lat: 44.6, lon: 6.7, t: T + 60_000 });
     envoyerPosition({ lat: 44.61, lon: 6.71, t: T + 360_000 });
@@ -428,7 +428,7 @@ describe('Position des buddies (bloc 7)', () => {
     expect(positions(lire()).find((p) => p.sortie === 's1')?.jusqu).toBe(T + 1000);
     releverEpingle(undefined, T + 400_000);
     expect(mesEpingles(lire(), T + 500_000)).toEqual([]);
-    // Un buddy visible dans un groupe et un Buddy Time n'apparaît qu'une fois, avec sa position la plus récente.
+    // Un buddy visible dans un groupe et une sortie n'apparaît qu'une fois, avec sa position la plus récente.
     const julie2 = { qui: 'u-julie', depuis: T - 3600e3, jusqu: T + 3600e3, alt: null };
     const rs = reperesTous([{ ...julie2, sortie: 's1', lat: 44, lon: 6, prise_le: T - 600_000 }, { ...julie2, groupe: 'a', lat: 45, lon: 7, prise_le: T - 60_000 }],
       [seb, julie], 'u-seb', T);

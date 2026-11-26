@@ -4,11 +4,11 @@ import { compte, euros, icone, lireEuros } from './count';
 import { Visage } from './Buddies';
 
 /**
- * Buddy count (spec/buddies.md §5.10, écran 8) : le partage des frais d'un Buddy Time, partagé entre téléphones.
+ * Buddy count (spec/buddies.md §5.10, écran 8) : le partage des frais d'une sortie, partagé entre téléphones.
  * Équilibres en barres, « qui doit à qui », dépenses, « ＋ Dépense ». Mêmes écrans côté Kotlin (BuddiesPanel.kt).
  */
 
-/** Tous les Buddy counts : un par Buddy Time (le plus récent en haut), et l'ancien partage des frais. */
+/** Tous les Buddy counts : un par sortie (le plus récent en haut), et l'ancien partage des frais. */
 export function Comptes({ sorties, depenses, onOuvrir, onAnciens, onRetour, onClose }: {
   sorties: Sortie[]; depenses: Depense[]; onOuvrir: (x: Sortie) => void; onAnciens: () => void; onRetour: () => void; onClose: () => void;
 }) {
@@ -25,9 +25,9 @@ export function Comptes({ sorties, depenses, onOuvrir, onAnciens, onRetour, onCl
         <span className="bd-texte"><b>{x.nom}</b><small>{t ? `${euros(t)} à ${x.participants.length}` : 'pas encore de dépense'}</small></span>
       </button>;
     })}
-    {!l.length && <p className="bd-vide">Chaque Buddy Time a son Buddy count : les dépenses de la sortie, partagées entre vous.</p>}
+    {!l.length && <p className="bd-vide">Chaque sortie a son Buddy count : les dépenses de la sortie, partagées entre vous.</p>}
     <span style={{ flex: 1 }} />
-    <button className="bd-grand" onClick={onAnciens}>💰 Mes partages de frais hors Buddy Time</button>
+    <button className="bd-grand" onClick={onAnciens}>💰 Mes partages de frais hors sortie</button>
   </div>;
 }
 

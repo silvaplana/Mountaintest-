@@ -30,7 +30,7 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
   onFilm: () => void;
   /** ✏ Écran « Modifier » de la trace. */
   onEdit: () => void;
-  /** 👥 Buddy Time (ou Buddy Group) associé, et ouvrir le choix (Seb, 25/11). */
+  /** 👥 Sortie (ou groupe) associé, et ouvrir le choix (Seb, 25/11). */
   lien: NomLien | null; onAssocier: () => void;
   /** 📍 allumé : toucher la carte pique un point (pas d'écran à part, demande de Seb). */
   pique: boolean; onPique: () => void;

@@ -122,13 +122,13 @@ def enregistrer_appareil(s: Session, u: Utilisateur, jeton: str, plateforme: str
 
 
 def destinataires(s: Session, u: Utilisateur, groupe: str | None, sortie: str | None) -> tuple[Groupe | None, Any, set[uuid.UUID], str]:
-    """Qui sonne : les participants du Buddy Time, ou les membres du Buddy Group (moi compris), et le nom à afficher."""
+    """Qui sonne : les participants de la sortie, ou les membres du groupe (moi compris), et le nom à afficher."""
     if sortie:
         so = sortie_de(s, u, sortie)
         return None, so, participants(s, so), so.nom
     g = groupe_de(s, u, groupe)
     if g.nature == "me_time":
-        raise Refus("Pas d'appel dans Me Time : appelle depuis un Buddy Time")
+        raise Refus("Pas d'appel dans Me Time : appelle depuis une sortie")
     return g, None, set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id))), g.nom
 
 
@@ -151,7 +151,7 @@ def appeler(s: Session, Sessions, u: Utilisateur, groupe: str | None, sortie: st
         raise Refus("Les appels ne sont pas encore installés sur le serveur")
     g, so, qui, nom = destinataires(s, u, groupe, sortie)
     if u.id not in qui:
-        raise Refus("Seuls les buddies du Buddy Time appellent")
+        raise Refus("Seuls les buddies de la sortie appellent")
     a = en_cours(s, g.id if g else None, so.id if so else None)
     nouveau = a is None
     if nouveau:
@@ -198,7 +198,7 @@ def presence(s: Session, Sessions, u: Utilisateur, aid: str, en_ligne: bool) -> 
 
 
 def appels_en_cours(s: Session, gids: list[uuid.UUID], sids: list[uuid.UUID]) -> list[dict[str, Any]]:
-    """Pour la synchro : les appels en cours dans mes Buddy Groups et Buddy Times (« rejoindre l'appel »)."""
+    """Pour la synchro : les appels en cours dans mes groupes et sorties (« rejoindre l'appel »)."""
     l = s.scalars(select(Appel).where(Appel.fin.is_(None), Appel.debut > maintenant() - DUREE_MAX,
                                       or_(Appel.groupe_id.in_(gids), Appel.sortie_id.in_(sids)))).all()
     return [vue_appel(s, a) for a in l]

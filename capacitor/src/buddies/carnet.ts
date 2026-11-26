@@ -1,8 +1,8 @@
 /**
- * Carnet d'un Buddy Time (spec/buddies.md §5.8, écrans 12 à 14) : les calculs, sans écran.
+ * Carnet d'une sortie (spec/buddies.md §5.8, écrans 12 à 14) : les calculs, sans écran.
  * Même calcul côté Kotlin (Carnet.kt) : les garder identiques.
  *
- * - Photos : les ⭐ de l'album ; sans ⭐, un choix automatique réparti sur tout le Buddy Time (on peut en changer).
+ * - Photos : les ⭐ de l'album ; sans ⭐, un choix automatique réparti sur toute la sortie (on peut en changer).
  * - Trace : une couleur par jour quand il y a une trace par jour (la 1re trace partagée = jour 1…), sinon une par trace.
  * - Chiffres : distance depuis les traces ; montée, descente, point haut depuis le relief IGN (une fois en ligne, puis
  *   gardés sur le téléphone) ; durée, départ, difficulté, météo, conditions tapés dans le carnet.
@@ -17,7 +17,7 @@ export const MAX_PHOTOS = 12;
 
 export const carnetDe = (x: Sortie): CarnetBuddy => ({ ...carnetVide(), ...x.carnet });
 
-/** Les jours du Buddy Time, AAAA-MM-JJ. */
+/** Les jours de la sortie, AAAA-MM-JJ. */
 export function joursDe(x: Sortie): string[] {
   const out: string[] = [];
   for (let d = new Date(`${x.debut}T12:00:00`); out.length < 60; d.setDate(d.getDate() + 1)) {
