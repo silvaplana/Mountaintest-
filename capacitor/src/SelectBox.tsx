@@ -1,5 +1,6 @@
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { createPortal } from 'react-dom';
 import { TrashIcon } from './icones';
 import type { Trail } from './trails/osmTrails';
 import type { SavedTrace } from './trails/savedTraces';
@@ -16,6 +17,8 @@ export interface OfflineSel {
   onDeleteTraces: (ids: number[]) => () => void;
   onDeleteSquares: (sq: string[]) => () => void;
   onDownload: (sq: string[]) => void;
+  /** Le panneau du bas (place sur le téléphone) : les lignes de la sélection s'y mettent, au lieu d'un second écran. */
+  slot?: HTMLElement | null;
 }
 
 const boxPoly = ([w, s, e, n]: number[]) => [[[w, n], [e, n], [e, s], [w, s], [w, n]]];
@@ -122,8 +125,11 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
     return () => clearTimeout(t);
   }, [annuler]);
 
-  if (annuler) return (
-    <div className="sel-barre">
+  // Calque Hors ligne : tout va dans le panneau du bas s'il est là (Seb, 26/11).
+  const dansPanneau = (x: ReactElement) => offline?.slot ? createPortal(x, offline.slot) : x;
+
+  if (annuler) return dansPanneau(
+    <div className={offline?.slot ? 'sel-ligne sel-annuler' : 'sel-barre'}>
       <span>Effacé</span>
       <button className="primary" onClick={() => { annuler(); onFin(); }}>↶ Annuler</button>
     </div>
@@ -136,21 +142,24 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
         onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') setB(local(e)); }}>
         <div className="sel-rect" style={{ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }} />
       </div>
-      {offline ? (
-        <div className="travel sel-panneau">
+      {offline ? dansPanneau(
+        <div className={offline.slot ? 'sel-dans-panneau' : 'travel sel-panneau'}>
           <div className="travel-head"><b>{sel ? 'Sélection' : 'Étire le rectangle'}</b>
             <span className="head-btns"><button onClick={onFin} aria-label="Fermer la sélection">✕</button></span></div>
           {sel && sel.traces.length > 0 && <div className="sel-ligne">
             <span><b>{sel.traces.length} trace{sel.traces.length > 1 ? 's' : ''}</b><small>retirée{sel.traces.length > 1 ? 's' : ''} du téléphone</small></span>
             <button className="sel-effacer" aria-label="Supprimer ces traces" onClick={() => { setEffaceCadre(true); setAnnuler(() => offline.onDeleteTraces(sel.traces)); }}><TrashIcon size={28} /></button>
           </div>}
-          {/* Une seule ligne pour les tuiles (Seb) : celles déjà là avec la poubelle, puis « Télécharger N tuiles » pour les autres. */}
+          {/* Deux lignes pour les tuiles (Seb, 26/11) : celles gardées avec la poubelle, puis celles à télécharger. */}
           {sel && <div className="sel-ligne">
-            <span><b>{sel.own.length} tuile{sel.own.length > 1 ? 's' : ''}</b>
-              <small>{sel.own.length ? formatBytes(ownBytes) : 'aucune gardée'}</small></span>
+            <span><b>{sel.own.length} tuile{sel.own.length > 1 ? 's' : ''} gardée{sel.own.length > 1 ? 's' : ''}</b>
+              <small>{sel.own.length ? `${formatBytes(ownBytes)} à libérer` : 'rien à enlever'}</small></span>
             {sel.own.length > 0 && <button className="sel-effacer" aria-label="Supprimer ces tuiles" onClick={() => { setEffaceCadre(true); setAnnuler(() => offline.onDeleteSquares(sel.own)); }}><TrashIcon size={28} /></button>}
-            {sel.miss.length > 0 && <button className="primary sel-telecharger" onClick={() => { offline.onDownload(sel.miss); onFin(); }}>
-              Télécharger {sel.miss.length} tuile{sel.miss.length > 1 ? 's' : ''}</button>}
+          </div>}
+          {sel && <div className="sel-ligne">
+            <span><b>{sel.miss.length} tuile{sel.miss.length > 1 ? 's' : ''} à ajouter</b>
+              <small>{sel.miss.length ? `≈ ${formatBytes(sel.miss.length * offline.avg)}` : 'tout est déjà là'}</small></span>
+            {sel.miss.length > 0 && <button className="primary sel-telecharger" onClick={() => { offline.onDownload(sel.miss); onFin(); }}>Télécharger</button>}
           </div>}
         </div>
       ) : <div className="sel-barre">

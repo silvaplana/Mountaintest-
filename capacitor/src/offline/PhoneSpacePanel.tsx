@@ -17,8 +17,14 @@ const SRV_PARTS: { key: 'photos' | 'fichiers' | 'donnees'; label: string; color:
   { key: 'donnees', label: 'Mes traces et messages', color: '#9fb1c2' },
 ];
 
-/** squares : tuiles (carrés) gardées ; squaresBytes : leur poids, pour la moyenne. */
-export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose }: { cartes: number; squares: number; squaresBytes: number; onClose: () => void }) {
+/**
+ * squares : tuiles gardées ; squaresBytes : leur poids, pour la moyenne.
+ * selSlot : pendant un rectangle de sélection, ses lignes remplacent le contenu de ce panneau (Seb, 26/11 : un seul écran).
+ */
+export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose, selecting, selSlot }: {
+  cartes: number; squares: number; squaresBytes: number; onClose: () => void;
+  selecting?: boolean; selSlot?: (el: HTMLDivElement | null) => void;
+}) {
   const [space, setSpace] = useState<PhoneSpace | null>(null);
   const sheet = useSheet('placeTelephone', { defaut: 0, masque: false });
   const [srv, setSrv] = useState<ServerSpace | null>(null);
@@ -30,10 +36,12 @@ export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose }: { ca
   return (
     <div className={`travel phone-space${sheet.classe}`}>
       <div {...sheet.prise}><div className="handle" />
-        <div className="travel-head"><span><b>{space ? formatBytes(space.total) : '…'}</b> sur le téléphone</span>
-          <span className="head-btns"><button onClick={onClose} aria-label="Fermer">✕</button></span></div>
+        {!selecting && <div className="travel-head"><span><b>{space ? formatBytes(space.total) : '…'}</b> sur le téléphone</span>
+          <span className="head-btns"><button onClick={onClose} aria-label="Fermer">✕</button></span></div>}
       </div>
-      {sheet.cran > 0 && space && <>
+      {selecting && <div ref={selSlot} className="phone-space-sel" />}
+      {/* Pendant le rectangle, on ne voit que ses lignes : le reste s'efface (Seb, 26/11 : que ça ne grandisse pas trop). */}
+      {!selecting && sheet.cran > 0 && space && <>
         <div className="phone-space-bar">
           {PARTS.map((p) => space[p.key] > 0 && (
             <div key={p.key} style={{ flexGrow: Math.max(space[p.key], space.total * 0.02), background: p.color }} />
