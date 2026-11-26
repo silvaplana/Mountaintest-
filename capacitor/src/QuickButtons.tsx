@@ -42,6 +42,8 @@ export interface QuickProps {
   drones: boolean; onDrones: (on: boolean) => void;
   /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de groupes qui ont bougé. */
   onBuddies: () => void;
+  /** Sortie ouverte sur la carte : pas de ✕ « Quitter l'appli », le ‹ de son bandeau suffit (Seb, 26/11). */
+  sansQuitter?: boolean;
   nouveautes: number;
   /** ⛷ 💬 : question en texte sur les sorties skitour. */
   onSkiText: () => void;
@@ -142,7 +144,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ sansQuitter, geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -343,8 +345,8 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
     </div>}
     {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
     <div className={help ? 'quick help' : 'quick'} onContextMenu={(e) => e.preventDefault()}>
-      <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli" {...lp('close')}
-        onClick={() => { if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
+      {!sansQuitter && <button className="toggle" aria-label="Quitter l'appli" data-help="Quitter l'appli" {...lp('close')}
+        onClick={() => { if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>}
       <button className="toggle arrow" aria-label={wide ? 'Moins d’icônes' : 'Toutes les icônes'} data-help="Appui : plus ou moins d'icônes · appui long : aide"
         onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
         onPointerUp={() => { if (press.current.timer) clearTimeout(press.current.timer); }}

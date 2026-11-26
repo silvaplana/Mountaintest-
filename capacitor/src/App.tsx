@@ -18,7 +18,7 @@ import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte } from './Account';
 import { appliquerIcones } from './doigt';
-import { connecte } from './compte/auth';
+import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
 import { PositionsBuddiesSurCarte, useEpingle } from './buddies/Positions';
@@ -215,6 +215,9 @@ export function App() {
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
   // L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰ (demande de Seb).
   const [nature, setNature] = useState(true);
+  // ☰ (bandeau du bas) : seulement pour le Super User (Seb 26/11, il sert de moins en moins).
+  const [superUser, setSuperUser] = useState(() => !!lireCompte().profil?.super_user);
+  useEffect(() => suivreCompte((e) => setSuperUser(!!e.profil?.super_user)), []);
   // Bandeau du bas : seulement après ☰, pas quand la loupe 🔍 fait revenir l'interface (Seb 25/11).
   const [bandeau, setBandeau] = useState(false);
   const [geo, setGeo] = useState<GeolocateControl | null>(null);
@@ -1238,7 +1241,7 @@ export function App() {
 
   return (
     <div className={`app ${nature ? 'nature' : ''}`}>
-      {nature && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
+      {nature && superUser && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} droneZones={droneZones} onDroneZone={setToast}
         offlineCover={(open && tab === 'horsligne') || (framing && framingFor === 'horsligne') ? cover : null} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
@@ -1339,7 +1342,7 @@ export function App() {
             setSelected((cur) => (cur?.savedId === t.id ? { ...cur, savedId: null } : cur));
           }} />
       )}
-      {!framing && !drawing && <QuickButtons geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
+      {!framing && !drawing && <QuickButtons sansQuitter={!!carteSortie} geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
         onSearch={() => { setNature(false); setSearching(true); }}
         onBaseLayer={() => {
           // Fond de carte : Carte auto → SCAN 25 → Plan IGN → …
