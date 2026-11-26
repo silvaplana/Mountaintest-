@@ -48,7 +48,7 @@ export function enLigne(e: EtatAppel): string {
     .filter(Boolean).join(' · ') || 'personne encore';
 }
 
-/** 📞 J'appelle un Buddy Group ou un Buddy Time (ou je rejoins l'appel déjà en cours). */
+/** 📞 J'appelle un groupe ou une sortie (ou je rejoins l'appel déjà en cours). */
 export async function appeler(dest: Dest, nom: string) {
   if (etat) return;
   changer({ id: '', nom, dest, phase: 'connexion', voix: [], parle: [], muet: false });

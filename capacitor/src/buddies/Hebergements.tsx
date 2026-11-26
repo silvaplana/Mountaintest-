@@ -7,7 +7,7 @@ import { Visage } from './Buddies';
 import { lire, mettreCoeur, proposerHebergement, retenirHebergement, retirerHebergement, type Hebergement, type Sortie } from './store';
 
 /**
- * Hébergement d'un Buddy Time (spec/buddies.md §5.11, écrans 9 et 23) : « Où on dort ? », les idées proposées par
+ * Hébergement d'une sortie (spec/buddies.md §5.11, écrans 9 et 23) : « Où on dort ? », les idées proposées par
  * chacun depuis la recherche, un ♥ par buddy, ✅ celui qu'on retient ; les épingles 🏨 sur la carte.
  * Mêmes écrans côté Kotlin (BuddiesPanel.kt, SharePanel.kt).
  */
@@ -61,7 +61,7 @@ export function OuOnDort({ x, hebergements, onChercher, onRetour, onClose, onToa
   </div>;
 }
 
-/** Les épingles 🏨 sur la carte du Buddy Time ; celle qu'on a retenue en vert. */
+/** Les épingles 🏨 sur la carte de la sortie ; celle qu'on a retenue en vert. */
 export function HebergementsSurCarte({ map, hebergements }: { map: MlMap | null; hebergements: Hebergement[] }) {
   const placees = hebergements.filter((h) => h.lon != null && h.lat != null);
   const cle = placees.map((h) => `${h.id}${h.retenu}`).join();
@@ -80,7 +80,7 @@ export function HebergementsSurCarte({ map, hebergements }: { map: MlMap | null;
   return null;
 }
 
-/** Écran 23 : proposer un hébergement trouvé dans des Buddy Times ; placé sur la carte par son adresse (si on la trouve). */
+/** Écran 23 : proposer un hébergement trouvé dans des sorties ; placé sur la carte par son adresse (si on la trouve). */
 export async function proposer(sorties: string[], l: Lodging) {
   let lon: number | null = null, lat: number | null = null;
   try {

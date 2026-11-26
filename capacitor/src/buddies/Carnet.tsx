@@ -15,7 +15,7 @@ import { getTileStore } from '../tiles/offlineStore';
 import { enregistrerCarnet, ficheVide, lire, type Depense, type Fiche, type PhotoBuddy, type Sortie, type TraceBuddy } from './store';
 
 /**
- * Carnet d'un Buddy Time (spec/buddies.md §5.8) : le souvenir (écrans 12 et 13) et l'écriture (14).
+ * Carnet d'une sortie (spec/buddies.md §5.8) : le souvenir (écrans 12 et 13) et l'écriture (14).
  * Mêmes écrans côté Kotlin (CarnetVue.kt). Calculs dans carnet.ts.
  */
 
@@ -87,7 +87,7 @@ function useFond(v: { gauche: number; haut: number; e: number; W: number; H: num
   return l;
 }
 
-/** Profil de tout le Buddy Time, jour après jour (écran 13). */
+/** Profil de toute la sortie, jour après jour (écran 13). */
 function ProfilCarnet({ traces, reliefs }: { traces: TraceCarnet[]; reliefs: Map<string, Relief> }) {
   const rs = traces.map((t) => ({ t, r: reliefs.get(t.t.id) })).filter((x): x is { t: TraceCarnet; r: Relief } => !!x.r);
   if (!rs.length) return null;

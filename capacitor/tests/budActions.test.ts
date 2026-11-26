@@ -15,7 +15,7 @@ const donnees = { nom: '', sortie: so, membres: so.participants, moi: 'seb', tra
 
 describe('Bud agit à ma demande', () => {
   beforeEach(() => { localStorage.clear(); _reinitialiser(); });
-  it('ajoute une dépense, ma dispo et un Buddy Time, puis Annuler défait tout', () => {
+  it('ajoute une dépense, ma dispo et une sortie, puis Annuler défait tout', () => {
     const { faites, refus } = agir([
       { ...vide, titre: 'Gîte', montant_euros: 120, paye_par: 'julie' },
       { ...vide, type: 'dispo', nom: 'saison ski', debut: '2027-01-10', etat: 'oui' },
@@ -30,7 +30,7 @@ describe('Bud agit à ma demande', () => {
     expect(types().slice(3)).toEqual(['retirer_sortie', 'dispo', 'retirer_depense']);
     expect(lire().attente[4]).toMatchObject({ etat: '' });
   });
-  it('supprime un Buddy Time de la bande, puis Annuler le remet', () => {
+  it('supprime une sortie de la bande, puis Annuler la remet', () => {
     const { faites, refus } = agir([{ ...vide, type: 'supprimer_buddy_time', nom: 'queyras' }], { groupe: 'g' },
       { ...donnees, sortie: undefined, sorties: [{ ...so, par: 'seb' }] });
     expect(refus).toEqual([]);
@@ -40,7 +40,7 @@ describe('Bud agit à ma demande', () => {
     expect(vue({ ...lire(), sorties: [so] }).sorties.map((x) => x.id)).toEqual(['s']);
     expect(vue({ ...lire(), sorties: [so], attente: lire().attente.slice(0, 1) }).sorties).toEqual([]);
   });
-  it('renomme un Buddy Time, puis Annuler remet l’ancien nom', () => {
+  it('renomme une sortie, puis Annuler remet l’ancien nom', () => {
     const { faites, refus } = agir([{ ...vide, type: 'renommer_buddy_time', nouveau_nom: '  Raquettes au Queyras ' }], { sortie: 's' }, donnees);
     expect(refus).toEqual([]);
     expect(lire().attente[0]).toMatchObject({ type: 'renommer_sortie', sortie: 's', nom: 'Raquettes au Queyras' });
@@ -48,7 +48,7 @@ describe('Bud agit à ma demande', () => {
     annuler(faites);
     expect(vue({ ...lire(), sorties: [so] }).sorties[0].nom).toBe('Queyras');
   });
-  it('ne supprime pas le Buddy Time d’un autre si je ne suis pas admin', () => {
+  it('ne supprime pas la sortie d’un autre si je ne suis pas admin', () => {
     const { faites, refus } = agir([{ ...vide, type: 'supprimer_buddy_time' }], { sortie: 's' }, { ...donnees, sortie: { ...so, par: 'julie' } });
     expect(faites).toEqual([]);
     expect(refus).toHaveLength(1);

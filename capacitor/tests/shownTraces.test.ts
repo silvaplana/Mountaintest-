@@ -14,7 +14,7 @@ describe('traces gardées à la fermeture', () => {
     expect(st.navId).toBe(-2);
     expect(st.navPaused).toBe(true);
   });
-  it('garde le Buddy Time associé 👥', () => {
+  it('garde la sortie associé 👥', () => {
     const lien = { groupe: 'g1', sortie: 's1' };
     expect(decodeShown(encodeShown([{ ...mine, lien }], null, false)).trails[0].lien).toEqual(lien);
     expect(decodeShown(encodeShown([mine], null, false)).trails[0].lien).toBeNull();

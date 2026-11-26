@@ -148,11 +148,11 @@ export function App() {
   const [account, setAccount] = useState(() => !connecte());
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);
-  /** ‹ depuis la carte d'un Buddy Time : on revient sur son Buddy Group. */
+  /** ‹ depuis la carte d'une sortie : on revient sur son groupe. */
   const [buddiesDepart, setBuddiesDepart] = useState<DepartBuddies | undefined>();
-  /** Un Buddy Time ouvert sur la carte (écran 4). */
+  /** Une sortie ouverte sur la carte (écran 4). */
   const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[]; parler?: boolean } | null>(null);
-  // 📍 Le point d'un message d'un Buddy Group (« Julie est ici »), montré sur la carte.
+  // 📍 Le point d'un message d'un groupe (« Julie est ici »), montré sur la carte.
   const [pointBuddy, setPointBuddy] = useState<CarteBuddies['point'] | null>(null);
   const [positionsBuddy, setPositionsBuddy] = useState<string | null>(null);
   /** Panneau de partage d'une trace (écran 22). */
@@ -277,7 +277,7 @@ export function App() {
   const [selection, setSelection] = useState<{ x: number; y: number } | null>(null);
   const [pique, setPique] = useState(false);
   const [pinEdit, setPinEdit] = useState<{ id: number; i: number } | null>(null);
-  /** 👥 Panneau « Associer à un Buddy Time » de la trace choisie. */
+  /** 👥 Panneau « Associer à une sortie » de la trace choisie. */
   const [associer, setAssocier] = useState(false);
   useEffect(() => { if (!traceMenu) { setAssocier(false); setSurvol(false); setModifier(false); setPique(false); setPinEdit(null); } }, [traceMenu]);
   const [traceList, setTraceList] = useState<SavedTrace[] | null>(null);
@@ -342,7 +342,7 @@ export function App() {
   useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
   // 📞 Appel : la sonnerie (écran 10) et, une fois en ligne, la carte à l'écran avec la barre d'appel (écran 24).
   useSonnerie(setToast);
-  // 🔔 Toucher la notification d'un message : sa conversation s'ouvre (celle d'un Buddy Time, sur sa carte).
+  // 🔔 Toucher la notification d'un message : sa conversation s'ouvre (celle d'une sortie, sur sa carte).
   useNotifMessages((c) => {
     const v = vueBuddies(lireBuddies());
     const x = c.sortie ? v.sorties.find((y) => y.id === c.sortie) : undefined;
@@ -352,7 +352,7 @@ export function App() {
   const appel = useAppel();
   const enAppel = !!appel && appel.phase !== 'sonne';
   useEffect(() => { if (enAppel) setBuddies(false); }, [enAppel]);
-  // 📍 Épingle enfoncée dans un Buddy Time : la position part toutes les 5 minutes (spec/buddies.md §5.9).
+  // 📍 Épingle enfoncée dans une sortie : la position part toutes les 5 minutes (spec/buddies.md §5.9).
   useEpingle();
   const [junctions, setJunctions] = useState<{ id: number; pts: LonLat[] | null }>({ id: 0, pts: null });
   const setNavId = (id: number | null) => { setNavIdState(id); setNavPaused(false); };
@@ -921,7 +921,7 @@ export function App() {
   }
 
   /**
-   * 👥 Un Buddy Time sur la carte (écran 4) ou une trace partagée dans un groupe : ses traces s'ajoutent à mes
+   * 👥 Une sortie sur la carte (écran 4) ou une trace partagée dans un groupe : ses traces s'ajoutent à mes
    * traces affichées (profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne marchent comme pour les miennes).
    */
   function montrerBuddies(x: CarteBuddies) {
@@ -935,7 +935,7 @@ export function App() {
       const line = t.ligne.map(([lon, lat]) => ({ lon, lat }));
       pts.push(...line);
       const kind = `Partagée par ${t.par.pseudo}`;
-      // Elle arrive déjà associée à son Buddy Time (ou à son Buddy Group).
+      // Elle arrive déjà associée à sa sortie (ou à son groupe).
       const lien = t.sortie ? { groupe: x.sortie?.groupe ?? t.groupe ?? '', sortie: t.sortie } : t.groupe ? { groupe: t.groupe, sortie: null } : null;
       if (!trails.some((y) => isMine(y.id) && y.name === t.nom && y.kind === kind)) showMine(line, { onPaths: false, name: t.nom, kind, lien });
     }
@@ -946,7 +946,7 @@ export function App() {
     }
   }
 
-  // 👥 Une trace associée au Buddy Time ouvert (depuis son bandeau, ou par un buddy) : elle s'ajoute à sa carte.
+  // 👥 Une trace associée à la sortie ouverte (depuis son bandeau, ou par un buddy) : elle s'ajoute à sa carte.
   useEffect(() => {
     if (!carteSortie) return;
     const id = carteSortie.sortie.id;
@@ -1431,7 +1431,7 @@ export function App() {
         onChoisir={(l) => {
           changeMine(selected.id, { lien: l });
           if (!l) { setToast(`« ${selected.name} » n'est plus associée`); return; }
-          // Associée = partagée là-bas : elle apparaît sur la carte du Buddy Time pour mes buddies.
+          // Associée = partagée là-bas : elle apparaît sur la carte de la sortie pour mes buddies.
           partagerTrace(selected.name, selected.segments.flat().map((p) => [p.lon, p.lat]), '', l.sortie ? { sorties: [l.sortie], groupes: [] } : { sorties: [], groupes: [l.groupe] });
           const n = nomLien(l, vueBuddies(buddiesEtat).sorties, groupesBuddies(buddiesEtat));
           setToast(navigator.onLine ? `✓ « ${selected.name} » est dans « ${n.titre} »` : `« ${selected.name} » ira dans « ${n.titre} » au retour du réseau 🕓`);

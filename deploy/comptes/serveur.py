@@ -19,11 +19,11 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   POST /buddies/ecrit         « écrit… » dans une conversation (gardé 12 s en mémoire)
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
   PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
-  GET  /buddies/photos/{id}/{petite|grande}   la lire (participants du Buddy Time)
+  GET  /buddies/photos/{id}/{petite|grande}   la lire (participants de la sortie)
   PUT  /buddies/photos/{id}/video             le film d'un survol 3D (MP4 ou WebM) ; GET : le lire
   PUT  /buddies/fichiers/{id} envoyer le fichier joint à un message (annoncé par la synchro) ; GET : le lire
   POST /appareils             📞 le jeton Firebase de ce téléphone (pour sonner)
-  POST /appels                📞 appeler un Buddy Group ou un Buddy Time (ou rejoindre l'appel en cours) (appels.py)
+  POST /appels                📞 appeler un groupe ou une sortie (ou rejoindre l'appel en cours) (appels.py)
   POST /appels/{id}/rejoindre décrocher ; POST /appels/{id}/presence  entrer / raccrocher
 """
 from __future__ import annotations

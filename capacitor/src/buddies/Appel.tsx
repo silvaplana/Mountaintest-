@@ -51,7 +51,7 @@ export function useSonnerie(onToast: (m: string) => void) {
   }, [compte, onToast]);
 }
 
-/** Les visages de ceux qu'on appelle (le Buddy Time ou le Buddy Group). */
+/** Les visages de ceux qu'on appelle (la sortie ou le groupe). */
 function useQui(e: EtatAppel | null) {
   const b = useBuddies();
   if (!e) return [];

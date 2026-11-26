@@ -7,7 +7,7 @@ import { Visage } from './Buddies';
 
 /**
  * Planning de saison (spec/buddies.md §5.5, écrans 16 à 19) : une bande propose des dates sur quelques mois,
- * chacun dit ✓ ? ✗, puis on s'arrange de vive voix et une ligne devient un Buddy Time.
+ * chacun dit ✓ ? ✗, puis on s'arrange de vive voix et une ligne devient une sortie.
  * Mêmes écrans côté Kotlin (BuddiesPanel.kt, partie « planning de saison »).
  */
 
@@ -114,12 +114,12 @@ export function UnPlanning({ p, g, sorties, onRemplir, onSortie, onRetour, onClo
         ];
       })}
     </div>
-    <p className="hint">Touche ta colonne pour répondre (✓ dispo, ? peut-être, ✗ non). Touche une date pour voir qui est dispo et créer le Buddy Time.</p>
+    <p className="hint">Touche ta colonne pour répondre (✓ dispo, ? peut-être, ✗ non). Touche une date pour voir qui est dispo et créer la sortie.</p>
     {ligne && <Valider p={p} g={g} dt={ligne} qui={qui} onFermer={() => setLigne(null)} onToast={onToast} />}
   </div>;
 }
 
-/** Une ligne du planning (écran 19) : qui est dispo, où, puis « Créer le Buddy Time » ou « Pas encore ». */
+/** Une ligne du planning (écran 19) : qui est dispo, où, puis « Créer la sortie » ou « Pas encore ». */
 function Valider({ p, g, dt, qui, onFermer, onToast }: {
   p: Planning; g?: Groupe; dt: [string, string]; qui: Buddy[]; onFermer: () => void; onToast: (m: string) => void;
 }) {
@@ -146,7 +146,7 @@ function Valider({ p, g, dt, qui, onFermer, onToast }: {
     {bloc(sans, 'pas encore répondu')}
     <h3 className="bd-section">Où ? <small>facultatif, on peut décider plus tard</small></h3>
     <input value={lieu} maxLength={120} placeholder="Dôme des Écrins" onChange={(ev) => setLieu(ev.target.value)} />
-    <button className="primary bd-grand" disabled={!oui.length} onClick={creer}>Créer le Buddy Time</button>
+    <button className="primary bd-grand" disabled={!oui.length} onClick={creer}>Créer la sortie</button>
     <button onClick={onFermer}>Pas encore</button>
     {!g && <p className="hint">Tu ne fais plus partie de cette bande.</p>}
   </div></div>;
@@ -229,7 +229,7 @@ export function NouveauPlanning({ groupes, groupe, onFini, onRetour, onClose, on
   const exemple = `Saison ski ${ici.getFullYear()}-${String(ici.getFullYear() + 1).slice(2)}`;
   const nomFinal = nom.trim() || exemple;
   // Ce qui manque pour publier, dit à l'écran plutôt qu'un bouton grisé sans raison.
-  const manque = !g ? "Crée d'abord un Buddy Group pour publier un planning." : !choisies.length ? 'Coche au moins une date.' : '';
+  const manque = !g ? "Crée d'abord un groupe pour publier un planning." : !choisies.length ? 'Coche au moins une date.' : '';
   const publier = () => {
     try {
       const id = creerPlanning({ groupe: pour, nom: nomFinal, dates: choisies, limite });
@@ -247,7 +247,7 @@ export function NouveauPlanning({ groupes, groupe, onFini, onRetour, onClose, on
     {bandes.length ? <label className="bd-pour">
       {g && <span className="bd-pile">{g.membres.slice(0, 4).map((b) => <Visage key={b.id} b={b} taille={30} />)}</span>}
       <select value={pour} onChange={(ev) => setPour(ev.target.value)}>{bandes.map((x) => <option key={x.id} value={x.id}>{x.nom}</option>)}</select>
-    </label> : <p className="hint">Crée d'abord un Buddy Group : un planning se fait avec une bande.</p>}
+    </label> : <p className="hint">Crée d'abord un groupe : un planning se fait avec une bande.</p>}
     <h3 className="bd-section">Période</h3>
     <div className="bd-dates">
       <label>de<input type="month" value={de} onChange={(ev) => { setDe(ev.target.value); if (a < ev.target.value) setA(ev.target.value); }} /></label>

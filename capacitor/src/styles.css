@@ -631,7 +631,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-corps .hint { font-size: 15px; }
 .bd-corps .xp-head h2 { font-size: 22px; }
 
-/* 👥 Buddy Times (écrans 2, 3, 4, 21, 22) */
+/* 👥 Sorties (écrans 2, 3, 4, 21, 22) */
 .bd-carre { position: relative; flex: none; border-radius: 12px; overflow: hidden; display: inline-block; }
 .bd-date { position: absolute; left: 4px; bottom: 4px; background: #fff; color: #1d2421; border-radius: 6px; padding: 1px 4px;
   display: flex; flex-direction: column; align-items: center; line-height: 1.05; min-width: 26px; }
@@ -779,7 +779,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-bande-image img, .bd-bande-image .bd-img-vide { width: 100%; height: 100%; object-fit: cover; display: grid; place-items: center; }
 .bd-bande-image b { position: absolute; inset: 0; display: grid; place-items: center; background: #0007; color: #fff; font-size: 20px; }
 
-/* Carnet d'un Buddy Time (écrans 12 à 14, spec/buddies.md §5.8) */
+/* Carnet d'une sortie (écrans 12 à 14, spec/buddies.md §5.8) */
 .bd-carnet { gap: 12px; }
 .bd-couverture { position: relative; flex: none; min-height: 190px; margin: 0 -8px 0 -14px; display: flex; align-items: flex-end; overflow: hidden;
   background: linear-gradient(#0000 35%, #000a), linear-gradient(#8fb7dd, #5f7f9c); color: #fff; padding: 16px; }
@@ -892,7 +892,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-fleche { font-size: 26px; color: var(--muted); }
 .bd-epingle .bd-texte b, .bd-pos-acces .bd-texte small { white-space: normal; }
 
-/* Hébergement d'un Buddy Time (écrans 9 et 23, spec/buddies.md §5.11) */
+/* Hébergement d'une sortie (écrans 9 et 23, spec/buddies.md §5.11) */
 .bd-dodo { gap: 10px; }
 .bd-heberg { flex: none; border: 2px solid #d9dfdc; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .bd-heberg.retenu { border-color: var(--accent); background: #e8f1ec; }
@@ -1299,7 +1299,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-recues button { min-height: 48px; text-align: left; padding: 0 12px; font-size: 17px; }
 .bd-recues p { margin: 0; }
 
-/* 👥 Associer une trace à un Buddy Time (maquettes/trace-buddy-time, Seb 25/11). */
+/* 👥 Associer une trace à une sortie (maquettes/trace-buddy-time, Seb 25/11). */
 .trace-lien { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 6px 12px; margin: 6px 0;
   border: 2px dashed var(--muted); border-radius: 14px; background: none; text-align: left; font-size: 17px; }
 .trace-lien.oui { border: 2px solid #7b3fe4; }

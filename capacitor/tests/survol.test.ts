@@ -474,7 +474,7 @@ describe('survol 3D : 📷 photos de la sortie dans le film', () => {
 });
 
 describe('jour des ombres du film', () => {
-  it('prend le jour du Buddy Time, ou celui de sa première photo sur la trace', async () => {
+  it('prend le jour de la sortie, ou celui de sa première photo sur la trace', async () => {
     const { jourDesOmbres } = await import('../src/survol/photos-film');
     const bt = { debut: '2026-04-25', fin: '2026-04-26' };
     expect(jourDesOmbres(null, [])).toBeNull();

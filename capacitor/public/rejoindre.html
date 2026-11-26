@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mountain Buddies : invitation</title>
-<!-- Page du lien d'invitation à un Buddy Group (SMS, mail, QR code) : spec/buddies.md §5.3.
+<!-- Page du lien d'invitation à un groupe (SMS, mail, QR code) : spec/buddies.md §5.3.
      Servie sur https://silvaplana.cloud/mountaintest/rejoindre.html?c=CODE -->
 <style>
   :root { --ink: #1d2421; --muted: #5f6b66; --accent: #2f6f4f; }
@@ -24,7 +24,7 @@
 <main>
   <img src="logo.svg" alt="" width="64" height="64">
   <div class="rond" id="photo">👥</div>
-  <h1 id="titre">Tu es invité dans un Buddy Group</h1>
+  <h1 id="titre">Tu es invité dans un groupe</h1>
   <p id="par">Sur Mountain Buddies, l'appli des sorties montagne entre copains.</p>
 
   <a class="b p" id="ouvrir" href="#">Ouvrir dans Mountain Buddies</a>
@@ -47,7 +47,7 @@
     fetch('/mountaintest-api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then((a) => {
         document.getElementById('titre').textContent = a.groupe;
-        document.getElementById('par').textContent = a.par + ' t’invite dans ce Buddy Group.';
+        document.getElementById('par').textContent = a.par + ' t’invite dans ce groupe.';
         if (a.photo) { const p = document.getElementById('photo'); p.textContent = ''; p.style.backgroundImage = 'url("' + a.photo + '")'; }
       })
       .catch((e) => { if (e === 404) document.getElementById('par').textContent = 'Ce lien a expiré : demande-en un nouveau à ton copain.'; });

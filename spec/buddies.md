@@ -22,12 +22,17 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 | Mot à l'écran | Ce que c'est |
 |---|---|
 | **Buddies** | L'espace entier, ouvert par 👥 dans la barre étendue de la carte. |
-| **Buddy Group** | Une bande de copains (comme une conversation de groupe). |
-| **Buddy Time** | Une sortie ou un week-end passé ensemble. |
-| ~~Me Time~~ | **Retiré** (Seb, 25 novembre 2026 : « il vaudrait mieux qu'il n'existe pas ; celui qui veut se créer un Buddy Group avec ses sorties perso, il le fait »). Voir §5.4. |
+| **Groupe** | Une bande de copains (comme une conversation de groupe). |
+| **Sortie** | Une sortie ou un week-end passé ensemble. |
+| ~~Me Time~~ | **Retiré** (Seb, 25 novembre 2026 : « il vaudrait mieux qu'il n'existe pas ; celui qui veut se créer un groupe avec ses sorties perso, il le fait »). Voir §5.4. |
 | **Buddy count** | Le partage des frais (l'actuel « partage des frais » du menu Voyage). |
-| **Carnet** | Le compte rendu final d'un Buddy Time. |
-| **buddy** | Une personne d'un de mes Buddy Groups ou Buddy Times. |
+| **Carnet** | Le compte rendu final d'une sortie. |
+| **buddy** | Une personne d'un de mes groupes ou sorties. |
+
+Noms changés le 26 novembre 2026 (Seb : « On va remplacer buddy group et buddy time par groupe et sortie ») :
+« Buddy Group » devient **Groupe** et « Buddy Time » devient **Sortie** partout à l'écran ; **Buddy count** reste.
+Les tables, l'API et le code gardent leurs noms (`groupe`, `sortie`, actions `buddy_time` de Bud…). Bud comprend
+encore les anciens noms (§7.12).
 
 ## 3. Règles valables partout
 
@@ -41,7 +46,7 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
   enregistré tout de suite sur le téléphone, marqué 🕓, et part seul au retour du réseau.
 - Conflits : les ajouts s'additionnent (messages, photos, dépenses, dispos). Pour un texte
   modifié des deux côtés, le dernier envoyé gagne et l'autre version reste récupérable.
-- Un Buddy Time à venir se télécharge en entier : trace, fonds de carte du couloir,
+- Une sortie à venir se télécharge en entier : trace, fonds de carte du couloir,
   hébergement, point de rendez-vous. Les photos des anciens albums sont gardées en vignette,
   la pleine taille se charge à la demande.
 - Impossible sans réseau : appels, réception des positions des autres, recherche
@@ -61,11 +66,11 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 
 - Verticale, à droite, toujours visible **(Seb)** : 📞 appel, 📅 planning, 💬 messagerie,
   📸 album, 💶 Buddy count, 🏨 hébergement, 📍 ma position (Seb, 25 novembre : partager sa position
-  même hors Buddy Time, §7.14), 🚗 voyage, 👤 moi.
+  même hors sortie, §7.14), 🚗 voyage, 👤 moi.
 - Elle ne change pas ; sa portée suit ce qui est ouvert à gauche **(proposé)** : dans la
-  liste elle regarde tous mes buddies, dans un Buddy Group ce groupe, dans un Buddy Time
+  liste elle regarde tous mes buddies, dans un groupe ce groupe, dans une sortie
   cette sortie.
-- Dans un Buddy Time, deux icônes s'ajoutent sous un trait **(proposé)** : 📍 position des
+- Dans une sortie, deux icônes s'ajoutent sous un trait **(proposé)** : 📍 position des
   buddies, 📖 carnet.
 - Une icône ouvre un panneau par-dessus la carte ; le panneau se tire vers le haut ou se
   baisse. L'icône active est verte.
@@ -75,9 +80,9 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 Depuis une trace (Mes traces), un hébergement, un itinéraire voiture, un point ou une photo,
 le partage ouvre toujours les mêmes rangées, dans cet ordre (écrans 22, 23) :
 
-1. « Dans un Buddy Time » : les Buddy Times où il y a de l'activité, en image avec leur date.
+1. « Dans une sortie » : les sorties où il y a de l'activité, en image avec leur date.
    L'objet s'y range et apparaît sur leur carte.
-2. « Ou à mes buddies » : les copains et Buddy Groups avec qui j'échange le plus (cinq au
+2. « Ou à mes buddies » : les copains et groupes avec qui j'échange le plus (cinq au
    plus), puis « Tous ». Pas besoin d'avoir un groupe.
 3. « Ou ailleurs » : WhatsApp, mail, fichier, autres applis.
 
@@ -94,10 +99,10 @@ On peut cocher plusieurs destinataires. Un seul bouton « Partager ».
 | N° | Fichier | Rôle |
 |---|---|---|
 | 1 | `1-carte-buddies-moi.png` | 2e barre : 👥 Buddies et 👤 Moi (profil, compte, réglages). |
-| 2 | `2-buddies.png` | Liste : prochain Buddy Time en grand, Buddy Groups, derniers Buddy Times, deux « ＋ ». |
-| 3 | `3-buddy-group.png` | Un Buddy Group : ses Buddy Times à venir puis ses souvenirs. |
-| 4 | `4-buddy-time-carte.png` | Un Buddy Time : la carte d'abord, bandeau rabattable. |
-| 6 | `6-messagerie.png` | Messagerie du Buddy Time, carte au-dessus. |
+| 2 | `2-buddies.png` | Liste : prochaine sortie en grand, groupes, dernières sorties, deux « ＋ ». |
+| 3 | `3-buddy-group.png` | Un groupe : ses sorties à venir puis ses souvenirs. |
+| 4 | `4-buddy-time-carte.png` | Une sortie : la carte d'abord, bandeau rabattable. |
+| 6 | `6-messagerie.png` | Messagerie de la sortie, carte au-dessus. |
 | 7 | `7-album-sur-la-carte.png` | Album, vue « Sur la carte ». |
 | 8 | `8-buddy-count.png` | Buddy count. |
 | 9 | `9-hebergement.png` | Hébergements proposés au groupe. |
@@ -107,12 +112,12 @@ On peut cocher plusieurs destinataires. Un seul bouton « Partager ».
 | 13 | `13-carnet-chiffres-jours.png` | Carnet : chiffres, fiches par jour, « Le pratique » replié. |
 | 14 | `14-carnet-dicter.png` | Écrire le carnet à la voix. |
 | 15 | `15-position-buddies.png` | Position des buddies (épingle). |
-| 16 | `16-planning-saison.png` | Planning de saison d'un Buddy Group. |
+| 16 | `16-planning-saison.png` | Planning de saison d'un groupe. |
 | 17 | `17-planning-mes-dispos.png` | Remplir mes dispos. |
 | 18 | `18-planning-nouveau.png` | Nouveau planning. |
-| 19 | `19-planning-valider.png` | Une ligne du planning devient un Buddy Time. |
-| 20 | `20-nouveau-buddy-group.png` | Nouveau Buddy Group, invitations. |
-| 21 | `21-nouveau-buddy-time.png` | Nouveau Buddy Time. |
+| 19 | `19-planning-valider.png` | Une ligne du planning devient une sortie. |
+| 20 | `20-nouveau-buddy-group.png` | Nouveau groupe, invitations. |
+| 21 | `21-nouveau-buddy-time.png` | Nouvelle sortie. |
 | 22 | `22-trace-partager.png` | Partager une trace. |
 | 23 | `23-hebergement-partager.png` | Partager un hébergement. |
 | 24 | `24-parler-ecrire-carte.png` | Parler ou écrire en regardant la carte. |
@@ -169,52 +174,52 @@ sa gauche, on en choisit une.
 
 ### 5.2 La liste Buddies (écran 2)
 
-- Façon WhatsApp : les Buddy Groups au-dessus, puis les Buddy Times ; dans chaque partie le
+- Façon WhatsApp : les groupes au-dessus, puis les sorties ; dans chaque partie le
   plus récemment actif en haut. **(Seb)**
-- Rond = Buddy Group, carré avec le jour = Buddy Time **(proposé)**.
-- Tout en haut, en grande image : le Buddy Time en cours ou le prochain **(proposé)**.
-- Me Time figure parmi les Buddy Groups, avec ma photo.
+- Rond = Groupe, carré avec le jour = Sortie **(proposé)**.
+- Tout en haut, en grande image : la sortie en cours ou le prochain **(proposé)**.
+- Me Time figure parmi les groupes, avec ma photo.
 - En bas, deux boutons en image **(Seb : deux « ＋ », en image si possible)** :
-  « ＋ Buddy Group » (visages qui se chevauchent) et « ＋ Buddy Time » (photo datée).
+  « ＋ Groupe » (visages qui se chevauchent) et « ＋ Sortie » (photo datée).
 
-### 5.3 Buddy Group (écrans 3, 20)
+### 5.3 groupe (écrans 3, 20)
 
 - Création : une photo, un nom, des invitations par contacts, mail, téléphone (SMS) ou QR
   code. L'invité reçoit un lien qui installe l'appli et le fait entrer. Réutilise les
   comptes et invitations existants (`deploy/comptes/`, `capacitor/src/compte/`). **(Seb)**
-- Ouvert, il montre ses Buddy Times : à venir d'abord, puis les souvenirs en images.
+- Ouvert, il montre ses sorties : à venir d'abord, puis les souvenirs en images.
 - Toucher les visages en haut ouvre les membres : inviter, nommer admin, retirer. Pas
   d'icône d'administration. **(proposé)**
-- « ＋ Buddy Time » dans un groupe ne demande pas quel groupe. **(Seb)**
+- « ＋ Sortie » dans un groupe ne demande pas quel groupe. **(Seb)**
 
-### 5.4 Buddy Time (écrans 4, 21)
+### 5.4 sortie (écrans 4, 21)
 
 - **Il naît quand on est sûr de partir**, jamais automatiquement. **(Seb)** Deux chemins :
-  depuis une ligne du planning (§5.5), ou par « ＋ Buddy Time ». La préparation peut donc se
-  faire hors du Buddy Time (dans le planning du groupe) ou dedans. **(Seb)**
-- Créé dans un Buddy Group, il appartient à ce groupe ; on décoche ceux qui ne viennent pas.
-  Créé depuis la liste (« ＋ Buddy Time »), on choisit d'abord son Buddy Group ; sans Buddy Group, on en crée un
+  depuis une ligne du planning (§5.5), ou par « ＋ Sortie ». La préparation peut donc se
+  faire hors de la sortie (dans le planning du groupe) ou dedans. **(Seb)**
+- Créé dans un groupe, il appartient à ce groupe ; on décoche ceux qui ne viennent pas.
+  Créé depuis la liste (« ＋ Sortie »), on choisit d'abord son groupe ; sans groupe, on en crée un
   (même rien que pour soi). **(Seb, 25 novembre 2026 : plus de Me Time)**
-- Dans Me Time, on peut inviter un ou plusieurs copains à une sortie sans créer de Buddy
-  Group. **(Seb)**
+- Dans Me Time, on peut inviter un ou plusieurs copains à une sortie sans créer de
+  groupe. **(Seb)**
 - Création : photo, nom, dates, lieu facultatif.
 - **Changer son nom** (Seb, 25 novembre 2026) : le crayon (dessiné au trait) en haut de sa carte, ou toucher le nom ;
-  l'écrire, ✓ (✕ pour renoncer). Tout buddy qui voit le Buddy Time peut le faire, comme le nom d'un groupe WhatsApp (opération
+  l'écrire, ✓ (✕ pour renoncer). Tout buddy qui voit la sortie peut le faire, comme le nom d'un groupe WhatsApp (opération
   `renommer_sortie`). Aussi par Bud (§7.12).
 - **Le supprimer** (Seb, 25 novembre 2026) : la poubelle (dessinée au trait, pas l'émoji) en haut de sa carte, montrée
-  seulement à celui qui l'a créé et aux admins du Buddy Group. Supprimé tout de suite, « Annuler » 10 secondes, puis
+  seulement à celui qui l'a créé et aux admins du groupe. Supprimé tout de suite, « Annuler » 10 secondes, puis
   retour aux Buddies. Rien n'est effacé sur le serveur (même opération que Bud, §7.12).
-- **Renommer un Buddy Group** (Seb, 25 novembre 2026) : crayon au trait en haut de l'écran du Buddy Group (ou toucher
-  son nom), feuille « Nom du Buddy Group ». Tout membre peut le faire (opération `renommer_groupe`).
+- **Renommer un groupe** (Seb, 25 novembre 2026) : crayon au trait en haut de l'écran du groupe (ou toucher
+  son nom), feuille « Nom du groupe ». Tout membre peut le faire (opération `renommer_groupe`).
 - **Plus de Me Time** (Seb, 25 novembre 2026) : le serveur n'en crée plus. À la synchro, l'ancien Me Time de chacun
-  est **effacé avec tout ce qu'il contient**, pour tout le monde (choix de Seb : « Tout effacer ») : ses Buddy Times
+  est **effacé avec tout ce qu'il contient**, pour tout le monde (choix de Seb : « Tout effacer ») : ses sorties
   et leurs traces, photos (fichiers compris), dépenses, messages, hébergements, carnets. Un téléphone pas encore à
-  jour qui range une sortie dans « me-time » est refusé (« Choisis un Buddy Group »). Le paragraphe suivant (inviter
-  à une seule sortie sans Buddy Group) ne vaut plus.
-- Crayon et poubelle aussi **à côté de chaque Buddy Time** des listes (Seb, 25 novembre 2026) : la liste des Buddies
-  (l'heure de la ligne laisse sa place) et les affiches d'un Buddy Group (en haut à droite de l'image). Le crayon
-  ouvre une feuille « Nom du Buddy Time » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.
-- Ouvrir un Buddy Time ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
+  jour qui range une sortie dans « me-time » est refusé (« Choisis un groupe »). Le paragraphe suivant (inviter
+  à une seule sortie sans groupe) ne vaut plus.
+- Crayon et poubelle aussi **à côté de chaque sortie** des listes (Seb, 25 novembre 2026) : la liste des Buddies
+  (l'heure de la ligne laisse sa place) et les affiches d'un groupe (en haut à droite de l'image). Le crayon
+  ouvre une feuille « Nom de la sortie » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.
+- Ouvrir une sortie ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
   bandeau en bas (dans combien de jours, qui vient, chiffres du parcours) se baisse pour ne
   laisser que la carte. **(proposé)**
 - Une fois terminé, il s'ouvre directement sur son carnet (§5.8). **(proposé, construit au bloc 5)**
@@ -224,7 +229,7 @@ sa gauche, on en choisit une.
 
 - Sert à une bande où chacun a une famille et où il est dur de se coordonner sur une saison.
 - Un planning est publié par quelqu'un, avec le « ＋ » en bas de l'écran planning : un nom,
-  pour quel Buddy Group, une période de quelques mois, « week-ends » ou « tous les jours »
+  pour quel groupe, une période de quelques mois, « week-ends » ou « tous les jours »
   (ou à la carte), les dates proposées cochées d'avance, une date limite de réponse.
 - Publié, il apparaît dans le planning de chaque membre, qui est prévenu et doit le remplir.
 - Remplir : un toucher par date (✓ dispo, ? peut-être, ✗ non). Un appui long ajoute un petit
@@ -232,13 +237,13 @@ sa gauche, on en choisit une.
   « Avec les enfants », « Je peux conduire ») ou texte libre, dictable.
 - La grille montre une ligne par date, une colonne par buddy, le nombre de dispos au bout.
 - Ensuite on s'arrange de vive voix. Toucher une ligne montre qui est dispo et propose
-  « Créer le Buddy Time » ou « Pas encore ». La ligne d'un Buddy Time créé devient un lien
+  « Créer la sortie » ou « Pas encore ». La ligne d'une sortie créé devient un lien
   vers lui.
 
 ### 5.6 Messagerie (écrans 6, 24)
 
-- Pour l'instant la spec dit seulement qu'il y a une messagerie par Buddy Group et par Buddy
-  Time ; le détail se fera au moment de la développer, en reprenant celle d'AppBase
+- Pour l'instant la spec dit seulement qu'il y a une messagerie par groupe et par
+  sortie ; le détail se fera au moment de la développer, en reprenant celle d'AppBase
   (`silvaplana/contretemps`, `backend/src/messagerie/`). **(Seb)**
 - Ce qu'elle doit porter **(Seb)** : écrire ou parler tout en regardant la carte. Elle se
   réduit à un bandeau en bas. Une trace ou un hébergement partagé apparaît sur la carte de
@@ -249,7 +254,7 @@ sa gauche, on en choisit une.
 
 ### 5.7 Appels (écrans 10, 24)
 
-- 📞 fait sonner tout le Buddy Time ou le Buddy Group, comme un vrai appel. On voit qui a
+- 📞 fait sonner toute la sortie ou le groupe, comme un vrai appel. On voit qui a
   décroché et qui parle. Besoin de réseau. **(Seb)**
 - Pendant l'appel, une barre en haut (qui est en ligne, micro, raccrocher) ; le reste de
   l'écran reste à la carte.
@@ -284,22 +289,22 @@ sa gauche, on en choisit une.
   part alors seule, régulièrement, jusqu'à ce qu'on relève l'épingle.
 - Qui n'a pas enfoncé l'épingle n'apparaît ni sur la carte ni dans la liste.
 - Chaque position est affichée avec l'heure de la dernière reçue ; elle grise en vieillissant.
-- Arrêt automatique le soir ou à la fin du Buddy Time ; un envoi toutes les cinq minutes
-  environ avec le GPS économe existant ; visible seulement par les buddies de ce Buddy Time.
-- Hors Buddy Time **(Seb, 25 novembre)** : 📍 de la colonne de Buddies partage pareillement avec un ou
-  plusieurs Buddy Groups choisis (§7.14).
+- Arrêt automatique le soir ou à la fin de la sortie ; un envoi toutes les cinq minutes
+  environ avec le GPS économe existant ; visible seulement par les buddies de cette sortie.
+- Hors sortie **(Seb, 25 novembre)** : 📍 de la colonne de Buddies partage pareillement avec un ou
+  plusieurs groupes choisis (§7.14).
 - Sans réseau, les positions sont gardées avec leur heure et partent au retour.
 
 ### 5.10 Buddy count (écran 8)
 
 Le partage des frais existant (`capacitor/src/expenses/`, `Expenses.kt`), rangé dans chaque
-Buddy Time et partagé entre téléphones : équilibres, « qui doit à qui », dépenses, « ＋ Dépense ».
+sortie et partagé entre téléphones : équilibres, « qui doit à qui », dépenses, « ＋ Dépense ».
 
 ### 5.11 Hébergement (écrans 9, 23)
 
 La recherche existante (`Lodging.tsx`, `LodgingPanel.kt`), pour le groupe : les propositions
 sont des épingles sur la carte, chacun met un ♥, on en retient une. Elle devient l'épingle 🏨
-du Buddy Time et une ligne du Buddy count **(proposé)**. Un hébergement se partage avec le
+de la sortie et une ligne du Buddy count **(proposé)**. Un hébergement se partage avec le
 panneau du §3.4 **(Seb)**.
 
 ### 5.12 Bud (écran 25) **(idée de Seb, 23 novembre)**
@@ -325,8 +330,8 @@ Serveur Python (FastAPI, SQLAlchemy) à côté des comptes existants ; base loca
 téléphone, identifiants créés par le téléphone, synchronisation « envoyer / nouveautés
 depuis ». Objets : buddy group, membre, invitation, buddy time, participant, planning, date
 de planning, dispo, conversation, message, pièce jointe, photo, carnet, fiche de jour, trace
-liée, hébergement proposé, dépense, position. Chaque objet porte l'identifiant de son Buddy
-Group ou de son Buddy Time, qui décide qui peut le voir. À détailler bloc par bloc.
+liée, hébergement proposé, dépense, position. Chaque objet porte l'identifiant de son
+groupe ou de sa sortie, qui décide qui peut le voir. À détailler bloc par bloc.
 
 ## 7. Ordre de construction
 
@@ -334,9 +339,9 @@ Seb laisse le choix de l'ordre. **(Seb)**
 
 Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable seul.
 
-1. Socle : serveur, copie locale et file d'attente ; liste Buddies, Buddy Groups, Me Time,
+1. Socle : serveur, copie locale et file d'attente ; liste Buddies, groupes, Me Time,
    invitations (écrans 1, 2, 3, 20).
-2. Buddy Time : création, carte, traces associées, panneau de partage (4, 21, 22).
+2. Sortie : création, carte, traces associées, panneau de partage (4, 21, 22).
 3. Planning de saison (16 à 19).
 4. Album (7, 11).
 5. Carnet (12, 13, 14).
@@ -350,11 +355,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 ### 7.1 Bloc 1 : ce qui est construit (23 novembre 2026)
 
 - **Écran 1** : 👥 ouvre Buddies, 👤 ouvre Mon compte (pastille verte ou orange). La pastille de 👥
-  compte les Buddy Groups qui ont bougé depuis la dernière ouverture.
-- **Écran 2** : la liste des Buddy Groups (Me Time compris), le plus récemment actif en haut,
-  « à jour à 8 h 12 » et 🕓 pour ce qui attend le réseau. Les Buddy Times arrivent avec le
+  compte les groupes qui ont bougé depuis la dernière ouverture.
+- **Écran 2** : la liste des groupes (Me Time compris), le plus récemment actif en haut,
+  « à jour à 8 h 12 » et 🕓 pour ce qui attend le réseau. Les sorties arrivent avec le
   bloc 2 (§7.2).
-- **Écran 3** : un Buddy Group, ses visages (toucher : inviter, nommer admin, retirer, quitter).
+- **Écran 3** : un groupe, ses visages (toucher : inviter, nommer admin, retirer, quitter).
   Le dernier admin qui part passe la main au plus ancien membre ; un groupe vide disparaît.
 - **Écran 20** : photo, nom, invitations par Contacts (sélecteur d'Android, sans permission
   « contacts »), Mail, Téléphone (SMS) ou QR code.
@@ -367,38 +372,38 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   l'appli (`…://rejoindre?c=…`) ou propose de l'installer ; il sert 30 jours. Un lien SMS ou mail
   sert à une personne ; un QR code sert à toute la bande.
 - **Synchro** : une seule route, `POST /buddies/sync` (deploy/comptes/buddies.py) : le téléphone
-  envoie ses opérations en attente et reçoit les Buddy Groups changés depuis la fois d'avant.
+  envoie ses opérations en attente et reçoit les groupes changés depuis la fois d'avant.
   Une opération refusée (droits, lien expiré) est montrée puis oubliée. Synchro à l'ouverture de
   l'appli, au retour du réseau, après chaque action et chaque minute quand Buddies est ouvert.
 
 ### 7.2 Bloc 2 : ce qui est construit (23 novembre 2026)
 
-- **Écran 2** : en haut, la grande image du Buddy Time en cours, sinon du prochain (« Dans 5 jours »),
-  puis la partie Buddy Times (à venir, du plus proche au plus lointain), puis les Buddy Groups.
-  En bas, « ＋ Buddy Time » et « ＋ Buddy Group ».
-- **Écran 3** : un Buddy Group montre aussi ses Buddy Times à venir, ses souvenirs (Buddy Times
-  passés, en vignettes) et les traces partagées dans le groupe, plus « ＋ Buddy Time ».
+- **Écran 2** : en haut, la grande image de la sortie en cours, sinon du prochain (« Dans 5 jours »),
+  puis la partie sorties (à venir, du plus proche au plus lointain), puis les groupes.
+  En bas, « ＋ Sortie » et « ＋ Groupe ».
+- **Écran 3** : un groupe montre aussi ses sorties à venir, ses souvenirs (Sorties
+  passés, en vignettes) et les traces partagées dans le groupe, plus « ＋ Sortie ».
 - **Écran 21** : photo, nom, date de début et de fin (fin = début si vide), lieu ; dans une bande,
   on coche qui part (le créateur part toujours) ; dans Me Time, on invite des copains à la sortie
-  (Contacts, Mail, SMS, QR) : le lien les ajoute au Buddy Time, pas à un groupe.
-- **Écran 4** : toucher un Buddy Time ouvre la carte, cadrée sur ses traces. En haut ‹ nom, dates,
+  (Contacts, Mail, SMS, QR) : le lien les ajoute à la sortie, pas à un groupe.
+- **Écran 4** : toucher une sortie ouvre la carte, cadrée sur ses traces. En haut ‹ nom, dates,
   lieu ; en bas un bandeau qu'on replie (« Dans N jours », « En cours » ou « Souvenir », qui part,
   km du parcours, jours avant). Les traces partagées s'ajoutent à Mes traces affichées (« Partagée
   par Julie ») : profil, Y aller, Commencer et Hors ligne marchent comme pour les siennes.
   Météo, rendez-vous et dénivelé du bandeau : plus tard.
-- **Écran 22** : l'icône de partage d'une trace ouvre le panneau commun : vignettes des Buddy Times
-  à venir, puis des Buddy Groups, un petit mot, « Partager » ; « Ou ailleurs » garde le partage du
+- **Écran 22** : l'icône de partage d'une trace ouvre le panneau commun : vignettes des sorties
+  à venir, puis des groupes, un petit mot, « Partager » ; « Ou ailleurs » garde le partage du
   téléphone (fichier GPX). Partager à un buddy seul attendra la messagerie (bloc 9).
-- **Serveur** : tables `sorties`, `participants`, `traces` ; la synchro renvoie aussi les Buddy Times
-  et traces changés. Un Buddy Time se voit par les membres de son groupe et ses participants ;
-  une trace par ceux qui voient son groupe ou son Buddy Time. Une trace : 2 à 20 000 points,
+- **Serveur** : tables `sorties`, `participants`, `traces` ; la synchro renvoie aussi les sorties
+  et traces changés. Une sortie se voit par les membres de son groupe et ses participants ;
+  une trace par ceux qui voient son groupe ou sa sortie. Une trace : 2 à 20 000 points,
   arrondis à 5 décimales (environ 1 m).
 
 ### 7.3 Bloc 3 : ce qui est construit (23 novembre 2026)
 
-- **Accès** : 📅 de la colonne ouvre les plannings du Buddy Group ouvert, sinon de toutes mes bandes,
+- **Accès** : 📅 de la colonne ouvre les plannings du groupe ouvert, sinon de toutes mes bandes,
   avec « ＋ Planning » en bas. Un planning à remplir s'annonce en haut de la liste Buddies et du
-  Buddy Group (« 🔔 Saison ski : 3 week-ends à remplir · Remplir › ») et compte dans la pastille de 👥.
+  groupe (« 🔔 Saison ski : 3 week-ends à remplir · Remplir › ») et compte dans la pastille de 👥.
 - **Écran 18** : nom, bande (pas de planning dans Me Time), période de mois à mois, « Week-ends »
   (samedi-dimanche), « Tous les jours » (tout coché) ou « À la carte » (tous les jours, rien de coché),
   dates en pastilles à décocher, date limite (dans 7 jours par défaut), « Publier le planning ». Sans nom tapé, le
@@ -410,8 +415,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 17** : mes dates pas encore passées, trois grosses touches ✓ ? ✗ (toucher à nouveau efface) ;
   appui long : phrases toutes prêtes ou un petit mot (la dictée passe par le clavier du téléphone).
 - **Écran 19** : toucher une date montre qui est dispo, peut-être, pas dispo, pas encore répondu ;
-  « Où ? » facultatif ; « Créer le Buddy Time » (les ✓ partent, nom = le lieu, sinon le nom du
-  planning) ou « Pas encore ». Une ligne devient un lien vers le Buddy Time de la bande qui part ce
+  « Où ? » facultatif ; « Créer la sortie » (les ✓ partent, nom = le lieu, sinon le nom du
+  planning) ou « Pas encore ». Une ligne devient un lien vers la sortie de la bande qui part ce
   jour-là (même date de début), même s'il a été créé à la main. La météo prévue : plus tard.
 - **Serveur** : tables `plannings` (dates en JSON) et `dispos` (planning, buddy, date : oui, peut, non
   et un mot) ; opérations `creer_planning` et `dispo` (rejouable : la dernière réponse compte, une
@@ -419,8 +424,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 
 ### 7.4 Bloc 4 : ce qui est construit (23 novembre 2026)
 
-- **Accès** : 📸 de la colonne ouvre les albums (un par Buddy Time commencé, du groupe ouvert ou de
-  tous) ; sur la carte d'un Buddy Time, le bandeau montre les 4 premières photos (« +38 »),
+- **Accès** : 📸 de la colonne ouvre les albums (un par sortie commencée, du groupe ouvert ou de
+  tous) ; sur la carte d'une sortie, le bandeau montre les 4 premières photos (« +38 »),
   « 📷 Ajouter » et « 📸 Album ».
 - **Écran 11** : photos rangées par jour (« Jour 1 · sam. 18 oct. »), 3 par rangée, visage de
   l'auteur, ⭐ ; vues Toutes, Sur la carte, ⭐ Carnet (les photos choisies pour le carnet, bloc 5).
@@ -437,22 +442,22 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   l'écran 7, « 📍 n photos à placer » ouvre les photos sans position ; on en choisit une, elle
   s'ouvre en grand pour voir ce que c'est, un toucher la réduit (la vignette la rouvre), puis on
   touche la carte. Une photo déjà placée se déplace depuis sa vue en grand (« 📍 Déplacer »). Tout
-  buddy du Buddy Time peut le faire (op `placer_photo`).
+  buddy de la sortie peut le faire (op `placer_photo`).
 - **Depuis WhatsApp ou la galerie** (Seb, 25/11) : sur Android, « Partager » des photos propose
   Mountain Buddies ; l'appli demande dans quel album les ranger (50 photos au plus par partage),
   puis ouvre l'album. WhatsApp retire la position : on les place avec 📍.
 - **Avec le bouton 📷** (Seb, 25/11) : il ouvre toujours l'appareil photo du téléphone ; au retour
-  dans l'appli, les photos prises depuis vont seules dans l'album du Buddy Time du jour (bandeau
+  dans l'appli, les photos prises depuis vont seules dans l'album de la sortie du jour (bandeau
   « n photos dans … · Annuler », 8 s), ou l'appli demande l'album s'il y en a plusieurs ou aucun
   (« Ne pas ranger »). Heure lue dans la photo ; lieu lu dans la photo, sinon position du téléphone.
   Android : accès aux photos demandé une fois (30 photos au plus par retour).
-- **Consultation comme WhatsApp** (Seb, 25/11 : « exactement comme ils font ») : dans le carnet, toucher une photo ouvre les photos choisies à la suite, en pleine largeur, avec l'heure, qu'on fait défiler de bas en haut (titre du Buddy Time, « n photos · jour » en haut). Une photo touchée (là, dans l'album ou sur la carte) s'ouvre en plein écran, entière ; on glisse à gauche ou à droite pour changer, deux doigts ou deux touchers pour zoomer, on la tire vers le bas pour fermer. Les gestes viennent de la bibliothèque PhotoSwipe (MIT), pas de code maison ; nos barres (auteur, Partager, ⭐, Retirer) sont posées dessus, un toucher les cache.
+- **Consultation comme WhatsApp** (Seb, 25/11 : « exactement comme ils font ») : dans le carnet, toucher une photo ouvre les photos choisies à la suite, en pleine largeur, avec l'heure, qu'on fait défiler de bas en haut (titre de la sortie, « n photos · jour » en haut). Une photo touchée (là, dans l'album ou sur la carte) s'ouvre en plein écran, entière ; on glisse à gauche ou à droite pour changer, deux doigts ou deux touchers pour zoomer, on la tire vers le bas pour fermer. Les gestes viennent de la bibliothèque PhotoSwipe (MIT), pas de code maison ; nos barres (auteur, Partager, ⭐, Retirer) sont posées dessus, un toucher les cache.
 - **Photo en grand, téléphone couché** (Seb, 25/11) : flèches et boutons sont rentrés de 72 px au moins, pour ne pas tomber sous les touches du téléphone.
 - **Films en premier** (Seb, 25/11) : dans l'album, les films (celui du parcours surtout) forment un groupe « Film » avant les jours ; dans le carnet ils sont toujours là, en tête de la mosaïque, sans avoir besoin de ⭐.
 - **Dans le film du survol** (25/11) : les photos prises à moins de 150 m de la trace (8 au plus,
   les ⭐ d'abord) s'ouvrent dans le film là où elles ont été prises, 3 s chacune ; on les décoche
   avant de filmer (📷 dans le panneau du survol).
-  Les ombres du film sont celles du jour du Buddy Time de la trace (au jour de sa première photo sur
+  Les ombres du film sont celles du jour de la sortie de la trace (au jour de sa première photo sur
   la trace s'il dure plusieurs jours), sinon celles d'aujourd'hui. Le film 🧗 se règle en « → Aller »
   (la trace du début à la fin), « ← Retour » (de la fin au début) ou « ⇄ Aller-retour » (au bout, la
   caméra tourne puis revient par le même chemin), quel que soit le relief (Seb, 25/11 : « un film a
@@ -466,7 +471,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   JPEG), gardée et montrée tout de suite avec 🕓 ; elle part au retour du réseau. Les photos des
   autres, une fois vues, restent sur le téléphone : l'album s'ouvre sans réseau.
 - **🎥 Films de survol 3D** (Seb, 25/11) : le film tourné depuis la caméra du menu d'une trace se range
-  dans l'album du Buddy Time ouvert sur la carte (sinon on choisit l'album). Il y est une « photo »
+  dans l'album de la sortie ouverte sur la carte (sinon on choisit l'album). Il y est une « photo »
   marquée vidéo (colonne `photos.video`) : petite et grande = image de couverture, le film (MP4 ou
   WebM, 100 Mo au plus) part en plus (`PUT /buddies/photos/<id>/video`). Vignette avec ▶ ; en grand,
   le film se lit. Il compte comme arrivé quand le film est arrivé.
@@ -475,23 +480,23 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   crayon change le nom d'un film.
 - **Heure et lieu** : lus dans la photo (EXIF). Sans heure, celle du fichier ; sans lieu (le choix de
   photos d'Android retire parfois la position), la photo n'est pas sur la carte. Vidéos : plus tard.
-- **Serveur** : table `photos` (Buddy Time, auteur, heure, lieu, ⭐, arrivée) et opérations
+- **Serveur** : table `photos` (Sortie, auteur, heure, lieu, ⭐, arrivée) et opérations
   `ajouter_photo`, `etoile`, `retirer_photo` dans la synchro ; les fichiers passent à part,
   `PUT`/`GET /buddies/photos/<id>/<petite|grande>` (auteur seul pour envoyer, participants pour lire),
   rangés dans `COMPTES_DOSSIER/photos` (le volume `comptes-data` du VPS). 300 ko et 4 Mo au plus.
 
 ### 7.5 Bloc 5 : ce qui est construit (23 novembre 2026)
 
-- **Accès** : un Buddy Time terminé s'ouvre directement sur son carnet (la carte reste à un toucher de la
-  trace) ; sur la carte d'un Buddy Time commencé, « 📖 Carnet » à côté de « 📷 Ajouter » et « 📸 Album ».
-- **Écran 12** : couverture (la photo du Buddy Time, sinon la première photo choisie), nom, dates, qui est
+- **Accès** : une sortie terminé s'ouvre directement sur son carnet (la carte reste à un toucher de la
+  trace) ; sur la carte d'une sortie commencée, « 📖 Carnet » à côté de « 📷 Ajouter » et « 📸 Album ».
+- **Écran 12** : couverture (la photo de la sortie, sinon la première photo choisie), nom, dates, qui est
   venu. « ⭐ 12 photos choisies sur 42 » : les ⭐ de l'album ; sans ⭐, un choix automatique fait sur le
-  téléphone (au plus 12, réparties sur tout le Buddy Time, signalé ✨). « Choisir les photos pour le carnet » (sous la mosaïque ; « Changer » n'était pas compris, Seb 25/11) ouvre l'album sur la vue
+  téléphone (au plus 12, réparties sur toute la sortie, signalé ✨). « Choisir les photos pour le carnet » (sous la mosaïque ; « Changer » n'était pas compris, Seb 25/11) ouvre l'album sur la vue
   ⭐ Carnet. Puis les récits, chacun signé du visage de son auteur, puis « 〰 La trace » : un petit plan,
-  une couleur par jour ; un toucher ouvre le Buddy Time sur la carte.
+  une couleur par jour ; un toucher ouvre la sortie sur la carte.
 - **Une couleur par jour** : quand il y a autant de traces partagées que de jours, la 1re trace partagée
   est le jour 1, la 2e le jour 2… ; sinon une couleur et le nom par trace.
-- **Écran 13** : le profil de tout le Buddy Time (jours séparés d'un pointillé) et les chiffres connus :
+- **Écran 13** : le profil de toute la sortie (jours séparés d'un pointillé) et les chiffres connus :
   distance, montée, descente, durée, point haut, jours et nuits, buddies, difficulté, météo, « + conditions »
   en pointillé tant qu'elles manquent. Puis une fiche par jour (nom, départ, durée, distance, montée, trois
   photos du jour), « Le pratique » replié (lieu, qui est venu, traces ; hébergement, comptes et messages
@@ -507,33 +512,33 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   météo, conditions. « Enregistrer le carnet » n'envoie que ce qui a changé ; sans réseau, 🕓.
 - **Partager** : le carnet en texte (récits, chiffres, fiches) vers l'appli choisie. Le lien et le PDF :
   plus tard.
-- **Serveur** : tables `recits` (Buddy Time, buddy, texte), `fiches_jour` (Buddy Time, jour, nom, départ,
+- **Serveur** : tables `recits` (Sortie, buddy, texte), `fiches_jour` (Sortie, jour, nom, départ,
   durée, distance, dénivelé) et `carnets` (difficulté, météo, conditions) ; opérations `recit`, `fiche`,
-  `carnet` dans la synchro, envoyées avec le Buddy Time (`carnet` dans sa vue). Tout participant du Buddy
-  Time peut écrire ; chacun ne touche qu'à son propre récit.
+  `carnet` dans la synchro, envoyées avec la sortie (`carnet` dans sa vue). Tout participant de la
+  sortie peut écrire ; chacun ne touche qu'à son propre récit.
 
 ### 7.6 Bloc 6 : ce qui est construit (23 novembre 2026)
 
-- **Accès** : 💶 de la colonne ouvre le Buddy count du Buddy Time ouvert (carnet, album), sinon la liste des
-  Buddy counts (un par Buddy Time, du groupe ouvert ou de tous) ; sur la carte d'un Buddy Time, une case
+- **Accès** : 💶 de la colonne ouvre le Buddy count de la sortie ouverte (carnet, album), sinon la liste des
+  Buddy counts (un par sortie, du groupe ouvert ou de tous) ; sur la carte d'une sortie, une case
   « 💶 412 € · à 4 » à côté des chiffres ; dans le carnet, une ligne dans « Le pratique ». L'ancien partage
   des frais (menu Voyage, sur le téléphone seulement) reste accessible en bas de la liste : « Mes partages
-  de frais hors Buddy Time ».
+  de frais hors sortie ».
 - **Écran 8** : « Équilibres » et la part de chacun ; une barre par buddy (verte : on lui doit, orange : il
   doit) ; « Nico doit à Seb 106 € » avec les deux visages ; les dépenses (icône devinée depuis le titre :
   gîte 🏨, essence ⛽, courses 🧀, forfaits 🎿…, payé par qui) ; « ＋ Dépense ».
 - **Une dépense** : quoi, combien (en €), payé par (un visage), pour qui (les visages cochés, tous par
-  défaut), le jour (dans les dates du Buddy Time par défaut). Toucher une dépense la corrige ou la retire :
+  défaut), le jour (dans les dates de la sortie par défaut). Toucher une dépense la corrige ou la retire :
   n'importe quel participant peut le faire ; la dernière version envoyée gagne. Sans réseau : 🕓.
 - **Calculs** : ceux du partage des frais existant (centimes restants aux premiers, remboursements en peu
   de virements).
-- **Serveur** : table `depenses` (Buddy Time, titre, montant en centimes, payé par, pour qui en JSON, jour) ;
+- **Serveur** : table `depenses` (Sortie, titre, montant en centimes, payé par, pour qui en JSON, jour) ;
   opérations `depense` (ajoute ou corrige) et `retirer_depense` ; payeur et bénéficiaires doivent être des
-  participants du Buddy Time.
+  participants de la sortie.
 
 ### 7.7 Bloc 7 : ce qui est construit (23 novembre 2026)
 
-- **Accès** : sur la carte d'un Buddy Time, pendant ses dates, une ligne « 📍 Position des buddies · 2 visibles ·
+- **Accès** : sur la carte d'une sortie, pendant ses dates, une ligne « 📍 Position des buddies · 2 visibles ·
   tu es visible » dans le bandeau ouvre l'écran 15 à la place du bandeau (« Retour » revient au bandeau). Les visages
   des buddies visibles sont sur la carte dès qu'on l'ouvre. 📍 dans la colonne de Buddies : §7.14.
 - **Écran 15** : en haut « 📍 2 buddies visibles » ; sur la carte, chaque visage avec « toi », « il y a 4 min » ou
@@ -542,7 +547,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   depuis 20 min) ou « a relevé l'épingle » ; puis l'épingle : « 📍 Mes buddies peuvent me voir » (bouton principal),
   ou, enfoncée, « Mes buddies me voient · depuis 9 h 10 · s'arrête seul à 22 h » et « Arrêter ».
 - **L'épingle** : enfoncée, elle se relève seule ce soir à 22 h (à minuit si on l'enfonce après 21 h). Une seule à la
-  fois : l'enfoncer dans un Buddy Time la relève ailleurs. Relevée par soi ou le soir, la dernière position reste
+  fois : l'enfoncer dans une sortie la relève ailleurs. Relevée par soi ou le soir, la dernière position reste
   visible, grisée, jusqu'à 48 h, puis le serveur l'oublie. Pas encore de lieu nommé (« au col ») : l'altitude à la place.
 - **Envoi** : Android, un service (notification « 📍 Mes buddies me voient ») prend une position toutes les 5 minutes,
   écran éteint compris, en GPS précis le temps du point puis endormi ; il s'arrête seul à l'heure prévue. Sans réseau,
@@ -550,28 +555,28 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   l'envoie à sa réouverture. Dans un navigateur : toutes les 5 minutes tant que la page est ouverte. iPhone : à faire.
 - **Réception** : à chaque synchro (toutes les minutes quand Buddies est ouvert, à chaque envoi de position, au retour
   de l'appli au premier plan).
-- **Serveur** : table `positions` (Buddy Time, buddy, épingle `depuis`/`jusqu` en ms, dernière position et altitude,
+- **Serveur** : table `positions` (Sortie, buddy, épingle `depuis`/`jusqu` en ms, dernière position et altitude,
   heure de prise) ; opérations `epingle {sortie, enfoncee, quand, jusqu}` (un jour au plus) et `position {sortie,
   lat, lon, alt, prise_le}` : une position hors du temps de l'épingle, ou plus ancienne que la dernière, est ignorée
-  sans bruit. Seuls les participants du Buddy Time s'épinglent et voient les positions ; elles reviennent entières à
+  sans bruit. Seuls les participants de la sortie s'épinglent et voient les positions ; elles reviennent entières à
   chaque synchro.
 
 ### 7.8 Bloc 8 : ce qui est construit (23 novembre 2026)
 
 - **Proposer (écran 23)** : dans la recherche d'hébergement existante, chaque résultat a « 👥 Proposer à mes
-  buddies ». Le panneau de partage s'ouvre sur « Dans un Buddy Time » : seulement les Buddy Times à venir ou en cours
+  buddies ». Le panneau de partage s'ouvre sur « Dans une sortie » : seulement les sorties à venir ou en cours
   où je pars (pas de groupe : un hébergement appartient à une sortie) ; « Ou ailleurs » envoie le nom, l'adresse et
   le lien. L'hébergement est placé sur la carte par son adresse (géocodage IGN) quand on la trouve ; sans réseau, il
   est proposé sans épingle.
-- **Où on dort ? (écran 9)** : 🏨 de la colonne dans un Buddy Time (carnet, album, Buddy count), ou la ligne « 🏨 Où on
-  dort ? » du bandeau de la carte (avant et pendant le Buddy Time ; une fois retenu : « Gîte Les Baladins ✅ · 60 € /
+- **Où on dort ? (écran 9)** : 🏨 de la colonne dans une sortie (carnet, album, Buddy count), ou la ligne « 🏨 Où on
+  dort ? » du bandeau de la carte (avant et pendant la sortie ; une fois retenu : « Gîte Les Baladins ✅ · 60 € /
   nuit »). Chaque idée : image selon la nature (refuge, gîte, chalet…), prix par nuit, nature, adresse, résumé ; un
   toucher ouvre son site. ♥ (un par buddy, avec les visages de ceux qui aiment), « On le prend » (✅, un seul retenu par
-  Buddy Time ; n'importe quel participant peut changer), « Retirer l'idée ». Le retenu en haut, puis les plus aimés,
+  sortie ; n'importe quel participant peut changer), « Retirer l'idée ». Le retenu en haut, puis les plus aimés,
   puis les moins chers. Un seul bouton principal : « 🔍 Chercher d'autres hébergements ».
 - **Sur la carte** : les épingles 🏨 des idées placées, la retenue en vert.
 - **Liens tout prêts (24 novembre 2026, accord de Seb)** : au-dessus de « 🔍 Chercher », trois boutons Booking, Airbnb,
-  Abritel ouvrent le site déjà réglé sur le lieu du Buddy Time, ses dates (une nuit au moins) et le nombre de
+  Abritel ouvrent le site déjà réglé sur le lieu de la sortie, ses dates (une nuit au moins) et le nombre de
   participants ; même chose dans l'écran de recherche (ville, arrivée, nuits, personnes). Gratuit, prix et dispos en
   direct. Pourquoi : aucune API de ces sites n'est ouverte à une appli entre copains (Booking réserve la sienne aux
   affiliés sous contrat, Airbnb n'en a pas, Abritel passe par une certification Expedia), et la recherche web lit mal
@@ -597,35 +602,35 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   reçoit les mêmes sites cochés et les regarde aussi en priorité quand on lui demande où dormir.
 - **Pas encore** : la ligne automatique dans le Buddy Count (le prix trouvé n'est pas toujours celui payé : on ajoute
   la dépense à la main). La recherche elle-même est l'écran existant, non retouché (voir point ouvert 6).
-- **Serveur** : tables `hebergements` (Buddy Time, nom, nature, prix par nuit en euros, adresse, lien http(s), résumé,
+- **Serveur** : tables `hebergements` (Sortie, nom, nature, prix par nuit en euros, adresse, lien http(s), résumé,
   position, retenu) et `coeurs` ; opérations `proposer_hebergement`, `coeur`, `retenir_hebergement` (un seul retenu),
-  `retirer_hebergement` ; réservées aux participants du Buddy Time.
+  `retirer_hebergement` ; réservées aux participants de la sortie.
 
 ### 7.9 Bloc 9 : ce qui est construit (23 novembre 2026)
 
-- **Une conversation par Buddy Group et par Buddy Time** (§5.6), reprise en léger de la messagerie d'AppBase : chaque
+- **Une conversation par groupe et par sortie** (§5.6), reprise en léger de la messagerie d'AppBase : chaque
   message porte un identifiant choisi par le téléphone, il part dans la même file d'attente que le reste (§3.1) et
   n'arrive qu'une fois même s'il est renvoyé. Sans réseau : « 🕓 partira au retour du réseau » sous le message.
-- **Écran 6** : la conversation d'un Buddy Time s'ouvre sur sa carte, dans le bandeau du bas (ligne « 💬 Messagerie ·
+- **Écran 6** : la conversation d'une sortie s'ouvre sur sa carte, dans le bandeau du bas (ligne « 💬 Messagerie ·
   2 nouveaux » du bandeau, ou 💬 de la colonne depuis le carnet, l'album, le Buddy count…). Mes messages à droite en
   vert, ceux des autres à gauche avec leur prénom en couleur. En bas : [📷] [📍] [Message] [🎤], 🎤 devient ➤ dès
   qu'on écrit. Ouverte, elle regarde les nouveaux messages toutes les 10 s.
 - **Écran 24** : on replie le bandeau (poignée) ou on touche « voir sur la carte » : il ne reste que les deux derniers
   mots et la saisie, la carte au-dessus.
-- **Dans le fil**, en plus des messages et en cartes cliquables : les traces partagées dans ce Buddy Time ou ce Buddy
-  Group (« Col Girardin · Julie · 14 km · voir sur la carte ») et les hébergements proposés (« Gîte Les Baladins ·
+- **Dans le fil**, en plus des messages et en cartes cliquables : les traces partagées dans cette sortie ou ce
+  groupe (« Col Girardin · Julie · 14 km · voir sur la carte ») et les hébergements proposés (« Gîte Les Baladins ·
   Seb · 60 € / nuit »). On les retrouve donc plus tard dans la conversation.
 - **Envoyer d'un geste** : 📍 envoie ma position du moment (« Nico est ici · voir sur la carte » : un toucher centre
-  la carte sur le point) ; 📷 (dans un Buddy Time) dépose les photos dans l'album et les envoie aussi en message ;
+  la carte sur le point) ; 📷 (dans une sortie) dépose les photos dans l'album et les envoie aussi en message ;
   🎤 dicte le texte dans le champ (on relit avant d'envoyer). Appui long (ou toucher) sur un de mes messages :
   « Retirer ce message ».
-- **💬 de la colonne** : dans un Buddy Time, sa conversation ; dans un Buddy Group, la sienne (dans le panneau) ;
+- **💬 de la colonne** : dans une sortie, sa conversation ; dans un groupe, la sienne (dans le panneau) ;
   ailleurs, la liste de mes conversations, la plus récente en haut, avec le dernier mot et le nombre de non lus.
 - **Pas encore** : le vrai message vocal (🎤 dicte pour l'instant), « Julie te montre… » en direct sur la carte de
   l'autre pendant un appel (avec le bloc 10), le partage à un buddy seul (une conversation à deux) et les
   notifications.
-- **Serveur** : table `messages_buddies` (Buddy Group ou Buddy Time, auteur, nature texte, point ou photo, texte de
-  2 000 caractères au plus, position, photo de l'album du même Buddy Time) ; opérations `message` et
+- **Serveur** : table `messages_buddies` (Groupe ou sortie, auteur, nature texte, point ou photo, texte de
+  2 000 caractères au plus, position, photo de l'album de la même sortie) ; opérations `message` et
   `retirer_message` (seulement les siens) ; la synchro rend les messages des 90 derniers jours.
 
 ### 7.10 Bloc 10 : ce qui est construit (23 novembre 2026)
@@ -633,11 +638,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Choix de Seb (23 novembre)** : le son passe par LiveKit installé sur le VPS (`appels.silvaplana.cloud`), et le
   téléphone **sonne même appli fermée** grâce à Firebase (projet « Mountain Buddies », un message prioritaire par
   téléphone). Sans Firebase, les appels marchent quand même, ils ne sonnent que l'appli ouverte.
-- **📞 de la colonne** : appelle tout le Buddy Time ouvert, sinon tout le Buddy Group ouvert (pas d'appel dans Me
+- **📞 de la colonne** : appelle toute la sortie ouverte, sinon tout le groupe ouvert (pas d'appel dans Me
   Time). Si un appel est déjà en cours dans la bande, on le rejoint sans refaire sonner. Ligne « 📞 Appel en cours ·
-  rejoindre » dans le Buddy Group et sur la carte du Buddy Time, pour qui n'a pas sonné (iPhone, appli fermée sans
+  rejoindre » dans le groupe et sur la carte de la sortie, pour qui n'a pas sonné (iPhone, appli fermée sans
   Firebase).
-- **Écran 10** : plein écran « Mountain Buddies · appel de groupe », le nom du Buddy Time, « Julie t'appelle… »,
+- **Écran 10** : plein écran « Mountain Buddies · appel de groupe », le nom de la sortie, « Julie t'appelle… »,
   les visages (cercle vert : déjà en ligne), ✕ Refuser et 📞 Répondre. Appli fermée : notification d'appel plein
   écran (par-dessus l'écran verrouillé) avec Refuser / Répondre, sonnerie du téléphone 45 s au plus ; elle s'arrête
   si l'appelant raccroche.
@@ -647,7 +652,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
   « Appel en cours ».
-- **Serveur** : tables `appareils` (jeton Firebase de chaque téléphone) et `appels` (Buddy Group ou Buddy Time, qui
+- **Serveur** : tables `appareils` (jeton Firebase de chaque téléphone) et `appels` (Groupe ou sortie, qui
   a appelé, qui est en ligne, début, fin) ; routes `POST /appareils`, `POST /appels` (appeler ou rejoindre l'appel
   en cours), `POST /appels/{id}/rejoindre`, `POST /appels/{id}/presence`. Un appel finit quand plus personne n'est en
   ligne (ou au bout de 4 h) ; la synchro rend les appels en cours. Installation : `deploy/comptes/installer-appels.sh`.
@@ -660,9 +665,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   gauche) : il ne se fait jamais passer pour un buddy. Le message est enregistré au nom de celui qui a demandé, avec
   la marque Bud (colonne `bud` de `messages_buddies`).
 - **Il propose, les buddies décident** : les hébergements qu'il trouve (recherche web) sont proposés dans « Où on
-  dort ? » du Buddy Time et posés sur la carte (♥ et ✅ comme les autres) ; un endroit précis (col, parking…) arrive
+  dort ? » de la sortie et posés sur la carte (♥ et ✅ comme les autres) ; un endroit précis (col, parking…) arrive
   en carte « 📍 … · voir sur la carte ». Il ne réserve, ne paie et ne décide rien.
-- **Ce qu'il sait** : ce que le téléphone connaît de la conversation, envoyé avec la question : le Buddy Time (dates,
+- **Ce qu'il sait** : ce que le téléphone connaît de la conversation, envoyé avec la question : la sortie (dates,
   lieu, qui vient, invités), les traces partagées (longueur, départ, arrivée), les hébergements proposés et leurs ♥,
   le Buddy count (qui doit quoi), les plannings de la bande et les 30 derniers messages.
 - **Pas encore** : la pente ou l'altitude d'une trace (les traces partagées n'ont pas l'altitude : Bud le dit), le
@@ -672,28 +677,29 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 
 ### 7.12 Bud peut aussi agir (choix de Seb, 23 novembre 2026)
 
-- Sur demande claire de celui qui lui parle (« Bud, ajoute le gîte, 120 €, payé par Julie », « Bud, crée un Buddy
-  Time samedi 6 février à Belledonne », « Bud, mets-moi oui pour le 10 janvier »), Bud fait **trois choses, en son
-  nom** : une dépense du Buddy count de ce Buddy Time (qui paie et pour qui : des participants), un Buddy Time dans
+- Sur demande claire de celui qui lui parle (« Bud, ajoute le gîte, 120 €, payé par Julie », « Bud, crée une
+  sortie samedi 6 février à Belledonne », « Bud, mets-moi oui pour le 10 janvier »), Bud fait **trois choses, en son
+  nom** : une dépense du Buddy count de cette sortie (qui paie et pour qui : des participants), une sortie dans
   cette bande, sa propre dispo à un planning de la bande (jamais celle d'un autre). Trois actions au plus par réponse.
 - Sous la bulle de Bud : la liste de ce qui est fait (« ✓ 💶 Gîte · 120 € ») et **« Annuler »** (sur le téléphone de
-  celui qui a demandé) : la dépense est retirée, la dispo revient comme avant, le Buddy Time est retiré s'il n'a pas
+  celui qui a demandé) : la dépense est retirée, la dispo revient comme avant, la sortie est retirée si elle n'a pas
   encore servi (opération `retirer_sortie` : seulement son créateur, et seulement sans trace, photo, dépense, message
   ni hébergement).
-- **Changer le nom d'un Buddy Time** (Seb, 25 novembre 2026) : « Bud, renomme ce BT en Raquettes au Queyras » ;
+- **Changer le nom d'une sortie** (Seb, 25 novembre 2026) : « Bud, renomme ce BT en Raquettes au Queyras » ;
   « Annuler » remet l'ancien nom.
 - **Appeler Bud à la voix** (Seb, 25 novembre 2026) : la dictée écrit souvent « bad », « budd », « bod »… En tête
   de message, ces variantes appellent Bud aussi, avec ou sans « OK », « hey », « dis » devant (« OK Bud » marche sans
   être obligatoire). « Buddy » n'appelle pas Bud.
-- **Abréviations** (Seb, 25 novembre 2026) : Bud comprend « BT » (Buddy Time), « BG » (Buddy Group) et « BC » (Buddy
-  count, les comptes communs).
-- **Supprimer un Buddy Time** (Seb, 25 novembre 2026 : « Bud doit pouvoir supprimer des Buddy Times ») : « Bud,
-  supprime ce Buddy Time » (dans sa conversation) ou « Bud, supprime le Buddy Time Queyras » (dans celle de la bande,
-  où Bud voit la liste de ses Buddy Times). Seulement **celui qui l'a créé ou un admin du Buddy Group**. Même s'il a
+- **Abréviations** (Seb, 25 novembre 2026) : Bud comprend « BT » (sortie), « BG » (groupe) et « BC » (Buddy
+  count, les comptes communs). Depuis le 26 novembre il comprend aussi les anciens noms « Buddy Time » et
+  « Buddy Group », et répond avec « sortie » et « groupe ».
+- **Supprimer une sortie** (Seb, 25 novembre 2026 : « Bud doit pouvoir supprimer des sorties ») : « Bud,
+  supprime cette sortie » (dans sa conversation) ou « Bud, supprime la sortie Queyras » (dans celle de la bande,
+  où Bud voit la liste de ses sorties). Seulement **celui qui l'a créé ou un admin du groupe**. Même s'il a
   déjà servi : rien n'est effacé, il est caché de tous (colonne `sorties.supprime_le`, opération `supprimer_sortie`) et
   plus rien ne s'y ajoute ; « Annuler » le remet chez tous avec ses traces, photos, dépenses et messages (opération
   `remettre_sortie`).
-- Ce qui sort de ces règles (un buddy hors du Buddy Time, une date hors du planning…) n'est pas fait : un message le dit.
+- Ce qui sort de ces règles (un buddy hors de la sortie, une date hors du planning…) n'est pas fait : un message le dit.
 
 ### 7.13 La messagerie d'AppBase reprise telle quelle (Seb, 24 novembre 2026)
 
@@ -704,8 +710,8 @@ envoi sans réseau. Quatre étapes, une PR chacune :
 1. **La discussion** (fait) : appui long (ou clic droit) sur un message, la barre du haut montre le nombre choisi,
    toucher d'autres bulles les ajoute. **Répondre** (un message ; rappel au-dessus de la saisie, ✕ pour renoncer ;
    toucher le rappel dans la bulle remonte au message), **Copier**, **Modifier** (son message texte, 15 minutes après
-   l'envoi, « modifié » à côté de l'heure), **Supprimer** (ses messages, ou tous pour un admin du Buddy Group, aussi
-   dans ses Buddy Times ; « Annuler » 10 secondes ; chez tous : « Ce message a été supprimé »), **réagir** (rangée
+   l'envoi, « modifié » à côté de l'heure), **Supprimer** (ses messages, ou tous pour un admin du groupe, aussi
+   dans ses sorties ; « Annuler » 10 secondes ; chez tous : « Ce message a été supprimé »), **réagir** (rangée
    👍 ❤️ 😊 😂 😮 🙏 et + au-dessus du message choisi ; une par buddy, toucher la sienne la retire ; sous la bulle les
    émojis et leur nombre, les toucher : qui a réagi). Coches sous mes messages : 🕓 pas parti, ✓ envoyé, ✓✓ reçu
    (tous ont synchronisé depuis), ✓✓ bleues lu (tous l'ont lu). 🙂 : émojis à insérer (ceux d'AppBase, montagne au
@@ -716,18 +722,18 @@ envoi sans réseau. Quatre étapes, une PR chacune :
    **🎤 Dictée dans l'appli** (choix de Seb : « Dictée dans l'appli, gratuite ») : plus de fenêtre Google ; l'onde
    bouge dans la saisie, les mots s'écrivent pendant qu'on parle, ■ pour arrêter (ou deux silences). Android :
    SpeechRecognizer, hors ligne quand le téléphone a le français. Même dictée pour le récit du carnet.
-2. **Discussions à deux et liste des discussions** (fait) : 💬 Messages liste toutes les discussions (Buddy Groups,
-   Buddy Times, discussions à deux), la plus récente en haut (une vide se classe à sa création), avec non lus et
+2. **Discussions à deux et liste des discussions** (fait) : 💬 Messages liste toutes les discussions (Groupes,
+   sorties, discussions à deux), la plus récente en haut (une vide se classe à sa création), avec non lus et
    « Julie écrit… ». Recherche : « Discussions » puis « Contacts » (toucher un buddy ouvre la discussion à deux). Gros
-   ＋ orange : « Nouvelle discussion » (« Nouveau Buddy Group » en tête, puis mes buddies par ordre alphabétique avec
-   leurs bandes). Une discussion à deux est toujours la même pour deux buddies : un Buddy Group de nature « duo »
+   ＋ orange : « Nouvelle discussion » (« Nouveau groupe » en tête, puis mes buddies par ordre alphabétique avec
+   leurs bandes). Une discussion à deux est toujours la même pour deux buddies : un groupe de nature « duo »
    (identifiant uuid5 des deux comptes, le même calculé par le téléphone, donc possible hors ligne), seulement entre
-   buddies d'une même bande ; il n'apparaît pas dans la liste des Buddy Groups. En haut d'une discussion : « écrit… »,
+   buddies d'une même bande ; il n'apparaît pas dans la liste des groupes. En haut d'une discussion : « écrit… »,
    puis « en ligne » (synchro il y a moins de 30 s) ou « vu aujourd'hui à 10 h 42 » ; dans un groupe « Julie en
    ligne » / « 2 en ligne ». Conversation ouverte : synchro toutes les 5 s. « écrit… » passe par `POST /buddies/ecrit`
    (gardé 12 s en mémoire du serveur, jamais en file d'attente).
 3. **Sondages, fichiers et vidéos, Transférer** (fait) : saisie [🙂] [📎] [Message] [🎤 / ➤] ; 📎 ouvre 📷 Photo, vidéo
-   (dans un Buddy Time : photo de l'album, comme avant), 📍 Ma position, 📄 Fichier, 📊 Sondage. Une photo jointe est
+   (dans une sortie : photo de l'album, comme avant), 📍 Ma position, 📄 Fichier, 📊 Sondage. Une photo jointe est
    réduite à 1600 px et s'ouvre en plein écran ; une vidéo se lit dans la bulle (▶) ; un document (nom, taille)
    s'ouvre avec l'appli du téléphone. Limites d'AppBase : 25 Mo par fichier, 100 Mo par vidéo. Sans réseau, le
    fichier attend sur le téléphone (🕓) et part avec le message. **Sondage** : une question, 2 à 10 réponses,
@@ -740,8 +746,8 @@ envoi sans réseau. Quatre étapes, une PR chacune :
 4. **Notifications des nouveaux messages** (fait, Android) : chaque nouveau message prévient les autres buddies de la
    conversation (pas son auteur, une seule fois même renvoyé) par Firebase, comme la sonnerie des appels (même clé,
    gardé un jour si le téléphone est hors réseau). Appli fermée : une notification par conversation (titre : le
-   Buddy Group, le Buddy Time, ou le buddy pour une discussion à deux ; ses 6 derniers messages « Julie : … ») ; la
-   toucher ouvre la conversation (celle d'un Buddy Time sur sa carte) ; elle s'efface quand on ouvre la conversation.
+   groupe, la sortie, ou le buddy pour une discussion à deux ; ses 6 derniers messages « Julie : … ») ; la
+   toucher ouvre la conversation (celle d'une sortie sur sa carte) ; elle s'efface quand on ouvre la conversation.
    Appli ouverte : pas de notification, le message arrive tout de suite. Android 13 : l'autorisation est demandée
    une fois. Sans clé Firebase sur le VPS, rien ne part (la messagerie marche quand même). iPhone : à faire (APNs).
 
@@ -750,52 +756,52 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 ### 7.14 📍 Ma position depuis la colonne de Buddies (Seb, 25 novembre 2026)
 
 - **Demande de Seb** : « dès qu'on est dans Buddies, il faut dans le menu à droite pouvoir partager pareillement,
-  même si on n'est pas dans un Buddy Time ».
+  même si on n'est pas dans une sortie ».
 - **Colonne** : 📍 (icône au trait fin, comme le micro) entre 🏨 et 🚗 ; elle est verte tant que mes buddies me voient.
-- **Écran « 📍 Position »** : en haut, les buddies visibles de tous mes Buddy Groups et Buddy Times, une fois chacun
+- **Écran « 📍 Position »** : en haut, les buddies visibles de tous mes groupes et sorties, une fois chacun
   (sa position la plus récente), mêmes lignes que l'écran 15 ; un toucher montre la carte avec tous les visages,
-  centrée sur lui. Puis « Qui peut me voir ? » : mes Buddy Groups, les Buddy Times d'aujourd'hui, puis les buddies de
-  mes discussions à deux, chacun avec son visage ; on en touche un ou plusieurs (déjà coché : le Buddy Group ou le
-  Buddy Time ouvert, ou le seul qu'on a). Bouton principal « 📍 Mes buddies peuvent me voir ». Enfoncée : « Mes
+  centrée sur lui. Puis « Qui peut me voir ? » : mes groupes, les sorties d'aujourd'hui, puis les buddies de
+  mes discussions à deux, chacun avec son visage ; on en touche un ou plusieurs (déjà coché : le groupe ou le
+  sortie ouverte, ou le seul qu'on a). Bouton principal « 📍 Mes buddies peuvent me voir ». Enfoncée : « Mes
   buddies me voient · Les Queyrassiens · depuis 9 h 10 · s'arrête seul à 22 h » et « Arrêter ».
 - **Même mécanique** que §7.7 : toutes les 5 minutes, écran éteint compris, jusqu'à 22 h, sans réseau la dernière
-  attend. Toujours une seule épingle : l'enfoncer ici relève celle d'un Buddy Time, et inversement ; une même
-  position part vers chaque Buddy Group choisi.
-- **Serveur** : table `positions_groupes` (Buddy Group, buddy, mêmes colonnes que `positions`) ; les opérations
-  `epingle` et `position` prennent `groupe` à la place de `sortie`. Seuls les membres du Buddy Group s'y épinglent et
+  attend. Toujours une seule épingle : l'enfoncer ici relève celle d'une sortie, et inversement ; une même
+  position part vers chaque groupe choisi.
+- **Serveur** : table `positions_groupes` (Groupe, buddy, mêmes colonnes que `positions`) ; les opérations
+  `epingle` et `position` prennent `groupe` à la place de `sortie`. Seuls les membres du groupe s'y épinglent et
   voient ces positions (pas le Me Time) ; oubliées après 48 h comme les autres.
 
-### 7.15 👥 Associer une trace à un Buddy Time (Seb, 25 novembre 2026)
+### 7.15 👥 Associer une trace à une sortie (Seb, 25 novembre 2026)
 
 - **Demande de Seb** : « il faut pouvoir associer une trace à un buddy group et plutôt même un buddy time » ; proposer
-  d'abord le Buddy Group ou Buddy Time ouvert, puis les derniers ouverts. Et l'autre sens : depuis un Buddy Time, voir
+  d'abord le groupe ou la sortie ouverts, puis les derniers ouverts. Et l'autre sens : depuis une sortie, voir
   ses traces associées et en associer une en regardant dans le répertoire des traces. Maquette :
   `maquettes/trace-buddy-time/`.
-- **Depuis la trace** : tout en bas de son menu (Seb, 25/11), une ligne « 👥 Associer à un Buddy Time » (pointillés), puis, une fois associée,
-  la vignette du Buddy Time, son nom et « Buddy Group · changer ». Le panneau : « Proposés » (le Buddy Time ouvert sur
+- **Depuis la trace** : tout en bas de son menu (Seb, 25/11), une ligne « 👥 Associer à une sortie » (pointillés), puis, une fois associée,
+  la vignette de la sortie, son nom et « Groupe · changer ». Le panneau : « Proposés » (la sortie ouverte sur
   la carte, déjà choisi, marqué « ouvert », puis les derniers ouverts, puis ceux à venir), puis « Ou chercher dans un
-  Buddy Group » (les derniers ouverts d'abord, Me Time compris) ; un Buddy Group montre ses Buddy Times (à venir puis
-  souvenirs) et « Le Buddy Group seulement ». « Enlever » défait le lien.
+  groupe » (les derniers ouverts d'abord, Me Time compris) ; un groupe montre ses sorties (à venir puis
+  souvenirs) et « Le groupe seulement ». « Enlever » défait le lien.
 - La même ligne est aussi en bas du panneau ✏ « Modifier » (Seb l'y cherchait, 25/11), tant qu'aucun outil n'est choisi.
-- **Depuis le Buddy Time** : dans son bandeau sur la carte et dans son carnet, « 〰 Traces associées » (toucher = la
+- **Depuis la sortie** : dans son bandeau sur la carte et dans son carnet, « 〰 Traces associées » (toucher = la
   voir sur la carte) et « ＋ Associer une de mes traces », qui ouvre 📂 Mes traces (celles enregistrées).
-- **Ce que fait le lien** : la trace est partagée dans le Buddy Time (op `partager_trace`, rien de neuf au serveur)
-  et apparaît sur sa carte chez tous ; le lien est gardé avec la trace (`lien` : Buddy Group + Buddy Time, dans
-  `tracesAffichees` et `tracesEnregistrees`) ; le film 🎥 prend les photos de l'album de ce Buddy Time même s'il n'est
-  pas ouvert. Une trace ouverte depuis un Buddy Time arrive déjà associée.
+- **Ce que fait le lien** : la trace est partagée dans la sortie (op `partager_trace`, rien de neuf au serveur)
+  et apparaît sur sa carte chez tous ; le lien est gardé avec la trace (`lien` : Groupe + Sortie, dans
+  `tracesAffichees` et `tracesEnregistrees`) ; le film 🎥 prend les photos de l'album de cette sortie même s'il n'est
+  pas ouvert. Une trace ouverte depuis une sortie arrive déjà associée.
 - **Petit plan « La trace » du carnet** : la trace est posée sur un fond Plan IGN (Seb, 25/11), tuiles gardées sur le
   téléphone d'abord (hors ligne), sinon le réseau ; sans rien, le fond beige reste.
-- **Derniers ouverts** : gardés sur le téléphone (`localStorage` « buddiesOuverts ») quand on ouvre un Buddy Group,
-  la carte d'un Buddy Time, son album, son carnet, son Buddy count ou son hébergement.
+- **Derniers ouverts** : gardés sur le téléphone (`localStorage` « buddiesOuverts ») quand on ouvre un groupe,
+  la carte d'une sortie, son album, son carnet, son Buddy count ou son hébergement.
 - **Pas encore** : une trace modifiée après l'association n'est pas renvoyée (on l'associe à nouveau) ; une trace
-  associée depuis le Buddy Time ne change pas le lien de sa copie déjà affichée sur la carte.
+  associée depuis la sortie ne change pas le lien de sa copie déjà affichée sur la carte.
 
 ### 7.16 🐻 Bud choisit les photos du carnet (Seb, 25 novembre 2026)
 
 - **Demande de Seb** : « quand on est dans tout l'album et qu'il faut sélectionner pour le carnet, est-ce que tu peux
   utiliser un appel à l'IA pour qu'il sélectionne les 8 meilleurs et sans doublon ? » Décision (Seb, « Ok ») : les 8
   sont mises directement en ⭐, donc dans le carnet, et restent retouchables ; « Annuler » remet les ⭐ d'avant.
-- **À l'écran** (album d'un Buddy Time, dès qu'il a plus de 8 photos) : un bouton « 🐻 Bud choisit les 8 meilleures »
+- **À l'écran** (album d'une sortie, dès qu'il a plus de 8 photos) : un bouton « 🐻 Bud choisit les 8 meilleures »
   au-dessus de « Déposer mes photos ». Pendant qu'il regarde : « Bud regarde les photos… ». Ensuite l'album passe sur
   « ⭐ Carnet » avec la ligne « Bud a gardé 8 photos pour le carnet. Tu peux en changer avec ⭐. · Annuler ».
   Jamais le mot « IA » : c'est Bud.
@@ -818,11 +824,11 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
 1. ~~Le nom « Me Time »~~ : Me Time retiré (25 novembre 2026).
 2. La portée de la colonne dans la liste (tous mes buddies à la fois) : à confirmer.
-3. ~~📍 dans la colonne~~ : faite pour tout Buddies (§7.14). L'icône 📖 en plus dans un Buddy Time, et le prochain Buddy Time en grand en
+3. ~~📍 dans la colonne~~ : faite pour tout Buddies (§7.14). L'icône 📖 en plus dans une sortie, et la prochaine sortie en grand en
    haut de la liste : à confirmer.
-4. Ce que montre 📅 à l'intérieur d'un Buddy Time (ses dates et qui vient ?).
+4. Ce que montre 📅 à l'intérieur d'une sortie (ses dates et qui vient ?).
 5. Bud : les règles du §5.12 sont construites telles quelles (bloc 11, §7.11), visage 🐻 ; ce qu'il a le droit de
-   faire : sur demande, une dépense, un Buddy Time, sa propre dispo, avec « Annuler » (choix de Seb le 23 novembre, §7.12).
+   faire : sur demande, une dépense, une sortie, sa propre dispo, avec « Annuler » (choix de Seb le 23 novembre, §7.12).
 6. ~~La recherche d'hébergement affiche « Chercher (IA) » et « Claude cherche… »~~ : reformulée (« 🔍 Chercher »,
    « Je cherche les meilleurs prix… »), accord de Seb le 23 novembre. Même chose pour la recherche de randos sur le web, le coût du
    voyage (carburant, péages), la lecture de facture et l'aide des icônes. Seul l'écran 📊 du menu (usage et coûts,

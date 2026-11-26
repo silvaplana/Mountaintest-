@@ -2,7 +2,7 @@
  * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : les calculs, sans écran.
  * Même calcul côté Kotlin (Messages.kt) : les garder identiques.
  *
- * Une conversation par Buddy Group et par Buddy Time. Le fil mêle les messages et, en cartes cliquables,
+ * Une conversation par groupe et par sortie. Le fil mêle les messages et, en cartes cliquables,
  * les traces partagées et les hébergements proposés au même endroit : on les retrouve plus tard.
  */
 import { distanceM } from '../gps/adaptive';

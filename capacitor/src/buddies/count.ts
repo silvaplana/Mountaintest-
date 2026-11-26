@@ -1,11 +1,11 @@
 /**
- * Buddy count d'un Buddy Time (spec/buddies.md §5.10) : le partage des frais existant (expenses/expenses.ts),
+ * Buddy count d'une sortie (spec/buddies.md §5.10) : le partage des frais existant (expenses/expenses.ts),
  * partagé entre téléphones. Mêmes calculs (équilibres, « qui doit à qui ») ; côté Kotlin : BuddyCount.kt.
  */
 import { balances, settlements, type Group } from '../expenses/expenses';
 import type { Depense, Sortie } from './store';
 
-/** Les dépenses d'un Buddy Time vues comme un groupe du partage des frais (montants en euros). */
+/** Les dépenses d'une sortie vues comme un groupe du partage des frais (montants en euros). */
 export function groupeDe(x: Sortie, depenses: Depense[], moi: string): Group {
   return {
     id: x.id, name: x.nom, emoji: '', me: moi,

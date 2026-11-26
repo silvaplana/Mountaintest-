@@ -1,8 +1,8 @@
-"""Buddies (spec/buddies.md §3.1, §5.2 à §5.5) : Buddy Groups, Me Time, invitations, Buddy Times, traces
+"""Buddies (spec/buddies.md §3.1, §5.2 à §5.5) : Groupes, Me Time, invitations, sorties, traces
 partagées, plannings de saison, synchro.
 
 Synchro « envoyer / nouveautés depuis » : le téléphone envoie d'un coup tout ce qu'il a fait (hors ligne ou
-pas), puis reçoit les Buddy Groups qui ont changé depuis sa dernière synchro. Chaque opération est rejouable
+pas), puis reçoit les groupes qui ont changé depuis sa dernière synchro. Chaque opération est rejouable
 sans risque (identifiants choisis par le téléphone) : si la réponse se perd, le téléphone renvoie tout et
 rien n'est fait deux fois. Une opération refusée (droits, lien expiré) revient dans `refus` et le téléphone
 l'oublie, pour que sa file d'attente ne reste jamais bloquée.
@@ -69,9 +69,9 @@ def photo_valide(p: Any) -> str | None:
 
 
 def ranger_me_time(s: Session, u: Utilisateur) -> None:
-    """Le Me Time n'existe plus (Seb, 25 novembre : « celui qui veut ses sorties perso se crée un Buddy Group »).
+    """Le Me Time n'existe plus (Seb, 25 novembre : « celui qui veut ses sorties perso se crée un groupe »).
     À la synchro, l'ancien Me Time de la personne est effacé avec tout ce qu'il contient, pour tout le monde
-    (choix de Seb : « Tout effacer ») : ses Buddy Times et, par cascade de la base, leurs traces, photos (fichiers
+    (choix de Seb : « Tout effacer ») : ses sorties et, par cascade de la base, leurs traces, photos (fichiers
     compris), dépenses, messages, hébergements, positions, carnets."""
     g = s.get(Groupe, uuid.uuid5(ESPACE_ME_TIME, str(u.id)))
     if g is None or g.nature != "me_time":
@@ -90,11 +90,11 @@ def ranger_me_time(s: Session, u: Utilisateur) -> None:
 
 
 def duo(s: Session, u: Utilisateur, op: dict) -> None:
-    """Discussion à deux (§7.13, comme AppBase) : un Buddy Group « duo » de deux personnes qui partagent déjà une bande."""
+    """Discussion à deux (§7.13, comme AppBase) : un groupe « duo » de deux personnes qui partagent déjà une bande."""
     autre = s.get(Utilisateur, uuid.UUID(str(op["buddy"])))
     mes_bandes = select(Membre.groupe_id).join(Groupe, Groupe.id == Membre.groupe_id).where(Membre.utilisateur_id == u.id, Groupe.nature == "bande")
     if autre is None or autre.id == u.id or s.scalar(select(Membre).where(Membre.utilisateur_id == autre.id, Membre.groupe_id.in_(mes_bandes))) is None:
-        raise Refus("Seulement avec un buddy de tes Buddy Groups")
+        raise Refus("Seulement avec un buddy de tes groupes")
     gid = uuid.uuid5(ESPACE_DUO, ":".join(sorted([str(u.id), str(autre.id)])))
     if s.get(Groupe, gid) is None:
         s.add(Groupe(id=gid, nom="", nature="duo", cree_par=u.id))
@@ -114,13 +114,13 @@ def toucher(g: Groupe) -> None:
 
 def groupe_de(s: Session, u: Utilisateur, gid: Any, admin: bool = False) -> Groupe:
     if gid == "me-time":  # ancien téléphone : le Me Time n'existe plus
-        raise Refus("Choisis un Buddy Group (le Me Time n'existe plus)")
+        raise Refus("Choisis un groupe (le Me Time n'existe plus)")
     g = s.get(Groupe, uuid.UUID(str(gid)))
     m = membre(s, g.id, u.id) if g else None
     if g is None or m is None:
-        raise Refus("Buddy Group inconnu")
+        raise Refus("Groupe inconnu")
     if admin and m.role != "admin":
-        raise Refus("Réservé aux admins du Buddy Group")
+        raise Refus("Réservé aux admins du groupe")
     return g
 
 
@@ -139,7 +139,7 @@ def creer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def renommer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
-    """Changer le nom d'un Buddy Group (tout membre, comme un groupe WhatsApp ; Seb, 25 novembre)."""
+    """Changer le nom d'un groupe (tout membre, comme un groupe WhatsApp ; Seb, 25 novembre)."""
     g = groupe_de(s, u, op["groupe"])
     if g.nature == "duo":
         raise Refus("Une discussion à deux n'a pas de nom")
@@ -246,7 +246,7 @@ def sortie_visible(s: Session, u: Utilisateur, so: Sortie) -> bool:
 def sortie_de(s: Session, u: Utilisateur, sid: Any) -> Sortie:
     so = s.get(Sortie, uuid.UUID(str(sid)))
     if so is None or so.supprime_le is not None or not sortie_visible(s, u, so):
-        raise Refus("Buddy Time inconnu")
+        raise Refus("Sortie inconnue")
     return so
 
 
@@ -257,7 +257,7 @@ def jour(t: Any) -> str:
 
 
 def creer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
-    """Buddy Time : il naît quand on est sûr de partir (§5.4). Dans un Buddy Group, les membres cochés partent."""
+    """Sortie : elle naît quand on est sûr de partir (§5.4). Dans un groupe, les membres cochés partent."""
     sid = uuid.UUID(str(op["sortie"]))
     if s.get(Sortie, sid) is not None:
         return
@@ -286,17 +286,17 @@ def creer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def retirer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
-    """Annuler un Buddy Time qu'on vient de créer (« Annuler » sous la réponse de Bud, §7.12) : seulement celui qui l'a
+    """Annuler une sortie qu'on vient de créer (« Annuler » sous la réponse de Bud, §7.12) : seulement celui qui l'a
     créé, et seulement tant que rien n'y est encore attaché (traces, photos, dépenses, messages, hébergements)."""
     so = s.get(Sortie, uuid.UUID(str(op["sortie"])))
     if so is None:
         return  # déjà retiré
     if so.cree_par != u.id:
-        raise Refus("Seul celui qui a créé le Buddy Time peut l'annuler")
+        raise Refus("Seul celui qui a créé la sortie peut l'annuler")
     for t, c in ((TracePartagee, TracePartagee.sortie_id), (Photo, Photo.sortie_id), (Depense, Depense.sortie_id),
                  (MessageBuddy, MessageBuddy.sortie_id), (Hebergement, Hebergement.sortie_id)):
         if s.scalar(select(t).where(c == so.id).limit(1)) is not None:
-            raise Refus("Ce Buddy Time a déjà servi : il reste")
+            raise Refus("Cette sortie a déjà servi : elle reste")
     g = s.get(Groupe, so.groupe_id)
     for t in (Participant, Invitation):
         for x in s.scalars(select(t).where(t.sortie_id == so.id)).all():
@@ -308,18 +308,18 @@ def retirer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def sortie_a_supprimer(s: Session, u: Utilisateur, op: dict) -> Sortie | None:
-    """Supprimer un Buddy Time (ou le remettre) : celui qui l'a créé, ou un admin de son Buddy Group."""
+    """Supprimer une sortie (ou la remettre) : celui qui l'a créée, ou un admin de son groupe."""
     so = s.get(Sortie, uuid.UUID(str(op["sortie"])))
     if so is None or not sortie_visible(s, u, so):
-        raise Refus("Buddy Time inconnu")
+        raise Refus("Sortie inconnue")
     m = membre(s, so.groupe_id, u.id)
     if so.cree_par != u.id and (m is None or m.role != "admin"):
-        raise Refus("Seul celui qui a créé le Buddy Time (ou un admin du Buddy Group) peut le supprimer")
+        raise Refus("Seul celui qui a créé la sortie (ou un admin du groupe) peut la supprimer")
     return so
 
 
 def supprimer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
-    """Bud supprime un Buddy Time à la demande (§7.12) : caché de tous, rien n'est effacé, « Annuler » le remet."""
+    """Bud supprime une sortie à la demande (§7.12) : caché de tous, rien n'est effacé, « Annuler » le remet."""
     so = sortie_a_supprimer(s, u, op)
     if so.supprime_le is None:
         so.supprime_le = so.modifie_le = maintenant()
@@ -327,7 +327,7 @@ def supprimer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def remettre_sortie(s: Session, u: Utilisateur, op: dict) -> None:
-    """« Annuler » sous la réponse de Bud : le Buddy Time supprimé revient chez tous, avec tout ce qu'il contenait."""
+    """« Annuler » sous la réponse de Bud : la sortie supprimée revient chez tous, avec tout ce qu'elle contenait."""
     so = sortie_a_supprimer(s, u, op)
     if so.supprime_le is not None:
         so.supprime_le, so.modifie_le = None, maintenant()
@@ -335,11 +335,11 @@ def remettre_sortie(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def renommer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
-    """Changer le nom d'un Buddy Time (Seb, 25 novembre) : tout buddy qui le voit, comme le nom d'un groupe WhatsApp."""
+    """Changer le nom d'une sortie (Seb, 25 novembre) : tout buddy qui le voit, comme le nom d'un groupe WhatsApp."""
     so = sortie_de(s, u, op["sortie"])
     nom = propre(op.get("nom"), 80)
     if not nom:
-        raise Refus("Donne un nom au Buddy Time")
+        raise Refus("Donne un nom à la sortie")
     if so.nom != nom:
         so.nom, so.modifie_le = nom, maintenant()
         toucher(s.get(Groupe, so.groupe_id))
@@ -501,7 +501,7 @@ def fiche(s: Session, u: Utilisateur, op: dict) -> None:
     so = sortie_de(s, u, op["sortie"])
     j = jour(op.get("jour"))
     if not so.debut <= j <= so.fin:
-        raise Refus("Jour hors du Buddy Time")
+        raise Refus("Jour hors de la sortie")
     depart = str(op.get("depart") or "")
     if depart and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", depart):
         raise Refus("Heure de départ mal formée")
@@ -537,7 +537,7 @@ def participants(s: Session, so: Sortie) -> set[uuid.UUID]:
 
 
 def depense(s: Session, u: Utilisateur, op: dict) -> None:
-    """Buddy count (§5.10) : ajoute ou corrige une dépense. Qui paie et pour qui : des participants du Buddy Time."""
+    """Buddy count (§5.10) : ajoute ou corrige une dépense. Qui paie et pour qui : des participants de la sortie."""
     did = uuid.UUID(str(op["depense"]))
     d = s.get(Depense, did)
     so = sortie_de(s, u, d.sortie_id if d else op["sortie"])
@@ -549,7 +549,7 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
     paye_par = uuid.UUID(str(op["paye_par"]))
     pour = sorted({str(uuid.UUID(str(x))) for x in op.get("pour") or []})
     if paye_par not in qui or not pour or any(uuid.UUID(x) not in qui for x in pour):
-        raise Refus("Seuls les buddies du Buddy Time partagent ses frais")
+        raise Refus("Seuls les buddies de la sortie partagent ses frais")
     champs = {"titre": titre, "montant": montant, "paye_par": paye_par, "pour": json.dumps(pour), "jour": jour(op.get("jour"))}
     if d is None:
         s.add(Depense(id=did, sortie_id=so.id, par=u.id, **champs))
@@ -597,16 +597,16 @@ def ms(v: Any) -> int:
 
 
 def ma_position(s: Session, u: Utilisateur, op: dict) -> tuple[Any, Any]:
-    """L'épingle visée : dans un Buddy Time (`sortie`) ou, hors Buddy Time, dans un Buddy Group (`groupe`, §7.14).
+    """L'épingle visée : dans une sortie (`sortie`) ou, hors sortie, dans un groupe (`groupe`, §7.14).
     Rend la ligne existante (ou None) et de quoi la créer."""
     if op.get("groupe"):
         g = groupe_de(s, u, op["groupe"])
         if g.nature == "me_time":
-            raise Refus("Choisis un Buddy Group avec des buddies")
+            raise Refus("Choisis un groupe avec des buddies")
         return s.get(PositionGroupe, (g.id, u.id)), lambda **k: PositionGroupe(groupe_id=g.id, utilisateur_id=u.id, **k)
     so = sortie_de(s, u, op["sortie"])
     if u.id not in participants(s, so):
-        raise Refus("Seuls les buddies du Buddy Time partagent leur position")
+        raise Refus("Seuls les buddies de la sortie partagent leur position")
     return s.get(Position, (so.id, u.id)), lambda **k: Position(sortie_id=so.id, utilisateur_id=u.id, **k)
 
 
@@ -642,13 +642,13 @@ def position(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def proposer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
-    """Hébergement (§5.11) : proposé dans un Buddy Time depuis la recherche (panneau de partage, écran 23)."""
+    """Hébergement (§5.11) : proposé dans une sortie depuis la recherche (panneau de partage, écran 23)."""
     hid = uuid.UUID(str(op["hebergement"]))
     if s.get(Hebergement, hid) is not None:
         return  # renvoyé : déjà là
     so = sortie_de(s, u, op["sortie"])
     if u.id not in participants(s, so):
-        raise Refus("Seuls les buddies du Buddy Time proposent un hébergement")
+        raise Refus("Seuls les buddies de la sortie proposent un hébergement")
     url = propre(op.get("url"), 500)
     if url and not url.startswith(("https://", "http://")):
         raise Refus("Lien d'hébergement invalide")
@@ -669,7 +669,7 @@ def hebergement_de(s: Session, u: Utilisateur, hid: Any) -> tuple[Hebergement, S
         raise Refus("Hébergement inconnu")
     so = sortie_de(s, u, h.sortie_id)
     if u.id not in participants(s, so):
-        raise Refus("Seuls les buddies du Buddy Time choisissent l'hébergement")
+        raise Refus("Seuls les buddies de la sortie choisissent l'hébergement")
     return h, so
 
 
@@ -684,7 +684,7 @@ def coeur(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def retenir_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
-    """✅ On en retient un : les autres du même Buddy Time ne le sont plus."""
+    """✅ On en retient un : les autres de la même sortie ne le sont plus."""
     h, so = hebergement_de(s, u, op["hebergement"])
     if op.get("retenu"):
         for x in s.scalars(select(Hebergement).where(Hebergement.sortie_id == so.id, Hebergement.retenu.is_(True))):
@@ -739,8 +739,8 @@ def fichier_lisible(s: Session, u: Utilisateur, fid: uuid.UUID) -> bool:
 
 
 def message(s: Session, u: Utilisateur, op: dict) -> None:
-    """Messagerie (§5.6, écran 6) : un message dans la conversation d'un Buddy Group ou d'un Buddy Time.
-    Texte, « je suis ici » (point) ou une photo de l'album du Buddy Time."""
+    """Messagerie (§5.6, écran 6) : un message dans la conversation d'un groupe ou d'une sortie.
+    Texte, « je suis ici » (point) ou une photo de l'album de la sortie."""
     mid = uuid.UUID(str(op["message"]))
     if s.get(MessageBuddy, mid) is not None:
         return  # renvoyé : déjà là
@@ -826,7 +826,7 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
 
 
 def message_de(s: Session, u: Utilisateur, mid: Any) -> tuple[MessageBuddy | None, Groupe | None]:
-    """Un message de mes conversations, et le Buddy Group dont les admins peuvent le supprimer (modération)."""
+    """Un message de mes conversations, et le groupe dont les admins peuvent le supprimer (modération)."""
     m = s.get(MessageBuddy, uuid.UUID(str(mid)))
     if m is None:
         return None, None
@@ -853,7 +853,7 @@ def modifier_message(s: Session, u: Utilisateur, op: dict) -> None:
 
 def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
     """Supprimer : chez tous, la bulle devient « Ce message a été supprimé ». Ses messages, ou tous pour un admin
-    du Buddy Group (aussi dans ses Buddy Times)."""
+    du groupe (aussi dans ses sorties)."""
     m, g = message_de(s, u, op["message"])
     if m is None or m.supprime:
         return
@@ -1006,7 +1006,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
                                                 & (Participant.utilisateur_id == Position.utilisateur_id))
                           .where(Position.sortie_id.in_(sids), Position.modifie_le > debut - GARDE_POSITIONS)).all()
-    # Hors Buddy Time (§7.14) : celles partagées avec mes Buddy Groups, par qui en est encore membre.
+    # Hors sortie (§7.14) : celles partagées avec mes groupes, par qui en est encore membre.
     positions_g = s.scalars(select(PositionGroupe).join(Membre, (Membre.groupe_id == PositionGroupe.groupe_id)
                                                         & (Membre.utilisateur_id == PositionGroupe.utilisateur_id))
                             .where(PositionGroupe.groupe_id.in_(gids), PositionGroupe.modifie_le > debut - GARDE_POSITIONS)).all()
