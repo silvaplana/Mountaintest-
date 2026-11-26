@@ -124,6 +124,7 @@ export function App() {
   const setOpen = (v: boolean) => { if (v) setBandeau(true); sheet.setCran((c) => (!v ? 0 : c === 0 ? 1 : c)); };
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
+  const [showDrones, setShowDrones] = useState(false);
   /** Film des ombres du relief (8 h → midi). */
   const [showShade, setShowShade] = useState(false);
   // 🌦 Météo posée sur la carte (Météo-France via Open-Meteo).
@@ -1215,7 +1216,7 @@ export function App() {
   return (
     <div className={`app ${nature ? 'nature' : ''}`}>
       {nature && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
-      <MapView baseLayer={baseLayer} showSlopes={showSlopes} recorded={recorded} imported={imported}
+      <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
@@ -1323,7 +1324,7 @@ export function App() {
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
         baseLayer={baseLayer} onPickBaseLayer={(m) => { setBaseLayer(m); setToast(`Fond de carte : ${BASE_MODES[m]}`); }}
-        slopes={showSlopes} onSlopes={setShowSlopes} shade={showShade} onShade={setShowShade}
+        slopes={showSlopes} onSlopes={setShowSlopes} drones={showDrones} onDrones={setShowDrones} shade={showShade} onShade={setShowShade}
         tilted={tilted} onTilt3d={() => map?.easeTo({ pitch: 60, duration: 900 })} onFlat={() => map?.easeTo({ pitch: 0, bearing: 0, duration: 700 })}
         forests={forests.length > 0 || forestsLoading} onForests={() => {
           // 🌲 : forêts de la zone affichée sans ouvrir le menu ; un 2e appui les efface.
