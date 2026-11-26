@@ -267,12 +267,17 @@ function ChevronIcon() {
     <path d="M6 9l6 6 6-6" /></svg>;
 }
 
-/** Buddy count au trait : B et C entrelacés, le B à gauche, deux petites barres communes comme le $ (choix B1 de Seb, 26/11). */
-export function BuddyCountIcon() {
-  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-    <text x="17" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">B</text>
-    <text x="31" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">C</text>
-    <path d="M21 4v8M27 4v8M21 34v9M27 34v9" />
+/** Buddy count : B et C entrelacés avec les deux barres du $ (B1), frappés sur une pièce dorée, partout où il apparaît
+ * (Seb, 26/11 : « le BC c'est comme une monnaie »). */
+export function BuddyCountIcon({ taille = 36 }: { taille?: number }) {
+  const t = { fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: 28, textAnchor: 'middle' as const, fill: '#7a5200', stroke: 'none' };
+  return <svg width={taille} height={taille} viewBox="0 0 48 48" aria-hidden="true">
+    <circle cx="24" cy="24" r="22" fill="#f2c230" stroke="#b8860b" strokeWidth="2" />
+    <circle cx="24" cy="24" r="15.8" fill="none" stroke="#d9a520" strokeWidth="1.6" />
+    <g transform="translate(4.8 4.8) scale(0.8)" fill="none" stroke="#7a5200" strokeWidth="2.4" strokeLinecap="round">
+      <text x="17" y="34" {...t}>B</text><text x="31" y="34" {...t}>C</text>
+      <path d="M21 4v8M27 4v8M21 34v9M27 34v9" />
+    </g>
   </svg>;
 }
 
