@@ -632,12 +632,13 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         return <Comptes groupes={groupes.filter((x) => !vue.groupe || x.id === vue.groupe)} sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)}
           counts={counts} depenses={depenses} ici={gi} onClose={onClose}
           onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })}
-          onNouveau={gi ? () => setVue({ ecran: 'nvCount', groupe: gi.id }) : undefined}
+          // ＋ Buddy count partout (Seb, 26/11) : hors d'un groupe, on choisit le groupe sur l'écran suivant.
+          onNouveau={groupes.some((x) => x.nature === 'bande') ? () => setVue({ ecran: 'nvCount', groupe: gi?.id ?? '' }) : undefined}
           onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />;
       })()
-      : vue.ecran === 'nvCount' && groupes.some((x) => x.id === vue.groupe) ? <NouveauCount g={groupes.find((x) => x.id === vue.groupe)!} onClose={onClose}
-        onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe })}
-        onCreer={(nom) => setVue({ ecran: 'count', id: creerCount(vue.groupe, nom), groupe: vue.groupe })} />
+      : vue.ecran === 'nvCount' ? <NouveauCount groupes={groupes.filter((x) => x.nature === 'bande')} depart={vue.groupe} onClose={onClose}
+        onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
+        onCreer={(gid, nom) => setVue({ ecran: 'count', id: creerCount(gid, nom), groupe: gid })} />
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
         onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
         onNouvelle={() => setVue({ ecran: 'nouvelleConv' })}

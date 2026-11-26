@@ -59,8 +59,13 @@ export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onN
 }
 
 /** ＋ Buddy count dans un groupe : son nom, puis « Créer » (Seb, 26/11). */
-export function NouveauCount({ g, onCreer, onRetour, onClose }: { g: Groupe; onCreer: (nom: string) => void; onRetour: () => void; onClose: () => void }) {
+export function NouveauCount({ groupes, depart, onCreer, onRetour, onClose }: {
+  groupes: Groupe[]; depart?: string; onCreer: (groupe: string, nom: string) => void; onRetour: () => void; onClose: () => void;
+}) {
   const [nom, setNom] = useState('');
+  // Ouvert hors d'un groupe (Seb, 26/11) : on choisit le groupe ; un seul groupe, il est déjà choisi.
+  const [gid, setGid] = useState(depart && groupes.some((x) => x.id === depart) ? depart : groupes.length === 1 ? groupes[0].id : '');
+  const g = groupes.find((x) => x.id === gid);
   return <div className="bd-corps bd-count">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
@@ -69,9 +74,11 @@ export function NouveauCount({ g, onCreer, onRetour, onClose }: { g: Groupe; onC
     </div>
     <label className="bd-champ"><small>Nom</small>
       <input value={nom} maxLength={80} autoFocus onChange={(e) => setNom(e.target.value)} placeholder="Cagnotte de la saison, abonnement…" /></label>
-    <p className="hint">Buddy count de groupe · {g.nom}. Pour les dépenses de tout le groupe, hors sortie.</p>
+    {groupes.length > 1 && !(depart && groupes.some((x) => x.id === depart)) && <div className="bd-choix-moyen">
+      {groupes.map((x) => <button key={x.id} className={x.id === gid ? 'on' : ''} onClick={() => setGid(x.id)}>{x.nom}</button>)}</div>}
+    <p className="hint">{g ? `Buddy count de groupe · ${g.nom}. ` : 'Choisis le groupe. '}Pour les dépenses de tout le groupe, hors sortie.</p>
     <span style={{ flex: 1 }} />
-    <div className="bd-plus"><button className="primary" onClick={() => onCreer(nom)}><span className="bd-plus-texte"><b>Créer</b></span></button></div>
+    <div className="bd-plus"><button className="primary" disabled={!g} onClick={() => g && onCreer(g.id, nom)}><span className="bd-plus-texte"><b>Créer</b></span></button></div>
   </div>;
 }
 
