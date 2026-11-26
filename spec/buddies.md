@@ -90,7 +90,7 @@ encore les anciens noms (§7.12).
 
 **Anciennes ou nouvelles icônes (Seb, 26 novembre)** : case « Nouvelles icônes dans Buddies » dans 👤 Mon compte
 (Paramètres), gardée sur le téléphone. Décochée (par défaut) : les anciennes, émojis en couleur 📞 💬 📅 📸 🚗 👤
-(voiture garée : 🚗 avec une petite 📍) ; cochée : les mêmes au trait. Buddy count (B1), hébergement (lit dans la maison)
+(voiture garée : 🚗 avec une petite 📍) ; cochée : des pastilles de couleur, dessin blanc (Seb, 26 novembre, version D : appel vert, position bleue, messages bleu, planning rouge, photos orange, Buddy count ocre, hébergement brun, voiture rouge, moi violet). Buddy count (B1), hébergement (lit dans la maison)
 et Ma position (point et ondes) sont les mêmes dans les deux cas. Ma position allumée garde le fond clair, comme éteinte ;
 seules les ondes passent en noir gras (avant : rond ardoise, jugé trop sombre).
 

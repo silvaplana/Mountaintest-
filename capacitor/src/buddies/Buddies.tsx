@@ -189,6 +189,8 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
   const [neuves, setNeuves] = useState(nouvellesIcones);
   useEffect(() => { const f = () => setNeuves(nouvellesIcones()); window.addEventListener('nouvellesIcones', f); return () => window.removeEventListener('nouvellesIcones', f); }, []);
   const ic = (d: string, emoji: string) => (neuves ? trait(d) : emoji);
+  // Nouvelles : pastilles de couleur, dessin blanc (Seb, 26/11, version D de la maquette colonne-chaleureuse).
+  const c = (couleur: string) => (neuves ? { style: { '--c': couleur } as React.CSSProperties } : {});
   // Dépliée par défaut ; repliée, l'appli s'en souvient pour la prochaine fois (Seb, 26/11).
   const [ouverte, setOuverteEtat] = useState(() => { try { return localStorage.getItem('buddiesIcones') !== '0'; } catch { return true; } });
   const setOuverte = (o: boolean) => { setOuverteEtat(o); try { localStorage.setItem('buddiesIcones', o ? '1' : '0'); } catch { /* ignoré */ } };
@@ -209,29 +211,29 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     <button className={`bd-col-fleche${ouverte ? ' ouverte' : ''}`} onClick={() => setOuverte(!ouverte)}
       aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
     </div>
-    <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
-    <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>{ic(TEL, '📞')}</button>
+    <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}${neuves ? ' pastilles' : ''}`} inert={!ouverte}>
+    <button aria-label="Appel" {...c('#2e9a5b')} onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>{ic(TEL, '📞')}</button>
     {/* Ma position, un interrupteur sous le téléphone (Seb, 26/11) : un appui allume ou éteint, un appui long ouvre l'écran. */}
     <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible}
-      className={`bd-col-pin${visible ? ' actif' : ''}`}
+      className={`bd-col-pin${visible ? ' actif' : ''}`} {...c('#2f7de1')}
       onPointerDown={() => { appui.current.long = false; clearTimeout(appui.current.t);
         if (onPositionLong) appui.current.t = window.setTimeout(() => { appui.current.long = true; onPositionLong(); }, 550); }}
       onPointerUp={() => clearTimeout(appui.current.t)} onPointerLeave={() => clearTimeout(appui.current.t)}
       onContextMenu={(ev) => ev.preventDefault()}
       onClick={() => { if (appui.current.long) return; (onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position')))(); }}>
       <PositionIcon on={visible} /></button>
-    <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>{ic(BULLE, '💬')}</button>
-    <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>{ic(CALENDRIER, '📅')}</button>
-    <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>{ic(PHOTO, '📸')}</button>
-    <button aria-label="Buddy count" onClick={onExpenses}><BuddyCountIcon /></button>
-    <button aria-label="Hébergement" onClick={onLodging}><LitMaisonIcon /></button>
+    <button aria-label="Messagerie" {...c('#3a78c9')} onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>{ic(BULLE, '💬')}</button>
+    <button aria-label="Planning" {...c('#d2473f')} onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>{ic(CALENDRIER, '📅')}</button>
+    <button aria-label="Album photo" {...c('#e0892b')} onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>{ic(PHOTO, '📸')}</button>
+    <button aria-label="Buddy count" {...c('#c9862b')} onClick={onExpenses}><BuddyCountIcon /></button>
+    <button aria-label="Hébergement" {...c('#9b5e34')} onClick={onLodging}><LitMaisonIcon /></button>
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11) ; appui long : garer ma
         voiture ici, ou l'enlever (Seb, 26/11). */}
     <button aria-label={garee ? 'Voyage en voiture · appui long : enlever ma voiture' : 'Voyage en voiture · appui long : garer ma voiture ici'}
-      className={garee ? 'bd-col-voiture actif' : undefined} {...appuiLong(() => void basculerVoiture(onToast))}
+      className={garee ? 'bd-col-voiture actif' : undefined} {...c('#c94141')} {...appuiLong(() => void basculerVoiture(onToast))}
       onClick={() => { if (!appui.current.long) onTravel(); }}>{neuves ? <VoitureIcon garee={garee} /> : <span className="bd-col-auto">🚗{garee && <i>📍</i>}</span>}</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
-    <button aria-label="Moi : mon compte" onClick={onAccount}>{ic(MOI, '👤')}</button>
+    <button aria-label="Moi : mon compte" {...c('#7a5bc4')} onClick={onAccount}>{ic(MOI, '👤')}</button>
     </div>
   </div>;
 }
