@@ -47,7 +47,7 @@ import java.lang.ref.WeakReference;
  * Les carrefours sont calculés par l'appli (chemins OpenStreetMap croisés avec la trace) et gardés hors ligne.
  */
 public class TraceWake extends Service {
-    private static final String CHANNEL = "trace";
+    private static final String CHANNEL = "trace-muet"; // sans chiffre sur l'icône (Seb, 26/11) ; l'ancien « trace » est effacé
     private static final double OFF_TRACK_M = 50;
     /** Distance d'alerte : environ 20 s avant le carrefour, entre 50 m et 200 m. */
     private static final double LEAD_S = 20, MIN_LEAD_M = 50, MAX_LEAD_M = 200;
@@ -251,8 +251,12 @@ public class TraceWake extends Service {
 
     private Notification notification() {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (Build.VERSION.SDK_INT >= 26)
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Suivi de la trace", NotificationManager.IMPORTANCE_LOW));
+        if (Build.VERSION.SDK_INT >= 26) {
+            nm.deleteNotificationChannel("trace");
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "Suivi de la trace", NotificationManager.IMPORTANCE_LOW);
+            ch.setShowBadge(false);
+            nm.createNotificationChannel(ch);
+        }
         Intent open = getPackageManager().getLaunchIntentForPackage(getPackageName());
         PendingIntent pi = open == null ? null : PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new NotificationCompat.Builder(this, CHANNEL)

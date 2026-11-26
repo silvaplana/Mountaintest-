@@ -46,7 +46,7 @@ public class LocationService extends Service {
     static volatile LocationService instance;
 
     private static final String TAG = "EcoLocation";
-    private static final String CHANNEL = "tracking";
+    private static final String CHANNEL = "suivi-muet"; // sans chiffre sur l'icône (Seb, 26/11) ; l'ancien « tracking » est effacé
     private static final String BUFFER = "gps-buffer.jsonl";
 
     private FusedLocationProviderClient client;
@@ -156,7 +156,10 @@ public class LocationService extends Service {
     private Notification buildNotification(String title, String text) {
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Suivi de sortie", NotificationManager.IMPORTANCE_LOW));
+            nm.deleteNotificationChannel("tracking");
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "Suivi de sortie", NotificationManager.IMPORTANCE_LOW);
+            ch.setShowBadge(false);
+            nm.createNotificationChannel(ch);
         }
         Intent open = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pi = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE);

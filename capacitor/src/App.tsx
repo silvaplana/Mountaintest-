@@ -27,7 +27,7 @@ import { montrer } from './buddies/appel';
 import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
 import { nomLien, noterOuvert } from './buddies/recents';
-import { useNotifMessages } from './buddies/notifs';
+import { useNotifMessages, useNotifsAExpliquer } from './buddies/notifs';
 import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
 import { LodgingsOnMap } from './LodgingMap';
 import { chercherHebergements } from './refuges';
@@ -437,6 +437,8 @@ export function App() {
     if (x) montrerBuddies({ sortie: x, traces: v.traces.filter((t) => t.sortie === x.id), parler: true });
     else if (c.groupe) { setCarteSortie(null); setBuddiesDepart({ ecran: 'conv', id: c.groupe }); setBuddies(true); }
   });
+  // 🔔 Ouverture après des notifications : une fenêtre dit ce qui est arrivé (Seb, 26/11).
+  const [arrivees, vuArrivees] = useNotifsAExpliquer();
   const appel = useAppel();
   const enAppel = !!appel && appel.phase !== 'sonne';
   useEffect(() => { if (enAppel) setBuddies(false); }, [enAppel]);
@@ -1556,6 +1558,15 @@ export function App() {
             <span>Version {maj.build} prête à installer.</span>
             <button className="primary" onClick={maj.installer}>Installer</button>
             <button className="maj-plus-tard" onClick={maj.plusTard}>Plus tard</button>
+          </div>
+        </div>
+      )}
+      {arrivees.length > 0 && !maj.build && (
+        <div className="maj-voile" onClick={vuArrivees}>
+          <div className="maj-fenetre notifs-fenetre" role="dialog" aria-label="Pendant ton absence" onClick={(ev) => ev.stopPropagation()}>
+            <b>Pendant ton absence</b>
+            <ul>{arrivees.slice(-8).map((n, i) => <li key={i}><small>{n.titre}</small><span>{n.ligne}</span></li>)}</ul>
+            <button className="primary" onClick={vuArrivees}>OK</button>
           </div>
         </div>
       )}

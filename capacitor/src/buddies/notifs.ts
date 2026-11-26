@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { useCompte } from '../Account';
 import { connecte } from '../compte/auth';
@@ -42,4 +43,20 @@ export function useNotifMessages(ouvrir: (c: ConversationNotif) => void) {
 /** La conversation est à l'écran : sa notification s'efface. */
 export function effacerNotif(cle: string) {
   if (Capacitor.isNativePlatform()) void Natif.effacerNotif({ cle }).catch(() => undefined);
+}
+
+/**
+ * À l'ouverture qui suit des notifications (Seb, 26/11) : une fenêtre explique ce qui est arrivé (qui a écrit, payé
+ * ou partagé quoi). Cherché au démarrage et à chaque retour dans l'appli ; vu une fois, la liste se vide.
+ */
+export function useNotifsAExpliquer(): [{ titre: string; ligne: string }[], () => void] {
+  const [liste, setListe] = useState<{ titre: string; ligne: string }[]>([]);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const lire = () => { void Natif.notifsAExpliquer().then((r) => { if (r.liste?.length) setListe((l) => [...l, ...r.liste]); }).catch(() => undefined); };
+    lire();
+    const h = CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) lire(); });
+    return () => { void h.then((x) => x.remove()); };
+  }, []);
+  return [liste, () => setListe([])];
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { annoncerPaiement, aujourdhui, confirmerRecu, enregistrerDepense, lire, peutRetirer, retirerDepense, type BuddyCountEtat, type Depense, type Groupe, type Sortie } from './store';
 import { compte, equilibre, euros, icone, lireEuros } from './count';
-import { BuddyCountIcon, FeuilleNom, Visage } from './Buddies';
+import { BuddyCountIcon, dates, FeuilleNom, Visage } from './Buddies';
 import { PencilIcon, TrashIcon } from '../icones';
 
 /**
@@ -19,16 +19,17 @@ export function sortieDuCount(c: BuddyCountEtat, g: Groupe): Sortie {
  * Tous les Buddy counts (Seb, 26/11, §7.20) : ceux de groupe d'abord, puis ceux de sortie ; dans chaque partie, les
  * ouverts en tête. « ＋ Buddy count » dans un groupe en crée un de groupe.
  */
-export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onNouveau, onRetour, onClose }: {
+export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onNouveau, onNouveauSortie, onRetour, onClose }: {
   groupes: Groupe[]; sorties: Sortie[]; counts: BuddyCountEtat[]; depenses: Depense[]; ici?: Groupe;
-  onOuvrir: (x: Sortie, deGroupe: boolean) => void; onNouveau?: () => void; onRetour: () => void; onClose: () => void;
+  onOuvrir: (x: Sortie, deGroupe: boolean) => void; onNouveau?: () => void; onNouveauSortie?: () => void;
+  onRetour: () => void; onClose: () => void;
 }) {
   const total = (id: string) => depenses.filter((d) => d.sortie === id && !d.remb).reduce((n, d) => n + d.montant, 0);
-  const etat = (id: string) => counts.find((c) => c.id === id || c.sortie === id);
   const deGroupe = counts.filter((c) => c.groupe && !c.supprime && groupes.some((g) => g.id === c.groupe))
     .sort((a, b) => b.cree_le.localeCompare(a.cree_le))
     .map((c) => sortieDuCount(c, groupes.find((g) => g.id === c.groupe)!));
-  const deSortie = sorties.filter((x) => !etat(x.id)?.supprime)
+  // Une sortie n'a de Buddy count que créé (« ＋ Buddy count de sortie ») ou s'il a déjà une dépense (Seb, 26/11).
+  const deSortie = sortiesAvecCount(sorties, counts, depenses)
     .sort((a, b) => b.debut.localeCompare(a.debut));
   const moi = lire().moi ?? 'moi';
   const ligne = (x: Sortie, g: boolean, sous: string) => {
@@ -52,15 +53,48 @@ export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onN
     {deGroupe.length ? deGroupe.map((x) => ligne(x, true, ici ? '' : ` · ${groupes.find((g) => g.id === x.groupe)?.nom ?? ''}`))
       : <p className="bd-vide">Pas encore de Buddy count de groupe</p>}
     <h3 className="bd-section">Sortie</h3>
-    {deSortie.length ? deSortie.map((x) => ligne(x, false, '')) : <p className="bd-vide">Pas encore de sortie</p>}
+    {deSortie.length ? deSortie.map((x) => ligne(x, false, '')) : <p className="bd-vide">Pas encore de Buddy count de sortie</p>}
     <span style={{ flex: 1 }} />
-    {onNouveau && <div className="bd-plus"><button className="primary" onClick={onNouveau}><span className="bd-plus-texte"><b>＋ Buddy count</b></span></button></div>}
+    {(onNouveau || onNouveauSortie) && <div className="bd-plus">
+      {onNouveau && <button className="primary" onClick={onNouveau}><span className="bd-plus-texte"><b>＋ Buddy count</b><small>{ici ? `pour ${ici.nom}` : 'de groupe'}</small></span></button>}
+      {onNouveauSortie && <button className="primary" onClick={onNouveauSortie}><span className="bd-plus-texte"><b>＋ Buddy count</b><small>de sortie</small></span></button>}
+    </div>}
   </div>;
 }
 
 /** ＋ Buddy count dans un groupe : son nom, puis « Créer » (Seb, 26/11). */
-export function NouveauCount({ g, onCreer, onRetour, onClose }: { g: Groupe; onCreer: (nom: string) => void; onRetour: () => void; onClose: () => void }) {
+/** Les sorties qui ont un Buddy count : créé (une ligne de Buddy count, pas supprimée) ou avec une dépense. */
+export function sortiesAvecCount(sorties: Sortie[], counts: BuddyCountEtat[], depenses: Depense[]): Sortie[] {
+  return sorties.filter((x) => {
+    const c = counts.find((k) => k.sortie === x.id);
+    return c ? !c.supprime : depenses.some((d) => d.sortie === x.id);
+  });
+}
+
+/** « ＋ Buddy count de sortie » : les sorties qui n'en ont pas encore (Seb, 26/11). */
+export function NouveauCountSortie({ sorties, onChoix, onRetour, onClose }: {
+  sorties: Sortie[]; onChoix: (x: Sortie) => void; onRetour: () => void; onClose: () => void;
+}) {
+  return <div className="bd-corps">
+    <div className="xp-head">
+      <button onClick={onRetour} aria-label="Retour">‹</button>
+      <span className="bd-titre"><b>Buddy count de sortie</b><small>Pour quelle sortie ?</small></span>
+      <button onClick={onClose} aria-label="Fermer">✕</button>
+    </div>
+    {sorties.length ? sorties.map((x) => <button key={x.id} className="bd-ligne bd-count-ligne" onClick={() => onChoix(x)}>
+      <span className="bd-album-mini"><BuddyCountIcon /></span>
+      <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)}</small></span>
+    </button>) : <p className="bd-vide">Toutes les sorties ont déjà leur Buddy count</p>}
+  </div>;
+}
+
+export function NouveauCount({ groupes, depart, onCreer, onRetour, onClose }: {
+  groupes: Groupe[]; depart?: string; onCreer: (groupe: string, nom: string) => void; onRetour: () => void; onClose: () => void;
+}) {
   const [nom, setNom] = useState('');
+  // Ouvert hors d'un groupe (Seb, 26/11) : on choisit le groupe ; un seul groupe, il est déjà choisi.
+  const [gid, setGid] = useState(depart && groupes.some((x) => x.id === depart) ? depart : groupes.length === 1 ? groupes[0].id : '');
+  const g = groupes.find((x) => x.id === gid);
   return <div className="bd-corps bd-count">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
@@ -69,9 +103,11 @@ export function NouveauCount({ g, onCreer, onRetour, onClose }: { g: Groupe; onC
     </div>
     <label className="bd-champ"><small>Nom</small>
       <input value={nom} maxLength={80} autoFocus onChange={(e) => setNom(e.target.value)} placeholder="Cagnotte de la saison, abonnement…" /></label>
-    <p className="hint">Buddy count de groupe · {g.nom}. Pour les dépenses de tout le groupe, hors sortie.</p>
+    {groupes.length > 1 && !(depart && groupes.some((x) => x.id === depart)) && <div className="bd-choix-moyen">
+      {groupes.map((x) => <button key={x.id} className={x.id === gid ? 'on' : ''} onClick={() => setGid(x.id)}>{x.nom}</button>)}</div>}
+    <p className="hint">{g ? `Buddy count de groupe · ${g.nom}. ` : 'Choisis le groupe. '}Pour les dépenses de tout le groupe, hors sortie.</p>
     <span style={{ flex: 1 }} />
-    <div className="bd-plus"><button className="primary" onClick={() => onCreer(nom)}><span className="bd-plus-texte"><b>Créer</b></span></button></div>
+    <div className="bd-plus"><button className="primary" disabled={!g} onClick={() => g && onCreer(g.id, nom)}><span className="bd-plus-texte"><b>Créer</b></span></button></div>
   </div>;
 }
 
