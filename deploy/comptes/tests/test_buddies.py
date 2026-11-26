@@ -869,10 +869,6 @@ def test_buddy_count_de_groupe_ferme_et_supprime(client):
     assert (x["count"], x["sortie"], x["montant"]) == (cid, None, 34000)
     # Julie doit 170 € à Seb : elle voit comment le rembourser si Seb a renseigné son IBAN (rien ici).
     assert r["paiements"] == {}
-    # Fermé par Julie (tout membre) : plus de dépense.
-    assert sync(client, sub="julie", ops=[op("buddy_count", count=cid, ferme=True)])["refus"] == []
-    d2 = op("depense", depense=str(uuid.uuid4()), count=cid, titre="Essence", montant=5000, paye_par=seb, pour=[seb], jour="2026-11-26")
-    assert sync(client, ops=[d2])["refus"]
     # Supprimé : seulement un admin (Julie est membre, Seb admin).
     assert sync(client, sub="julie", ops=[op("buddy_count", count=cid, supprime=True)])["refus"]
     assert sync(client, ops=[op("buddy_count", count=cid, supprime=True)])["refus"] == []
@@ -880,20 +876,16 @@ def test_buddy_count_de_groupe_ferme_et_supprime(client):
     assert sync(client, sub="luc")["counts"] == []
 
 
-def test_buddy_count_de_sortie_ferme(client):
+def test_buddy_count_ferme_par_un_ancien_telephone_reste_ouvert(client):
+    """Seb, 26 novembre : plus d'ouvert/fermé ; un Buddy count fermé avant (ou par un vieux téléphone) prend toujours des dépenses."""
     gid, julie = bande_avec_julie(client)
     so = nouvelle_sortie(gid, participants=[julie])
     seb = sync(client, ops=[so])["moi"]
     sid = so["sortie"]
-    # Deux téléphones ferment en même temps : une seule ligne pour la sortie.
-    r = sync(client, ops=[op("buddy_count", count=str(uuid.uuid4()), sortie=sid, ferme=True)])
-    sync(client, sub="julie", ops=[op("buddy_count", count=str(uuid.uuid4()), sortie=sid, ferme=True)])
-    c, = sync(client)["counts"]
-    assert (c["sortie"], c["ferme"]) == (sid, True)
+    sync(client, ops=[op("buddy_count", count=str(uuid.uuid4()), sortie=sid, ferme=True)])
     d = op("depense", depense=str(uuid.uuid4()), sortie=sid, titre="Gîte", montant=1000, paye_par=seb, pour=[seb], jour="2026-11-26")
-    assert sync(client, ops=[d])["refus"]
-    sync(client, ops=[op("buddy_count", count=c["id"], ferme=False)])
     assert sync(client, ops=[d])["refus"] == []
+    assert sync(client, ops=[op("retirer_depense", depense=d["depense"])])["refus"] == []
 
 
 def test_supprimer_un_groupe_reserve_aux_admins(client):

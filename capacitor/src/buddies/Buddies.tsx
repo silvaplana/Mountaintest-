@@ -579,7 +579,6 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) && sorties.some((x) => x.id === vue.id) ? vue.id : undefined;
   // Buddy counts (Seb, 26/11, §7.20) : celui de groupe ouvert est montré comme une sortie dont les membres partagent les frais.
   const counts = mesCounts(e);
-  const etatCount = (id: string) => counts.find((c) => c.id === id || c.sortie === id);
   const cg = 'id' in vue && (vue.ecran === 'count' || vue.ecran === 'depense') ? counts.find((c) => c.id === vue.id && c.groupe && !c.supprime) : undefined;
   const gcg = cg && groupes.find((x) => x.id === cg.groupe);
   const gDe = (x: Sortie) => groupes.find((y) => y.id === x.groupe);
@@ -651,8 +650,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onRetour={() => (album.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: album.id, groupe: vue.groupe }) : ouvrir(album))} />
       : vue.ecran === 'count' && caisse ? (() => {
         const g = gDe(caisse);
-        return <BuddyCount x={caisse} depenses={depenses} onClose={onClose} onToast={onToast} ferme={!!etatCount(caisse.id)?.ferme} deGroupe={!!cg}
-          onFermer={(f) => { changerCount(caisse.id, { ferme: f }); onToast(f ? 'Buddy count fermé' : 'Buddy count rouvert'); }}
+        return <BuddyCount x={caisse} depenses={depenses} onClose={onClose} onToast={onToast} deGroupe={!!cg}
           onRenommer={cg ? (nom) => changerCount(caisse.id, { nom }) : undefined}
           onSupprimer={g && estAdmin(g, e) ? () => { changerCount(caisse.id, { supprime: true }); onToast(`Buddy count « ${caisse.nom} » supprimé`);
             setVue({ ecran: 'comptes', groupe: vue.groupe }); } : undefined}
