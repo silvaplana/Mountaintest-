@@ -775,6 +775,16 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .bd-colonne .bd-col-voiture.actif { background: var(--accent); color: var(--on-accent); }
 .bd-colonne .bd-col-pin.actif { color: var(--fg); }
 /* Nouvelles icônes : pastilles de couleur, dessin blanc (Seb, 26/11). */
+/* 🔑 Super User (Seb, 26/11) et sa pastille de demandes non lues. */
+.bd-col-icones button svg { display: block; flex: none; }
+.bd-col-cle { position: relative; }
+.bd-col-n { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #d2473f;
+  color: #fff; font-style: normal; font-size: 13px; font-weight: 700; line-height: 20px; text-align: center; }
+/* Écrire au support, dans le profil (Seb, 26/11). */
+.acc-support { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 12px; border-radius: 16px; text-align: left; font-size: 17px; }
+.acc-support > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+.acc-support small { font-size: 14px; color: var(--muted); font-weight: 400; }
+.acc-support-rond { width: 40px; height: 40px; flex: none; border-radius: 50%; background: #3a78c9; color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 20px; }
 .bd-colonne .bd-col-icones.pastilles button { background: var(--c); color: #fff; }
 /* Anciennes icônes : la voiture garée porte une petite épingle. */
 .bd-col-auto { position: relative; line-height: 1; }

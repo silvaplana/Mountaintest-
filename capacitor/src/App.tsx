@@ -24,7 +24,7 @@ import { PointSurCarte } from './buddies/Messages';
 import { PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { montrer } from './buddies/appel';
-import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
+import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
 import { nomLien, noterOuvert } from './buddies/recents';
 import { useNotifMessages, useNotifsAExpliquer } from './buddies/notifs';
@@ -309,6 +309,15 @@ export function App() {
   /** Petit message passager, visible même en mode nature. */
   const [toast, setToast] = useState('');
   // Un message peut demander moins de temps (« Buddy count de groupe créé » : 2 s, Seb 26/11).
+  // Écrire au support (Seb, 26/11) : la discussion à deux avec le Super User, avec la version et le téléphone joints.
+  const ecrireAuSupport = async () => {
+    const appli = await CapApp.getInfo().then((i) => `version ${i.version} (${i.build})`).catch(() => 'version web');
+    const tel = await Device.getInfo().then((d) => `${d.manufacturer} ${d.model} · ${d.operatingSystem} ${d.osVersion}`).catch(() => '');
+    try {
+      const id = await ouvrirSupport([appli, tel].filter(Boolean).join(' · '));
+      setAccount(false); setBuddiesDepart({ ecran: 'conv', id }); setBuddies(true);
+    } catch (err) { setToast((err as Error).message); }
+  };
   const toastMs = useRef(3500);
   const toastDuree = (m: string, ms?: number) => { toastMs.current = ms ?? 3500; setToast(m); };
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), toastMs.current); toastMs.current = 3500; return () => clearTimeout(t); }, [toast]);
@@ -1536,7 +1545,7 @@ export function App() {
           setToast(navigator.onLine ? `✓ « ${selected.name} » est dans « ${n.titre} »` : `« ${selected.name} » ira dans « ${n.titre} » au retour du réseau 🕓`);
         }} />}
       {partage && <PartagePanel nom={partage.nom} ligne={partage.ligne} hebergement={partage.hebergement} onAilleurs={partage.ailleurs} onFermer={() => setPartage(null)} onToast={setToast} />}
-      {account && <Account onToast={setToast} onClose={() => setAccount(false)} />}
+      {account && <Account onToast={setToast} onClose={() => setAccount(false)} onSupport={() => void ecrireAuSupport()} />}
       {expenses && <Expenses password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')} onToast={setToast} onClose={() => setExpenses(false)} />}
       {travel && <TravelPanel password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
         here={position ? { label: 'Ma position', lon: position.lon, lat: position.lat } : null}

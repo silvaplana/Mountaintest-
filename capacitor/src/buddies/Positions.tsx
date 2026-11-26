@@ -8,7 +8,7 @@ import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
-  appliquer, autreDuDuo, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
+  aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
   type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
@@ -100,7 +100,7 @@ export function ciblesIci(e: Etat, groupes: Groupe[], sorties: Sortie[], sortie?
   const x = sortie ? sorties.find((y) => y.id === sortie) : undefined;
   if (x) return { cibles: [{ sortie: x.id }], nom: x.nom };
   const g = groupe ? groupes.find((y) => y.id === groupe && y.nature !== 'me_time') : undefined;
-  if (g) return { cibles: [{ groupe: g.id }], nom: g.nature === 'duo' ? autreDuDuo(g, e)?.pseudo ?? g.nom : g.nom };
+  if (g) return { cibles: [{ groupe: g.id }], nom: aDeux(g) ? nomDiscussion(g, e) : g.nom };
   const bandes = groupes.filter((y) => y.nature === 'bande');
   return { cibles: bandes.map((y) => ({ groupe: y.id })), nom: bandes.length > 1 ? 'tous tes groupes' : bandes[0]?.nom ?? '' };
 }

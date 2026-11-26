@@ -22,7 +22,7 @@ export type Buddy = { id: string; pseudo: string; photo: string | null; role?: '
 export type Invitation = { id: string; code: string; canal: Canal; nom: string; contact: string; par: string; attente?: boolean };
 export type Groupe = {
   /** duo : discussion à deux (§7.13), sans nom : on montre l'autre buddy. */
-  id: string; nom: string; nature: 'bande' | 'me_time' | 'duo'; photo: string | null; modifie_le: string;
+  id: string; nom: string; nature: 'bande' | 'me_time' | 'duo' | 'support'; photo: string | null; modifie_le: string;
   membres: Buddy[]; invitations: Invitation[]; attente?: boolean;
 };
 /** Carnet d'une sortie (spec §5.8) : le texte de chaque buddy, une fiche par jour (facultative), ce que la trace ne dit pas. */
@@ -445,6 +445,10 @@ export function appliquer(e: Etat): Groupe[] {
       case 'retirer':
         if (g) g.membres = g.membres.filter((m) => m.id !== op.buddy);
         break;
+      case 'support':
+        if (!g) gs.push({ id: String(op.groupe), nom: String(op.infos ?? ''), nature: 'support', photo: null, modifie_le: quand(op), invitations: [],
+          attente: true, membres: [moiBuddy(e)] });
+        break;
       case 'duo':
         if (!g) gs.push({ id: String(op.groupe), nom: '', nature: 'duo', photo: null, modifie_le: quand(op), invitations: [], attente: true,
           membres: [moiBuddy(e), { id: String(op.buddy), pseudo: String(op.pseudo ?? ''), photo: (op.photo as string) ?? null, role: 'membre' }] });
@@ -773,9 +777,30 @@ export function contacts(e: Etat = lire()): { b: Buddy; bandes: string[] }[] {
   }
   return [...l.values()].sort((a, b) => a.b.pseudo.localeCompare(b.b.pseudo, 'fr'));
 }
+/** Discussion à deux : avec un buddy, ou avec le support (Seb, 26/11). */
+export const aDeux = (g: Groupe) => g.nature === 'duo' || g.nature === 'support';
 /** Le nom d'une conversation : celui de la bande, ou l'autre buddy pour une discussion à deux. */
 export function autreDuDuo(g: Groupe, e: Etat = lire()): Buddy | undefined {
-  return g.nature === 'duo' ? g.membres.find((b) => b.id !== (e.moi ?? 'moi') && b.id !== 'moi') : undefined;
+  return aDeux(g) ? g.membres.find((b) => b.id !== (e.moi ?? 'moi') && b.id !== 'moi') : undefined;
+}
+/** « Écrire au support » (Seb, 26/11) : une discussion à deux avec le Super User, toujours la même ; `infos`
+ * (version, téléphone) lui est jointe. Rend son identifiant. */
+export async function ouvrirSupport(infos: string): Promise<string> {
+  const moi = lire().moi;
+  if (!moi) throw new Error('Il faut le réseau une première fois');
+  const id = await uuid5(`support:${moi}`);
+  ajouter({ type: 'support', groupe: id, infos });
+  return id;
+}
+export const superUser = () => !!lireCompte().profil?.super_user;
+/** Les demandes de support que je reçois, si je suis le Super User. */
+export function demandesSupport(e: Etat = lire()): Groupe[] {
+  return superUser() ? appliquer(e).filter((g) => g.nature === 'support') : [];
+}
+/** Le nom d'une discussion à deux : l'autre buddy ; « Support » pour celui qui écrit au support. */
+export function nomDiscussion(g: Groupe, e: Etat = lire()): string {
+  if (g.nature === 'support' && !superUser()) return 'Support';
+  return autreDuDuo(g, e)?.pseudo ?? g.nom;
 }
 /** « en ligne » (synchro il y a moins de 30 s), sinon « vu aujourd'hui à 10 h 42 » (comme AppBase). */
 export function presence(qui: string, lectures: Lecture[], maintenant = Date.now()): string | null {

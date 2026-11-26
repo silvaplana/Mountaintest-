@@ -24,7 +24,7 @@ import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, autreDuDuo, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  aDeux, annulerInvitation, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
   inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -180,8 +180,8 @@ function retourOuFermer(fermer: () => void) {
   if (retour) retour.click(); else fermer();
 }
 
-function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition, onPositionLong }: {
-  onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
+function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition, onPositionLong, onSuperUser }: {
+  onSuperUser?: () => void; onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
   onAppel?: () => void; onPosition?: () => void; onPositionLong?: () => void;
 }) {
   const e = useBuddies();
@@ -236,7 +236,46 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
       onClick={() => { if (!appui.current.long) onTravel(); }}>{neuves ? <VoitureIcon garee={garee} /> : <span className="bd-col-auto">🚗{garee && <i>📍</i>}</span>}</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Moi : mon compte" {...c('#7a5bc4')} onClick={onAccount}>{ic(MOI, '👤')}</button>
+    {/* 🔑 Le Super User seul (Seb, 26/11 : « comme je suis modeste, mettons la clé ») : ses demandes de support. */}
+    {onSuperUser && superUser() && <button aria-label="Super User" className="bd-col-cle" onClick={onSuperUser}><CleIcon />
+      {supportNonLus(e) > 0 && <i className="bd-col-n">{supportNonLus(e)}</i>}</button>}
     </div>
+  </div>;
+}
+
+/** 🔑 Clé d'or du Super User (Seb, 26/11). */
+function CleIcon() {
+  return <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+    <circle cx="15" cy="24" r="9" fill="#f2c230" stroke="#b8860b" strokeWidth="2.2" />
+    <circle cx="15" cy="24" r="3.5" fill="#f4f6f8" stroke="#b8860b" strokeWidth="1.6" />
+    <path d="M24 24h18M36 24v6M41 24v5" stroke="#b8860b" strokeWidth="4" strokeLinecap="round" />
+  </svg>;
+}
+/** Messages de support pas encore lus (pastille de la clé). */
+const supportNonLus = (e: Etat) => { const v = vueSorties(e); return demandesSupport(e).reduce((n, g) => n + nonLus(e, g.id, v.messages), 0); };
+
+/** Espace du Super User (Seb, 26/11) : les demandes de support ; plus tard la place serveur, les comptes… */
+function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir: (id: string) => void; onRetour: () => void; onClose: () => void }) {
+  const v = vueSorties(e);
+  const l = demandesSupport(e).map((g) => {
+    const f = v.messages.filter((m) => m.groupe === g.id && !m.supprime);
+    return { g, dernier: f.at(-1), n: nonLus(e, g.id, v.messages) };
+  }).sort((a, b) => (b.dernier?.cree_le ?? b.g.modifie_le).localeCompare(a.dernier?.cree_le ?? a.g.modifie_le));
+  const moi = e.moi ?? 'moi';
+  return <div className="bd-corps">
+    <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>Super User</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    <h3 className="bd-section">Support</h3>
+    {l.length ? l.map(({ g, dernier, n }) => {
+      const qui = autreDuDuo(g, e);
+      return <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
+        <Visage b={qui ?? { id: g.id, nom: '?', photo: null }} />
+        <span className="bd-texte"><b>{qui?.pseudo ?? '?'}</b>
+          <small>{dernier ? `${dernier.par === moi ? 'Toi : ' : ''}${dernier.texte || '📎'}` : g.nom}</small></span>
+        {n > 0 && <span className="bd-nonlu">{n}</span>}
+      </button>;
+    }) : <p className="bd-vide">Pas encore de demande</p>}
+    <h3 className="bd-section">Plus tard</h3>
+    <p className="hint">La place sur le serveur de chacun, les comptes, les chiffres d'usage…</p>
   </div>;
 }
 
@@ -554,7 +593,7 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
-  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' }
+  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string; retour?: 'superUser' } | { ecran: 'nouvelleConv' } | { ecran: 'superUser' }
   | { ecran: 'position'; groupe?: string; sortie?: string } | { ecran: 'nvCount'; groupe: string } | { ecran: 'nvCountSortie'; groupe: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un groupe (‹ depuis la carte), l'album ou le carnet d'une sortie. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
@@ -628,6 +667,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
+    onSuperUser={() => setVue({ ecran: 'superUser' })}
     onPositionLong={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
     // Un appui : la sortie ouverte, sinon le groupe ouvert, sinon tous mes groupes (Seb, 26/11).
     onPosition={() => void basculerPosition(e, ciblesIci(e, groupes, sorties, sortieIci, ici), onToast)}
@@ -660,7 +700,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       onOuvrir={(x) => setVue({ ecran: 'album', id: x.id, groupe: vue.groupe })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'comptes' ? (() => {
-        const gi = groupes.find((x) => x.id === vue.groupe && x.nature !== 'me_time' && x.nature !== 'duo');
+        const gi = groupes.find((x) => x.id === vue.groupe && x.nature !== 'me_time' && !aDeux(x));
         return <Comptes groupes={groupes.filter((x) => !vue.groupe || x.id === vue.groupe)} sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)}
           counts={counts} depenses={depenses} ici={gi} onClose={onClose}
           onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })}
@@ -681,6 +721,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
           onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
           onChoix={(x) => { changerCount(x.id, counts.some((c) => c.sortie === x.id && c.supprime) ? { supprime: false } : {}); onToast('Buddy count de sortie créé', 2000); setVue({ ecran: 'count', id: x.id, groupe: vue.groupe || undefined }); }} />;
       })()
+      : vue.ecran === 'superUser' ? <EspaceSuperUser e={e} onClose={onClose} onRetour={() => setVue({ ecran: 'liste' })}
+        onOuvrir={(id) => setVue({ ecran: 'conv', id, retour: 'superUser' })} />
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
         onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
         onNouvelle={() => setVue({ ecran: 'nouvelleConv' })}
@@ -690,9 +732,9 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'conv' && groupes.some((x) => x.id === vue.id) ? (() => {
         const gc = groupes.find((x) => x.id === vue.id)!;
         return <div className="bd-corps bd-corps-conv">
-          <div className="xp-head"><button onClick={() => setVue(gc.nature === 'duo' ? { ecran: 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
-            {gc.nature === 'duo' && <Visage b={autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
-            <span className="bd-titre"><b>{autreDuDuo(gc, e)?.pseudo ?? gc.nom}</b><SousTitre g={gc} e={e} /></span>
+          <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: vue.retour ?? 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
+            {aDeux(gc) && <Visage b={gc.nature === 'support' && !superUser() ? { id: gc.id, nom: 'Support', photo: null } : autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
+            <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? gc.nom : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
             onPoint={(p) => onCarte({ traces: [], point: p })} onTrace={(t) => onCarte({ traces: [t] })} />
@@ -742,7 +784,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : g ? <UnGroupe g={g} plannings={plannings.filter((x) => x.groupe === g.id)} onRemplir={remplir} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
         onToast={onToast} onOuvrir={voir} onTrace={(t) => onCarte({ traces: [t] })}
         onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-        : <Liste e={e} groupes={groupes.filter((x) => x.nature !== 'duo')} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
+        : <Liste e={e} groupes={groupes.filter((x) => !aDeux(x))} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
           onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: '' })} onClose={onClose} onToast={onToast} />}
   </div>;
 }

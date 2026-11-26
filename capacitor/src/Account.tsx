@@ -114,7 +114,7 @@ function Champ({ titre, valeur, cle, type = 'text', onToast, ...autres }: {
   </label>;
 }
 
-export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m: string) => void }) {
+export function Account({ onClose, onToast, onSupport }: { onClose: () => void; onToast: (m: string) => void; onSupport?: () => void }) {
   const e = useCompte();
   const [email, setEmail] = useState(e.email ?? '');
   const [pseudo, setPseudo] = useState(nomAffiche(e));
@@ -175,6 +175,12 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
       <p className="acc-nom">{nomComplet(e)}</p>
       <p className="acc-mail">{p?.email ?? e.email ?? ''}</p>
       <span className="acc-role">{p?.super_user ? 'Super User' : 'Membre'}</span>
+      {/* Écrire au support (Seb, 26/11) : une discussion à deux avec le Super User. */}
+      {onSupport && !p?.super_user && <>
+        <h3 className="acc-rubrique">Aide</h3>
+        <button className="acc-support" onClick={onSupport}><span className="acc-support-rond">?</span>
+          <span><b>Écrire au support</b><small>une question, un souci, une idée</small></span><span aria-hidden="true">›</span></button>
+      </>}
       <h3 className="acc-rubrique">Mes infos</h3>
       <Champ titre="Prénom" valeur={p?.prenom ?? ''} cle="prenom" onToast={onToast} />
       <Champ titre="Nom" valeur={p?.nom ?? ''} cle="nom" onToast={onToast} />

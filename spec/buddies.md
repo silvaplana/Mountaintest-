@@ -1015,3 +1015,17 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Pastille de 👥 sur la carte** : même règle ; elle compte les messages de buddies non lus, les « J'ai payé » qui
   attendent ma réponse, les traces partagées et les albums où un buddy a ajouté des photos depuis ma dernière visite de
   Buddies. Avant, elle comptait tout groupe, sortie ou planning modifié depuis la dernière ouverture, même par moi.
+
+### 7.22 Écrire au support, espace Super User (Seb, 26 novembre 2026)
+
+- **Profil** : rubrique « Aide », ligne « Écrire au support » (pas pour le Super User lui-même). Elle ouvre une
+  discussion à deux avec le Super User, toujours la même, comme avec un buddy : réponses, photos, dictée, notifications
+  (un message de buddy), coches « lu ». La version de l'appli et le téléphone sont joints (nom de la discussion, vu par
+  le Super User sous le pseudo).
+- **🔑 Clé d'or** (Seb : « comme je suis modeste, mettons la clé ») : en bas de la colonne, sous 👤, pour le Super User
+  seul, avec une pastille rouge des messages de support non lus. Elle ouvre « Super User » : la partie « Support »
+  (une ligne par personne, dernier message, non lus) ; plus tard la place serveur de chacun, les comptes…
+  Les demandes arrivent aussi dans 💬 Messages.
+- **Serveur** : opération `support {groupe, infos}` ; groupe de nature `support`, identifiant uuid5 « support:<id> »,
+  membres = la personne + les Super Users. Refusée tant qu'aucun Super User n'existe (« Le support n'est pas encore
+  ouvert »).

@@ -3,7 +3,7 @@ import { connecte } from '../compte/auth';
 import { useCompte } from '../Account';
 import { Carre, quandSortie, useBuddies, Visage } from './Buddies';
 import { longueur } from './carnet';
-import { appliquer, aujourdhui, partagerTrace, vue as vueSorties, type Sortie, type TraceBuddy } from './store';
+import { aDeux, appliquer, aujourdhui, partagerTrace, vue as vueSorties, type Sortie, type TraceBuddy } from './store';
 import { listTraces, readPins, traceLengthM, traceLine, updateTrace, type SavedTrace } from '../trails/savedTraces';
 import { derniersOuverts, nomLien, parDernierOuvert, type LienBuddy } from './recents';
 
@@ -21,7 +21,7 @@ export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
   const e = useBuddies();
   const compte = useCompte();
   const { sorties } = vueSorties(e);
-  const groupes = parDernierOuvert(appliquer(e).filter((g) => g.nature !== 'duo'), derniersOuverts('groupes'));
+  const groupes = parDernierOuvert(appliquer(e).filter((g) => !aDeux(g)), derniersOuverts('groupes'));
   const auj = aujourdhui();
   const [groupeVu, setGroupeVu] = useState<string | null>(null);
   const [choix, setChoix] = useState<LienBuddy | null>(ouverte && ouverte.id !== lien?.sortie ? { groupe: ouverte.groupe, sortie: ouverte.id } : null);
