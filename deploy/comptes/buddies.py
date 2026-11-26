@@ -623,8 +623,9 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
         lieu, qui, _, c = caisse(s, u, d.sortie_id, d.count_id)
     else:
         lieu, qui, _, c = caisse(s, u, op.get("sortie"), op.get("count"))
-    if c is not None and (c.ferme or c.supprime_le is not None):
-        raise Refus("Ce Buddy count est fermé")
+    # Plus d'ouvert/fermé (Seb, 26 novembre : « ils existent tout le temps ») ; seul un Buddy count supprimé refuse.
+    if c is not None and c.supprime_le is not None:
+        raise Refus("Ce Buddy count est supprimé")
     titre = propre(op.get("titre"), 80) or "Dépense"
     montant = int(op.get("montant"))
     if not 1 <= montant <= 10_000_000:
@@ -657,8 +658,6 @@ def retirer_depense(s: Session, u: Utilisateur, op: dict) -> None:
     if d is None:
         return  # déjà retirée
     lieu, _, g, c = caisse(s, u, d.sortie_id, d.count_id)
-    if c is not None and c.ferme:
-        raise Refus("Ce Buddy count est fermé")
     if d.par != u.id and not (g is not None and droits.admin_du_groupe(s, u, g)):
         raise Refus("Seul celui qui a ajouté cette dépense (ou un admin du groupe) peut le retirer")
     s.delete(d)
