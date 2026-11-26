@@ -410,9 +410,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 3** : un groupe, ses visages (toucher : inviter, nommer admin, retirer, quitter).
   Le dernier admin qui part passe la main au plus ancien membre ; un groupe vide disparaît.
 - **Écran 20** : photo, nom, invitations par Contacts (sélecteur d'Android, sans permission
-  « contacts »), Partager, Téléphone (SMS) ou QR code. 26/11 : « Mail » devient « Partager » (feuille de
-  partage du téléphone : WhatsApp, mail, SMS…, avec le lien réutilisable) ; l'appli n'envoie pas de mail
-  elle-même (pas de Brevo pour l'instant). L'invitation part au serveur avant le message, pour que le lien
+  « contacts »), Mail, Téléphone (SMS) ou QR code. 26/11 au soir : « Partager » (qui avait remplacé « Mail »)
+  redevient « Mail », envoyé par le serveur avec Brevo (§7.23). L'invitation part au serveur avant le message, pour que le lien
   marche tout de suite ; valable 30 jours. La page du lien (rejoindre.html) prend les couleurs de l'appli,
   un seul bouton, et réessaie une minute avant de dire « pas reconnu » (plus de faux « expiré »).
 - **Colonne d'icônes** : visible partout ; 💶 ouvre le partage des frais et 🏨 l'hébergement
@@ -1044,3 +1043,22 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Aide** : appui long sur la flèche, une bulle par bouton, sur la carte et dans la colonne des buddies. Une seule
   bulle pour les calques et pour l'activité (sous-icônes cachées) ; pas de bulle pour les 4 réglages du suivi de
   trace ni pour la clé du Super User. « Touche n'importe où pour fermer l'aide » en haut, côté opposé aux icônes.
+
+### 7.23 Invitations par mail, envoyées par le serveur (Seb, 26 novembre 2026)
+
+- Écran 20 : le bouton « Partager » est remplacé par « ✉️ Mail », sur le modèle de Téléphone : prénom, adresse,
+  « Envoyer l'invitation ». Pas de 5e bouton (Seb : « partager ne sert à rien »). L'appui long sur un groupe garde
+  son Partager (§3, appui long).
+- Le serveur comptes envoie le mail par Brevo (SMTP, comme AppBase : `deploy/comptes/mails.py`), après
+  l'opération `inviter` de canal « mail », en arrière-plan. Expéditeur « Mountain Buddies »
+  `SMTP_FROM_EMAIL` (mountainbuddies@silvaplana.cloud) ; réponses à l'adresse de celui qui invite.
+  Configuration : `SMTP_*` de `~/mountaintest/comptes.env` (copiée de contretemps par l'installeur des comptes,
+  la même que pour les codes de connexion Logto).
+- Le mail (maquette maquettes/mail-invitation/) : « Seb t'invite dans « groupe » sur Mountain Buddies », texte
+  qui finit par « … positions, messages et bien plus encore. », lien écrit en clair (Brevo réécrit les liens
+  cliquables), valable 30 jours. On dit « groupe », jamais « bande » (Seb).
+- Colonne `invitations.mail` : « envoye », « erreur », vide tant que pas envoyé. Sous l'invitation : « 🕓 mail en
+  attente de réseau », « ✉️ mail envoyé », ou « ⚠ mail non parti · Renvoyer » (opération `renvoyer_mail`).
+- Profil › « Inviter un ami » (Seb, 26/11) : prénom et adresse, sans groupe ; le serveur (`POST /inviter-appli`)
+  envoie tout de suite un mail avec le lien de la page de téléchargement (…/mountaintest/apk/, qui envoie les
+  iPhone vers la version web). Demande le réseau (bouton grisé sinon), « Le mail n'est pas parti » en cas d'échec.

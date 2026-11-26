@@ -1588,3 +1588,5 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .phone-space-sel { display: flex; flex-direction: column; flex: none; }
 .sel-dans-panneau .travel-head { margin-bottom: 4px; }
 .sel-annuler > span { flex: 1; }
+.bd-etat.bd-erreur { color: var(--danger); display: flex; align-items: center; }
+.bd-etat.bd-erreur .bd-lien { color: var(--danger); font-size: 15px; }

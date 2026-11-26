@@ -19,10 +19,14 @@ from typing import Any
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
+import logging
+
 import droits
+import mails
 from modeles import (BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
+log = logging.getLogger(__name__)
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
 # Groupe perso (ex-Me Time) : un par personne, même identifiant sur tous ses téléphones.
@@ -219,6 +223,40 @@ def inviter(s: Session, u: Utilisateur, op: dict) -> None:
                      canal=canal, nom=propre(op.get("nom"), 80), contact=contact,
                      email=contact.lower() if canal == "mail" else None, expire_le=maintenant() + DUREE_INVITATION))
     toucher(sortie or g)
+    if canal == "mail" and contact:
+        s.info.setdefault("mails", []).append(iid)
+
+
+def renvoyer_mail(s: Session, u: Utilisateur, op: dict) -> None:
+    """« Renvoyer » sous une invitation par mail qui n'est pas partie."""
+    inv = s.get(Invitation, uuid.UUID(str(op["invitation"])))
+    if inv is None or inv.canal != "mail":
+        return
+    g = groupe_de(s, u, inv.groupe_id)
+    inv.mail = None
+    toucher(s.get(Sortie, inv.sortie_id) if inv.sortie_id else g)
+    s.info.setdefault("mails", []).append(inv.id)
+
+
+def envoyer_mails(Sessions, ids: list[uuid.UUID]) -> None:
+    """Envoie les mails d'invitation et note le résultat, que le téléphone affiche (« mail envoyé » / « non parti »)."""
+    for iid in ids:
+        with Sessions() as s:
+            inv = s.get(Invitation, iid)
+            if inv is None or inv.mail == "envoye":
+                continue
+            par = s.get(Utilisateur, inv.invite_par)
+            sortie = s.get(Sortie, inv.sortie_id) if inv.sortie_id else None
+            g = s.get(Groupe, inv.groupe_id)
+            try:
+                mails.invitation(inv.contact, inv.nom if inv.nom != inv.contact else "", personne(par)["pseudo"], (sortie or g).nom,
+                                 inv.code, sortie=sortie is not None, repondre_a=par.email)
+                inv.mail = "envoye"
+            except Exception:  # noqa: BLE001  (pas de SMTP, Brevo refuse, adresse invalide…)
+                log.exception("Invitation par mail non partie (%s)", iid)
+                inv.mail = "erreur"
+            toucher(sortie or g)
+            s.commit()
 
 
 def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
@@ -1167,7 +1205,7 @@ def fichier_photo(pid: uuid.UUID, taille: str) -> str:
 OPERATIONS = {
     "creer_groupe": creer_groupe, "renommer_groupe": renommer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "retirer_admin": retirer_admin, "transmettre": transmettre,
-    "annuler_invitation": annuler_invitation,
+    "annuler_invitation": annuler_invitation, "renvoyer_mail": renvoyer_mail,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
     "supprimer_sortie": supprimer_sortie, "supprimer_groupe": supprimer_groupe, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
@@ -1194,7 +1232,7 @@ def vue_groupe(s: Session, g: Groupe) -> dict[str, Any]:
         "id": str(g.id), "nom": g.nom, "nature": g.nature, "photo": g.photo, "modifie_le": iso(g.modifie_le),
         "organisation": str(g.organisation_id) if g.organisation_id else None,
         "membres": [{**personne(u), "role": m.role} for m, u in membres],
-        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact,
+        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact, "mail": i.mail,
                          "par": str(i.invite_par)} for i in invitations],
     }
 
@@ -1332,7 +1370,7 @@ def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
     return {
         "id": str(so.id), "groupe": str(so.groupe_id), "nom": so.nom, "photo": so.photo, "debut": so.debut, "fin": so.fin,
         "lieu": so.lieu, "modifie_le": iso(so.modifie_le), "par": str(so.cree_par), "participants": [personne(x) for x in qui],
-        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact,
+        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact, "mail": i.mail,
                          "par": str(i.invite_par)} for i in invitations],
         "carnet": vue_carnet(s, so),
     }

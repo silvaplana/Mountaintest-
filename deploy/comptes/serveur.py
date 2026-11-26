@@ -52,6 +52,7 @@ from sqlalchemy.orm import Session, sessionmaker
 import appels
 import buddies
 import droits
+import mails
 from modeles import Base, Groupe, Membre, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
@@ -89,6 +90,7 @@ COLONNES_AJOUTEES = [
     ("invitations", "contact", "VARCHAR(320) NOT NULL DEFAULT ''"),
     ("invitations", "acceptee_par", "UUID REFERENCES utilisateurs(id)"),
     ("invitations", "sortie_id", "UUID REFERENCES sorties(id) ON DELETE CASCADE"),
+    ("invitations", "mail", "VARCHAR(10)"),
     ("messages_buddies", "bud", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("messages_buddies", "repond_a", "UUID"),
     ("messages_buddies", "edite_le", "TIMESTAMP WITH TIME ZONE"),
@@ -389,6 +391,9 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     # 💶 Paiements, traces et photos partagées (buddies.prevenir) : même forme qu'un message.
     for qui, data in s.info.pop("a_prevenir", []):
         appels.sonner(Sessions, qui, data, ttl="86400s")
+    # ✉ Invitations par mail : envoyées par Brevo après l'enregistrement (en arrière-plan).
+    if mails_ := s.info.pop("mails", []):
+        mails.en_arriere_plan(lambda: buddies.envoyer_mails(Sessions, mails_))
     return r
 
 
@@ -500,6 +505,24 @@ def lire_fichier(fid: str, j: dict = Depends(jeton_requis), s: Session = Depends
 
 
 # ---------------------------------------------------------------- 📞 appels (bloc 10)
+
+class AmiAInviter(BaseModel):
+    nom: str = Field("", max_length=80)
+    email: str = Field(min_length=3, max_length=320)
+
+
+@app.post("/inviter-appli")
+def inviter_appli(a: AmiAInviter, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """Profil › Inviter un ami : un mail pour installer Mountain Buddies, sans groupe (Seb, 26/11)."""
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", a.email.strip()):
+        raise HTTPException(409, "Adresse e-mail invalide")
+    u = utilisateur(s, j)
+    try:
+        mails.appli(a.email.strip(), a.nom.strip(), buddies.personne(u)["pseudo"], repondre_a=u.email)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(409, "Le mail n'est pas parti, réessaie plus tard") from e
+    return {"ok": True}
+
 
 class UnAppareil(BaseModel):
     jeton: str = Field(min_length=20, max_length=400)
