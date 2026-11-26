@@ -839,3 +839,17 @@ def test_iban_et_wero_seulement_pour_qui_doit(client):
     # Une fois remboursée (dépense inverse), Seb ne voit plus rien.
     sync(client, ops=[nouvelle_depense(so["sortie"], seb, [julie], montant=12000, titre="Remboursement")])
     assert sync(client)["paiements"] == {}
+
+
+def test_voiture_garee_vue_par_les_buddies(client):
+    gid, julie = bande_avec_julie(client)
+    seb = sync(client)["moi"]
+    v = op("voiture", garee=True, lat=44.61, lon=6.71, garee_le=T0, jusqu=T0 + 5 * 24 * 3600_000)
+    assert sync(client, ops=[v, v])["refus"] == []
+    w, = sync(client, sub="julie")["voitures"]
+    assert (w["qui"], w["lat"], w["lon"], w["garee_le"], w["jusqu"]) == (seb, 44.61, 6.71, T0, T0 + 24 * 3600_000)
+    assert sync(client, sub="luc")["voitures"] == []  # pas dans mes groupes
+    # Enlevée : elle reste dans la liste, finie (le téléphone ne la montre plus).
+    sync(client, ops=[op("voiture", garee=False, quand=T0 + 60_000)])
+    w, = sync(client, sub="julie")["voitures"]
+    assert w["jusqu"] == T0 + 60_000

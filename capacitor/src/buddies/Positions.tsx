@@ -4,9 +4,10 @@ import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
 import { Natif, useBuddies, Visage } from './Buddies';
+import { maPosition } from './Messages';
 import { detail, etiquette, heureCourte, opacite, pendant, reperes, reperesTous, type Repere } from './positions';
 import {
-  appliquer, aujourdhui, autreDuDuo, enfoncerEpingle, envoyerPosition, finEpingle, memeCible, mesEpingles, monEpingle, positions, releverEpingle, vue,
+  appliquer, aujourdhui, autreDuDuo, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, memeCible, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
   type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
@@ -117,18 +118,18 @@ function useTous() {
 }
 
 /**
- * Ma position dans la colonne (choix 4 de Seb, 26/11) : un buddy au trait ; allumée, des ondes de chaque côté battent
- * doucement (animation CSS `.bd-ondes`, presque rien pour la batterie : c'est le GPS qui coûte).
+ * Ma position dans la colonne (choix P1 de Seb, 26/11) : un point et des ondes de chaque côté ; éteinte, les ondes sont
+ * pâles et immobiles ; allumée, elles battent doucement (animation CSS `.bd-ondes`, presque rien pour la batterie :
+ * c'est le GPS qui coûte).
  */
-export function BuddyOndesIcon({ on, size = 30 }: { on: boolean; size?: number }) {
+export function PositionIcon({ on, size = 30 }: { on: boolean; size?: number }) {
   return <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor"
-    strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" overflow="visible">
-    <circle cx="24" cy="17" r="5.5" />
-    <path d="M14 38a10 10 0 0 1 20 0" />
-    {on && <g className="bd-ondes">
-      <path d="M10 14a16 16 0 0 0 0 16M38 14a16 16 0 0 1 0 16" />
-      <path d="M5 10a22 22 0 0 0 0 24M43 10a22 22 0 0 1 0 24" />
-    </g>}
+    strokeWidth="2.6" strokeLinecap="round" overflow="visible">
+    <circle cx="24" cy="24" r="5" fill="currentColor" stroke="none" />
+    <g className={on ? 'bd-ondes' : undefined} opacity={on ? undefined : 0.35}>
+      <path d="M15 15a13 13 0 0 0 0 18M33 15a13 13 0 0 1 0 18" />
+      <path d="M9 10a20 20 0 0 0 0 28M39 10a20 20 0 0 1 0 28" />
+    </g>
   </svg>;
 }
 
@@ -238,3 +239,44 @@ export function useEpingle() {
     return () => { clearInterval(t); clearTimeout(fin); };
   }, [jusqu]);
 }
+
+/**
+ * 🚗 Appui long sur la voiture de la colonne (Seb, 26/11) : la garer là où je suis, ou l'enlever. Mes buddies la
+ * voient aussi ; elle s'efface seule à minuit.
+ */
+export async function basculerVoiture(onToast: (m: string) => void) {
+  if (maVoiture()) { enleverVoiture(); onToast("Ta voiture n'est plus sur la carte."); return; }
+  try {
+    garerVoiture(await maPosition());
+    onToast('Ta voiture est garée ici. Tes buddies la voient aussi, jusqu\'à minuit.');
+  } catch { onToast('Position introuvable : autorise la localisation et réessaie'); }
+}
+
+/** Les voitures garées sur la carte : une tête d'épingle avec la voiture, et qui l'a garée à quelle heure. */
+export function VoituresSurCarte({ map }: { map: MlMap | null }) {
+  const e = useBuddies();
+  const moi = e.moi ?? 'moi';
+  const gens = new Map([...appliquer(e).flatMap((g) => g.membres), ...vue(e).sorties.flatMap((x) => x.participants)].map((b) => [b.id, b.pseudo]));
+  const vs = voitures(e);
+  const cle = vs.map((v) => `${v.qui}${v.lat}${v.lon}${v.garee_le}`).join();
+  useEffect(() => {
+    if (!map || !vs.length) return;
+    const ms = vs.map((v) => {
+      const el = document.createElement('div');
+      el.className = 'bd-pos-carte bd-voiture-carte';
+      const t = document.createElement('span');
+      t.className = 'bd-tete';
+      t.innerHTML = VOITURE_SVG;
+      const b = document.createElement('b');
+      b.textContent = `${v.qui === moi ? 'ma voiture' : initiales(gens.get(v.qui) ?? '?')} · ${heureCourte(v.garee_le)}`;
+      el.append(t, document.createElement('i'), b);
+      return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([v.lon, v.lat]).addTo(map);
+    });
+    return () => ms.forEach((m) => m.remove());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, cle]);
+  return null;
+}
+
+const VOITURE_SVG = '<svg width="26" height="26" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M8 36v-7l4-9a4 4 0 0 1 3.7-2.5h16.6A4 4 0 0 1 36 20l4 9v7a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1H14v1a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2zM11 29h26"/></svg>';

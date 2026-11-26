@@ -82,6 +82,8 @@ export type FichierMessage = { id: string; nom: string; mime: string; taille: nu
 export type Sondage = { question: string; multiple: boolean; options: string[]; votes: { qui: string; option: number }[] };
 /** ✓✓ Un buddy de mes conversations : sa dernière synchro (« reçu ») et jusqu'où il a lu chacune (« lu », bleu). */
 export type Lecture = { qui: string; vu_le: string | null; lus: Record<string, string> };
+/** 🚗 Une voiture garée (Seb, 26/11) : la mienne ou celle d'un buddy de mes groupes ; finie à `jusqu` (minuit). */
+export type Voiture = { qui: string; lat: number; lon: number; garee_le: number; jusqu: number };
 /** 📍 Position d'un buddy dans une sortie (§5.9) ou, hors sortie, dans un groupe (§7.14) : son épingle (ms)
  * et sa dernière position. */
 export type Position = {
@@ -109,6 +111,7 @@ export type Etat = {
   photos: PhotoBuddy[];
   depenses?: Depense[];
   positions?: Position[];
+  voitures?: Voiture[];
   hebergements?: Hebergement[];
   messages?: MessageBuddy[];
   /** 📞 Appels en cours dans mes groupes et sorties (d'après la dernière synchro). */
@@ -558,6 +561,26 @@ export function finEpingle(d = new Date()): number {
   if (d.getHours() >= 18) f.setHours(23, 59, 59, 0);
   return f.getTime();
 }
+/** 🚗 Les voitures garées en ce moment (la mienne en attente du réseau comprise). */
+export function voitures(e: Etat = lire(), t = Date.now()): Voiture[] {
+  const moi = e.moi ?? 'moi';
+  let l = (e.voitures ?? []).map((v) => ({ ...v }));
+  for (const op of e.attente) {
+    if (op.type !== 'voiture') continue;
+    const v = l.find((x) => x.qui === moi);
+    if (op.garee) l = [...l.filter((x) => x !== v), { qui: moi, lat: Number(op.lat), lon: Number(op.lon), garee_le: Number(op.garee_le), jusqu: Number(op.jusqu) }];
+    else if (v && Number(op.quand) >= v.garee_le) v.jusqu = Math.min(v.jusqu, Number(op.quand));
+  }
+  return l.filter((v) => v.garee_le <= t + 60_000 && v.jusqu > t);
+}
+export const maVoiture = (e: Etat = lire(), t = Date.now()) => voitures(e, t).find((v) => v.qui === (e.moi ?? 'moi'));
+/** Minuit ce soir : la voiture ne dure qu'une journée (Seb, 26/11). */
+const minuit = (t: number) => { const d = new Date(t); d.setHours(24, 0, 0, 0); return d.getTime(); };
+/** 🚗 Garer ma voiture ici (appui long) ; vue par mes buddies jusqu'à minuit. */
+export function garerVoiture(p: { lat: number; lon: number }, t = Date.now()) {
+  ajouter({ type: 'voiture', garee: true, lat: Math.round(p.lat * 1e6) / 1e6, lon: Math.round(p.lon * 1e6) / 1e6, garee_le: t, jusqu: minuit(t) });
+}
+export function enleverVoiture(t = Date.now()) { ajouter({ type: 'voiture', garee: false, quand: t }); }
 /** 📍 Enfoncer l'épingle dans cette sortie ou ces groupes (et la relever ailleurs : une seule épingle à la fois). */
 export function enfoncerEpingle(cibles: CiblePosition[], t = Date.now()) {
   const avant = mesEpingles(lire(), t).filter((p) => !cibles.some((c) => memeCible(p, c)));
@@ -737,6 +760,7 @@ type Reponse = {
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
   positions?: Position[];
+  voitures?: Voiture[];
   ids_hebergements?: string[]; hebergements?: Hebergement[];
   ids_messages?: string[]; messages?: MessageBuddy[]; lectures?: Lecture[]; ecrivent?: { cle: string; qui: string }[];
   appels?: AppelBuddy[];
@@ -776,7 +800,7 @@ export function synchroniser(): Promise<string[]> {
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
-        positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
+        positions: r.positions ?? e.positions, voitures: r.voitures ?? e.voitures, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
         lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });

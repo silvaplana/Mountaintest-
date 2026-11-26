@@ -68,7 +68,9 @@ encore les anciens noms (§7.12).
 
 - Verticale, à droite, toujours visible **(Seb)** : 📞 appel, ma position (interrupteur sous le téléphone, Seb 26/11 ;
   partager sa position même hors sortie, §7.14), 💬 messagerie, 📅 planning (ordre de Seb, 26/11), 📸 album,
-  💶 Buddy count, 🏨 hébergement, 🚗 voyage, 👤 moi.
+  💶 Buddy count, 🏨 hébergement, 🚗 voyage, 👤 moi. Toutes au trait, sans émoji (Seb, 26/11) : Buddy count = B et C
+  entrelacés, deux petites barres communes (B1) ; ma position = un point et des ondes de chaque côté (P1) ; moi = une
+  silhouette dans un rond ; 🚗 garée = une épingle posée sur la voiture (§7.16).
 - **Rétractable** (Seb, 26 novembre 2026) : le ✕ (fermer Buddies) reste toujours en haut de la colonne, dessous
   une flèche ⌄ ; la toucher fait descendre les icônes avec une animation, la flèche se retourne ⌃ et les
   remonte. Rangée à l'ouverture de Buddies. Plus de titre « Buddies » ni de second ✕ en haut des écrans ;
@@ -776,7 +778,7 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
 - **Demande de Seb** : « dès qu'on est dans Buddies, il faut dans le menu à droite pouvoir partager pareillement,
   même si on n'est pas dans une sortie ».
-- **Colonne, un interrupteur (Seb, 26/11)** : juste sous 📞, un buddy au trait ; allumé, le rond est plein ardoise
+- **Colonne, un interrupteur (Seb, 26/11)** : juste sous 📞, un point et des ondes au trait (pâles éteint) ; allumé, le rond est plein ardoise
   et des ondes battent doucement de chaque côté (animation CSS, presque rien pour la batterie : c'est le GPS qui
   coûte). Un appui allume : partage avec la sortie ouverte, sinon le groupe ouvert (hors des deux, l'écran
   ci-dessous s'ouvre pour choisir) ; un appui éteint partout. Un message de 3 secondes : « Ta position est partagée :
@@ -820,6 +822,19 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Pas encore** : une trace modifiée après l'association n'est pas renvoyée (on l'associe à nouveau) ; une trace
   associée depuis la sortie ne change pas le lien de sa copie déjà affichée sur la carte.
 
+
+### 7.16 🚗 Retrouver ma voiture (Seb, 26 novembre 2026)
+
+- **Appui long sur 🚗** (colonne) : la voiture est garée là où est le téléphone ; l'icône devient la voiture avec une
+  épingle posée dessus, sur fond ardoise. Message : « Ta voiture est garée ici. Tes buddies la voient aussi, jusqu'à
+  minuit. ». Un nouvel appui long l'enlève (« Ta voiture n'est plus sur la carte. ») ; l'appui court ouvre toujours le
+  voyage en voiture.
+- **Sur la carte** (la mienne et celles des buddies de mes groupes) : une tête d'épingle avec la voiture, et
+  « ma voiture · 8 h 40 » ou les initiales du buddy et l'heure.
+- **Une journée** : elle s'efface seule à minuit (heure du téléphone).
+- **Serveur** : table `voitures` (une par buddy : lat, lon, `garee_le`, `jusqu` en ms) ; opération `voiture`
+  `{garee: true, lat, lon, garee_le, jusqu}` ou `{garee: false, quand}` ; la synchro rend `voitures` (la mienne et
+  celles des membres de mes groupes, oubliées après 48 h).
 ### 7.16 🐻 Bud choisit les photos du carnet (Seb, 25 novembre 2026)
 
 - **Demande de Seb** : « quand on est dans tout l'album et qu'il faut sélectionner pour le carnet, est-ce que tu peux

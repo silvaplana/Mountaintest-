@@ -24,10 +24,11 @@ import { TrashIcon } from '../icones';
  */
 
 /** Ma position du moment, pour « je suis ici ». */
-function maPosition(): Promise<{ lon: number; lat: number }> {
+export function maPosition(): Promise<{ lon: number; lat: number }> {
   return new Promise((ok, ko) => {
-    const lire = () => navigator.geolocation?.getCurrentPosition((p) => ok({ lon: p.coords.longitude, lat: p.coords.latitude }), ko,
-      { maximumAge: 60_000, timeout: 20_000, enableHighAccuracy: true }) ?? ko(new Error('gps'));
+    // getCurrentPosition ne rend rien : sans test à part, `?? ko(...)` rejetait toujours tout de suite.
+    const lire = () => (navigator.geolocation ? navigator.geolocation.getCurrentPosition((p) => ok({ lon: p.coords.longitude, lat: p.coords.latitude }), ko,
+      { maximumAge: 60_000, timeout: 20_000, enableHighAccuracy: true }) : ko(new Error('gps')));
     if (Capacitor.isNativePlatform()) void EcoLocation.requestPermissions().then(lire, ko); else lire();
   });
 }

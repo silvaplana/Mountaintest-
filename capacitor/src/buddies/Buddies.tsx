@@ -16,14 +16,14 @@ import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
-import { BandePositions, MaPosition, nombreVisibles, BuddyOndesIcon, basculerPosition, PositionsSurCarte, useReperes } from './Positions';
+import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosition, basculerVoiture, PositionsSurCarte, useReperes } from './Positions';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, autreDuDuo, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  annulerInvitation, appliquer, aujourdhui, autreDuDuo, maVoiture, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
   nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -181,10 +181,18 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
   onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
   onAppel?: () => void; onPosition?: () => void; onPositionLong?: () => void;
 }) {
-  const visible = !!monEpingle(useBuddies());
+  const e = useBuddies();
+  const visible = !!monEpingle(e);
+  const garee = !!maVoiture(e);
   const [ouverte, setOuverte] = useState(false);
   // Appui long sur Ma position : l'écran des buddies visibles et du choix des groupes.
   const appui = useRef<{ t?: number; long?: boolean }>({});
+  /** Appui long (550 ms) : `long` est lancé, et le toucher qui suit ne fait rien d'autre. */
+  const appuiLong = (long: () => void) => ({
+    onPointerDown: () => { appui.current.long = false; clearTimeout(appui.current.t); appui.current.t = window.setTimeout(() => { appui.current.long = true; long(); }, 550); },
+    onPointerUp: () => clearTimeout(appui.current.t), onPointerLeave: () => clearTimeout(appui.current.t),
+    onContextMenu: (ev: React.MouseEvent) => ev.preventDefault(),
+  });
   // Rangée : ✕ et la flèche en haut, l’un au-dessus de l’autre, et l'écran prend toute la largeur ; ouverte, la colonne
   // glisse et l'écran se resserre à côté d'elle (Seb, 26/11).
   return <div className={`bd-colonne${ouverte ? '' : ' rangee'}`}>
@@ -195,7 +203,7 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
       aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
     </div>
     <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
-    <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
+    <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>{trait(TEL)}</button>
     {/* Ma position, un interrupteur sous le téléphone (Seb, 26/11) : un appui allume ou éteint, un appui long ouvre l'écran. */}
     <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible}
       className={`bd-col-pin${visible ? ' actif' : ''}`}
@@ -204,18 +212,42 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
       onPointerUp={() => clearTimeout(appui.current.t)} onPointerLeave={() => clearTimeout(appui.current.t)}
       onContextMenu={(ev) => ev.preventDefault()}
       onClick={() => { if (appui.current.long) return; (onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position')))(); }}>
-      <BuddyOndesIcon on={visible} /></button>
-    <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
-    <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
-    <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
+      <PositionIcon on={visible} /></button>
+    <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>{trait(BULLE)}</button>
+    <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>{trait(CALENDRIER)}</button>
+    <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>{trait(PHOTO)}</button>
     <button aria-label="Buddy count" onClick={onExpenses}><BuddyCountIcon /></button>
     <button aria-label="Hébergement" onClick={onLodging}><LitMaisonIcon /></button>
-    {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11). */}
-    <button aria-label="Voyage en voiture" onClick={onTravel}>🚗</button>
+    {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11) ; appui long : garer ma
+        voiture ici, ou l'enlever (Seb, 26/11). */}
+    <button aria-label={garee ? 'Voyage en voiture · appui long : enlever ma voiture' : 'Voyage en voiture · appui long : garer ma voiture ici'}
+      className={garee ? 'bd-col-voiture actif' : undefined} {...appuiLong(() => void basculerVoiture(onToast))}
+      onClick={() => { if (!appui.current.long) onTravel(); }}><VoitureIcon garee={garee} /></button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
-    <button aria-label="Moi : mon compte" onClick={onAccount}>👤</button>
+    <button aria-label="Moi : mon compte" onClick={onAccount}>{trait(MOI)}</button>
     </div>
   </div>;
+}
+
+/** Icônes au trait de la colonne (règle de Seb : pas d'émojis), même style que Buddy count et le lit dans la maison. */
+const TEL = 'M16 9h-5a3 3 0 0 0-3 3c0 15 13 28 28 28a3 3 0 0 0 3-3v-5l-8-3-3 4a20 20 0 0 1-12-12l4-3z';
+const BULLE = 'M8 12a4 4 0 0 1 4-4h24a4 4 0 0 1 4 4v16a4 4 0 0 1-4 4H20l-9 7v-7h1a4 4 0 0 1-4-4z';
+const CALENDRIER = 'M7 14a4 4 0 0 1 4-4h26a4 4 0 0 1 4 4v22a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4zM7 19h34M16 6v8M32 6v8M15 27h4M22 27h4M29 27h4M15 33h4M22 33h4';
+const PHOTO = 'M6 17a3 3 0 0 1 3-3h6l3-5h12l3 5h6a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3zM24 19a7 7 0 1 0 0 14a7 7 0 1 0 0-14';
+/** Moi : une silhouette dans un rond (le rond la distingue du buddy de « Ma position »). */
+const MOI = 'M24 5a19 19 0 1 0 0 38a19 19 0 1 0 0-38M24 13a6 6 0 1 0 0 12a6 6 0 1 0 0-12M12 37a13 13 0 0 1 24 0';
+const trait = (d: string) => <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor"
+  strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>;
+
+/** Voiture au trait ; garée, une épingle posée dessus (choix de Seb, 26/11). */
+function VoitureIcon({ garee = false }: { garee?: boolean }) {
+  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <g transform={garee ? 'translate(0 8)' : 'translate(0 3)'}>
+      <path d="M8 33v-7l4-9a4 4 0 0 1 3.7-2.5h16.6A4 4 0 0 1 36 17l4 9v7a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1H14v1a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2zM11 26h26" />
+      <circle cx="15" cy="29.5" r="1.4" fill="currentColor" /><circle cx="33" cy="29.5" r="1.4" fill="currentColor" />
+    </g>
+    {garee && <path d="M24 22s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10zM24 10.2a1.8 1.8 0 1 0 0 3.6a1.8 1.8 0 1 0 0-3.6" fill="currentColor" fillRule="evenodd" stroke="none" />}
+  </svg>;
 }
 
 /** Flèche au trait (règle icônes de Seb) ; la colonne la retourne quand les icônes sont sorties. */
@@ -224,12 +256,12 @@ function ChevronIcon() {
     <path d="M6 9l6 6 6-6" /></svg>;
 }
 
-/** Buddy count au trait : grand B barré de deux traits comme le $, petit C après (Seb, 26/11). */
+/** Buddy count au trait : B et C entrelacés, le B à gauche, deux petites barres communes comme le $ (choix B1 de Seb, 26/11). */
 function BuddyCountIcon() {
-  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
-    <text x="19" y="35" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="30" fill="currentColor" stroke="none" textAnchor="middle">B</text>
-    <path d="M15.5 4v7M22.5 4v7M15.5 35v8M22.5 35v8" />
-    <text x="38" y="35" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="15" fill="currentColor" stroke="none" textAnchor="middle">C</text>
+  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+    <text x="17" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">B</text>
+    <text x="31" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">C</text>
+    <path d="M21 4v8M27 4v8M21 34v9M27 34v9" />
   </svg>;
 }
 
