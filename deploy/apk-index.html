@@ -6,8 +6,8 @@
 <title>Mountain Buddies</title>
 <link rel="icon" href="../logo.svg">
 <script>
-  // iPhone, iPad et Mac : pas d'appli à installer, on ouvre la version web (Seb, 26/11).
-  if (/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)) location.replace('../');
+  // Seule l'appli Android s'installe : iPhone, Mac, Windows… ouvrent la version web (Seb, 26/11).
+  if (!/Android/.test(navigator.userAgent)) location.replace('../');
 </script>
 <!-- Page de téléchargement : un seul bouton, aux couleurs de l'appli (comme rejoindre.html). -->
 <style>
