@@ -952,6 +952,10 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **L'icône Buddy count** (colonne) ouvre la liste : « Buddy counts de groupe » d'abord, puis « Buddy counts de
   sortie » ; dans chaque partie, les ouverts en tête. Un cadenas au trait dit « Ouvert » (pastille ardoise) ou
   « Fermé » (pâle, la ligne pâlie). Dans une sortie, l'icône ouvre directement le Buddy count de la sortie.
+  **Retouches (Seb, 26 novembre)** : deux parties, comme ailleurs, « Groupe » puis « Sortie », toujours montrées
+  (vide : « Pas encore de Buddy count de groupe », « Pas encore de sortie ») ; dans la liste, la pastille « Ouvert »
+  devient un petit cadenas seul (ouvert, pâle ; fermé, foncé), en attendant que Seb regarde Tricount ; le bouton
+  « Mes partages de frais hors sortie » est retiré (l'ancien partage local n'est plus atteint de là).
 - **＋ Buddy count** (liste ouverte depuis un groupe) : un nom, « Créer » ; c'est un Buddy count de groupe, plusieurs
   par groupe, partagé entre les membres. Une sortie a toujours un seul Buddy count, à son nom.
 - **Un Buddy count** : « Buddy count de groupe » ou « de sortie » sous le titre ; crayon (renommer, de groupe),

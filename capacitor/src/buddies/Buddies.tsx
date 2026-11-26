@@ -623,7 +623,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         const gi = groupes.find((x) => x.id === vue.groupe && x.nature !== 'me_time' && x.nature !== 'duo');
         return <Comptes groupes={groupes.filter((x) => !vue.groupe || x.id === vue.groupe)} sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)}
           counts={counts} depenses={depenses} ici={gi} onClose={onClose}
-          onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })} onAnciens={onExpenses}
+          onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })}
           onNouveau={gi ? () => setVue({ ecran: 'nvCount', groupe: gi.id }) : undefined}
           onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />;
       })()

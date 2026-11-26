@@ -688,6 +688,8 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
   border-radius: 14px; background: var(--accent-soft); color: var(--muted); }
 .bd-count-etat.ouvert { background: var(--accent); color: var(--on-accent); }
 .bd-count-ligne.ferme { opacity: .65; }
+.bd-count-cadenas { flex: none; display: grid; place-items: center; width: 28px; color: var(--muted); }
+.bd-count-cadenas.ferme { color: var(--fg); }
 .bd-count-outils { display: flex; align-items: center; gap: 6px; }
 .bd-count-outils .bd-crayon { width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); display: grid; place-items: center; }
 .bd-plus-deux { justify-content: space-between; }
