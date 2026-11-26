@@ -50,6 +50,7 @@ import { CORRIDOR_M, lineBbox, tilesForBbox, tilesForCorridor, type TileCoord } 
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
 import { clearPlaceNames, savePlaceNames } from './places/placeNames';
+import { coverageGeoJson } from './tiles/coverage';
 import { clearDroneZones, localDroneZones, saveDroneZones } from './drones/droneZones';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
@@ -128,6 +129,8 @@ export function App() {
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [showDrones, setShowDrones] = useState(false);
+  /** Carrés déjà gardés sur le téléphone, montrés en vert pendant « Hors ligne » (et son rectangle). */
+  const [cover, setCover] = useState<GeoJSON.FeatureCollection | null>(null);
   const [droneZones, setDroneZones] = useState<GeoJSON.FeatureCollection>({ type: 'FeatureCollection', features: [] });
   useEffect(() => { void localDroneZones().then(setDroneZones).catch(() => {}); }, []);
   /** Zones drones du rectangle, gardées pour les voir sans réseau (rien à faire si elles sont déjà là). */
@@ -645,6 +648,7 @@ export function App() {
     const plan = await getTileStore(LAYERS.planign);
     const mnt = await getTileStore(MNT_LAYER);
     setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes(), mnt: mnt.count(), mntBytes: mnt.bytes() });
+    setCover(coverageGeoJson([...scan.keys(), ...plan.keys()]));
   }
 
   /**
@@ -1235,7 +1239,8 @@ export function App() {
   return (
     <div className={`app ${nature ? 'nature' : ''}`}>
       {nature && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
-      <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} droneZones={droneZones} onDroneZone={setToast} recorded={recorded} imported={imported}
+      <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} droneZones={droneZones} onDroneZone={setToast}
+        offlineCover={(open && tab === 'horsligne') || (framing && framingFor === 'horsligne') ? cover : null} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
@@ -1661,6 +1666,7 @@ export function App() {
               <button onClick={testKey}>Tester la clé</button>
               <label><input type="checkbox" defaultChecked onChange={(e) => { prefs.cacheViewed = e.target.checked; }} /> Garder les tuiles vues</label>
             </div>
+            <p className="hint"><b>En vert sur la carte : déjà gardé sur le téléphone.</b> Ce qui est déjà là n'est jamais retéléchargé.</p>
             <p className="hint">« Tracer un rectangle » : trace du doigt le coin de la rando sur la carte, ses tuiles se téléchargent. Fond affiché ({BASE_MODES[baseLayer]}) : {offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
               .map((p) => `${LAYERS[p.layer].label} z${p.minZoom}-${p.maxZoom}`).join(' + ')}.
               En stock : {stored.scan25} tuiles SCAN 25 ({formatMo(stored.scan25Bytes)}), {stored.planign} tuiles Plan IGN ({formatMo(stored.planignBytes)}), {stored.mnt} tuiles de relief pour les ombres ({formatMo(stored.mntBytes)}), {droneZones.features.length} zones drones.</p>
