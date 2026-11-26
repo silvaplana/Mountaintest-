@@ -66,7 +66,7 @@ encore les anciens noms (§7.12).
 
 ### 3.3 La colonne d'icônes
 
-- Verticale, à droite, toujours visible **(Seb)** : 📞 appel, 📅 planning, 💬 messagerie,
+- Verticale, à droite, toujours visible **(Seb)** : 📞 appel, 💬 messagerie, 📅 planning (ordre de Seb, 26/11),
   📸 album, 💶 Buddy count, 🏨 hébergement, 📍 ma position (Seb, 25 novembre : partager sa position
   même hors sortie, §7.14), 🚗 voyage, 👤 moi.
 - **Rétractable** (Seb, 26 novembre 2026) : le ✕ (fermer Buddies) reste toujours en haut de la colonne, dessous
