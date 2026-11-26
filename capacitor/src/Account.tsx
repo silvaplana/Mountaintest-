@@ -130,7 +130,7 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
     try {
       if (Capacitor.isNativePlatform()) {
         const url = await debutConnexion(await chargerConfig('capacitor'), email.trim() || undefined, fournisseur);
-        await Browser.open({ url, toolbarColor: '#2f6f4f' });
+        await Browser.open({ url, toolbarColor: '#3e5368' });
       } else {
         // Version web (iPhone) : toute la page part chez Logto puis revient ici (ecouterCompte finit la connexion).
         location.assign(await debutConnexion(await chargerConfig('web'), email.trim() || undefined, fournisseur, retourWeb()));

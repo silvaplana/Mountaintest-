@@ -1,18 +1,21 @@
 :root {
-  --bg: #ffffff;
-  --fg: #1d2421;
-  --muted: #5f6b66;
-  --accent: #2f6f4f;
+  /* Couleurs accordées au logo (Seb, 26/11) : fond « ciel breton » A1, texte et boutons couleur ardoise. */
+  --bg: #e2e9ef;
+  --fg: #16222f;
+  --muted: #34475b;
+  --accent: #3e5368;
+  --on-accent: #ffffff;
+  --accent-soft: #d0dae3;
   --danger: #b3261e;
-  --line: #d9dfdc;
-  --card: #f2f4f1;
-  --micro-bg: #ecebe6;
-  --micro-fg: #2b2b28;
+  --line: #b3c2cf;
+  --card: #f6f8fa;
+  --micro-bg: #d0dae3;
+  --micro-fg: #16222f;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--fg);
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #18201c; --fg: #e8eeeb; --muted: #a3b0aa; --accent: #6cc196; --line: #34403a; --card: #26302b; --micro-bg: #3a3f3c; --micro-fg: #ecebe6; }
+  :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --on-accent: #141d27; --accent-soft: #263443; --line: #38495b; --card: #1d2834; --micro-bg: #263443; --micro-fg: #f4f7fa; }
 }
 * { box-sizing: border-box; }
 html, body, #root, .app { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
@@ -40,7 +43,7 @@ button, select, .file, input:not([type=checkbox]) {
   font: inherit; font-size: 15px; color: var(--fg); background: var(--bg);
   border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 42px;
 }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; flex: 1; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; flex: 1; }
 button.stop { background: var(--danger); border-color: var(--danger); }
 button:disabled { opacity: 0.5; }
 .file { position: relative; display: inline-flex; align-items: center; }
@@ -81,7 +84,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .search-results button span { font-size: 13px; color: var(--muted); }
 .search-pastilles { display: flex; gap: 6px; padding: 0 6px 6px; overflow-x: auto; }
 .search-pastilles button { flex: none; min-height: 40px; min-width: 52px; border-radius: 20px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 0 12px; }
-.search-pastilles button.active { background: var(--accent); color: #fff; }
+.search-pastilles button.active { background: var(--accent); color: var(--on-accent); }
 .search-pastilles small { font-size: 12px; }
 .search-results li.search-cat { border-bottom: 0; }
 .search-results .search-cat > ul { list-style: none; margin: 0; padding: 0; }
@@ -162,13 +165,13 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .quick button.toggle { height: 30px; border-radius: 15px; font-size: 16px; }
 /* La flèche, l'icône la plus utilisée (demande de Seb) : plus grosse. */
 .quick button.toggle.arrow { width: 56px; height: 56px; border-radius: 50%; font-size: 30px; }
-.quick button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.quick button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 /* Duos ✈ / 👖 et Calques / pente : se déplient vers la gauche (✈ et Calques restent à leur place) ; en aide, l'un sous l'autre. */
 .quick button.ring.on { background: var(--bg); box-shadow: 0 0 0 3px var(--accent), 0 1px 6px #0004; }
 .quick button.ring.off svg { opacity: .45; filter: grayscale(1); }
 .quick button .gear { font-size: 26px; line-height: 1; color: #37474f; }
 .icon-tip.dt-bubble { position: fixed; top: 30%; left: 16px; right: 16px; max-width: 420px; margin: 0 auto; pointer-events: auto; }
-.dt-bubble .dt-open { display: block; margin: 10px 0 0 auto; padding: 8px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; font-size: 15px; }
+.dt-bubble .dt-open { display: block; margin: 10px 0 0 auto; padding: 8px 14px; border-radius: 8px; border: 0; background: var(--accent); color: var(--on-accent); font-size: 15px; }
 .quick .pair { display: flex; flex-direction: row-reverse; gap: 8px; align-items: center; }
 .quick.help .pair { flex-direction: column; align-items: flex-end; }
 /* Ligne des calques : si elle ne tient pas dans l'écran, elle passe sur 2 lignes, la 2e commence sous la pente
@@ -240,7 +243,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 /* ✏ pendant une trace commencée (maquette B) : pastille verte ▶ en cours, orange ⏸ en pause. */
 .pencil-badge { position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff;
   display: flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; color: #fff; pointer-events: none; }
-.pencil-badge.run { background: #2f6f4f; }
+.pencil-badge.run { background: var(--accent); color: var(--on-accent); }
 .pencil-badge.pause { background: #f0a000; }
 .quick.help { z-index: 4; pointer-events: none; }
 .quick.help button.toggle { pointer-events: auto; }
@@ -311,7 +314,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .xp-group b { flex: 1; }
 .xp-tabs { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 .xp-tabs button { flex: 1; border: 0; border-radius: 0; }
-.xp-tabs button.on { background: var(--accent); color: #fff; }
+.xp-tabs button.on { background: var(--accent); color: var(--on-accent); }
 .xp-totals { display: flex; justify-content: space-around; text-align: center; }
 .xp-totals div { display: flex; flex-direction: column; }
 .xp-totals small { color: var(--muted); }
@@ -324,7 +327,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .xp-bal .plus { color: #2f9e44; } .xp-bal .minus { color: #c0392b; }
 .xp-add {
   position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom) + 40px); z-index: 7;
-  width: 64px; height: 64px; border-radius: 50%; font-size: 32px; background: var(--accent); color: #fff; border: 0; box-shadow: 0 2px 10px #0005;
+  width: 64px; height: 64px; border-radius: 50%; font-size: 32px; background: var(--accent); color: var(--on-accent); border: 0; box-shadow: 0 2px 10px #0005;
 }
 .xp-emojis { display: flex; flex-wrap: wrap; gap: 6px; }
 .xp-emojis button { font-size: 22px; width: 44px; height: 44px; padding: 0; }
@@ -353,7 +356,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .app.nature .wx-bar.wx-below { top: calc(env(safe-area-inset-top) + 182px); }
 .wx-days { gap: 6px; }
 .wx-days button { flex: 1; min-height: 36px; padding: 4px 0; }
-.wx-days button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wx-days button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 /* Carte simplifiée sous la météo : villes (point + nom), modes Temps / Vent */
 .wx-city { display: flex; align-items: center; gap: 4px; pointer-events: none; }
@@ -364,7 +367,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .wx-city-3 .wx-dot { width: 6px; height: 6px; }
 .wx-modes { gap: 6px; }
 .wx-modes button { min-height: 36px; padding: 4px 10px; }
-.wx-modes button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wx-modes button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .wx-simple { margin-left: auto; font-size: 13px; display: flex; align-items: center; gap: 4px; }
 .wx-day { gap: 6px; justify-content: space-between; }
 .wx-day-label { flex: 1; text-align: center; font-size: 16px; }
@@ -390,7 +393,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .ski-table small { color: var(--muted); }
 .src-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .src-chips button { min-height: 44px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--muted); background: var(--bg); color: var(--muted); font-size: 15px; }
-.src-chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.src-chips button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .ski-dif { font-size: 12px; color: var(--accent); }
 .ski-info { margin: 4px 0; padding: 8px 10px; background: var(--card); color: var(--fg); border-radius: 8px; }
 .ski-info div { display: flex; gap: 8px; padding: 3px 0; }
@@ -489,9 +492,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* Cases « Trace GPX » (rouge, comme sa ligne) et « Itinéraire » (vert), sous les filtres. */
 .ski-menu.lines { margin-top: 6px; }
 .ski-menu.lines button.trace { color: #d7301f; border-color: #d7301f; }
-.ski-menu.lines button.iti { color: #2e9d4f; border-color: #2e9d4f; }
+.ski-menu.lines button.iti { color: var(--accent); border-color: var(--accent); }
 .ski-menu.lines button.trace.on { background: #d7301f; color: #fff; }
-.ski-menu.lines button.iti.on { background: #2e9d4f; color: #fff; }
+.ski-menu.lines button.iti.on { background: var(--accent); color: var(--on-accent); }
 /* ✕ en haut à droite de la photo en grand (le retour Android la ferme aussi). */
 .ski-big .ski-big-close { position: absolute; top: max(12px, env(safe-area-inset-top)); right: 12px; background: #fff; color: #000; border-radius: 999px; }
 
@@ -523,7 +526,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 }
 .nav-bar .nav-text { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .nav-bar .nav-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-bar .nav-status { font-weight: 600; color: #2f6f4f; }
+.nav-bar .nav-status { font-weight: 600; color: var(--accent); }
 .nav-bar.off { background: #fdecea; }
 .nav-bar.off .nav-status { color: #c62828; }
 .nav-bar button { min-height: 38px; padding: 6px 10px; }
@@ -548,7 +551,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* Onglets du ski : Sorties, Carte sorties, Topos, Carte topos. */
 .ski-tabs { display: flex; gap: 4px; align-items: stretch; margin: 0 0 8px; }
 .ski-tabs button { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 12px; line-height: 1.15; border-radius: 10px; white-space: normal; }
-.ski-tabs button.on { background: #2f6f4f; color: #fff; border-color: #2f6f4f; font-weight: 700; }
+.ski-tabs button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 700; }
 .ski-tabs .ski-tabs-close { flex: 0 0 40px; }
 .topo-tag { border-color: #e07b00 !important; }
 .ski-topos { list-style: none; padding: 0; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
@@ -560,7 +563,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .acc-logo { width: 84px; height: 84px; border-radius: 20px; margin: 4px auto 0; display: block; }
 .acc-titre { text-align: center; margin: 0; font-size: 17px; font-weight: 600; }
 .acc-centre { text-align: center; }
-.acc-avatar { position: relative; width: 76px; height: 76px; margin: 6px auto; border-radius: 50%; background: var(--accent); color: #fff;
+.acc-avatar { position: relative; width: 76px; height: 76px; margin: 6px auto; border-radius: 50%; background: var(--accent); color: var(--on-accent);
   display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 700; }
 .acc-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .acc-avatar.acc-grand { width: 112px; height: 112px; font-size: 40px; }
@@ -574,7 +577,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .acc-lecture { background: var(--card) !important; color: var(--muted) !important; }
 .acc-bandeau { display: flex; gap: 8px; border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.4; }
 .acc-bandeau.orange { background: #fdf0d5; color: #6b4a00; }
-.acc-bandeau.vert { background: #e3efe8; color: #1f4d36; }
+.acc-bandeau.vert { background: var(--accent-soft); color: var(--fg); }
 .acc-deco { color: var(--danger); border-color: #e7b6b2; }
 .quick .acc-dot { position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; pointer-events: none; }
 .account button.primary { flex: none; }
@@ -717,12 +720,12 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-qui-noms button { width: 104px; }
 .bd-qui-noms small { font-size: 15px; text-align: center; line-height: 1.2; overflow-wrap: anywhere; }
 .bd-colonne .bd-col-pin { display: flex; align-items: center; justify-content: center; color: #1d2421; }
-.bd-colonne .bd-col-pin.actif { background: var(--accent); color: #fff; }
+.bd-colonne .bd-col-pin.actif { background: var(--accent); color: var(--on-accent); }
 .bd-carte-haut { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 72px; display: flex; align-items: center; gap: 8px;
   background: var(--bg); border-radius: 26px; padding: 4px 14px 4px 4px; box-shadow: 0 1px 8px #0003; font-size: 17px; }
 .bd-carte-haut > button { width: 44px; height: 44px; border-radius: 50%; padding: 0; background: var(--card); border: 0; font-size: 22px; }
 .bd-carte-haut .bd-titre { flex: 1; min-width: 0; height: 48px; font-size: 17px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; background: var(--card); color: var(--fg); }
-.bd-carte-haut > button.primary { background: var(--accent); color: #fff; }
+.bd-carte-haut > button.primary { background: var(--accent); color: var(--on-accent); }
 .bd-carte-bas { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -2px 12px #0003;
   padding: 4px 16px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 8px; font-size: 17px; }
 .bd-carte-quand { font-size: 20px; }
@@ -773,7 +776,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-case i { position: absolute; top: -9px; right: -6px; font-size: 12px; font-style: normal; }
 .bd-compte { color: #9aa5a0; font-size: 17px; }
 .bd-compte.fort { color: var(--accent); }
-.bd-lien-sortie { grid-column: 2 / -1; justify-self: stretch; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-weight: 700;
+.bd-lien-sortie { grid-column: 2 / -1; justify-self: stretch; border: 0; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-weight: 700;
   text-align: left; padding: 8px 12px; min-height: 40px; }
 .bd-pile { display: flex; }
 .bd-pile > * { margin-right: -8px; border: 2px solid var(--bg); }
@@ -788,14 +791,14 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-mot-choix > button { width: auto; border: 1px solid var(--line); border-radius: 22px; background: none; padding: 8px 14px; font-size: 16px; }
 .bd-mot-choix > button.oui { background: var(--fg); color: var(--bg); }
 .bd-mot-choix > input { flex: 1 1 100%; }
-.bd-mot-choix > button.primary { flex: 1; background: var(--accent); color: #fff; border: 0; }
+.bd-mot-choix > button.primary { flex: 1; background: var(--accent); color: var(--on-accent); border: 0; }
 .bd-pour { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 14px; padding: 8px 12px; }
 .bd-pour select { flex: 1; min-width: 0; border: 0; background: none; font-size: 17px; }
 .bd-segment { display: flex; background: var(--card); border-radius: 14px; padding: 4px; }
 .bd-segment button { flex: 1; border: 0; background: none; border-radius: 10px; color: var(--muted); font-size: 16px; padding: 8px 2px; }
 .bd-segment button.oui { background: var(--bg); color: var(--fg); font-weight: 700; box-shadow: 0 1px 3px #0002; }
 .bd-puces { display: flex; flex-wrap: wrap; gap: 8px; }
-.bd-puces button { border: 1.5px solid var(--accent); border-radius: 12px; background: #e6f0ea; color: #1d2421; font-weight: 600; padding: 8px 10px; font-size: 16px; }
+.bd-puces button { border: 1.5px solid var(--accent); border-radius: 12px; background: var(--accent-soft); color: var(--fg); font-weight: 600; padding: 8px 10px; font-size: 16px; }
 .bd-puces button.barre { border-color: var(--line); background: none; color: #9aa5a0; text-decoration: line-through; font-weight: 400; }
 .bd-limite { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); }
 .bd-limite input { border: 0; background: var(--card); border-radius: 10px; padding: 8px; font-weight: 600; }
@@ -938,7 +941,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-pos-ligne > b { font-size: 17px; white-space: nowrap; }
 .bd-pos-ligne.vieux { opacity: 0.6; }
 .bd-pos-ligne .bd-texte small { white-space: normal; }
-.bd-epingle { display: flex; align-items: center; gap: 10px; border: 2px solid var(--accent); border-radius: 16px; padding: 12px; background: #e8f1ec; }
+.bd-epingle { display: flex; align-items: center; gap: 10px; border: 2px solid var(--accent); border-radius: 16px; padding: 12px; background: var(--accent-soft); }
 .bd-epingle .bd-texte b { color: var(--accent); font-size: 18px; }
 .bd-epingle .bd-texte small { white-space: normal; }
 .bd-epingle button { min-height: 48px; border-radius: 12px; background: #fff; border: 1px solid #d9dfdc; font-weight: 700; font-size: 17px; padding: 0 14px; }
@@ -950,7 +953,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* Hébergement d'une sortie (écrans 9 et 23, spec/buddies.md §5.11) */
 .bd-dodo { gap: 10px; }
 .bd-heberg { flex: none; border: 2px solid #d9dfdc; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
-.bd-heberg.retenu { border-color: var(--accent); background: #e8f1ec; }
+.bd-heberg.retenu { border-color: var(--accent); background: var(--accent-soft); }
 .bd-heberg-haut { display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; text-align: left; width: 100%; min-height: 0; }
 .bd-heberg-haut .bd-texte small { white-space: normal; }
 .bd-heberg-image { flex: none; width: 64px; height: 64px; border-radius: 12px; display: grid; place-items: center; font-size: 34px;
@@ -992,7 +995,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-bulle-img { display: block; width: 200px; height: 150px; object-fit: cover; border-radius: 12px; }
 .bd-saisie { display: flex; align-items: center; gap: 8px; }
 .bd-saisie > button { width: 48px; height: 48px; flex: none; border-radius: 50%; border: 0; background: var(--card); font-size: 22px; padding: 0; }
-.bd-saisie > button.bd-envoyer { background: var(--accent); color: #fff; }
+.bd-saisie > button.bd-envoyer { background: var(--accent); color: var(--on-accent); }
 .bd-saisie > button.bd-ecoute { background: #d0464f; color: #fff; }
 .bd-saisie > button.micro { background: var(--micro-bg); color: var(--micro-fg); }
 .bd-saisie input, .bd-saisie textarea { flex: 1; min-width: 0; min-height: 48px; border-radius: 24px; border: 1px solid var(--line); padding: 12px 16px; font-size: 17px;
@@ -1047,7 +1050,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 @keyframes bd-onde { to { transform: scaleY(.7); } }
 .bd-onde-texte { font-size: 17px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .bd-onde-texte i { color: var(--muted); }
-.bd-nonlu { background: var(--accent); color: #fff; border-radius: 12px; min-width: 24px; padding: 2px 8px; font-size: 14px; font-weight: 700; text-align: center; }
+.bd-nonlu { background: var(--accent); color: var(--on-accent); border-radius: 12px; min-width: 24px; padding: 2px 8px; font-size: 14px; font-weight: 700; text-align: center; }
 .bd-point-carte { background: #fff; color: #1d2421; border-radius: 14px 14px 14px 2px; padding: 6px 10px; font-size: 15px; font-weight: 700; box-shadow: 0 2px 6px #0005; white-space: nowrap; }
 
 /* 📞 Appels (spec/buddies.md §5.7) : sonnerie plein écran (écran 10), barre d'appel sur la carte (écran 24), 👉 montrer du doigt */
@@ -1065,14 +1068,14 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .ap-rouge { background: #d93a3a; color: #fff; }
 .ap-vert { background: #2fae5c; }
 .ap-barre { position: absolute; z-index: 12; top: calc(env(safe-area-inset-top) + 6px); left: 8px; right: 8px; display: flex; align-items: center; gap: 8px;
-  background: #1f5a3a; color: #fff; border-radius: 26px; padding: 6px 6px 6px 12px; box-shadow: 0 2px 10px #0005; font-size: 17px; }
+  background: #3e5368; color: #fff; border-radius: 26px; padding: 6px 6px 6px 12px; box-shadow: 0 2px 10px #0005; font-size: 17px; }
 .ap-barre small { color: #ffffffc0; }
 .ap-barre .ap-astuce { font-size: 13px; }
 .ap-barre button { width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0; font-size: 22px; background: #ffffff25; color: #fff; flex: none; }
 .ap-barre button.muet { background: #fff; }
 .ap-barre button.ap-rouge { background: #d93a3a; }
 .ap-icone { font-size: 22px; }
-.ap-doigt { background: #1f5a3a; color: #fff; padding: 6px 10px; border-radius: 16px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 8px #0005; white-space: nowrap; }
+.ap-doigt { background: #3e5368; color: #fff; padding: 6px 10px; border-radius: 16px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 8px #0005; white-space: nowrap; }
 .ap-rejoindre { background: #2fae5c26; }
 
 /* 🐻 Bud (spec/buddies.md §5.12, écran 25) : sa bulle à part, sombre, à gauche chez tout le monde */
@@ -1166,10 +1169,10 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .survol .pastille::after { content: "⌄"; font-size: 13px; color: #5b6560; margin-left: 2px; }
 .survol .bascule { background: #f4f5f4; color: #9aa19d; }
 .survol .bascule:disabled { opacity: 0.4; }
-.survol .bascule.on { background: #fff; color: #1d2421; box-shadow: inset 0 0 0 2px #2f9e5f; }
+.survol .bascule.on { background: #fff; color: #1d2421; box-shadow: inset 0 0 0 2px var(--accent); }
 .survol .bascule.on::after {
   content: "✓"; position: absolute; top: -6px; right: -4px; width: 22px; height: 22px; border-radius: 50%;
-  background: #2f9e5f; color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--on-accent); font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;
 }
 .survol .couche { display: inline-block; transform: rotate(90deg); }
 .survol-choix { display: flex; gap: 6px; }
@@ -1180,7 +1183,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .survol-bas .pastille.ok { flex: 0 0 72px; }
 .survol-bas .pastille.ok::after { content: none; }
 .survol .head .retour, .survol .head .close { width: 48px; min-height: 48px; padding: 0; font-size: 22px; flex: 0 0 48px; }
-.survol-choix button.on { background: #2f9e5f; color: #fff; font-weight: 700; }
+.survol-choix button.on { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 .survol-plage { display: flex; flex-direction: column; gap: 6px; }
 .survol-plage .row { display: flex; align-items: center; gap: 10px; justify-content: space-between; font-size: 17px; }
 .survol-plage .step { width: 48px; height: 48px; border-radius: 50%; padding: 0; flex: 0 0 48px; }
@@ -1243,7 +1246,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-carte-bas > .sheet-grip { padding: 6px 0 10px; }
 
 /* ✏ Modifier une trace et 📍 épingles (maquette validée le 25/11, maquettes/edition-trace/). */
-.trace-menu .head .close.on { background: #e7f5ec; box-shadow: 0 0 0 3px #2f9e5f; }
+.trace-menu .head .close.on { background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent); }
 .pin-mot-ligne { display: flex; gap: 8px; align-items: center; }
 .pin-mot-ligne input { flex: 1; min-width: 0; min-height: 48px; font-size: 17px; }
 .pin-mot-ligne button { flex: 0 0 48px; min-height: 48px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; }
@@ -1252,7 +1255,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .pin.leve { transform: translate(-4px, -10px) scale(1.25); }
 .pin-mot { position: absolute; left: 26px; top: -8px; background: #fff; color: #1d2421; border: 1px solid #999; border-radius: 8px;
   padding: 2px 8px; font-size: 14px; white-space: nowrap; cursor: pointer; }
-.pin.sel .pin-mot { border: 2px solid #2f9e5f; }
+.pin.sel .pin-mot { border: 2px solid var(--accent); }
 .pin-del { position: absolute; left: -2px; top: -58px; width: 48px; height: 48px; min-height: 48px; border-radius: 50%; padding: 0;
   background: #d32f2f; border: 3px solid #fff; color: #fff; font-size: 22px; box-shadow: 0 1px 6px #0006; }
 .edit-rond { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: none;
@@ -1265,7 +1268,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .edit-rond.bout i { background: #fff; border: 2.5px solid #1d2421; font-size: 13px; }
 .edit-outils { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .edit-outils button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 72px; font-size: 16px; padding: 4px; }
-.edit-outils button.on { background: #e7f5ec; border: 2px solid #2f9e5f; font-weight: 700; }
+.edit-outils button.on { background: var(--accent-soft); border: 2px solid var(--accent); font-weight: 700; }
 .edit-aide { margin: 0; font-size: 17px; line-height: 1.35; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .edit-aide.muted { color: var(--muted); }
 .edit-aide.small { font-size: 15px; color: var(--muted); display: block; }
@@ -1285,7 +1288,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .account .acc-main-titre { margin: 0; font-size: 17px; font-weight: 600; }
 .account .acc-main-choix { display: flex; gap: 8px; }
 .account .acc-main-choix button { flex: 1; min-height: 48px; font-size: 17px; border-radius: 12px; }
-.account .acc-main-choix button.on { background: #2f9e5f; border-color: #2f9e5f; color: #fff; font-weight: 600; }
+.account .acc-main-choix button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 
 /* Icônes à gauche (👤 Mon compte, Seb 25/11) : la colonne d'icônes à gauche ; le reste passe à droite. */
 .icones-gauche .quick { right: auto; left: 10px; align-items: flex-start; }
@@ -1333,9 +1336,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* 📷 Photos de la sortie à mettre dans le film : vignettes à cocher. */
 .survol-photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; max-height: 40vh; overflow-y: auto; }
 .survol-photos button { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: #dfe5e1; opacity: 0.45; }
-.survol-photos button.on { opacity: 1; outline: 3px solid #2f9e5f; outline-offset: -3px; }
+.survol-photos button.on { opacity: 1; outline: 3px solid var(--accent); outline-offset: -3px; }
 .survol-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.survol-photos span:last-child { position: absolute; right: 4px; top: 4px; width: 24px; height: 24px; border-radius: 12px; background: #2f9e5f; color: #fff; font-weight: 700; line-height: 24px; }
+.survol-photos span:last-child { position: absolute; right: 4px; top: 4px; width: 24px; height: 24px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-weight: 700; line-height: 24px; }
 /* 📍 Placer sur la carte une photo sans position (album « Sur la carte »). */
 .bd-placer { position: fixed; z-index: 30; top: calc(env(safe-area-inset-top, 0px) + 70px); left: 76px; right: 76px; display: flex; align-items: center; gap: 8px;
   padding: 8px; border-radius: 14px; background: #fffffff0; box-shadow: 0 2px 10px #0004; font-size: 17px; }
@@ -1367,7 +1370,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-assoc.oui .bd-carre { box-shadow: 0 0 0 3px var(--accent); }
 .bd-coche { color: var(--accent); font-size: 22px; font-weight: 700; padding-right: 8px; }
 .bd-assoc-carre { position: relative; display: inline-block; }
-.bd-ouvert { position: absolute; right: -6px; bottom: -6px; background: var(--accent); color: #fff; border-radius: 10px; font-size: 12px;
+.bd-ouvert { position: absolute; right: -6px; bottom: -6px; background: var(--accent); color: var(--on-accent); border-radius: 10px; font-size: 12px;
   font-style: normal; font-weight: 600; padding: 2px 7px; }
 .bd-carnet > * { flex-shrink: 0; }
 /* Photo en plein écran (Album.tsx, Visionneuse) : les gestes sont ceux de PhotoSwipe ; nos barres sont posées dessus, un toucher les cache. */
