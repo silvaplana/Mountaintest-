@@ -24,6 +24,10 @@ export interface TileStore {
   keys(): IterableIterator<string>;
   /** Place occupée sur le téléphone par les tuiles de cette couche, en octets. */
   bytes(): number;
+  /** Taille d'une tuile gardée (« z/x/y »), 0 si absente. */
+  size(k: string): number;
+  /** Efface ces tuiles (« z/x/y ») du téléphone ; les absentes sont ignorées. */
+  remove(keys: string[]): Promise<void>;
   clear(): Promise<void>;
   flushIndex(): Promise<void>;
 }
@@ -73,6 +77,17 @@ class NativeTileStore implements TileStore {
   count() { return this.index.size; }
   keys() { return this.index.keys(); }
   bytes() { let n = 0; for (const b of this.index.values()) n += b; return n; }
+  size(k: string) { return this.index.get(k) ?? 0; }
+
+  async remove(keys: string[]) {
+    for (const k of keys) {
+      if (!this.index.has(k)) continue;
+      await Filesystem.deleteFile({ directory: Directory.Data, path: `${this.root()}/${k}.${this.layer.ext}` }).catch(() => {});
+      this.index.delete(k);
+      this.dirty = true;
+    }
+    await this.flushIndex();
+  }
 
   async read(t: TileCoord) {
     if (!this.has(t)) return null;
@@ -149,6 +164,16 @@ class WebTileStore implements TileStore {
   count() { return this.index.size; }
   keys() { return this.index.keys(); }
   bytes() { let n = 0; for (const b of this.index.values()) n += b; return n; }
+  size(k: string) { return this.index.get(k) ?? 0; }
+
+  async remove(keys: string[]) {
+    const cache = await caches.open(this.cacheName());
+    for (const k of keys) {
+      if (!this.index.has(k)) continue;
+      await cache.delete(new Request(`/__tiles/${this.layer.id}/${k}`));
+      this.index.delete(k);
+    }
+  }
 
   async read(t: TileCoord) {
     const res = await (await caches.open(this.cacheName())).match(this.req(t));

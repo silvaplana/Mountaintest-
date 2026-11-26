@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coverageGeoJson, offlineVeil } from '../src/tiles/coverage';
+import { coverageGeoJson, offlineVeil, ownedSquares, squareTileKeys, squaresInBbox, squareBbox } from '../src/tiles/coverage';
 
 const z16Of = (x14: number, y14: number, n: number) => {
   const out: string[] = [];
@@ -27,7 +27,7 @@ describe('calque Hors ligne : voile et bord', () => {
   const lines = (fc: GeoJSON.FeatureCollection) => fc.features.map((f) => (f.geometry as GeoJSON.LineString).coordinates);
 
   it('deux carrés côte à côte : un seul bord, rectangle de 4 sommets, troué dans le voile', () => {
-    const { veil, edge } = offlineVeil(sq([[0, 0], [1, 0]]));
+    const { veil, edge } = offlineVeil(ownedSquares(sq([[0, 0], [1, 0]])));
     expect(lines(edge)).toHaveLength(1);
     expect(lines(edge)[0]).toHaveLength(5);
     const poly = (veil.features[0].geometry as GeoJSON.Polygon).coordinates;
@@ -38,21 +38,35 @@ describe('calque Hors ligne : voile et bord', () => {
   it('un carré manquant au milieu de 8 carrés gardés reste voilé', () => {
     const ring: [number, number][] = [];
     for (let x = 0; x < 3; x++) for (let y = 0; y < 3; y++) if (x !== 1 || y !== 1) ring.push([x, y]);
-    const { veil, edge } = offlineVeil(sq(ring));
+    const { veil, edge } = offlineVeil(ownedSquares(sq(ring)));
     expect(lines(edge)).toHaveLength(2);
     expect(veil.features).toHaveLength(2);
     expect((veil.features[0].geometry as GeoJSON.Polygon).coordinates).toHaveLength(2);
   });
 
   it('deux carrés qui ne se touchent que par un coin : deux bords séparés', () => {
-    const { edge } = offlineVeil(sq([[0, 0], [1, 1]]));
+    const { edge } = offlineVeil(ownedSquares(sq([[0, 0], [1, 1]])));
     expect(lines(edge)).toHaveLength(2);
     for (const l of lines(edge)) expect(l).toHaveLength(5);
   });
 
   it('rien de gardé : tout est voilé, aucun bord', () => {
-    const { veil, edge } = offlineVeil([]);
+    const { veil, edge } = offlineVeil(new Set());
     expect(edge.features).toHaveLength(0);
     expect((veil.features[0].geometry as GeoJSON.Polygon).coordinates).toHaveLength(1);
+  });
+});
+
+describe('carrés pris par le rectangle de sélection', () => {
+  it('un rectangle à cheval sur 2 × 2 carrés les prend tous, cadre aligné sur eux', () => {
+    const [w, , , n] = squareBbox('8448/5888');
+    const [, s, e] = squareBbox('8449/5889');
+    const r = squaresInBbox([w + 0.005, s + 0.005, e - 0.005, n - 0.005]);
+    expect(r.squares.sort()).toEqual(['8448/5888', '8448/5889', '8449/5888', '8449/5889']);
+    expect(r.frame[0][0]).toBeCloseTo(w, 5);
+  });
+  it('un carré = 1 + 4 + 16 tuiles des zooms 14 à 16', () => {
+    expect(squareTileKeys('8448/5888')).toHaveLength(21);
+    expect(squareTileKeys('8448/5888')).toContain('16/33795/23555');
   });
 });

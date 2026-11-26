@@ -20,6 +20,8 @@ import { RELIEF_SOURCE } from './shade/terrain';
 
 /** Vert du calque « Hors ligne » : zones gardées et traces, la même couleur (Seb, 26/11). */
 const OFFLINE_GREEN = '#0f7a45';
+/** Carrés gardés en Plan IGN seulement (moins détaillé que le SCAN 25). */
+const OFFLINE_BLUE = '#1e6fd9';
 
 export interface MapViewProps {
   baseLayer: BaseMode;
@@ -34,7 +36,7 @@ export interface MapViewProps {
    * Calque « Hors ligne » (Seb, 26/11) : voile sur ce qui n'est pas gardé, bord vert de ce qui l'est,
    * et toutes les traces gardées dans le même vert. Rien n'y est touchable, c'est juste un calque. Null = éteint.
    */
-  offlineLayer: { veil: GeoJSON.FeatureCollection; edge: GeoJSON.FeatureCollection; traces: GeoJSON.FeatureCollection } | null;
+  offlineLayer: { veil: GeoJSON.FeatureCollection; edge: GeoJSON.FeatureCollection; plan: GeoJSON.FeatureCollection; traces: GeoJSON.FeatureCollection } | null;
   onDroneZone?: (text: string) => void;
   recorded: TrackPoint[];
   imported: TrackPoint[];
@@ -166,7 +168,7 @@ export function MapView(props: MapViewProps) {
           trails: { type: 'geojson', data: EMPTY }, trailEnds: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
           forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' }, droneZones: { type: 'geojson', data: EMPTY }, offlineCover: { type: 'geojson', data: EMPTY },
-          offlineVeil: { type: 'geojson', data: EMPTY }, offlineEdge: { type: 'geojson', data: EMPTY }, offlineTraces: { type: 'geojson', data: EMPTY }, relief: RELIEF_SOURCE },
+          offlineVeil: { type: 'geojson', data: EMPTY }, offlineEdge: { type: 'geojson', data: EMPTY }, offlineTraces: { type: 'geojson', data: EMPTY }, offlinePlan: { type: 'geojson', data: EMPTY }, offlineSel: { type: 'geojson', data: EMPTY }, relief: RELIEF_SOURCE },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
           // Plan IGN sous le SCAN 25 : en mode Auto, le SCAN 25 apparaît en fondu par-dessus en zoomant.
@@ -182,6 +184,12 @@ export function MapView(props: MapViewProps) {
           // Calque « Hors ligne » (maquette « Voile ») : ce qu'on n'a pas est voilé de blanc, ce qu'on a reste net, bordé de vert.
           { id: 'offline-veil', type: 'fill', source: 'offlineVeil', paint: { 'fill-color': '#eef2f5', 'fill-opacity': 0.72 } },
           { id: 'offline-edge', type: 'line', source: 'offlineEdge', paint: { 'line-color': OFFLINE_GREEN, 'line-width': 2.5 } },
+          // Carrés qui n'ont que le Plan IGN (pas le SCAN 25) : entourés de bleu (Seb, 26/11).
+          { id: 'offline-plan', type: 'line', source: 'offlinePlan', paint: { 'line-color': OFFLINE_BLUE, 'line-width': 2.5, 'line-offset': 1.5 } },
+          // Rectangle de sélection, calque allumé : carrés gardés surlignés, manquants en pointillés, cadre aligné sur les carrés.
+          { id: 'offline-sel-own', type: 'fill', source: 'offlineSel', filter: ['==', ['get', 'k'], 'own'], paint: { 'fill-color': OFFLINE_GREEN, 'fill-opacity': 0.25 } },
+          { id: 'offline-sel-miss', type: 'line', source: 'offlineSel', filter: ['==', ['get', 'k'], 'miss'], paint: { 'line-color': OFFLINE_GREEN, 'line-width': 2, 'line-dasharray': [3, 2] } },
+          { id: 'offline-sel-frame', type: 'line', source: 'offlineSel', filter: ['==', ['get', 'k'], 'frame'], paint: { 'line-color': '#16222f', 'line-width': 3 } },
           { id: 'offline-traces-casing', type: 'line', source: 'offlineTraces', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 6.5, 'line-opacity': 0.9 } },
           { id: 'offline-traces', type: 'line', source: 'offlineTraces', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': OFFLINE_GREEN, 'line-width': 4 } },
           { id: 'offline-cover', type: 'fill', source: 'offlineCover', paint: { 'fill-color': '#2e9d4a', 'fill-opacity': 0.25 } },
@@ -359,6 +367,7 @@ export function MapView(props: MapViewProps) {
     (m.getSource('offlineVeil') as GeoJSONSource).setData(l?.veil ?? EMPTY);
     (m.getSource('offlineEdge') as GeoJSONSource).setData(l?.edge ?? EMPTY);
     (m.getSource('offlineTraces') as GeoJSONSource).setData(l?.traces ?? EMPTY);
+    (m.getSource('offlinePlan') as GeoJSONSource).setData(l?.plan ?? EMPTY);
   }, [props.offlineLayer, ready]);
 
   useEffect(() => {

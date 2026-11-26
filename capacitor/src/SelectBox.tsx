@@ -1,7 +1,24 @@
-import type { Map as MlMap } from 'maplibre-gl';
+import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import { TrashIcon } from './icones';
 import type { Trail } from './trails/osmTrails';
+import type { SavedTrace } from './trails/savedTraces';
+import { squareBbox, squaresInBbox } from './tiles/coverage';
+import { formatBytes } from './Usage';
+
+/** Calque « Hors ligne » allumé : le rectangle prend aussi les tuiles (carrés) et toutes mes traces (Seb, 26/11). */
+export interface OfflineSel {
+  saved: SavedTrace[];
+  owned: Set<string>;
+  squaresBytes: (sq: string[]) => Promise<number>;
+  /** Poids moyen d'une tuile gardée, pour estimer celles à télécharger. */
+  avg: number;
+  onDeleteTraces: (ids: number[]) => () => void;
+  onDeleteSquares: (sq: string[]) => () => void;
+  onDownload: (sq: string[]) => void;
+}
+
+const boxPoly = ([w, s, e, n]: number[]) => [[[w, n], [e, n], [e, s], [w, s], [w, n]]];
 
 type Pt = { x: number; y: number };
 /** Ce que le rectangle attrape : des traces entières et des épingles (trace, numéro). */
@@ -12,8 +29,8 @@ export interface Prise { traces: number[]; pins: { id: number; i: number }[] }
  * mes traces et les épingles dedans sont prises, puis la poubelle les efface (« ↶ Annuler » pendant quelques secondes).
  * Une trace est prise dès qu'un de ses points est dans le rectangle.
  */
-export function SelectBox({ map, depart, trails, onFin, onEffacer }: {
-  map: MlMap; depart: Pt; trails: Trail[]; onFin: () => void;
+export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
+  map: MlMap; depart: Pt; trails: Trail[]; onFin: () => void; offline?: OfflineSel;
   /** Efface la prise ; rend de quoi annuler. */
   onEffacer: (p: Prise) => () => void;
 }) {
@@ -58,6 +75,37 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer }: {
   }
   const rien = !prise.traces.length && !prise.pins.length;
 
+  // Calque « Hors ligne » : tuiles touchées (cadre toujours rectangulaire) et traces gardées touchées.
+  const assez = x1 - x0 > 8 && y1 - y0 > 8;
+  const sel = (() => {
+    if (!offline || !assez) return null;
+    const nw = map.unproject([x0, y0]), se = map.unproject([x1, y1]);
+    const { squares, frame } = squaresInBbox([nw.lng, se.lat, se.lng, nw.lat]);
+    return {
+      frame, own: squares.filter((p) => offline.owned.has(p)), miss: squares.filter((p) => !offline.owned.has(p)),
+      traces: offline.saved.filter((t) => t.line.some(([lon, lat]) => dedans(lon, lat))).map((t) => t.id),
+    };
+  })();
+  const [effaceCadre, setEffaceCadre] = useState(false);
+  const selKey = sel ? `${sel.own.join()}|${sel.miss.join()}` : '';
+  const [ownBytes, setOwnBytes] = useState(0);
+  useEffect(() => {
+    if (!offline || !sel || effaceCadre) return;
+    void offline.squaresBytes(sel.own).then(setOwnBytes);
+    const src = map.getSource('offlineSel') as GeoJSONSource | undefined;
+    src?.setData({ type: 'FeatureCollection', features: [
+      ...sel.own.map((p) => ({ type: 'Feature' as const, properties: { k: 'own' }, geometry: { type: 'Polygon' as const, coordinates: boxPoly(squareBbox(p)) } })),
+      ...sel.miss.map((p) => ({ type: 'Feature' as const, properties: { k: 'miss' }, geometry: { type: 'Polygon' as const, coordinates: boxPoly(squareBbox(p)) } })),
+      { type: 'Feature', properties: { k: 'frame' }, geometry: { type: 'LineString', coordinates: sel.frame } },
+    ] });
+  }, [selKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Cadre des tuiles effacé à la fermeture, et dès qu'on a supprimé (pendant « Annuler », il ne veut plus rien dire).
+  useEffect(() => {
+    const vide = () => { (map.getSource('offlineSel') as GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: [] }); };
+    if (effaceCadre) vide();
+    return vide;
+  }, [map, effaceCadre]);
+
   // Les traces prises en surbrillance jaune, pendant qu'on étire.
   useEffect(() => {
     if (!map.getLayer('trails')) return;
@@ -88,14 +136,31 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer }: {
         onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') setB(local(e)); }}>
         <div className="sel-rect" style={{ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }} />
       </div>
-      <div className="sel-barre">
+      {offline ? (
+        <div className="travel sel-panneau">
+          <div className="travel-head"><b>{sel ? 'Sélection' : 'Étire le rectangle'}</b>
+            <span className="head-btns"><button onClick={onFin} aria-label="Fermer la sélection">✕</button></span></div>
+          {sel && sel.traces.length > 0 && <div className="sel-ligne">
+            <span><b>{sel.traces.length} trace{sel.traces.length > 1 ? 's' : ''}</b><small>retirée{sel.traces.length > 1 ? 's' : ''} du téléphone</small></span>
+            <button className="sel-effacer" aria-label="Supprimer ces traces" onClick={() => { setEffaceCadre(true); setAnnuler(() => offline.onDeleteTraces(sel.traces)); }}><TrashIcon size={28} /></button>
+          </div>}
+          {/* Une seule ligne pour les tuiles (Seb) : celles déjà là avec la poubelle, puis « Télécharger N tuiles » pour les autres. */}
+          {sel && <div className="sel-ligne">
+            <span><b>{sel.own.length} tuile{sel.own.length > 1 ? 's' : ''}</b>
+              <small>{sel.own.length ? formatBytes(ownBytes) : 'aucune gardée'}</small></span>
+            {sel.own.length > 0 && <button className="sel-effacer" aria-label="Supprimer ces tuiles" onClick={() => { setEffaceCadre(true); setAnnuler(() => offline.onDeleteSquares(sel.own)); }}><TrashIcon size={28} /></button>}
+            {sel.miss.length > 0 && <button className="primary sel-telecharger" onClick={() => { offline.onDownload(sel.miss); onFin(); }}>
+              Télécharger {sel.miss.length} tuile{sel.miss.length > 1 ? 's' : ''}</button>}
+          </div>}
+        </div>
+      ) : <div className="sel-barre">
         <span>{rien ? 'Étire le rectangle sur des traces ou des 📍'
           : [prise.traces.length && `${prise.traces.length} trace${prise.traces.length > 1 ? 's' : ''}`,
             prise.pins.length && `${prise.pins.length} 📍`].filter(Boolean).join(' · ')}</span>
         <button className="sel-effacer" disabled={rien} aria-label="Effacer la sélection"
           onClick={() => { const u = onEffacer(prise); setAnnuler(() => u); }}><TrashIcon size={28} /></button>
         <button onClick={onFin} aria-label="Fermer la sélection">✕</button>
-      </div>
+      </div>}
     </>
   );
 }
