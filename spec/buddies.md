@@ -1022,7 +1022,7 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
 ### 7.22 Écrire au support, espace Super User (Seb, 26 novembre 2026)
 
-- **Profil** : rubrique « Aide », ligne « Écrire au support » (pas pour le Super User lui-même). Elle ouvre une
+- **Profil** : rubrique « Aide » tout en bas du profil, sous « Se déconnecter » (Seb, 26/11), ligne « Écrire au support » (pas pour le Super User lui-même). Elle ouvre une
   discussion à deux avec le Super User, toujours la même, comme avec un buddy : réponses, photos, dictée, notifications
   (un message de buddy), coches « lu ». La version de l'appli et le téléphone sont joints (nom de la discussion, vu par
   le Super User sous le pseudo).

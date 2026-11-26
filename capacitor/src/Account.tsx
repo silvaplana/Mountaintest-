@@ -178,12 +178,6 @@ export function Account({ onClose, onToast, onSupport }: { onClose: () => void; 
       <p className="acc-nom">{nomComplet(e)}</p>
       <p className="acc-mail">{p?.email ?? e.email ?? ''}</p>
       <span className="acc-role">{p?.super_user ? 'Super User' : 'Membre'}</span>
-      {/* Écrire au support (Seb, 26/11) : une discussion à deux avec le Super User. */}
-      {onSupport && !p?.super_user && <>
-        <h3 className="acc-rubrique">Aide</h3>
-        <button className="acc-support" onClick={onSupport}><span className="acc-support-rond">?</span>
-          <span><b>Écrire au support</b><small>une question, un souci, une idée</small></span><span aria-hidden="true">›</span></button>
-      </>}
       <h3 className="acc-rubrique">Mes infos</h3>
       <Champ titre="Prénom" valeur={p?.prenom ?? ''} cle="prenom" onToast={onToast} />
       <Champ titre="Nom" valeur={p?.nom ?? ''} cle="nom" onToast={onToast} />
@@ -217,6 +211,12 @@ export function Account({ onClose, onToast, onSupport }: { onClose: () => void; 
       <span style={{ flex: 1 }} />
       <button className="acc-deco" onClick={() => { if (confirm('Se déconnecter ? Tes traces restent sur le téléphone.')) { void deconnecter(); onToast('Déconnecté'); } }}>Se déconnecter</button>
       <p className="hint acc-centre">Se déconnecter garde tes traces sur le téléphone.</p>
+      {/* Écrire au support (Seb, 26/11) : une discussion à deux avec le Super User, tout en bas du profil (Seb, 26/11). */}
+      {onSupport && !p?.super_user && <>
+        <h3 className="acc-rubrique">Aide</h3>
+        <button className="acc-support" onClick={onSupport}><span className="acc-support-rond">?</span>
+          <span><b>Écrire au support</b><small>une question, un souci, une idée</small></span><span aria-hidden="true">›</span></button>
+      </>}
     </div>
   );
 }
