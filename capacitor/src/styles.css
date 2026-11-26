@@ -990,11 +990,6 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .bd-pos-carte b.moi { background: var(--accent); }
 .bd-pos-carte b.vieux { background: #7a817e; }
 .bd-voiture-carte .bd-tete { color: #fff; }
-/* Ma position allumée : les ondes battent doucement (CSS seulement, presque rien pour la batterie). */
-.bd-ondes path { animation: bd-onde 1.6s ease-out infinite; }
-.bd-ondes path + path { animation-delay: .4s; }
-@keyframes bd-onde { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .bd-ondes path { animation: none; } }
 .bd-pos-ligne { display: flex; align-items: center; gap: 12px; }
 .bd-pos-ligne > b { font-size: 17px; white-space: nowrap; }
 .bd-pos-ligne.vieux { opacity: 0.6; }
