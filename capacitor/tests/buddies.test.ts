@@ -376,8 +376,8 @@ describe('Position des buddies (bloc 7)', () => {
     participants: [seb, julie, luc], invitations: [] };
   const T = new Date(2026, 11, 12, 10, 0).getTime();
 
-  it('l’épingle se relève seule ce soir', () => {
-    expect(new Date(finEpingle(new Date(2026, 11, 12, 9, 10))).getHours()).toBe(22);
+  it('l’épingle se relève seule à 19 h (#223)', () => {
+    expect(new Date(finEpingle(new Date(2026, 11, 12, 9, 10))).getHours()).toBe(19);
     expect(new Date(finEpingle(new Date(2026, 11, 12, 21, 30))).toTimeString().slice(0, 5)).toBe('23:59');
   });
 
