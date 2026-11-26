@@ -970,6 +970,12 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   (vieux téléphones) mais ne refuse plus rien pour un Buddy count fermé. Ce qui suit sur Fermer ne vaut plus.
 - **＋ Buddy count** (liste ouverte depuis un groupe) : un nom, « Créer » ; c'est un Buddy count de groupe, plusieurs
   par groupe, partagé entre les membres. Une sortie a toujours un seul Buddy count, à son nom.
+  **Deux boutons (Seb, 26 novembre, plus tard)** : en bas de la liste, « ＋ Buddy count pour <groupe> » et « ＋ Buddy
+  count de sortie » (hors d'un groupe : « de groupe », qui fait choisir le groupe, et « de sortie »). Depuis un groupe,
+  le premier crée tout de suite un Buddy count au nom du groupe, puis « <groupe> 2 », « 3 »… (crayon pour renommer).
+  Le second demande « Pour quelle sortie ? » parmi les sorties qui n'en ont pas encore. Dans la liste, la partie
+  « Sortie » ne montre que les sorties dont le Buddy count a été créé ou a déjà une dépense (vide : « Pas encore de
+  Buddy count de sortie ») ; l'icône Buddy count dans une sortie l'ouvre toujours directement.
 - **Un Buddy count** : « Buddy count de groupe » ou « de sortie » sous le titre ; crayon (renommer, de groupe),
   poubelle (seulement un admin du groupe ; caché chez tous, rien n'est effacé) ; « Fermer » (tout membre) : on voit
   tout, plus de « ＋ Dépense » ni de changement ; « Rouvrir ».

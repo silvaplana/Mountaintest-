@@ -12,7 +12,7 @@ import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth
 import { useCompte } from '../Account';
 import type { ConversationNotif } from './notifs';
 import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
-import { BuddyCount, Comptes, NouveauCount, sortieDuCount, UneDepense } from './BuddyCount';
+import { BuddyCount, Comptes, NouveauCount, NouveauCountSortie, sortieDuCount, sortiesAvecCount, UneDepense } from './BuddyCount';
 import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
@@ -523,7 +523,7 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
   | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' }
-  | { ecran: 'position'; groupe?: string; sortie?: string } | { ecran: 'nvCount'; groupe: string };
+  | { ecran: 'position'; groupe?: string; sortie?: string } | { ecran: 'nvCount'; groupe: string } | { ecran: 'nvCountSortie'; groupe: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un groupe (‹ depuis la carte), l'album ou le carnet d'une sortie. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
 
@@ -632,13 +632,23 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         return <Comptes groupes={groupes.filter((x) => !vue.groupe || x.id === vue.groupe)} sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)}
           counts={counts} depenses={depenses} ici={gi} onClose={onClose}
           onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })}
-          // ＋ Buddy count partout (Seb, 26/11) : hors d'un groupe, on choisit le groupe sur l'écran suivant.
-          onNouveau={groupes.some((x) => x.nature === 'bande') ? () => setVue({ ecran: 'nvCount', groupe: gi?.id ?? '' }) : undefined}
+          // ＋ Buddy count partout (Seb, 26/11) : dans un groupe, créé tout de suite au nom du groupe (« 2 », « 3 »… s'il
+          // y en a déjà, renommable) ; hors d'un groupe, on choisit le groupe sur l'écran suivant.
+          onNouveau={gi?.nature === 'bande' ? () => setVue({ ecran: 'count', id: creerCount(gi.id, nomDeCount(gi, counts)), groupe: gi.id })
+            : groupes.some((x) => x.nature === 'bande') ? () => setVue({ ecran: 'nvCount', groupe: '' }) : undefined}
+          onNouveauSortie={sorties.some((x) => !vue.groupe || x.groupe === vue.groupe) ? () => setVue({ ecran: 'nvCountSortie', groupe: vue.groupe ?? '' }) : undefined}
           onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />;
       })()
       : vue.ecran === 'nvCount' ? <NouveauCount groupes={groupes.filter((x) => x.nature === 'bande')} depart={vue.groupe} onClose={onClose}
         onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
         onCreer={(gid, nom) => setVue({ ecran: 'count', id: creerCount(gid, nom), groupe: gid })} />
+      : vue.ecran === 'nvCountSortie' ? (() => {
+        const ici = sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe);
+        const avec = new Set(sortiesAvecCount(ici, counts, depenses).map((x) => x.id));
+        return <NouveauCountSortie sorties={ici.filter((x) => !avec.has(x.id)).sort((a, b) => b.debut.localeCompare(a.debut))} onClose={onClose}
+          onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
+          onChoix={(x) => { changerCount(x.id, counts.some((c) => c.sortie === x.id && c.supprime) ? { supprime: false } : {}); setVue({ ecran: 'count', id: x.id, groupe: vue.groupe || undefined }); }} />;
+      })()
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
         onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
         onNouvelle={() => setVue({ ecran: 'nouvelleConv' })}
@@ -709,6 +719,12 @@ const SEUL = 'seul';
 const groupeSeul = (): Groupe => ({ id: SEUL, nom: '', nature: 'me_time', photo: null, modifie_le: '', membres: [], invitations: [] });
 
 /** ＋ Sortie depuis la liste : seul, ou dans quel groupe ? */
+/** Nom d'un nouveau Buddy count de groupe : le nom du groupe, puis « 2 », « 3 »… */
+export function nomDeCount(g: Groupe, counts: { groupe?: string | null; supprime?: boolean }[]): string {
+  const n = counts.filter((c) => c.groupe === g.id && !c.supprime).length;
+  return n ? `${g.nom} ${n + 1}` : g.nom;
+}
+
 function ChoixGroupe({ groupes, onChoix, onSeul, onNouveau, onRetour, onClose }: {
   groupes: Groupe[]; onChoix: (id: string) => void; onSeul: () => void; onNouveau: () => void; onRetour: () => void; onClose: () => void;
 }) {
