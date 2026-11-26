@@ -162,7 +162,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 }
 /* Colonne alignée à droite (les icônes de 44 px centrées sous la flèche de 56 px) : un duo qui se déplie
    vers la gauche ne la fait pas bouger. */
-.quick > button:not(.arrow), .quick > .pair { margin-right: 6px; }
+.quick > button:not(.arrow), .quick > .pair, .quick-reste > button, .quick-reste > .pair { margin-right: 6px; }
 .quick button {
   width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%;
   font-size: 22px; line-height: 1; background: var(--card); border: 1px solid var(--glass-line); box-shadow: 0 1px 6px #0004;
@@ -178,6 +178,12 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .icon-tip.dt-bubble { position: fixed; top: 30%; left: 16px; right: 16px; max-width: 420px; margin: 0 auto; pointer-events: auto; }
 .dt-bubble .dt-open { display: block; margin: 10px 0 0 auto; padding: 8px 14px; border-radius: 8px; border: 0; background: var(--accent); color: var(--on-accent); font-size: 15px; }
 .quick .pair { display: flex; flex-direction: row-reverse; gap: 8px; align-items: center; }
+/* Rangée (Seb 26/11) : seuls ✕ et la flèche ; toutes les autres icônes glissent du bord d'un seul bloc, sans panneau,
+   par-dessus la carte (qui ne bouge pas). */
+.quick-reste { display: flex; flex-direction: column; gap: inherit; align-items: flex-end; transition: transform .35s ease, opacity .25s ease; }
+.quick-reste:not(.ouverte) { transform: translateX(80px); opacity: 0; pointer-events: none; }
+.icones-gauche .quick-reste { align-items: flex-start; }
+.icones-gauche .quick-reste:not(.ouverte) { transform: translateX(-80px); }
 .quick.help .pair { flex-direction: column; align-items: flex-end; }
 /* Ligne des calques : si elle ne tient pas dans l'écran, elle passe sur 2 lignes, la 2e commence sous la pente
    (Seb, 26/11). Calques reste en bout de ligne ; la hauteur reste celle d'un bouton pour ne pas pousser la colonne. */
@@ -1115,7 +1121,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
   .quick { gap: 5px; }
   .quick button:not(.toggle) { width: 40px; height: 40px; font-size: 20px; }
   .quick:not(.help) .pair.calques { height: 40px; padding-right: 48px; }
-  .quick > button:not(.arrow), .quick > .pair { margin-right: 8px; }
+  .quick > button:not(.arrow), .quick > .pair, .quick-reste > button, .quick-reste > .pair { margin-right: 8px; }
 }
 /* « 🔍 Rechercher ici » (façon Komoot) : en haut au centre, flou ; grisé dans la zone déjà cherchée. */
 .search-here { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 116px);
@@ -1310,7 +1316,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .icones-gauche .quick:not(.help) .pair.calques { padding-right: 0; padding-left: 52px; }
 .icones-gauche .quick:not(.help) .pair.calques > button:first-child { right: auto; left: 0; }
 .icones-gauche .quick.help button::before { right: auto; left: 52px; }
-.icones-gauche .quick > button:not(.arrow), .icones-gauche .quick > .pair { margin-right: 0; margin-left: 6px; }
+.icones-gauche .quick > button:not(.arrow), .icones-gauche .quick > .pair, .icones-gauche .quick-reste > button, .icones-gauche .quick-reste > .pair { margin-right: 0; margin-left: 6px; }
 .icones-gauche .layers, .icones-gauche .scale-bar { left: auto; right: 10px; }
 .icones-gauche .search, .icones-gauche .target, .icones-gauche .frame-banner, .icones-gauche .nav-bar { left: 64px; right: 10px; }
 .icones-gauche .shade-bar { left: 68px; right: 10px; }
