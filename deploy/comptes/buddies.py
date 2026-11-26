@@ -20,7 +20,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 import droits
-from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
+from modeles import (BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
@@ -349,7 +349,7 @@ def retirer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
         if s.scalar(select(t).where(c == so.id).limit(1)) is not None:
             raise Refus("Cette sortie a déjà servi : elle reste")
     g = s.get(Groupe, so.groupe_id)
-    for t in (Participant, Invitation):
+    for t in (Participant, Invitation, BuddyCount):
         for x in s.scalars(select(t).where(t.sortie_id == so.id)).all():
             s.delete(x)
     s.flush()
@@ -587,28 +587,51 @@ def participants(s: Session, so: Sortie) -> set[uuid.UUID]:
     return set(s.scalars(select(Participant.utilisateur_id).where(Participant.sortie_id == so.id)))
 
 
+def caisse(s: Session, u: Utilisateur, sortie: Any = None, count: Any = None) -> tuple[Any, set[uuid.UUID], Groupe | None, BuddyCount | None]:
+    """Le Buddy count visé (§7.20) : une sortie, ou un Buddy count de groupe. Rend de quoi toucher, qui partage les
+    frais (participants ou membres), le groupe (pour les admins) et la ligne d'état (ouvert, fermé, supprimé)."""
+    if count is not None:
+        c = s.get(BuddyCount, uuid.UUID(str(count)))
+        if c is None or c.groupe_id is None or c.supprime_le is not None:
+            raise Refus("Buddy count inconnu")
+        g = groupe_de(s, u, c.groupe_id)
+        qui = set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id)))
+        return g, qui, g, c
+    so = sortie_de(s, u, sortie)
+    c = s.scalar(select(BuddyCount).where(BuddyCount.sortie_id == so.id))
+    return so, participants(s, so), s.get(Groupe, so.groupe_id), c
+
+
 def depense(s: Session, u: Utilisateur, op: dict) -> None:
-    """Buddy count (§5.10) : ajoute ou corrige une dépense. Qui paie et pour qui : des participants de la sortie."""
+    """Buddy count (§5.10) : ajoute ou corrige une dépense. Qui paie et pour qui : des buddies de la sortie (ou du
+    groupe, pour un Buddy count de groupe). Fermé : plus rien ne s'ajoute ni ne change."""
     did = uuid.UUID(str(op["depense"]))
     d = s.get(Depense, did)
-    so = sortie_de(s, u, d.sortie_id if d else op["sortie"])
+    if d is not None:
+        lieu, qui, _, c = caisse(s, u, d.sortie_id, d.count_id)
+    else:
+        lieu, qui, _, c = caisse(s, u, op.get("sortie"), op.get("count"))
+    if c is not None and (c.ferme or c.supprime_le is not None):
+        raise Refus("Ce Buddy count est fermé")
     titre = propre(op.get("titre"), 80) or "Dépense"
     montant = int(op.get("montant"))
     if not 1 <= montant <= 10_000_000:
         raise Refus("Montant hors limites")
-    qui = participants(s, so)
     paye_par = uuid.UUID(str(op["paye_par"]))
     pour = sorted({str(uuid.UUID(str(x))) for x in op.get("pour") or []})
     if paye_par not in qui or not pour or any(uuid.UUID(x) not in qui for x in pour):
         raise Refus("Seuls les buddies de la sortie partagent ses frais")
     champs = {"titre": titre, "montant": montant, "paye_par": paye_par, "pour": json.dumps(pour), "jour": jour(op.get("jour"))}
     if d is None:
-        s.add(Depense(id=did, sortie_id=so.id, par=u.id, **champs))
+        if isinstance(lieu, Sortie):
+            s.add(Depense(id=did, sortie_id=lieu.id, par=u.id, **champs))
+        else:
+            s.add(Depense(id=did, count_id=c.id, par=u.id, **champs))
     else:
         for k, v in champs.items():
             setattr(d, k, v)
         d.modifie_le = maintenant()
-    toucher(so)
+    toucher(lieu)
 
 
 def a_moi_ou_admin(s: Session, u: Utilisateur, par: uuid.UUID, so: Sortie, quoi: str) -> None:
@@ -621,10 +644,49 @@ def retirer_depense(s: Session, u: Utilisateur, op: dict) -> None:
     d = s.get(Depense, uuid.UUID(str(op["depense"])))
     if d is None:
         return  # déjà retirée
-    so = sortie_de(s, u, d.sortie_id)
-    a_moi_ou_admin(s, u, d.par, so, "cette dépense")
+    lieu, _, g, c = caisse(s, u, d.sortie_id, d.count_id)
+    if c is not None and c.ferme:
+        raise Refus("Ce Buddy count est fermé")
+    if d.par != u.id and not (g is not None and droits.admin_du_groupe(s, u, g)):
+        raise Refus("Seul celui qui a ajouté cette dépense (ou un admin du groupe) peut le retirer")
     s.delete(d)
-    toucher(so)
+    toucher(lieu)
+
+
+def buddy_count(s: Session, u: Utilisateur, op: dict) -> None:
+    """Créer un Buddy count de groupe (`groupe`, `nom`), ou changer un Buddy count : `nom`, `ferme` (tout membre),
+    `supprime` (un admin du groupe ; caché, rien n'est effacé). Celui d'une sortie se vise par `sortie`."""
+    cid = uuid.UUID(str(op["count"]))
+    c = s.get(BuddyCount, cid)
+    if op.get("sortie") and c is None:
+        so = sortie_de(s, u, op["sortie"])
+        c = s.scalar(select(BuddyCount).where(BuddyCount.sortie_id == so.id))
+        if c is None:  # sa ligne naît au premier changement ; renvoyée d'un autre téléphone : la même
+            c = BuddyCount(id=cid, sortie_id=so.id, par=u.id)
+            s.add(c)
+    elif c is None:
+        g = groupe_de(s, u, op["groupe"])
+        if g.nature == "me_time":
+            raise Refus("Choisis un groupe avec des buddies")
+        c = BuddyCount(id=cid, groupe_id=g.id, nom=propre(op.get("nom"), 80) or "Buddy count", par=u.id)
+        s.add(c)
+        toucher(g)
+        return
+    if c.sortie_id is not None:
+        lieu = sortie_de(s, u, c.sortie_id)
+        g = s.get(Groupe, lieu.groupe_id)
+    else:
+        lieu = g = groupe_de(s, u, c.groupe_id)
+    if "supprime" in op:
+        if not droits.admin_du_groupe(s, u, g):
+            raise Refus("Seul un admin du groupe supprime un Buddy count")
+        c.supprime_le = maintenant() if op["supprime"] else None
+    if "ferme" in op:
+        c.ferme = bool(op["ferme"])
+    if "nom" in op and c.groupe_id is not None:
+        c.nom = propre(op.get("nom"), 80) or c.nom
+    c.modifie_le = maintenant()
+    toucher(lieu)
 
 
 # Fichiers des photos : COMPTES_DOSSIER/photos/<id>-petite.jpg et -grande.jpg (et -video.jpg : le film, MP4 ou WebM).
@@ -1011,7 +1073,7 @@ OPERATIONS = {
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
     "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
-    "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
+    "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense, "buddy_count": buddy_count,
     "epingle": epingle, "position": position, "voiture": voiture, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
     "message": message, "retirer_message": retirer_message, "duo": duo, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
@@ -1070,7 +1132,10 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
                        .order_by(TracePartagee.cree_le)).all()
     plannings = s.scalars(select(Planning).where(Planning.groupe_id.in_(gids)).order_by(Planning.cree_le)).all()
     photos = s.scalars(select(Photo).where(Photo.sortie_id.in_(sids)).order_by(Photo.prise_le)).all()
-    depenses = s.scalars(select(Depense).where(Depense.sortie_id.in_(sids)).order_by(Depense.jour, Depense.cree_le)).all()
+    # Buddy counts (§7.20) : ceux de mes groupes et de mes sorties, supprimés compris (le téléphone les cache).
+    counts = s.scalars(select(BuddyCount).where(or_(BuddyCount.groupe_id.in_(gids), BuddyCount.sortie_id.in_(sids)))).all()
+    depenses = s.scalars(select(Depense).where(or_(Depense.sortie_id.in_(sids), Depense.count_id.in_([c.id for c in counts if c.groupe_id])))
+                         .order_by(Depense.jour, Depense.cree_le)).all()
     hebergements = s.scalars(select(Hebergement).where(Hebergement.sortie_id.in_(sids)).order_by(Hebergement.cree_le)).all()
     # Messages : ceux des 90 derniers jours seulement.
     messages = s.scalars(select(MessageBuddy).where(or_(MessageBuddy.groupe_id.in_(gids), MessageBuddy.sortie_id.in_(sids)),
@@ -1104,7 +1169,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_plannings": [str(p.id) for p in plannings],
             "plannings": [vue_planning(s, p) for p in plannings if neuf(p.modifie_le)],
             "ids_photos": [str(p.id) for p in photos], "photos": [vue_photo(s, p) for p in photos if neuf(p.modifie_le)],
-            "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
+            "counts": [vue_count(c) for c in counts], "ids_depenses": [str(x.id) for x in depenses], "depenses": [vue_depense(x) for x in depenses if neuf(x.modifie_le)],
             "ids_hebergements": [str(h.id) for h in hebergements],
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
             "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, []), votes.get(m.id, []), fichiers.get(m.fichier_id)) for m in neufs],
@@ -1131,15 +1196,17 @@ def paiements(s: Session, u: Utilisateur, depenses: list[Depense]) -> dict[str, 
     """Comment rembourser (Seb 26/11, spec §7.18) : par sortie où je dois de l'argent, l'IBAN et le Wero de ceux à
     qui l'on doit. Personne d'autre ne les voit (ni les buddies quittes, ni ceux qui ne sont pas de la sortie)."""
     par_sortie: dict[uuid.UUID, list[Depense]] = {}
-    for d in depenses:
-        par_sortie.setdefault(d.sortie_id, []).append(d)
+    for d in depenses:  # par sortie, ou par Buddy count de groupe (§7.20)
+        par_sortie.setdefault(d.sortie_id or d.count_id, []).append(d)
     res: dict[str, dict[str, dict[str, str]]] = {}
     for sid, ds in par_sortie.items():
         sol = soldes(ds)
         if sol.get(u.id, 0) > -1:  # moins d'un centime : quitte
             continue
+        bc = s.get(BuddyCount, sid) if ds[0].count_id else None
         for qui, v in sol.items():
-            if v < 1 or qui == u.id or s.get(Participant, (sid, qui)) is None:
+            dedans = membre(s, bc.groupe_id, qui) if bc is not None else s.get(Participant, (sid, qui))
+            if v < 1 or qui == u.id or dedans is None:
                 continue
             c = s.get(Utilisateur, qui)
             moyens = {}
@@ -1198,8 +1265,14 @@ def vue_photo(s: Session, p: Photo) -> dict[str, Any]:
             "lon": p.lon, "lat": p.lat, "etoile": p.etoile, "envoyee": p.envoyee, "video": p.video, "modifie_le": iso(p.modifie_le)}
 
 
+def vue_count(c: BuddyCount) -> dict[str, Any]:
+    return {"id": str(c.id), "groupe": str(c.groupe_id) if c.groupe_id else None, "sortie": str(c.sortie_id) if c.sortie_id else None,
+            "nom": c.nom, "ferme": c.ferme, "supprime": c.supprime_le is not None, "par": str(c.par), "cree_le": iso(c.cree_le),
+            "modifie_le": iso(c.modifie_le)}
+
+
 def vue_depense(x: Depense) -> dict[str, Any]:
-    return {"id": str(x.id), "sortie": str(x.sortie_id), "titre": x.titre, "montant": x.montant, "paye_par": str(x.paye_par),
+    return {"id": str(x.id), "sortie": str(x.sortie_id) if x.sortie_id else None, "count": str(x.count_id) if x.count_id else None, "titre": x.titre, "montant": x.montant, "paye_par": str(x.paye_par),
             "pour": json.loads(x.pour), "jour": x.jour, "par": str(x.par), "modifie_le": iso(x.modifie_le)}
 
 

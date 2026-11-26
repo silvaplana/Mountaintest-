@@ -680,6 +680,15 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-plus > button.primary:only-child { flex: 0 1 calc(50% - 5px); margin-left: auto; }
 .bd-plus button { display: flex; align-items: center; gap: 10px; border-radius: 26px; min-height: 52px; font-size: 22px; text-align: left; }
 .bd-plus-texte { display: flex; flex-direction: column; font-size: 17px; line-height: 1.2; }
+/* Buddy counts (Seb, 26/11) : ouvert / fermé, cadenas au trait ; les fermés pâlis dans la liste. */
+.bd-count-etat { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; padding: 4px 10px;
+  border-radius: 14px; background: var(--accent-soft); color: var(--muted); }
+.bd-count-etat.ouvert { background: var(--accent); color: var(--on-accent); }
+.bd-count-ligne.ferme { opacity: .65; }
+.bd-count-outils { display: flex; align-items: center; gap: 6px; }
+.bd-count-outils .bd-crayon { width: 40px; height: 40px; min-height: 0; padding: 0; border: 0; background: none; color: var(--accent); display: grid; place-items: center; }
+.bd-plus-deux { justify-content: space-between; }
+.bd-plus-deux > button { flex: 0 1 calc(50% - 5px); justify-content: center; color: var(--accent); }
 .bd-plus-texte small { font-weight: 400; opacity: .85; font-size: 14px; }
 .bd-faces { display: inline-flex; }
 .bd-faces i { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; margin-right: -9px; background: #3f6fb5; }

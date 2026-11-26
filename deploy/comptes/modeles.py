@@ -268,14 +268,33 @@ class Carnet(Base):
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 
 
+class BuddyCount(Base):
+    """Un Buddy count (Seb, 26/11, spec/buddies.md §7.20) : de groupe (plusieurs par groupe, avec un nom) ou de sortie
+    (un seul, sans nom : celui de la sortie ; la ligne n'existe qu'une fois fermé, renommé ou supprimé).
+    Ouvert ou fermé (fermé : on n'ajoute plus rien) ; supprimé par un admin du groupe (caché, rien n'est effacé)."""
+
+    __tablename__ = "buddy_counts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), index=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), unique=True)
+    nom: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    ferme: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
 class Depense(Base):
-    """Buddy count d'une sortie (spec/buddies.md §5.10) : une dépense, partagée entre téléphones.
-    N'importe quel participant l'ajoute, la corrige ou la retire ; la dernière version envoyée gagne."""
+    """Buddy count (spec/buddies.md §5.10, §7.20) : une dépense d'une sortie (`sortie_id`) ou d'un Buddy count de
+    groupe (`count_id`), partagée entre téléphones. La dernière version envoyée gagne."""
 
     __tablename__ = "depenses"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
-    sortie_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), nullable=False, index=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), index=True)
+    count_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("buddy_counts.id", ondelete="CASCADE"), index=True)
     titre: Mapped[str] = mapped_column(String(80), nullable=False)
     montant: Mapped[int] = mapped_column(Integer, nullable=False)  # centimes
     paye_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
