@@ -953,3 +953,35 @@ def test_notifications_partages_et_pas_bud(client, monkeypatch):
     sonne.clear()
     sync(client, ops=[nouvelle_photo(so["sortie"]) | {"id": str(uuid.uuid4()), "photo": str(uuid.uuid4())} for _ in range(3)])
     assert sonne == [([julie], "a ajouté 3 photos à l'album")]
+
+
+def test_invitation_par_mail(client, monkeypatch):
+    """Seb, 26/11 : le serveur envoie l'invitation par mail (Brevo) ; « Renvoyer » si elle n'est pas partie."""
+    import mails
+    envoyes = []
+    monkeypatch.setattr(mails, "en_arriere_plan", lambda tache: tache())
+    monkeypatch.setattr(mails, "envoyer", lambda a, sujet, texte, html, **k: envoyes.append((a, sujet, texte, k)))
+    op = nouveau_groupe("Crapahuteurs")
+    inv = invitation(op["groupe"], code="MailSecret0123456789", canal="mail")
+    inv["contact"] = "julie@exemple.fr"
+    r = sync(client, ops=[op, inv])
+    (a, sujet, texte, k), = envoyes
+    assert a == "julie@exemple.fr" and "« Crapahuteurs »" in sujet
+    assert "Salut Julie" in texte and "rejoindre.html?c=MailSecret0123456789" in texte and "le groupe" in texte
+    assert "bande" not in texte
+    r = sync(client)
+    assert par_nom(r, "Crapahuteurs")["invitations"][0]["mail"] == "envoye"
+
+    def refuse(*a, **k):
+        raise RuntimeError("Brevo refuse")
+    monkeypatch.setattr(mails, "envoyer", refuse)
+    sync(client, ops=[{"id": str(uuid.uuid4()), "type": "renvoyer_mail", "invitation": inv["invitation"]}])
+    assert par_nom(sync(client), "Crapahuteurs")["invitations"][0]["mail"] == "erreur"
+
+
+def test_invitation_par_sms_sans_mail(client, monkeypatch):
+    import mails
+    monkeypatch.setattr(mails, "en_arriere_plan", lambda tache: (_ for _ in ()).throw(AssertionError("pas de mail")))
+    op = nouveau_groupe()
+    r = sync(client, ops=[op, invitation(op["groupe"])])
+    assert par_nom(r, "Ski du dimanche")["invitations"][0]["mail"] is None

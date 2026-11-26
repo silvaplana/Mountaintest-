@@ -24,9 +24,9 @@ import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  aDeux, annulerInvitation, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  aDeux, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
   inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
-  type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
+  type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
 /**
@@ -134,6 +134,14 @@ function resume(g: Groupe) {
 }
 
 const CANAL: Record<Canal, string> = { sms: 'SMS envoyé', contacts: 'SMS envoyé', mail: 'mail envoyé', qr: 'QR code', lien: 'lien envoyé' };
+
+/** Sous une invitation : par mail, c'est le serveur qui l'envoie (Brevo) ; « Renvoyer » s'il n'est pas parti. */
+function EtatInvitation({ i }: { i: Invitation }) {
+  if (i.canal !== 'mail') return <small className="bd-etat">{i.attente ? '🕓 ' : ''}{CANAL[i.canal]}</small>;
+  if (i.attente) return <small className="bd-etat">🕓 mail en attente de réseau</small>;
+  if (i.mail === 'erreur') return <small className="bd-etat bd-erreur">⚠ mail non parti · <button className="bd-lien" onClick={() => renvoyerMail(i.id)}>Renvoyer</button></small>;
+  return <small className="bd-etat">{i.mail === 'envoye' ? '✉️ mail envoyé' : '🕓 mail en cours d’envoi'}</small>;
+}
 
 /** Photo choisie dans la galerie, réduite à 256 px (JPEG en data: URL, comme la photo du profil). */
 function reduire(f: File): Promise<string> {
@@ -384,27 +392,15 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   const envoyer = async (canal: Canal, nom: string, contact: string) => {
     const code = nouveauCode();
     // L'invitation part au serveur avant le SMS : le copain peut ouvrir le lien tout de suite.
+    // Par mail, c'est le serveur qui envoie le mail (Brevo), au retour du réseau si besoin.
     onInvite({ canal, nom: nom.trim() || contact, contact, code });
     setForm(null);
+    if (canal === 'mail') return;
     try {
       if (Capacitor.isNativePlatform()) await Natif.sms({ numero: contact, texte: texte(code) });
       else window.location.href = `sms:${encodeURIComponent(contact)}?body=${encodeURIComponent(texte(code))}`;
     } catch (err) { onToast(String((err as Error).message)); }
   };
-  /** Par la feuille de partage du téléphone (WhatsApp, mail, SMS…) avec le lien réutilisable, comme le QR code.
-   * Remplace « Mail » (Seb, 26/11) : l'appli n'envoie pas de mail elle-même. */
-  const partager = async () => {
-    if (!pret()) return;
-    let code = qrExistant;
-    if (!code) { code = nouveauCode(); onInvite({ canal: 'qr', nom: '', contact: '', code }); }
-    await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]);
-    try {
-      if (Capacitor.isNativePlatform()) await Natif.partager({ titre: nomGroupe, texte: texte(code) });
-      else if (navigator.share) await navigator.share({ title: nomGroupe, text: texte(code) });
-      else { await navigator.clipboard.writeText(texte(code)); onToast('Copié : colle-le dans un message'); }
-    } catch { /* annulé */ }
-  };
-
   const contacts = async () => {
     if (!pret()) return;
     if (!Capacitor.isNativePlatform()) { setForm({ canal: 'sms', nom: '', contact: '' }); return; }
@@ -424,7 +420,7 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   return <>
     <div className="bd-inviter">
       <button onClick={() => void contacts()}><span>📇</span>Contacts</button>
-      <button onClick={() => void partager()}><span>📤</span>Partager</button>
+      <button onClick={() => { if (pret()) setForm({ canal: 'mail', nom: '', contact: '' }); }}><span>✉️</span>Mail</button>
       <button onClick={() => { if (pret()) setForm({ canal: 'sms', nom: '', contact: '' }); }}><span>📱</span>Téléphone</button>
       <button onClick={montrerQr}><span>🔳</span>QR code</button>
     </div>
@@ -434,14 +430,15 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
       <label className="field">{form.canal === 'mail' ? 'Son adresse e-mail' : 'Son numéro de téléphone'}
         <input type={form.canal === 'mail' ? 'email' : 'tel'} inputMode={form.canal === 'mail' ? 'email' : 'tel'} value={form.contact}
           onChange={(ev) => setForm({ ...form, contact: ev.target.value })} placeholder={form.canal === 'mail' ? 'julie@exemple.fr' : '06 12 34 56 78'} /></label>
+      {form.canal === 'mail' && <p className="hint">Mountain Buddies lui envoie le mail, avec le lien pour rejoindre {sortie ? 'la sortie' : 'le groupe'}. Sans réseau, il part au retour du réseau.</p>}
       <button className="primary" disabled={!form.contact.trim()} onClick={() => void envoyer(form.canal, form.nom, form.contact.trim())}>
-        {form.canal === 'mail' ? 'Écrire le mail' : 'Écrire le SMS'}</button>
+        {form.canal === 'mail' ? 'Envoyer l’invitation' : 'Écrire le SMS'}</button>
       <button onClick={() => setForm(null)}>Annuler</button>
     </div></div>}
     {qr && <div className="bd-voile" onClick={() => setQr(null)}><div className="bd-feuille bd-centre" onClick={(ev) => ev.stopPropagation()}>
       <h3>{nomGroupe}</h3>
       <Qr texte={lien(qr)} />
-      <p className="hint">Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer {sortie ? 'dans la sortie' : 'dans la bande'}.</p>
+      <p className="hint">Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer {sortie ? 'dans la sortie' : 'dans le groupe'}.</p>
       <button onClick={() => setQr(null)}>Fermer</button>
     </div></div>}
   </>;
@@ -962,13 +959,13 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
     <h3>Inviter mes copains</h3>
     <Inviter nomGroupe={g.nom} qrExistant={qr} onToast={onToast} onInvite={(i) => { inviter(g.id, i); if (i.canal !== 'qr') onToast(`Invitation envoyée à ${i.nom}`); }} />
-    <h3>Dans la bande</h3>
+    <h3>Dans le groupe</h3>
     {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m) || !(principal || retirable(m))} onClick={() => setChoisi(m)}>
       <Visage b={m} /><span className="bd-texte"><b>{m.pseudo}{moi(m) ? ' (toi)' : ''}</b>{m.role === 'admin_principal' ? <small>admin principal</small> : m.role === 'admin' && <small>admin</small>}</span>
     </button>)}
     {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <div key={i.id} className="bd-ligne petite bd-invite">
       <Visage b={{ id: i.id, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
-      <small className="bd-etat">{i.attente ? '🕓 ' : ''}{CANAL[i.canal]}</small>
+      <EtatInvitation i={i} />
       <button aria-label="Annuler l'invitation" onClick={() => annulerInvitation(i.id)}>✕</button>
     </div>)}
     {choisi && <div className="bd-actions">
@@ -977,7 +974,7 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
       {principal && choisi.role === 'admin' && <button onClick={() => { retirerAdmin(g.id, choisi.id); setChoisi(null); }}>N'est plus admin</button>}
       {principal && <button onClick={() => { transmettre(g.id, choisi.id); setChoisi(null); onToast(`${choisi.pseudo} devient admin principal`); }}>
         Lui passer mon rôle d'admin principal</button>}
-      {retirable(choisi) && <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer de la bande</button>}
+      {retirable(choisi) && <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer du groupe</button>}
       <button onClick={() => setChoisi(null)}>Annuler</button>
     </div>}
     <button className="acc-deco" onClick={() => {
@@ -1020,16 +1017,16 @@ function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) 
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
     <ChoixPhoto photo={photo} onPhoto={setPhoto} onToast={onToast} />
-    <input className="bd-nom" value={nom} maxLength={80} placeholder="Nom de la bande" onChange={(ev) => setNom(ev.target.value)} />
+    <input className="bd-nom" value={nom} maxLength={80} placeholder="Nom du groupe" onChange={(ev) => setNom(ev.target.value)} />
     <h3 className="bd-section">Inviter mes copains</h3>
     <Inviter nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast}
       onInvite={(i) => setInvites((l) => [...l, i])} />
-    <h3 className="bd-section">Dans la bande <small>{1 + invites.filter((i) => i.canal !== 'qr').length} buddies</small></h3>
+    <h3 className="bd-section">Dans le groupe <small>{1 + invites.filter((i) => i.canal !== 'qr').length} buddies</small></h3>
     <div className="bd-ligne petite"><Visage b={{ id: 'moi', pseudo: nomAffiche(compte), photo: compte.profil?.photo ?? null }} />
       <span className="bd-texte"><b>{nomAffiche(compte)} (toi)</b><small>crée le groupe</small></span></div>
     {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">
       <Visage b={{ id: i.code, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
-      <small className="bd-etat">{CANAL[i.canal]}</small></div>)}
+      <small className="bd-etat">{i.canal === 'mail' ? '✉️ mail à envoyer' : CANAL[i.canal]}</small></div>)}
     <p className="hint">Ils reçoivent un lien : il installe l'appli et les fait entrer dans le groupe.</p>
     <span style={{ flex: 1 }} />
     <button className="primary bd-grand" disabled={!nom.trim()} onClick={creer}>Créer le groupe</button>
@@ -1076,7 +1073,7 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
       <Inviter sortie nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast} onInvite={(i) => setInvites((l) => [...l, i])} />
       {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">
         <Visage b={{ id: i.code, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
-        <small className="bd-etat">{CANAL[i.canal]}</small></div>)}
+        <small className="bd-etat">{i.canal === 'mail' ? '✉️ mail à envoyer' : CANAL[i.canal]}</small></div>)}
       {!invites.length && <p className="hint">Seul, ou invite un ou deux copains à cette sortie, sans créer de groupe.</p>}
     </> : <div className="bd-qui">
       {g.membres.map((m) => <button key={m.id} className={qui.has(m.id) ? 'oui' : ''} disabled={m.id === moiId}

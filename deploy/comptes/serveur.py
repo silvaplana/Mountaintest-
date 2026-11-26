@@ -52,6 +52,7 @@ from sqlalchemy.orm import Session, sessionmaker
 import appels
 import buddies
 import droits
+import mails
 from modeles import Base, Groupe, Membre, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
@@ -89,6 +90,7 @@ COLONNES_AJOUTEES = [
     ("invitations", "contact", "VARCHAR(320) NOT NULL DEFAULT ''"),
     ("invitations", "acceptee_par", "UUID REFERENCES utilisateurs(id)"),
     ("invitations", "sortie_id", "UUID REFERENCES sorties(id) ON DELETE CASCADE"),
+    ("invitations", "mail", "VARCHAR(10)"),
     ("messages_buddies", "bud", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("messages_buddies", "repond_a", "UUID"),
     ("messages_buddies", "edite_le", "TIMESTAMP WITH TIME ZONE"),
@@ -389,6 +391,9 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     # 💶 Paiements, traces et photos partagées (buddies.prevenir) : même forme qu'un message.
     for qui, data in s.info.pop("a_prevenir", []):
         appels.sonner(Sessions, qui, data, ttl="86400s")
+    # ✉ Invitations par mail : envoyées par Brevo après l'enregistrement (en arrière-plan).
+    if mails_ := s.info.pop("mails", []):
+        mails.en_arriere_plan(lambda: buddies.envoyer_mails(Sessions, mails_))
     return r
 
 

@@ -132,6 +132,8 @@ class Invitation(Base):
     nom: Mapped[str] = mapped_column(String(80), nullable=False, default="")
     contact: Mapped[str] = mapped_column(String(320), nullable=False, default="")
     acceptee_par: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("utilisateurs.id"))
+    # Invitation par mail (canal « mail ») : « envoye », « erreur », ou vide tant que le serveur ne l'a pas envoyé.
+    mail: Mapped[str | None] = mapped_column(String(10))
     expire_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 

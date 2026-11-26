@@ -19,7 +19,9 @@ const CLE = 'buddies';
 export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
 /** role : dans un groupe (spec §7.17) ; un seul admin_principal, le créateur, qui peut transmettre. */
 export type Buddy = { id: string; pseudo: string; photo: string | null; role?: 'admin_principal' | 'admin' | 'membre' };
-export type Invitation = { id: string; code: string; canal: Canal; nom: string; contact: string; par: string; attente?: boolean };
+export type Invitation = { id: string; code: string; canal: Canal; nom: string; contact: string; par: string; attente?: boolean;
+  /** Invitation par mail, envoyée par le serveur : « envoye », « erreur », ou rien tant qu'il ne l'a pas envoyée. */
+  mail?: 'envoye' | 'erreur' | null };
 export type Groupe = {
   /** duo : discussion à deux (§7.13), sans nom : on montre l'autre buddy. */
   id: string; nom: string; nature: 'bande' | 'me_time' | 'duo' | 'support'; photo: string | null; modifie_le: string;
@@ -435,6 +437,9 @@ export function appliquer(e: Etat): Groupe[] {
           g.modifie_le = quand(op);
         }
         break;
+      case 'renvoyer_mail':
+        for (const x of gs) for (const i of x.invitations) if (i.id === op.invitation) i.mail = null;
+        break;
       case 'annuler_invitation':
         for (const x of gs) x.invitations = x.invitations.filter((i) => i.id !== op.invitation);
         break;
@@ -849,6 +854,7 @@ export const retenirHebergement = (hebergement: string, retenu: boolean) => ajou
 export const retirerHebergement = (hebergement: string) => ajouter({ type: 'retirer_hebergement', hebergement });
 export const retirerDepense = (depense: string) => ajouter({ type: 'retirer_depense', depense });
 export const annulerInvitation = (invitation: string) => ajouter({ type: 'annuler_invitation', invitation });
+export const renvoyerMail = (invitation: string) => ajouter({ type: 'renvoyer_mail', invitation });
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
 export const retirer = (groupe: string, buddy: string) => ajouter({ type: 'retirer', groupe, buddy });
 export const nommerAdmin = (groupe: string, buddy: string) => ajouter({ type: 'nommer_admin', groupe, buddy });
