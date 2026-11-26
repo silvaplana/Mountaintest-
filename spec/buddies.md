@@ -75,7 +75,7 @@ encore les anciens noms (§7.12).
   en bas de la liste, simplement « ＋ Groupe » et « ＋ Sortie » (sans sous-titre).
   **Retouches (Seb, 26 novembre)** : icônes de la taille de celles de la carte (44 px) ; flèche horizontale ‹ / ›,
   les icônes sortent du bord de l'écran, à droite, ou à gauche si « Icônes de la carte : à gauche » (la colonne
-  passe alors à gauche). Rangée, ✕ et la flèche sont l’un au-dessus de l’autre tout en haut (✕ en pastille basse, flèche de 56 px, comme sur la carte) et l'écran prend toute la largeur ; sortie,
+  passe alors à gauche). **✕ = retour** (Seb, 26 novembre) : sur tous les écrans de Buddies, ✕ et la flèche restent en haut à droite, même place, même taille ; ✕ ramène à l'écran d'avant (la liste, elle, revient à la carte), comme le retour du téléphone, et il n'y a plus de ‹ à gauche. Sur une sortie ouverte sur la carte, le ✕ de la carte ramène au groupe ; il ne ferme l'appli que sur la carte seule. Rangée, ✕ et la flèche sont l’un au-dessus de l’autre tout en haut (✕ en pastille basse, flèche de 56 px, comme sur la carte) et l'écran prend toute la largeur ; sortie,
   la colonne glisse (sans panneau : seulement les ronds des icônes, ombrés) et l'écran **se resserre** à côté d'elle, le texte se ré-enroule et tout reste visible (Seb, 26 novembre, 3e essai après « pousser » puis « recouvrir »), en une seule animation ; le contenu de l'écran monte tout en haut, à côté de ✕ et de la flèche ; petite icône de « ＋ Groupe » / « ＋ Sortie » à la hauteur du mot ; plus de ligne
   « à jour à … » (seulement « 🕓 n changements partiront au retour du réseau » quand il y en a).
 - Elle ne change pas ; sa portée suit ce qui est ouvert à gauche **(proposé)** : dans la
@@ -404,7 +404,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 21** : photo, nom, date de début et de fin (fin = début si vide), lieu ; dans une bande,
   on coche qui part (le créateur part toujours) ; dans Me Time, on invite des copains à la sortie
   (Contacts, Mail, SMS, QR) : le lien les ajoute à la sortie, pas à un groupe.
-- **Écran 4** : toucher une sortie ouvre la carte, cadrée sur ses traces. En haut ‹ nom, dates,
+- **Écran 4** : toucher une sortie ouvre la carte, cadrée sur ses traces. En haut nom, dates,
   lieu ; en bas un bandeau qu'on replie (« Dans N jours », « En cours » ou « Souvenir », qui part,
   km du parcours, jours avant). Les traces partagées s'ajoutent à Mes traces affichées (« Partagée
   par Julie ») : profil, Y aller, Commencer et Hors ligne marchent comme pour les siennes.
