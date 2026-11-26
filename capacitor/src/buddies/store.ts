@@ -113,6 +113,8 @@ export type Etat = {
   messages?: MessageBuddy[];
   /** 📞 Appels en cours dans mes groupes et sorties (d'après la dernière synchro). */
   appels?: AppelBuddy[];
+  /** 💶 Comment rembourser (Seb 26/11) : par sortie où je dois de l'argent, l'IBAN et le Wero de ceux à qui je dois. */
+  paiements?: Record<string, Record<string, { iban?: string; wero?: string }>>;
   /** 🐻 Ce que Bud a fait à ma demande, par message de Bud (pour « Annuler » sur ce téléphone). */
   actionsBud?: Record<string, { faites: ActionBud[]; annule?: boolean }>;
   /** 💬 Dernière lecture de chaque conversation (ms), par identifiant de groupe ou de sortie. */
@@ -738,6 +740,7 @@ type Reponse = {
   ids_hebergements?: string[]; hebergements?: Hebergement[];
   ids_messages?: string[]; messages?: MessageBuddy[]; lectures?: Lecture[]; ecrivent?: { cle: string; qui: string }[];
   appels?: AppelBuddy[];
+  paiements?: Etat['paiements'];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -773,7 +776,7 @@ export function synchroniser(): Promise<string[]> {
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
-        positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [],
+        positions: r.positions ?? e.positions, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
         lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });

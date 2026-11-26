@@ -488,7 +488,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       })()
       : vue.ecran === 'dodo' && album ? <OuOnDort x={album} hebergements={hebergements} onToast={onToast} onClose={onClose} onChercher={onLodging}
         onRetour={() => (album.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: album.id, groupe: vue.groupe }) : ouvrir(album))} />
-      : vue.ecran === 'count' && album ? <BuddyCount x={album} depenses={depenses} onClose={onClose}
+      : vue.ecran === 'count' && album ? <BuddyCount x={album} depenses={depenses} onClose={onClose} onToast={onToast}
         onDepense={(d) => setVue({ ecran: 'depense', id: album.id, depense: d, groupe: vue.groupe })}
         onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe })} />
       : vue.ecran === 'depense' && album ? <UneDepense key={vue.depense ?? 'nouvelle'} x={album} d={depenses.find((y) => y.id === vue.depense)}

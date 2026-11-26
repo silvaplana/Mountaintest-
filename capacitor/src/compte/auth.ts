@@ -20,9 +20,11 @@ export type Profil = {
   id: string; email: string | null; pseudo: string; photo: string | null;
   /** Fiche du membre, comme AppBase (spec §7.18) : vue seulement par moi. Téléphone et IBAN facultatifs. */
   prenom?: string; nom?: string; telephone?: string | null; iban?: string | null; super_user?: boolean;
+  /** Wero (Seb 26/11) : la case, et le numéro (ou mail) s'il diffère du portable. */
+  wero?: boolean; wero_numero?: string | null;
 };
 /** Ce qui se change dans la fiche ; une chaîne vide efface le téléphone ou l'IBAN. */
-export type Infos = { prenom?: string; nom?: string; telephone?: string; iban?: string };
+export type Infos = { prenom?: string; nom?: string; telephone?: string; iban?: string; wero_numero?: string };
 export type Config = { logto: string; ressource: string; appId: string; fournisseurs?: string[] };
 /** Google ou Apple : la page Logto renvoie directement vers eux (direct_sign_in). */
 export type Fournisseur = 'google' | 'apple';
@@ -44,7 +46,7 @@ export type Etat = {
   email?: string | null;
   profil?: Profil;
   /** Changements faits hors ligne, envoyés au retour du réseau. */
-  attente?: { pseudo?: string } & Infos;
+  attente?: { pseudo?: string; wero?: boolean } & Infos;
   /** Dernier échange réussi avec le serveur (ms). */
   synchro?: number;
   /** Logto a refusé le jeton : se reconnecter (quand il y aura du réseau). */
@@ -217,7 +219,7 @@ export async function synchroniser(): Promise<Etat> {
   if (attente && Object.keys(attente).length) {
     p = await api<Profil>('PUT', '/moi', attente);
     // Ce qui a changé pendant l'envoi reste en attente pour la prochaine fois.
-    const reste: Record<string, string | undefined> = { ...lire().attente };
+    const reste: Record<string, string | boolean | undefined> = { ...lire().attente };
     for (const [k, v] of Object.entries(attente)) if (reste[k] === v) delete reste[k];
     ecrire({ ...lire(), attente: reste });
   } else {
@@ -257,8 +259,15 @@ export async function changerInfos(infos: Infos): Promise<Etat> {
   const e = lire();
   const vide = (v?: string) => (v ? v : null);
   const profil = e.profil && { ...e.profil, ...propre, telephone: 'telephone' in propre ? vide(propre.telephone) : e.profil.telephone,
-    iban: 'iban' in propre ? vide(propre.iban) : e.profil.iban };
+    iban: 'iban' in propre ? vide(propre.iban) : e.profil.iban, wero_numero: 'wero_numero' in propre ? vide(propre.wero_numero) : e.profil.wero_numero };
   ecrire({ ...e, profil, attente: { ...e.attente, ...propre } });
+  try { return await synchroniser(); } catch { return lire(); }
+}
+
+/** « J'ai Wero » : tout de suite sur le téléphone, envoyé dès que possible (hors ligne aussi). */
+export async function changerWero(oui: boolean): Promise<Etat> {
+  const e = lire();
+  ecrire({ ...e, profil: e.profil && { ...e.profil, wero: oui }, attente: { ...e.attente, wero: oui } });
   try { return await synchroniser(); } catch { return lire(); }
 }
 

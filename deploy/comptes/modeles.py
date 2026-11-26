@@ -42,6 +42,10 @@ class Utilisateur(Base):
     telephone: Mapped[str | None] = mapped_column(String(50))
     # Facultatif, pour les remboursements (Buddy count) ; sans espaces, clé vérifiée (comme AppBase).
     iban: Mapped[str | None] = mapped_column(String(34))
+    # Wero (Seb 26/11) : case « J'ai Wero » ; numéro (ou mail) Wero s'il diffère du portable. Comme l'IBAN, montré
+    # seulement aux buddies d'une même sortie qui me doivent de l'argent (spec §7.18).
+    wero: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    wero_numero: Mapped[str | None] = mapped_column(String(100))
     # Super User (spec/buddies.md §7.17, comme AppBase) : au-dessus de tous les clubs et Groupes. Donné
     # seulement par la commande `python super_user.py <e-mail>` sur le VPS, jamais depuis l'appli.
     super_user: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
