@@ -690,6 +690,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'album' && album ? <UnAlbum x={album} carnet={vue.carnet} photos={photos.filter((p) => p.sortie === album.id)} onToast={onToast} onClose={onClose}
         onCarte={() => ouvrir(album)} onRetour={() => setVue(vue.carnet ? { ecran: 'carnet', id: album.id, groupe: vue.groupe } : { ecran: 'albums', groupe: vue.groupe })} />
       : vue.ecran === 'plannings' ? <Plannings plannings={plannings.filter((x) => !vue.groupe || x.groupe === vue.groupe)} groupes={groupes}
+      ici={groupes.find((x) => x.id === vue.groupe && x.nature === 'bande')}
       onOuvrir={(id) => setVue({ ecran: 'planning', id, groupe: vue.groupe })} onRemplir={(id) => setVue({ ecran: 'dispos', id, groupe: vue.groupe })}
       onNouveau={() => setVue({ ecran: 'nvPlanning', groupe: vue.groupe })} onClose={onClose}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />

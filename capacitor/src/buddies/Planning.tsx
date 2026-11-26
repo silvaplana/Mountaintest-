@@ -45,14 +45,14 @@ export function ARemplir({ p, onRemplir, avecNom = false }: { p: Planning; onRem
 }
 
 /** Les plannings d'une bande (ou de toutes mes bandes), avec « ＋ Planning ». */
-export function Plannings({ plannings, groupes, onOuvrir, onRemplir, onNouveau, onRetour, onClose }: {
-  plannings: Planning[]; groupes: Groupe[]; onOuvrir: (id: string) => void; onRemplir: (id: string) => void;
+export function Plannings({ plannings, groupes, ici, onOuvrir, onRemplir, onNouveau, onRetour, onClose }: {
+  plannings: Planning[]; groupes: Groupe[]; ici?: Groupe; onOuvrir: (id: string) => void; onRemplir: (id: string) => void;
   onNouveau: () => void; onRetour: () => void; onClose: () => void;
 }) {
   const auj = aujourdhui();
   return <div className="bd-corps">
     <div className="xp-head">
-      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Plannings</h2>
+      <button onClick={onRetour} aria-label="Retour">‹</button><h2>{ici ? `Plannings de ${ici.nom}` : 'Plannings'}</h2>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
     {plannings.map((p) => <div key={p.id} className="bd-planning-carte">
