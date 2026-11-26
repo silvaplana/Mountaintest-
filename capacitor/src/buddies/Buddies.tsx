@@ -186,8 +186,8 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     </div>
     <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
     <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
-    <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
+    <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
     <button aria-label="Buddy count" onClick={onExpenses}>💶</button>
     <button aria-label="Hébergement" onClick={onLodging}>🏨</button>
