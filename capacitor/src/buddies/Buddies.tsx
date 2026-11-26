@@ -238,8 +238,8 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11) ; appui long : garer ma
         voiture ici, ou l'enlever (Seb, 26/11). */}
     <button aria-label={garee ? 'Voyage en voiture · appui long : enlever ma voiture' : 'Voyage en voiture · appui long : garer ma voiture ici'}
-      data-help={garee ? 'Voyage · appui long : enlever ma voiture' : 'Voyage · appui long : garer ici'}
-      className={garee ? 'bd-col-voiture actif' : undefined} {...c('#c94141')} {...appuiLong(() => void basculerVoiture(onToast))}
+      data-help="Calcul des frais de transport · appui long : signaler où est garée ma voiture"
+      className={garee ? 'bd-col-voiture actif aide-long' : 'aide-long'} {...c('#c94141')} {...appuiLong(() => void basculerVoiture(onToast))}
       onClick={() => { if (!appui.current.long) onTravel(); }}>{neuves ? <VoitureIcon garee={garee} /> : <span className="bd-col-auto">🚗{garee && <i>📍</i>}</span>}</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Moi : mon compte" data-help="Mon compte et le support" {...c('#7a5bc4')} onClick={onAccount}>{ic(MOI, '👤')}</button>

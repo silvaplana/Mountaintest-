@@ -1578,6 +1578,7 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
   padding: 6px 10px; border-radius: 8px; white-space: nowrap; pointer-events: none;
 }
 .icones-gauche .bd-colonne.aide button::before { right: auto; left: calc(100% + 8px); }
+.bd-colonne.aide button.aide-long::before { white-space: normal; width: min(240px, calc(100vw - 100px)); text-align: left; }
 /* « Touche n'importe où » en haut, du côté opposé aux icônes : il ne chevauche plus aucune bulle (Seb 26/11). */
 .bd-aide-voile p, .help-close p.help-haut { position: absolute; left: 12px; right: auto; bottom: auto; top: calc(env(safe-area-inset-top) + 12px);
   max-width: 130px; margin: 0; background: #1d2421; color: #fff; border-radius: 10px; padding: 8px 10px; font-size: 13px; text-align: left; }
