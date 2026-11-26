@@ -97,6 +97,7 @@ COLONNES_AJOUTEES = [
     ("messages_buddies", "transfere", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("photos", "video", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("sorties", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
+    ("groupes", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
     ("utilisateurs", "super_user", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("utilisateurs", "prenom", "VARCHAR(100) NOT NULL DEFAULT ''"),
     ("utilisateurs", "nom", "VARCHAR(100) NOT NULL DEFAULT ''"),

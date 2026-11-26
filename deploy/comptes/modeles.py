@@ -94,6 +94,8 @@ class Groupe(Base):
     cree_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+    # Supprimé par un admin (Seb, 26 novembre) : caché de tous, rien n'est effacé.
+    supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Membre(Base):

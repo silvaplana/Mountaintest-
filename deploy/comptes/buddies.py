@@ -133,7 +133,7 @@ def groupe_de(s: Session, u: Utilisateur, gid: Any, admin: bool = False) -> Grou
     if gid == "me-time":  # ancien téléphone
         raise Refus("Choisis un groupe")
     g = s.get(Groupe, uuid.UUID(str(gid)))
-    if g is None:
+    if g is None or g.supprime_le is not None:
         raise Refus("Groupe inconnu")
     # droits.py : un admin de son club ou le Super User y agit aussi sans en être membre.
     chef = droits.admin_du_groupe(s, u, g)
@@ -156,6 +156,18 @@ def creer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
     s.add(Groupe(id=gid, nom=nom, nature="bande", photo=photo_valide(op.get("photo")), cree_par=u.id))
     s.flush()
     s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role=droits.ADMIN_PRINCIPAL))
+
+
+def supprimer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
+    """Supprimer un groupe (un admin, Seb 26 novembre) : caché de tous avec ses sorties, rien n'est effacé."""
+    g = s.get(Groupe, uuid.UUID(str(op["groupe"])))
+    if g is None or g.supprime_le is not None:
+        return  # déjà fait
+    g = groupe_de(s, u, op["groupe"], admin=True)
+    if g.nature != "bande":
+        raise Refus("Seul un groupe de buddies se supprime")
+    g.supprime_le = maintenant()
+    toucher(g)
 
 
 def renommer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
@@ -192,7 +204,7 @@ def inviter(s: Session, u: Utilisateur, op: dict) -> None:
 
 def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
     inv = s.scalar(select(Invitation).where(Invitation.code == str(op.get("code") or "")))
-    if inv is None or inv.groupe_id is None:
+    if inv is None or inv.groupe_id is None or s.get(Groupe, inv.groupe_id).supprime_le is not None:
         raise Refus("Invitation inconnue")
     if inv.sortie_id:  # une sortie de Me Time : participant seulement
         if s.get(Participant, (inv.sortie_id, u.id)) is not None:
@@ -1071,7 +1083,7 @@ OPERATIONS = {
     "retirer": retirer, "nommer_admin": nommer_admin, "retirer_admin": retirer_admin, "transmettre": transmettre,
     "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
-    "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
+    "supprimer_sortie": supprimer_sortie, "supprimer_groupe": supprimer_groupe, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense, "buddy_count": buddy_count,
     "epingle": epingle, "position": position, "voiture": voiture, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
@@ -1120,11 +1132,13 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             refus.append({"id": op.get("id"), "raison": str(e) if isinstance(e, Refus) else "Opération mal formée"})
     s.commit()
     s.info["nouveaux_messages"] = nouveaux  # pour les notifications (serveur.py, après la réponse)
-    mes = s.scalars(select(Groupe).join(Membre, Membre.groupe_id == Groupe.id).where(Membre.utilisateur_id == u.id)).all()
+    mes = s.scalars(select(Groupe).join(Membre, Membre.groupe_id == Groupe.id)
+                    .where(Membre.utilisateur_id == u.id, Groupe.supprime_le.is_(None))).all()
     d = date(depuis) if depuis else None
     neuf = lambda t: d is None or date(iso(t)) >= d - MARGE  # noqa: E731
     gids = [g.id for g in mes]
-    sorties = s.scalars(select(Sortie).where(Sortie.supprime_le.is_(None), or_(
+    supprimes = select(Groupe.id).where(Groupe.supprime_le.is_not(None))
+    sorties = s.scalars(select(Sortie).where(Sortie.supprime_le.is_(None), Sortie.groupe_id.not_in(supprimes), or_(
         Sortie.groupe_id.in_(gids),
         Sortie.id.in_(select(Participant.sortie_id).where(Participant.utilisateur_id == u.id))))).all()
     sids = [so.id for so in sorties]
