@@ -599,11 +599,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
    seule animation (Seb 26/11 : pas de rectangle blanc qui apparaît d'abord). */
 .bd-colonne { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 10px 0 2px; overflow: visible;
   position: absolute; z-index: 1; right: 0; top: calc(env(safe-area-inset-top) + 10px); bottom: calc(env(safe-area-inset-bottom) + 16px);
-  width: 68px; box-sizing: border-box; background: var(--bg); transition: transform .35s ease; }
+  width: 68px; box-sizing: border-box; background: none; pointer-events: none; transition: transform .35s ease; }
+.bd-colonne button { pointer-events: auto; }
 .bd-colonne.rangee { transform: translateX(68px); }
-/* Ouverte, une ombre légère la détache de l'écran qu'elle recouvre. */
-.bd-colonne:not(.rangee) { box-shadow: -2px 0 10px #0002; }
-.icones-gauche .bd-colonne:not(.rangee) { box-shadow: 2px 0 10px #0002; }
 /* ✕ au-dessus de la flèche, tout en haut (Seb 26/11) : rangée, le haut de la colonne est ramené à l'écran. */
 .bd-col-haut { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: none; transition: transform .35s ease; }
 .bd-colonne.rangee .bd-col-haut { transform: translateX(-68px); }
@@ -617,6 +615,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .icones-gauche .bd-colonne { right: auto; left: 0; }
 /* Même taille que les icônes de la carte (.quick, 44 px), Seb 26/11. */
 .bd-colonne button { width: 44px; height: 44px; min-height: 0; border-radius: 50%; padding: 0; font-size: 22px; background: var(--card); border: 0; flex: none; }
+/* Pas de panneau derrière (Seb 26/11) : seulement les ronds, avec l'ombre des icônes de la carte pour rester lisibles. */
+.bd-colonne button { box-shadow: 0 1px 6px #0004; }
 .bd-colonne .bd-col-fleche { display: flex; align-items: center; justify-content: center; color: #1d2421; }
 .bd-colonne .bd-col-fleche { width: 56px; height: 56px; }
 /* ✕ en pastille basse, comme le ✕ de la carte (.quick button.toggle). */
