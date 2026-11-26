@@ -389,8 +389,8 @@ function OutilsBuddyTime({ x, e, onSupprimer, onToast, surImage = false }: {
 }) {
   const [nommer, setNommer] = useState(false);
   return <span className={`bd-outils${surImage ? ' sur-image' : ''}`}>
-    <button onClick={() => setNommer(true)} aria-label={`Changer le nom de ${x.nom}`}><PencilIcon size={22} /></button>
-    {peutSupprimer(x, e) && <button onClick={() => onSupprimer(x)} aria-label={`Supprimer ${x.nom}`}><TrashIcon size={22} /></button>}
+    <button onClick={() => setNommer(true)} aria-label={`Changer le nom de ${x.nom}`}><PencilIcon size={18} /></button>
+    {peutSupprimer(x, e) && <button onClick={() => onSupprimer(x)} aria-label={`Supprimer ${x.nom}`}><TrashIcon size={18} /></button>}
     {nommer && <FeuilleNom titre="Nom de la sortie" nom={x.nom} onEnregistrer={(n) => renommerSortie(x.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
   </span>;
 }
@@ -645,7 +645,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
       <span className="bd-titre" onClick={() => setNommer(!me)}><b>{me ? 'Seul' : g.nom}</b><small>{me ? 'Mes sorties à moi' : `Groupe · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
-      {!me && <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={22} /></button>}
+      {!me && <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={18} /></button>}
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
     {nommer && <FeuilleNom titre="Nom du groupe" nom={g.nom}
@@ -891,8 +891,8 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
     <div className="bd-carte-haut">
       <span className="bd-texte" onClick={() => setTitre(nom)}><b>{nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
         : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
-      <button onClick={() => setTitre(nom)} aria-label="Changer le nom"><PencilIcon size={22} /></button>
-      {peutSupprimer(x, eb) && <button onClick={supprimer} aria-label="Supprimer la sortie"><TrashIcon size={22} /></button>}
+      <button onClick={() => setTitre(nom)} aria-label="Changer le nom"><PencilIcon size={18} /></button>
+      {peutSupprimer(x, eb) && <button onClick={supprimer} aria-label="Supprimer la sortie"><TrashIcon size={18} /></button>}
     </div>
     <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}${sheet.classe}`}>
       <div {...sheet.prise} aria-label="Régler la hauteur du bandeau"><div className="handle" /></div>
