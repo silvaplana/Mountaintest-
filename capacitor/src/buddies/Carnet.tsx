@@ -119,7 +119,7 @@ const chiffresFiche = (f: Pick<Fiche, 'depart' | 'duree' | 'distance' | 'denivel
 ];
 
 /** Le carnet (écrans 12 et 13) : photos choisies, récits signés, trace, profil et chiffres, fiches des jours, « Le pratique ». */
-export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcrire, onChanger, onCarte, onCount, onToast }: {
+export function UnCarnet({ x, photos, traces, depenses, onRetour, onEcrire, onChanger, onCarte, onCount, onToast }: {
   x: Sortie; photos: PhotoBuddy[]; traces: TraceBuddy[]; depenses: Depense[]; onRetour: () => void; onClose: () => void; onEcrire: () => void;
   onChanger: () => void; onCarte: () => void; onCount: () => void; onToast: (m: string) => void;
 }) {
@@ -149,7 +149,6 @@ export function UnCarnet({ x, photos, traces, depenses, onRetour, onClose, onEcr
     <div className="bd-couverture" style={x.photo ? { background: `linear-gradient(#0000 35%, #000a), center/cover url("${x.photo}")` } : undefined}>
       {!x.photo && couverture && <span className="bd-couverture-image" role="button" aria-label="Voir la photo en grand" onClick={() => setOuverte(choix.photos.indexOf(couverture))}><Image p={couverture} taille="grande" className="bd-couverture-image" /></span>}
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <button className="bd-fermer" onClick={onClose} aria-label="Fermer">✕</button>
       <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)} · {x.participants.map((p) => p.pseudo).join(', ')}</small></span>
     </div>
     {photos.length > 0 && <>
