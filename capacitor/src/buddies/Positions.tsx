@@ -135,7 +135,8 @@ export function PositionIcon({ on, size = 30 }: { on: boolean; size?: number }) 
   return <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor"
     strokeWidth="2.6" strokeLinecap="round" overflow="visible">
     <circle cx="24" cy="24" r="5" fill="currentColor" stroke="none" />
-    <g opacity={on ? undefined : 0.35} strokeWidth={on ? 3.6 : 2.6}>
+    {/* Allumé : même fond clair, ondes en noir gras (Seb, 26/11 : le rond ardoise était trop sombre). */}
+    <g opacity={on ? undefined : 0.35} strokeWidth={on ? 4.2 : 2.6}>
       <path d="M15 15a13 13 0 0 0 0 18M33 15a13 13 0 0 1 0 18" />
       <path d="M9 10a20 20 0 0 0 0 28M39 10a20 20 0 0 1 0 28" />
     </g>

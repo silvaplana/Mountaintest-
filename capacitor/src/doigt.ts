@@ -34,3 +34,13 @@ export function decalage(): [number, number] {
   const m = main();
   return m === 'aucun' ? [0, 0] : [m === 'gaucher' ? COTE_PX : -COTE_PX, -DOIGT_PX];
 }
+
+/** Icônes de la colonne Buddies : nouvelles (au trait) ou anciennes (émojis en couleur), case de 👤 Mon compte ;
+ * anciennes par défaut (Seb, 26/11). Buddy count, hébergement et Ma position restent les mêmes. */
+export function nouvellesIcones(): boolean {
+  try { return localStorage.getItem('nouvellesIcones') === '1'; } catch { return false; }
+}
+export function choisirNouvellesIcones(oui: boolean) {
+  try { localStorage.setItem('nouvellesIcones', oui ? '1' : '0'); } catch { /* rien : anciennes */ }
+  window.dispatchEvent(new Event('nouvellesIcones'));
+}
