@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 import droits
 from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
-                     Position, PositionGroupe, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, maintenant)
+                     Position, PositionGroupe, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
@@ -699,6 +699,29 @@ def position(s: Session, u: Utilisateur, op: dict) -> None:
     p.prise_le, p.modifie_le = t, maintenant()
 
 
+def voiture(s: Session, u: Utilisateur, op: dict) -> None:
+    """🚗 Garer ma voiture ici (appui long) ou l'enlever ; elle s'efface seule à minuit (`jusqu`, un jour au plus)."""
+    v = s.get(Voiture, u.id)
+    if not op.get("garee"):
+        t = ms(op["quand"])
+        if v is not None and v.garee_le <= t < v.jusqu:
+            v.jusqu, v.modifie_le = t, maintenant()
+        return
+    t = ms(op["garee_le"])
+    if v is not None and v.garee_le >= t:
+        return  # renvoyée, ou plus ancienne que la dernière
+    lat, lon = float(op["lat"]), float(op["lon"])
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError("position")
+    jusqu = min(ms(op["jusqu"]), t + JOUR_MS)
+    if jusqu <= t:
+        raise Refus("Heure de fin avant le début")
+    if v is None:
+        s.add(Voiture(utilisateur_id=u.id, lat=round(lat, 6), lon=round(lon, 6), garee_le=t, jusqu=jusqu))
+    else:
+        v.lat, v.lon, v.garee_le, v.jusqu, v.modifie_le = round(lat, 6), round(lon, 6), t, jusqu, maintenant()
+
+
 def proposer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     """Hébergement (§5.11) : proposé dans une sortie depuis la recherche (panneau de partage, écran 23)."""
     hid = uuid.UUID(str(op["hebergement"]))
@@ -989,7 +1012,7 @@ OPERATIONS = {
     "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense,
-    "epingle": epingle, "position": position, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
+    "epingle": epingle, "position": position, "voiture": voiture, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
     "message": message, "retirer_message": retirer_message, "duo": duo, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
 }
@@ -1070,6 +1093,10 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     positions_g = s.scalars(select(PositionGroupe).join(Membre, (Membre.groupe_id == PositionGroupe.groupe_id)
                                                         & (Membre.utilisateur_id == PositionGroupe.utilisateur_id))
                             .where(PositionGroupe.groupe_id.in_(gids), PositionGroupe.modifie_le > debut - GARDE_POSITIONS)).all()
+    # 🚗 Voitures garées : la mienne et celles des membres de mes groupes, tant qu'elles sont là.
+    copains = select(Membre.utilisateur_id).where(Membre.groupe_id.in_(gids))
+    voitures = s.scalars(select(Voiture).where(or_(Voiture.utilisateur_id == u.id, Voiture.utilisateur_id.in_(copains)),
+                                               Voiture.modifie_le > debut - GARDE_POSITIONS)).all()
     return {"curseur": iso(debut), "moi": str(u.id), "roles": droits.vue_roles(u), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
@@ -1082,7 +1109,8 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
             "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, []), votes.get(m.id, []), fichiers.get(m.fichier_id)) for m in neufs],
             "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
-            "positions": [vue_position(x) for x in [*positions, *positions_g]], "appels": appels_en_cours(s, gids, sids),
+            "positions": [vue_position(x) for x in [*positions, *positions_g]],
+            "voitures": [{"qui": str(v.utilisateur_id), "lat": v.lat, "lon": v.lon, "garee_le": v.garee_le, "jusqu": v.jusqu} for v in voitures], "appels": appels_en_cours(s, gids, sids),
             "paiements": paiements(s, u, depenses), "refus": refus}
 
 

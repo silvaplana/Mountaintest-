@@ -21,7 +21,7 @@ import { appliquerIcones } from './doigt';
 import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
-import { PositionsBuddiesSurCarte, useEpingle } from './buddies/Positions';
+import { PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { montrer } from './buddies/appel';
 import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
@@ -1440,6 +1440,7 @@ export function App() {
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onCarte={montrerBuddies} />}
       {pointBuddy && !buddies && <PointSurCarte map={map} p={pointBuddy} />}
+      <VoituresSurCarte map={map} />
       {positionsBuddy && !buddies && <PositionsBuddiesSurCarte key={positionsBuddy} map={map} centre={positionsBuddy} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}
         onRetour={retourSortie}

@@ -304,6 +304,20 @@ class Position(Base):
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
 
 
+class Voiture(Base):
+    """🚗 Ma voiture garée (Seb, 26/11) : une par buddy, vue par les membres de ses groupes ; oubliée à minuit
+    (`jusqu`, l'heure du téléphone). Heures en ms (epoch)."""
+
+    __tablename__ = "voitures"
+
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    lon: Mapped[float] = mapped_column(Float, nullable=False)
+    lat: Mapped[float] = mapped_column(Float, nullable=False)
+    garee_le: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    jusqu: Mapped[int] = mapped_column(BigInteger, nullable=False)  # minuit, ou l'heure où on l'a enlevée
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
 class PositionGroupe(Base):
     """Position partagée avec un groupe, hors sortie (📍 de la colonne de Buddies, spec/buddies.md §7.14) :
     même épingle et mêmes règles que `positions`, mais vue par les membres du groupe. Heures en ms (epoch)."""
