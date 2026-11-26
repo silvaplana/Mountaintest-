@@ -184,6 +184,9 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .quick-reste:not(.ouverte) { transform: translateX(80px); opacity: 0; pointer-events: none; }
 .icones-gauche .quick-reste { align-items: flex-start; }
 .icones-gauche .quick-reste:not(.ouverte) { transform: translateX(-80px); }
+/* Rangées hors de l'écran, elles élargissaient la page : la carte glissait et laissait une bande vide à droite, et la
+   fenêtre « Nouvelle version » n'était plus centrée (Seb 26/11). On coupe ce qui dépasse de la colonne. */
+.quick:not(.help) { overflow-x: clip; }
 .quick.help .pair { flex-direction: column; align-items: flex-end; }
 /* Ligne des calques : si elle ne tient pas dans l'écran, elle passe sur 2 lignes, la 2e commence sous la pente
    (Seb, 26/11). Calques reste en bout de ligne ; la hauteur reste celle d'un bouton pour ne pas pousser la colonne. */
@@ -629,8 +632,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-colonne:not(.rangee) + .bd-corps { width: calc(100% - 68px); margin-right: 68px; }
 .icones-gauche .bd-colonne:not(.rangee) + .bd-corps { margin-right: 0; margin-left: 68px; }
 .buddies > .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { box-sizing: border-box; transition: padding .35s ease; }
-.bd-colonne.rangee + .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 60px; }
-.icones-gauche .bd-colonne.rangee + .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 0; padding-left: 60px; }
+.bd-colonne.rangee + .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 70px; }
+.icones-gauche .bd-colonne.rangee + .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 0; padding-left: 70px; }
 .icones-gauche .bd-colonne { right: auto; left: 0; }
 /* Même taille que les icônes de la carte (.quick, 44 px), Seb 26/11. */
 .bd-colonne button { width: 44px; height: 44px; min-height: 0; border-radius: 50%; padding: 0; font-size: 22px; background: var(--card); border: 0; flex: none; }

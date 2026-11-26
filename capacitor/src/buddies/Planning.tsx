@@ -66,7 +66,7 @@ export function Plannings({ plannings, groupes, onOuvrir, onRemplir, onNouveau, 
     </div>)}
     {!plannings.length && <p className="bd-vide">Une saison à organiser ? Propose des dates à ta bande : chacun coche ses dispos, vous voyez d'un coup d'œil les bons week-ends.</p>}
     <span style={{ flex: 1 }} />
-    <div className="bd-plus"><button className="primary" onClick={onNouveau}><span className="bd-icone">📅</span>
+    <div className="bd-plus"><button className="primary" onClick={onNouveau}>
       <span className="bd-plus-texte"><b>＋ Planning</b></span></button></div>
   </div>;
 }
