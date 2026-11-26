@@ -388,6 +388,14 @@ Règles :
 Termine en appelant l'outil repondre."""
 
 
+def message_simple(e: Exception) -> str:
+    """Erreur de l'API Claude → phrase simple pour l'écran ; le détail va dans « docker logs »."""
+    print(f"Erreur Claude : {e!r}", file=sys.stderr, flush=True)
+    if isinstance(e, (anthropic.RateLimitError, anthropic.InternalServerError, anthropic.APIConnectionError)):
+        return "Bud est très demandé, réessaie dans une minute"
+    return "Bud a eu un souci, réessaie plus tard"
+
+
 OUTIL_FACTURE = {
     "name": "donner_la_facture",
     "description": "Renvoie ce qui est lu sur la facture ou le ticket.",
@@ -408,11 +416,11 @@ OUTIL_FACTURE = {
 def lire_facture(image_b64: str, media: str):
     """Une photo de facture → titre, montant, date (Claude, vision). Renvoie (résultat, coût, jetons)."""
     r = client.messages.create(
-        model=MODELE, max_tokens=1000,
-        tools=[OUTIL_FACTURE], tool_choice={"type": "tool", "name": OUTIL_FACTURE["name"]},
+        model=MODELE, max_tokens=4000, output_config={"effort": "low"},
+        tools=[OUTIL_FACTURE],
         messages=[{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": media, "data": image_b64}},
-            {"type": "text", "text": "Lis cette facture ou ce ticket de caisse : titre court, total payé TTC en euros, date."},
+            {"type": "text", "text": "Lis cette facture ou ce ticket de caisse : titre court, total payé TTC en euros, date. Réponds avec l'outil donner_la_facture."},
         ]}],
     )
     u = r.usage
@@ -450,15 +458,15 @@ def choisir_photos(photos: list, combien: int):
         "les gens, moments de vie, du début à la fin de la sortie. Écarte les photos floues, ratées ou sans intérêt "
         "(captures d'écran, sol, doigt devant l'objectif). Réponds avec l'outil donner_le_choix.")})
     r = client.messages.create(
-        model=MODELE, max_tokens=500,
-        tools=[OUTIL_CHOIX_PHOTOS], tool_choice={"type": "tool", "name": OUTIL_CHOIX_PHOTOS["name"]},
+        model=MODELE, max_tokens=4000, output_config={"effort": "low"},
+        tools=[OUTIL_CHOIX_PHOTOS],
         messages=[{"role": "user", "content": contenu}],
     )
     u = r.usage
     cout = ((u.input_tokens or 0) * PRIX["entree"] + (u.output_tokens or 0) * PRIX["sortie"]) / 1e6
     appel = next((b for b in r.content if b.type == "tool_use"), None)
     if not appel:
-        raise RuntimeError("pas de choix")
+        raise RuntimeError("Bud n’a pas su choisir, réessaie")
     ids = []
     for k in appel.input.get("choix", []):
         if isinstance(k, int) and 1 <= k <= len(photos) and photos[k - 1]["id"] not in ids:
@@ -2234,7 +2242,7 @@ class Relais(BaseHTTPRequestHandler):
             r = chercher(z)
             r["secondes"] = round(time.time() - t0)
         except anthropic.APIError as e:
-            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
+            return self._json(502, {"erreur": message_simple(e)})
         except Exception as e:  # noqa: BLE001 - on renvoie l'erreur à l'appli
             return self._json(502, {"erreur": str(e)})
         with verrou:
@@ -2364,7 +2372,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             r, cout, jetons = lire_facture(img, media)
         except anthropic.APIError as e:
-            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
+            return self._json(502, {"erreur": message_simple(e)})
         except Exception as e:  # noqa: BLE001
             return self._json(502, {"erreur": str(e)})
         with verrou:
@@ -2394,7 +2402,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             ids, cout, jetons = choisir_photos(photos, min(combien, len(photos)))
         except anthropic.APIError as e:
-            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
+            return self._json(502, {"erreur": message_simple(e)})
         except Exception as e:  # noqa: BLE001
             return self._json(502, {"erreur": str(e)})
         with verrou:
@@ -2424,7 +2432,7 @@ class Relais(BaseHTTPRequestHandler):
             r, cout, jetons = appeler(CONSIGNE_BUD, f"Aujourd'hui : {jour}\n\n{contexte}\n\n" + (f"Sites à regarder en priorité pour un hébergement : {', '.join(sites)}\n\n" if sites else "") + f"Question : {question}", OUTIL_BUD, 4,
                                       locaux={"chercher_skitour": (OUTIL_SKITOUR, lambda e: skitour_chercher(str(e.get("nom", ""))[:80], 5))})
         except anthropic.APIError as e:
-            return self._json(502, {"erreur": f"Bud ne répond pas : {getattr(e, 'message', e)}"})
+            return self._json(502, {"erreur": message_simple(e)})
         except Exception as e:  # noqa: BLE001
             return self._json(502, {"erreur": f"Bud ne répond pas : {e}"})
         with verrou:
@@ -2506,7 +2514,7 @@ class Relais(BaseHTTPRequestHandler):
         try:
             r, cout, jetons = appeler(consigne, demande, outil, rech)
         except anthropic.APIError as e:
-            return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
+            return self._json(502, {"erreur": message_simple(e)})
         except Exception as e:  # noqa: BLE001 - on renvoie l'erreur à l'appli
             return self._json(502, {"erreur": str(e)})
         r = {**r, "modele": MODELE, "cout_usd": cout}
