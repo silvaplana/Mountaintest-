@@ -3,11 +3,11 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
-import { couleur, Natif, useBuddies, Visage } from './Buddies';
+import { Natif, useBuddies, Visage } from './Buddies';
 import { detail, etiquette, heureCourte, opacite, pendant, reperes, reperesTous, type Repere } from './positions';
 import {
-  appliquer, aujourdhui, autreDuDuo, enfoncerEpingle, envoyerPosition, memeCible, mesEpingles, monEpingle, positions, releverEpingle, vue,
-  type CiblePosition, type Groupe, type Sortie,
+  appliquer, aujourdhui, autreDuDuo, enfoncerEpingle, envoyerPosition, finEpingle, memeCible, mesEpingles, monEpingle, positions, releverEpingle, vue,
+  type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
 /**
@@ -21,7 +21,10 @@ function useReperes(x: Sortie) {
   return reperes(x, positions(e), e.moi ?? 'moi');
 }
 
-/** Les visages sur la carte, avec « toi », « il y a 4 min » ou l'heure. */
+/** « Marc Dupont » → « MD », « Seb » → « S ». */
+export const initiales = (pseudo: string) => pseudo.trim().split(/\s+/).slice(0, 2).map((m) => m[0] ?? '').join('').toUpperCase();
+
+/** Les buddies sur la carte : une tête d'épingle à leurs initiales et l'heure de leur dernière position. */
 export function PositionsSurCarte({ map, x }: { map: MlMap | null; x: Sortie }) {
   return <VisagesSurCarte map={map} rs={useReperes(x)} />;
 }
@@ -31,17 +34,17 @@ function VisagesSurCarte({ map, rs }: { map: MlMap | null; rs: Repere[] }) {
   useEffect(() => {
     if (!map || !rs.length) return;
     const ms = rs.map((r) => {
+      // Tête d'épingle aux initiales, piquée sur son aiguille, et l'heure de la dernière position (Seb, 26/11).
       const el = document.createElement('div');
       el.className = 'bd-pos-carte';
       el.style.opacity = String(opacite(r));
-      const v = document.createElement('span');
-      v.className = 'bd-visage';
-      v.style.background = couleur(r.b.id);
-      if (r.b.photo) { const i = document.createElement('img'); i.src = r.b.photo; i.alt = ''; v.appendChild(i); } else v.textContent = r.b.pseudo.slice(0, 1).toUpperCase();
+      const t = document.createElement('span');
+      t.className = 'bd-tete';
+      t.textContent = initiales(r.b.pseudo);
       const b = document.createElement('b');
       b.className = r.moi ? 'moi' : r.actif ? '' : 'vieux';
-      b.textContent = etiquette(r);
-      el.append(v, b);
+      b.textContent = r.moi ? 'toi' : heureCourte(r.p.prise_le);
+      el.append(t, document.createElement('i'), b);
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([r.p.lon, r.p.lat]).addTo(map);
     });
     return () => ms.forEach((m) => m.remove());
@@ -60,7 +63,7 @@ export function BandePositions({ x, onToast }: { x: Sortie; onToast: (m: string)
   const enfoncer = async () => {
     if (!(await autoriser(onToast))) return;
     enfoncerEpingle([{ sortie: x.id }]);
-    onToast('📍 Tes buddies te voient jusqu\'à ce soir');
+    onToast(messagePartage(x.nom));
   };
   return <>
     {autres.map((r) => <div key={r.b.id} className={`bd-pos-ligne${r.actif ? '' : ' vieux'}`}>
@@ -72,11 +75,31 @@ export function BandePositions({ x, onToast }: { x: Sortie; onToast: (m: string)
     {ici ? <div className="bd-epingle oui">
       <span className="bd-epingle-icone">📍</span>
       <span className="bd-texte"><b>Mes buddies me voient</b><small>depuis {heureCourte(ici.depuis)} · s'arrête seul à {heureCourte(ici.jusqu)}</small></span>
-      <button onClick={() => { releverEpingle({ sortie: x.id }); onToast('📍 Épingle relevée : tes buddies ne te voient plus'); }}>Arrêter</button>
+      <button onClick={() => { releverEpingle({ sortie: x.id }); onToast(MESSAGE_ARRET); }}>Arrêter</button>
     </div> : <button className="primary bd-grand" onClick={() => void enfoncer()}>📍 Mes buddies peuvent me voir</button>}
     <p className="hint">{ici ? 'Sans réseau, tes positions sont gardées avec leur heure et partent au retour.'
-      : 'Ta position part toutes les 5 minutes, jusqu\'à ce soir, seulement vers les buddies de cette sortie.'}</p>
+      : 'Ta position part toutes les 5 minutes, jusqu\'à 19 h, seulement vers les buddies de cette sortie.'}</p>
   </>;
+}
+
+/** « 19 h », « 23 h 59 ». */
+const heureRonde = (ms: number) => heureCourte(ms).replace(/ h 00$/, ' h');
+
+/** Le message de 3 secondes quand ma position part (Seb, 26/11). */
+export const messagePartage = (nom: string, jusqu = finEpingle()) =>
+  `Ta position est partagée : les buddies de ${nom} te voient jusqu'à ${heureRonde(jusqu)}, s'il y a du réseau.`;
+const MESSAGE_ARRET = "Ta position n'est plus partagée : plus personne ne te voit.";
+
+/**
+ * Le bouton de la colonne, un interrupteur (Seb, 26/11) : allumée, on l'éteint partout ; éteinte, on partage avec
+ * le groupe ou la sortie ouverte. Hors groupe et hors sortie, on ouvre l'écran pour choisir qui.
+ */
+export async function basculerPosition(e: Etat, ici: { cible: CiblePosition; nom: string } | undefined, onToast: (m: string) => void, choisir: () => void) {
+  if (mesEpingles(e).length) { releverEpingle(); onToast(MESSAGE_ARRET); return; }
+  if (!ici) { choisir(); return; }
+  if (!(await autoriser(onToast))) return;
+  enfoncerEpingle([ici.cible]);
+  onToast(messagePartage(ici.nom));
 }
 
 async function autoriser(onToast: (m: string) => void) {
@@ -93,12 +116,19 @@ function useTous() {
   return reperesTous(positions(e), gens, e.moi ?? 'moi');
 }
 
-/** Icône 📍 au trait fin (comme le micro), pour la colonne de Buddies. */
-export function PinIcon({ size = 26 }: { size?: number }) {
-  return <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor"
-    strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z" />
-    <circle cx="12" cy="10" r="2.4" />
+/**
+ * Ma position dans la colonne (choix 4 de Seb, 26/11) : un buddy au trait ; allumée, des ondes de chaque côté battent
+ * doucement (animation CSS `.bd-ondes`, presque rien pour la batterie : c'est le GPS qui coûte).
+ */
+export function BuddyOndesIcon({ on, size = 30 }: { on: boolean; size?: number }) {
+  return <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor"
+    strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" overflow="visible">
+    <circle cx="24" cy="17" r="5.5" />
+    <path d="M14 38a10 10 0 0 1 20 0" />
+    {on && <g className="bd-ondes">
+      <path d="M10 14a16 16 0 0 0 0 16M38 14a16 16 0 0 1 0 16" />
+      <path d="M5 10a22 22 0 0 0 0 24M43 10a22 22 0 0 1 0 24" />
+    </g>}
   </svg>;
 }
 
@@ -131,8 +161,9 @@ export function MaPosition({ groupes, sorties, ici, onVoir, onRetour, onClose, o
     ?? groupes.find((g) => g.id === p.groupe)?.nom ?? sorties.find((x) => x.id === p.sortie)?.nom ?? '';
   const enfoncer = async () => {
     if (!(await autoriser(onToast))) return;
-    enfoncerEpingle(choix.filter((o) => qui.has(cle(o.c))).map((o) => o.c));
-    onToast('📍 Tes buddies te voient jusqu\'à ce soir');
+    const l = choix.filter((o) => qui.has(cle(o.c)));
+    enfoncerEpingle(l.map((o) => o.c));
+    onToast(messagePartage(l.map((o) => o.nom).join(', ')));
   };
   return <div className="bd-corps">
     <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>📍 Position</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
@@ -146,7 +177,7 @@ export function MaPosition({ groupes, sorties, ici, onVoir, onRetour, onClose, o
       <span className="bd-epingle-icone">📍</span>
       <span className="bd-texte"><b>Mes buddies me voient</b>
         <small>{mes.map(nomDe).filter(Boolean).join(', ')} · depuis {heureCourte(mes[0].depuis)} · s'arrête seul à {heureCourte(mes[0].jusqu)}</small></span>
-      <button onClick={() => { releverEpingle(); onToast('📍 Épingle relevée : tes buddies ne te voient plus'); }}>Arrêter</button>
+      <button onClick={() => { releverEpingle(); onToast(MESSAGE_ARRET); }}>Arrêter</button>
     </div> : <>
       <h3 className="bd-section">Qui peut me voir ?</h3>
       {choix.length ? <div className="bd-qui bd-qui-noms">
@@ -158,7 +189,7 @@ export function MaPosition({ groupes, sorties, ici, onVoir, onRetour, onClose, o
       <button className="primary bd-grand" disabled={!qui.size} onClick={() => void enfoncer()}>📍 Mes buddies peuvent me voir</button>
     </>}
     <p className="hint">{mes.length ? 'Sans réseau, tes positions sont gardées avec leur heure et partent au retour.'
-      : 'Ta position part toutes les 5 minutes, jusqu\'à ce soir, seulement vers les buddies choisis.'}</p>
+      : 'Ta position part toutes les 5 minutes, jusqu\'à 19 h, seulement vers les buddies choisis.'}</p>
   </div>;
 }
 

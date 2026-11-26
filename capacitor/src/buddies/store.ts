@@ -552,10 +552,10 @@ export function enregistrerDepense(d: { depense?: string; sortie: string; titre:
   ajouter({ type: 'depense', ...d, depense, titre: d.titre.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Dépense', montant: Math.round(d.montant) });
   return depense;
 }
-/** L'épingle se relève seule ce soir à 22 h (à minuit si on l'enfonce après 21 h). */
+/** L'épingle se relève seule ce soir à 19 h (Seb, 26/11 ; à minuit si on l'enfonce après 18 h). */
 export function finEpingle(d = new Date()): number {
-  const f = new Date(d); f.setHours(22, 0, 0, 0);
-  if (d.getHours() >= 21) f.setHours(23, 59, 59, 0);
+  const f = new Date(d); f.setHours(19, 0, 0, 0);
+  if (d.getHours() >= 18) f.setHours(23, 59, 59, 0);
   return f.getTime();
 }
 /** 📍 Enfoncer l'épingle dans cette sortie ou ces groupes (et la relever ailleurs : une seule épingle à la fois). */
