@@ -1397,3 +1397,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 /* 🐻 Bud a choisi les photos du carnet : la ligne avec « Annuler » */
 .bd-bud-choix { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 17px; }
 .bd-bud-choix .bd-lien { margin-left: auto; flex: none; }
+/* − [🐻 Bud choisit les n meilleures] ＋ */
+.bd-bud-nombre { display: flex; align-items: stretch; gap: 8px; }
+.bd-bud-nombre .bd-grand { flex: 1 !important; }
+.bd-bud-nombre > button:not(.bd-grand) { flex: none; width: 56px; min-height: 56px; font-size: 26px; border-radius: 14px; }
+/* Après le choix de Bud : les photos sans ⭐ restent là, en plus pâle (pas dans le carnet de la sortie). */
+.bd-vignette.pale img { opacity: .4; }
