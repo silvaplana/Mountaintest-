@@ -18,6 +18,9 @@ import { RELIEF_SOURCE } from './shade/terrain';
 
 /** Zoom à partir duquel on écrit les étiquettes des sorties (sommets), puis montre les parkings : de loin, des points seuls. */
 
+/** Vert du calque « Hors ligne » : zones gardées et traces, la même couleur (Seb, 26/11). */
+const OFFLINE_GREEN = '#0f7a45';
+
 export interface MapViewProps {
   baseLayer: BaseMode;
   showSlopes: boolean;
@@ -27,6 +30,11 @@ export interface MapViewProps {
   droneZones: GeoJSON.FeatureCollection;
   /** « Hors ligne » ouvert : carrés déjà gardés sur le téléphone, en vert. */
   offlineCover: GeoJSON.FeatureCollection | null;
+  /**
+   * Calque « Hors ligne » (Seb, 26/11) : voile sur ce qui n'est pas gardé, bord vert de ce qui l'est,
+   * et toutes les traces gardées dans le même vert. Rien n'y est touchable, c'est juste un calque. Null = éteint.
+   */
+  offlineLayer: { veil: GeoJSON.FeatureCollection; edge: GeoJSON.FeatureCollection; traces: GeoJSON.FeatureCollection } | null;
   onDroneZone?: (text: string) => void;
   recorded: TrackPoint[];
   imported: TrackPoint[];
@@ -157,7 +165,8 @@ export function MapView(props: MapViewProps) {
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailEnds: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
-          forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' }, droneZones: { type: 'geojson', data: EMPTY }, offlineCover: { type: 'geojson', data: EMPTY }, relief: RELIEF_SOURCE },
+          forests: { type: 'geojson', data: EMPTY, attribution: '© IGN – BD Forêt® V2' }, droneZones: { type: 'geojson', data: EMPTY }, offlineCover: { type: 'geojson', data: EMPTY },
+          offlineVeil: { type: 'geojson', data: EMPTY }, offlineEdge: { type: 'geojson', data: EMPTY }, offlineTraces: { type: 'geojson', data: EMPTY }, relief: RELIEF_SOURCE },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': '#f2efe6' } },
           // Plan IGN sous le SCAN 25 : en mode Auto, le SCAN 25 apparaît en fondu par-dessus en zoomant.
@@ -170,6 +179,11 @@ export function MapView(props: MapViewProps) {
           // Forêts sous les randos : couleur par essence, contour plus soutenu.
           { id: 'forests', type: 'fill', source: 'forests', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 } },
           { id: 'forests-line', type: 'line', source: 'forests', paint: { 'line-color': ['get', 'color'], 'line-width': 1.2 } },
+          // Calque « Hors ligne » (maquette « Voile ») : ce qu'on n'a pas est voilé de blanc, ce qu'on a reste net, bordé de vert.
+          { id: 'offline-veil', type: 'fill', source: 'offlineVeil', paint: { 'fill-color': '#eef2f5', 'fill-opacity': 0.72 } },
+          { id: 'offline-edge', type: 'line', source: 'offlineEdge', paint: { 'line-color': OFFLINE_GREEN, 'line-width': 2.5 } },
+          { id: 'offline-traces-casing', type: 'line', source: 'offlineTraces', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#fff', 'line-width': 6.5, 'line-opacity': 0.9 } },
+          { id: 'offline-traces', type: 'line', source: 'offlineTraces', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': OFFLINE_GREEN, 'line-width': 4 } },
           { id: 'offline-cover', type: 'fill', source: 'offlineCover', paint: { 'fill-color': '#2e9d4a', 'fill-opacity': 0.25 } },
           { id: 'frame', type: 'line', source: 'frame', paint: { 'line-color': '#1d2421', 'line-width': 2, 'line-dasharray': [3, 2] } },
           // Toutes les traces au même trait, net, avec un liseré blanc (Seb, 25/11 : épaisseurs qui varient, trait trop fin).
@@ -338,6 +352,14 @@ export function MapView(props: MapViewProps) {
     if (!ready) return;
     (map.current!.getSource('offlineCover') as GeoJSONSource).setData(props.offlineCover ?? EMPTY);
   }, [props.offlineCover, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const m = map.current!, l = props.offlineLayer;
+    (m.getSource('offlineVeil') as GeoJSONSource).setData(l?.veil ?? EMPTY);
+    (m.getSource('offlineEdge') as GeoJSONSource).setData(l?.edge ?? EMPTY);
+    (m.getSource('offlineTraces') as GeoJSONSource).setData(l?.traces ?? EMPTY);
+  }, [props.offlineLayer, ready]);
 
   useEffect(() => {
     if (!props.visible || !ready) return;

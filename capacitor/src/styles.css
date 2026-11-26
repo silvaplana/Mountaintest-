@@ -1436,3 +1436,20 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-bud-nombre > button:not(.bd-grand) { flex: none; width: 56px; min-height: 56px; font-size: 26px; border-radius: 14px; }
 /* Après le choix de Bud : les photos sans ⭐ restent là, en plus pâle (pas dans le carnet de la sortie). */
 .bd-vignette.pale img { opacity: .4; }
+
+/* Calque « Hors ligne » : place prise sur le téléphone, en bas de la carte (Seb, 26/11). */
+.phone-space {
+  position: absolute; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom) + 10px); z-index: 6;
+  background: var(--card); color: var(--fg); border-radius: 16px; box-shadow: 0 2px 10px #0004; padding: 2px 2px 2px 12px; font-size: 17px;
+}
+.phone-space-head { display: flex; align-items: center; gap: 8px; min-height: 48px; }
+.phone-space-title { flex: 1; color: var(--muted); }
+.phone-space-title b { color: var(--fg); }
+.phone-space-btn { width: 48px; height: 48px; border: 0; background: none; color: var(--fg); display: flex; align-items: center; justify-content: center; padding: 0; flex: none; }
+.phone-space-body { padding: 0 12px 12px 0; }
+.phone-space-bar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; }
+.phone-space-bar > div { flex-basis: 0; }
+.phone-space-row { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.phone-space-row span:nth-child(2) { flex: 1; }
+.phone-space-dot { width: 16px; height: 16px; border-radius: 4px; flex: none; }
+.phone-space-free { margin: 10px 0 0; font-size: 15px; color: var(--muted); }

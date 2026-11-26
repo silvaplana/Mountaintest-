@@ -181,6 +181,11 @@ voir sur la carte » pour ses hébergements. Bud reçoit le centre de la carte. 
 Calques (trois strates, Seb 26/11 ; avant ⛰) déplie la ligne des calques : pente, 3D, 🌗, 🌲, drone, 🗺. Chaque calque
 s'allume à part et on peut les mélanger ; seul 🗺 change de fond. Icônes au trait, « 3D » et « pente » écrits dedans
 (maquettes maquettes/icones-calques/ du dossier du projet).
+Calque « Hors ligne » (quadrillage + trace, Seb 26/11, avant 🗺) : ce qui n'est pas gardé sur le téléphone est voilé de
+blanc, les zones gardées restent nettes, bordées de vert (un carré du zoom 14 gardé = tout son territoire, 0 ou 1), et
+toutes les traces de Mes traces sont dessinées dans le même vert. Rien n'y est touchable. En bas, une petite fenêtre
+« place sur le téléphone » : repliée sur une ligne, la flèche la déplie (cartes, photos et vidéos, données, place libre),
+la croix toujours à droite la ferme jusqu'au prochain allumage (maquettes maquettes/calque-hors-ligne/).
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
 sa gauche, on en choisit une.

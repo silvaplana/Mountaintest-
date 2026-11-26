@@ -54,7 +54,9 @@ public final class StorageUsage {
                 // Mesure officielle indisponible : on garde la taille de l'APK.
             }
         }
-        return new JSONObject().put("appli", appli).put("donnees", donnees).put("cache", cache).put("detail", detail);
+        // Place encore libre sur le téléphone (calque « Hors ligne », Seb 26/11).
+        long libre = new android.os.StatFs(ctx.getFilesDir().getAbsolutePath()).getAvailableBytes();
+        return new JSONObject().put("appli", appli).put("donnees", donnees).put("cache", cache).put("libre", libre).put("detail", detail);
     }
 
     static final String CACHE = "Cache temporaire";

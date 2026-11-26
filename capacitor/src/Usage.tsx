@@ -3,8 +3,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { RELAIS_URL } from './trails/webHikes';
 
 /** Plugin natif (shared/StorageUsage.java, identique côté Kotlin) : place prise par l'appli et ses données. */
-interface Storage { appli: number; donnees: number; cache: number; detail: { nom: string; octets: number; fichiers: number }[] }
-const StorageUsage = registerPlugin<{ measure(): Promise<Storage> }>('StorageUsage');
+export interface Storage { appli: number; donnees: number; cache: number; libre?: number; detail: { nom: string; octets: number; fichiers: number }[] }
+export const StorageUsage = registerPlugin<{ measure(): Promise<Storage> }>('StorageUsage');
 
 /** Cumuls tenus par le relais IA du VPS (deploy/ia/relais.py, journal couts.jsonl) : toutes les requêtes, tous téléphones. */
 interface IaUsage {
