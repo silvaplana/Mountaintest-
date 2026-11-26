@@ -203,7 +203,7 @@ photos et vidéos, données, nombre de tuiles gardées et poids moyen d'une tuil
 jusqu'au prochain allumage. Une tuile (on ne dit pas « carré ») = un carré du zoom 14 ; verte = SCAN 25 gardé, bleue =
 Plan IGN seulement. Calque allumé, l'appui long ouvre le rectangle de sélection, qui prend aussi les tuiles (cadre aligné
 sur les tuiles entières, toujours un rectangle) et les traces de Mes traces. Ses lignes remplacent le contenu du panneau du
-bas, qui ne grandit pas (un seul écran, Seb 26/11) : « N traces » + poubelle, « N tuiles gardées » (place à libérer) +
+bas, qui ne grandit pas (un seul écran, Seb 26/11) : « N traces » + poubelle, « N tuiles téléchargées » (leur poids) +
 poubelle, « M tuiles à ajouter » (poids estimé) + « Télécharger » (tout : Plan IGN de loin, SCAN 25 de près, relief). Supprimer = « Annuler » pendant 6 s, puis effacé du téléphone (maquettes maquettes/calque-hors-ligne/).
 Le même panneau montre aussi ma place sur le serveur des comptes (mes photos et films, mes fichiers joints, mes traces et
 messages), pas celle des autres. Le Super User voit en plus, pour chacun, sa place sur le serveur et sur son téléphone

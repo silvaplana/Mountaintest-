@@ -53,7 +53,7 @@ export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose, select
             <span>{p.label}</span><b>{formatBytes(space[p.key])}</b>
           </div>
         ))}
-        <p className="phone-space-tiles"><b>{squares} tuile{squares > 1 ? 's' : ''} gardée{squares > 1 ? 's' : ''}</b>
+        <p className="phone-space-tiles"><b>{squares} tuile{squares > 1 ? 's' : ''} téléchargée{squares > 1 ? 's' : ''}</b>
           {squares > 0 && <> · <b>≈ {formatBytes(squaresBytes / squares)}</b> par tuile en moyenne</>}</p>
         <p className="phone-space-legend"><span className="leg vert" /> SCAN 25 (tout) <span className="leg bleu" /> Plan IGN seul</p>
         <p className="phone-space-free">Appui long sur la carte : le rectangle prend des tuiles et des traces, pour les supprimer ou télécharger les tuiles.</p>

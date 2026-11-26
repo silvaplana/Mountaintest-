@@ -152,8 +152,8 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
           </div>}
           {/* Deux lignes pour les tuiles (Seb, 26/11) : celles gardées avec la poubelle, puis celles à télécharger. */}
           {sel && <div className="sel-ligne">
-            <span><b>{sel.own.length} tuile{sel.own.length > 1 ? 's' : ''} gardée{sel.own.length > 1 ? 's' : ''}</b>
-              <small>{sel.own.length ? `${formatBytes(ownBytes)} à libérer` : 'rien à enlever'}</small></span>
+            <span><b>{sel.own.length} tuile{sel.own.length > 1 ? 's' : ''} téléchargée{sel.own.length > 1 ? 's' : ''}</b>
+              <small>{sel.own.length ? formatBytes(ownBytes) : 'rien à enlever'}</small></span>
             {sel.own.length > 0 && <button className="sel-effacer" aria-label="Supprimer ces tuiles" onClick={() => { setEffaceCadre(true); setAnnuler(() => offline.onDeleteSquares(sel.own)); }}><TrashIcon size={28} /></button>}
           </div>}
           {sel && <div className="sel-ligne">
