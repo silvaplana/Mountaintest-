@@ -93,6 +93,8 @@ encore les anciens noms (§7.12).
 (voiture garée : 🚗 avec une petite 📍) ; cochée : des pastilles de couleur, dessin blanc (Seb, 26 novembre, version D : appel vert, position bleue, messages bleu, planning rouge, photos orange, Buddy count ocre, hébergement brun, voiture rouge, moi violet). Buddy count (B1), hébergement (lit dans la maison)
 et Ma position (point et ondes) sont les mêmes dans les deux cas. Ma position allumée garde le fond clair, comme éteinte ;
 seules les ondes passent en noir gras (avant : rond ardoise, jugé trop sombre).
+**Pièce (Seb, 26 novembre, plus tard)** : le B1 est frappé sur une pièce dorée, pour qu'on comprenne que c'est de
+l'argent ; c'est le symbole du Buddy count partout (colonne, listes), quel que soit le choix d'icônes.
 
 ### 3.4 Le panneau de partage, le même partout **(Seb pour trace et hébergement)**
 

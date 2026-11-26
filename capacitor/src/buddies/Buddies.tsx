@@ -267,12 +267,17 @@ function ChevronIcon() {
     <path d="M6 9l6 6 6-6" /></svg>;
 }
 
-/** Buddy count au trait : B et C entrelacés, le B à gauche, deux petites barres communes comme le $ (choix B1 de Seb, 26/11). */
-export function BuddyCountIcon() {
-  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-    <text x="17" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">B</text>
-    <text x="31" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">C</text>
-    <path d="M21 4v8M27 4v8M21 34v9M27 34v9" />
+/** Buddy count : B et C entrelacés avec les deux barres du $ (B1), frappés sur une pièce dorée, partout où il apparaît
+ * (Seb, 26/11 : « le BC c'est comme une monnaie »). */
+export function BuddyCountIcon({ taille = 36 }: { taille?: number }) {
+  const t = { fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: 28, textAnchor: 'middle' as const, fill: '#7a5200', stroke: 'none' };
+  return <svg width={taille} height={taille} viewBox="0 0 48 48" aria-hidden="true">
+    <circle cx="24" cy="24" r="22" fill="#f2c230" stroke="#b8860b" strokeWidth="2" />
+    <circle cx="24" cy="24" r="15.8" fill="none" stroke="#d9a520" strokeWidth="1.6" />
+    <g transform="translate(4.8 4.8) scale(0.8)" fill="none" stroke="#7a5200" strokeWidth="2.4" strokeLinecap="round">
+      <text x="17" y="34" {...t}>B</text><text x="31" y="34" {...t}>C</text>
+      <path d="M21 4v8M27 4v8M21 34v9M27 34v9" />
+    </g>
   </svg>;
 }
 
@@ -389,12 +394,36 @@ export function Carre({ x, taille = 56 }: { x: Sortie; taille?: number }) {
 }
 
 /** Grande image d'une sortie (le prochain en haut de la liste, les cartes d'un groupe). */
+/** « 1 buddy · 1 invité » sous le nom du groupe (Seb, 26/11 : « Groupe » en trop ; les invitations à part). */
+function nbBuddies(g: Groupe) {
+  const n = g.membres.length, i = g.invitations.filter((x) => x.canal !== 'qr').length;
+  return `${n} ${n > 1 ? 'buddies' : 'buddy'}${i ? ` · ${i} invité${i > 1 ? 's' : ''}` : ''}`;
+}
+
+/** Les initiales des partants, petites et empilées : 3 au plus, puis « +2 » (Seb, 26/11, version B). */
+function Partants({ x }: { x: Sortie }) {
+  const n = x.participants.length;
+  if (!n) return null;
+  return <span className="bd-partants">{x.participants.slice(0, 3).map((b) => <Visage key={b.id} b={b} taille={22} />)}
+    {n > 3 && <i>+{n - 3}</i>}</span>;
+}
+
+export function LigneSortie({ x, onClick }: { x: Sortie; onClick: () => void }) {
+  return <button className="bd-sortie-ligne" onClick={onClick}>
+    <span className="bd-bande" style={{ background: couleur(x.id) }} />
+    <span className="bd-texte"><b>{x.nom}</b>
+      <small>{dateCourte(x.debut)}{x.attente ? ' · 🕓' : ''}<Partants x={x} /></small></span>
+  </button>;
+}
+
 function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; onClick: () => void }) {
+  // Sortie passée sans photo : une ligne compacte, couleur en bande à gauche, partants sous le titre (Seb, 26/11).
+  if (petite && !x.photo) return <LigneSortie x={x} onClick={onClick} />;
   return <button className={`bd-affiche${petite ? ' petite' : ''}`} onClick={onClick}
     style={{ background: x.photo ? `linear-gradient(#0000 40%, #000a), center/cover url("${x.photo}")` : `linear-gradient(#0000 30%, #0008), ${couleur(x.id)}` }}>
     {!petite && <span className="bd-pastille">{quandSortie(x)}</span>}
     <b>{x.nom}</b>
-    <small>{petite ? dateCourte(x.debut) : `${dates(x)} · ${x.participants.length} partant${x.participants.length > 1 ? 's' : ''}`}{x.attente ? ' · 🕓' : ''}</small>
+    <small>{petite ? dateCourte(x.debut) : `${dates(x)} · ${x.participants.length} partant${x.participants.length > 1 ? 's' : ''}`}{x.attente ? ' · 🕓' : ''}{petite && <Partants x={x} />}</small>
   </button>;
 }
 
@@ -532,7 +561,7 @@ export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'do
 export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, depart }: {
-  onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
+  onClose: () => void; onToast: (m: string, ms?: number) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
   /** Ouvrir une sortie sur la carte (écran 4), ou une trace partagée dans un groupe. */
   onCarte: (x: CarteBuddies) => void;
   depart?: DepartBuddies;
@@ -634,20 +663,20 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
           onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })}
           // ＋ Buddy count partout (Seb, 26/11) : dans un groupe, créé tout de suite au nom du groupe (« 2 », « 3 »… s'il
           // y en a déjà, renommable) ; hors d'un groupe, on choisit le groupe sur l'écran suivant.
-          onNouveau={gi?.nature === 'bande' ? () => setVue({ ecran: 'count', id: creerCount(gi.id, nomDeCount(gi, counts)), groupe: gi.id })
+          onNouveau={gi?.nature === 'bande' ? () => { setVue({ ecran: 'count', id: creerCount(gi.id, nomDeCount(gi, counts)), groupe: gi.id }); onToast('Buddy count de groupe créé', 2000); }
             : groupes.some((x) => x.nature === 'bande') ? () => setVue({ ecran: 'nvCount', groupe: '' }) : undefined}
           onNouveauSortie={sorties.some((x) => !vue.groupe || x.groupe === vue.groupe) ? () => setVue({ ecran: 'nvCountSortie', groupe: vue.groupe ?? '' }) : undefined}
           onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />;
       })()
       : vue.ecran === 'nvCount' ? <NouveauCount groupes={groupes.filter((x) => x.nature === 'bande')} depart={vue.groupe} onClose={onClose}
         onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
-        onCreer={(gid, nom) => setVue({ ecran: 'count', id: creerCount(gid, nom), groupe: gid })} />
+        onCreer={(gid, nom) => { setVue({ ecran: 'count', id: creerCount(gid, nom), groupe: gid }); onToast('Buddy count de groupe créé', 2000); }} />
       : vue.ecran === 'nvCountSortie' ? (() => {
         const ici = sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe);
         const avec = new Set(sortiesAvecCount(ici, counts, depenses).map((x) => x.id));
         return <NouveauCountSortie sorties={ici.filter((x) => !avec.has(x.id)).sort((a, b) => b.debut.localeCompare(a.debut))} onClose={onClose}
           onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
-          onChoix={(x) => { changerCount(x.id, counts.some((c) => c.sortie === x.id && c.supprime) ? { supprime: false } : {}); setVue({ ecran: 'count', id: x.id, groupe: vue.groupe || undefined }); }} />;
+          onChoix={(x) => { changerCount(x.id, counts.some((c) => c.sortie === x.id && c.supprime) ? { supprime: false } : {}); onToast('Buddy count de sortie créé', 2000); setVue({ ecran: 'count', id: x.id, groupe: vue.groupe || undefined }); }} />;
       })()
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
         onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
@@ -690,6 +719,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'album' && album ? <UnAlbum x={album} carnet={vue.carnet} photos={photos.filter((p) => p.sortie === album.id)} onToast={onToast} onClose={onClose}
         onCarte={() => ouvrir(album)} onRetour={() => setVue(vue.carnet ? { ecran: 'carnet', id: album.id, groupe: vue.groupe } : { ecran: 'albums', groupe: vue.groupe })} />
       : vue.ecran === 'plannings' ? <Plannings plannings={plannings.filter((x) => !vue.groupe || x.groupe === vue.groupe)} groupes={groupes}
+      ici={groupes.find((x) => x.id === vue.groupe && x.nature === 'bande')}
       onOuvrir={(id) => setVue({ ecran: 'planning', id, groupe: vue.groupe })} onRemplir={(id) => setVue({ ecran: 'dispos', id, groupe: vue.groupe })}
       onNouveau={() => setVue({ ecran: 'nvPlanning', groupe: vue.groupe })} onClose={onClose}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
@@ -810,7 +840,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     {ch.barre}
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <span className="bd-titre" onClick={() => setNommer(!me)}><b>{me ? 'Seul' : g.nom}</b><small>{me ? 'Mes sorties à moi' : `Groupe · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
+      <span className="bd-titre" onClick={() => setNommer(!me)}><b>{me ? 'Seul' : g.nom}</b><small>{me ? 'Mes sorties à moi' : nbBuddies(g)}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
       {!me && <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={18} /></button>}
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { annoncerPaiement, aujourdhui, confirmerRecu, enregistrerDepense, lire, peutRetirer, retirerDepense, type BuddyCountEtat, type Depense, type Groupe, type Sortie } from './store';
 import { compte, equilibre, euros, icone, lireEuros } from './count';
-import { BuddyCountIcon, dates, FeuilleNom, Visage } from './Buddies';
+import { BuddyCountIcon, FeuilleNom, LigneSortie, Visage } from './Buddies';
 import { PencilIcon, TrashIcon } from '../icones';
 
 /**
@@ -75,16 +75,16 @@ export function sortiesAvecCount(sorties: Sortie[], counts: BuddyCountEtat[], de
 export function NouveauCountSortie({ sorties, onChoix, onRetour, onClose }: {
   sorties: Sortie[]; onChoix: (x: Sortie) => void; onRetour: () => void; onClose: () => void;
 }) {
+  // Pas d'icône Buddy count sur les lignes : on croirait qu'il existe déjà (Seb, 26/11).
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <span className="bd-titre"><b>Buddy count de sortie</b><small>Pour quelle sortie ?</small></span>
+      <span className="bd-titre"><b>Nouveau Buddy count</b><small>de sortie</small></span>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    {sorties.length ? sorties.map((x) => <button key={x.id} className="bd-ligne bd-count-ligne" onClick={() => onChoix(x)}>
-      <span className="bd-album-mini"><BuddyCountIcon /></span>
-      <span className="bd-texte"><b>{x.nom}</b><small>{dates(x)}</small></span>
-    </button>) : <p className="bd-vide">Toutes les sorties ont déjà leur Buddy count</p>}
+    <p className="bd-question">Pour quelle sortie ?</p>
+    {sorties.length ? <div className="bd-passees">{sorties.map((x) => <LigneSortie key={x.id} x={x} onClick={() => onChoix(x)} />)}</div>
+      : <p className="bd-vide">Toutes les sorties ont déjà leur Buddy count</p>}
   </div>;
 }
 
