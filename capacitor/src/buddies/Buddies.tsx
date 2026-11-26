@@ -574,8 +574,8 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
     {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
       {g.nature === 'me_time' ? <Visage b={{ id: g.id, pseudo: nomAffiche(), photo: lireCompte().profil?.photo ?? null }} taille={56} />
         : <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} />}
-      <span className="bd-texte"><b>{g.nature === 'me_time' ? 'Seul' : g.nom}</b>
-        <small>{g.nature === 'me_time' ? 'Mes sorties à moi' : resume(g)}</small></span>
+      {/* Plus de « 1 buddy · 1 invitation envoyée » sous le nom (Seb, 26/11) : juste le nom. */}
+      <span className="bd-texte"><b>{g.nature === 'me_time' ? 'Seul' : g.nom}</b></span>
       <small className="bd-quand">{g.attente ? '🕓' : quand(g.modifie_le)}</small>
     </button>)}
     {sorties.length > 0 && <h3 className="bd-section">Sorties</h3>}
