@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { nouvellesIcones } from '../doigt';
 import type { Map as MlMap } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
@@ -306,14 +306,28 @@ function ChevronIcon() {
     <path d="M6 9l6 6 6-6" /></svg>;
 }
 
-/** Buddy count : B et C entrelacés avec les deux barres du $ (B1), frappés sur une pièce dorée, partout où il apparaît
- * (Seb, 26/11 : « le BC c'est comme une monnaie »). */
-export function BuddyCountIcon({ taille = 36 }: { taille?: number }) {
-  const t = { fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: 28, textAnchor: 'middle' as const, fill: '#7a5200', stroke: 'none' };
+/** Buddy count : B et C entrelacés avec les deux barres du $ (B1), frappés sur une pièce dorée à tranche crénelée,
+ * avec un reflet et une petite ombre, partout où il apparaît (Seb, 26/11 : pièce A). */
+const CRANS = Array.from({ length: 60 }, (_, i) => {
+  const a = (i / 60) * 2 * Math.PI, c = Math.cos(a), s = Math.sin(a);
+  return `M${(24 + 18.6 * c).toFixed(2)} ${(24 + 18.6 * s).toFixed(2)}L${(24 + 21 * c).toFixed(2)} ${(24 + 21 * s).toFixed(2)}`;
+}).join('');
+export function BuddyCountIcon({ taille = 38 }: { taille?: number }) {
+  const id = useId().replace(/:/g, '');
+  const t = { fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: 28, textAnchor: 'middle' as const, fill: '#6b4700', stroke: 'none' };
   return <svg width={taille} height={taille} viewBox="0 0 48 48" aria-hidden="true">
-    <circle cx="24" cy="24" r="22" fill="#f2c230" stroke="#b8860b" strokeWidth="2" />
-    <circle cx="24" cy="24" r="15.8" fill="none" stroke="#d9a520" strokeWidth="1.6" />
-    <g transform="translate(4.8 4.8) scale(0.8)" fill="none" stroke="#7a5200" strokeWidth="2.4" strokeLinecap="round">
+    <defs>
+      <radialGradient id={`or${id}`} cx="35%" cy="30%" r="75%"><stop offset="0" stopColor="#fff3b0" /><stop offset=".45" stopColor="#f2c230" /><stop offset="1" stopColor="#b8860b" /></radialGradient>
+      <filter id={`om${id}`}><feDropShadow dx="0" dy="1.2" stdDeviation="1" floodOpacity=".35" /></filter>
+    </defs>
+    <g filter={`url(#om${id})`}>
+      <circle cx="24" cy="24" r="21" fill="#b8860b" />
+      <path d={CRANS} stroke="#7a5200" strokeWidth="1.1" />
+      <circle cx="24" cy="24" r="18.2" fill={`url(#or${id})`} stroke="#9a6e00" strokeWidth="1.2" />
+      <circle cx="24" cy="24" r="15" fill="none" stroke="#fff6c8" strokeWidth="1" opacity=".8" />
+      <circle cx="24" cy="24" r="14.3" fill="none" stroke="#a87a00" strokeWidth="1" />
+    </g>
+    <g transform="translate(24 24) scale(.62) translate(-24 -24)" fill="none" stroke="#6b4700" strokeWidth="2.6" strokeLinecap="round">
       <text x="17" y="34" {...t}>B</text><text x="31" y="34" {...t}>C</text>
       <path d="M21 4v8M27 4v8M21 34v9M27 34v9" />
     </g>

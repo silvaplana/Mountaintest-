@@ -776,7 +776,8 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .bd-colonne .bd-col-pin.actif { color: var(--fg); }
 /* Nouvelles icônes : pastilles de couleur, dessin blanc (Seb, 26/11). */
 /* 🔑 Super User (Seb, 26/11) et sa pastille de demandes non lues. */
-.bd-col-icones button svg { display: block; flex: none; }
+.bd-col-icones button { display: grid; place-items: center; }
+.bd-col-icones button svg { display: block; }
 .bd-col-cle { position: relative; }
 .bd-col-n { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #d2473f;
   color: #fff; font-style: normal; font-size: 13px; font-weight: 700; line-height: 20px; text-align: center; }
