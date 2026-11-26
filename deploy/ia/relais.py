@@ -350,6 +350,13 @@ OUTIL_BUD = {
     },
 }
 
+OUTIL_SKITOUR = {
+    "name": "chercher_skitour",
+    "description": "Cherche dans skitour.fr les topos de ski de rando et les sorties de l'année dont le nom contient ce texte (nom d'un sommet ou d'une course).",
+    "input_schema": {"type": "object", "properties": {"nom": {"type": "string", "description": "ex. « Dôme de Polset », « Pointe de Paumont »"}},
+                     "required": ["nom"], "additionalProperties": False},
+}
+
 CONSIGNE_BUD = """Tu es Bud 🐻, le buddy à part d'une bande de copains qui partent en montagne ensemble (appli Mountain Buddies).
 On te donne ce que l'appli sait de leur sortie ou de leur bande (dates, qui vient, traces, hébergements proposés,
 plannings, dépenses, derniers messages), puis la question qu'un buddy t'a posée en commençant par « Bud, … ».
@@ -372,6 +379,8 @@ Règles :
   calendrier des places) : tu ne vois pas les places libres, dis de vérifier là.
   Si on te donne des « sites à regarder en priorité » (ex. refuges.info pour les refuges, cabanes et gîtes d'étape),
   cherche d'abord sur eux (« site:refuges.info … »), puis ailleurs si besoin.
+- Pour un sommet, une course ou une sortie de ski de rando (topo, conditions récentes), cherche d'abord dans skitour
+  (outil chercher_skitour, par le nom du sommet ou de la course), puis sur le web si besoin. Donne le lien skitour.
 - Pour un endroit précis (sommet, parking, col…), mets-le dans « point » : l'appli le montre sur la carte.
 - Si l'appli ne te donne pas l'information (par exemple l'altitude ou la pente d'une trace), dis-le simplement.
 Termine en appelant l'outil repondre."""
@@ -1444,6 +1453,36 @@ def _topo_court(t: dict) -> dict:
             "depart": dep and {"nom": dep["nom"], "altitude": dep["altitude"], "lat": dep["lat"], "lon": dep["lon"]}}
 
 
+# ---------- Loupe 🔍 et Bud : chercher un sommet ou une course dans skitour d'abord (Seb, 26/11) ----------
+_PETITS_MOTS = {"les", "des", "par", "pour", "sur", "aux", "une", "via", "col", "pic", "mont", "pointe", "tete", "dome"}
+
+
+def skitour_chercher(texte: str, maxi: int = 8) -> dict:
+    """Topos (listes gardées sur le disque, sans appel à l'API) et sorties de l'année dont le nom contient tous les mots
+    qui comptent du texte. Les mots courts ou trop courants (« col », « pic »…) ne servent que s'il n'y a qu'eux."""
+    mots = _slug(texte).split("-")
+    cles = [m for m in mots if len(m) >= 3 and m not in _PETITS_MOTS] or [m for m in mots if len(m) >= 3]
+    if not cles:
+        return {"topos": [], "sorties": []}
+    va = lambda nom: all(m in _slug(nom) for m in cles)
+    topos, vus = [], set()
+    for n in sorted(os.listdir(DOSSIER)) if os.path.isdir(DOSSIER) else []:
+        if re.fullmatch(r"cache-skitour-topos-(m\d+|ll[-\d._]+)\.json", n):
+            with verrou:
+                c = _lire(n, {})
+            for t in c.get("topos") or []:
+                if isinstance(t, dict) and t.get("id") not in vus and va(t.get("nom", "")):
+                    vus.add(t.get("id")); topos.append(t)
+    sorties = []
+    if SKITOUR_CLE:
+        for x in sorted(_sorties_brutes(365), key=lambda x: -(_entier(x.get("date")) or 0)):
+            if va(" ".join([_texte(x.get("titre"))] + [str(sm.get("sommet") or "") for sm in x.get("sommets") or [] if isinstance(sm, dict)])):
+                sorties.append(_ligne(x))
+                if len(sorties) >= maxi:
+                    break
+    return {"topos": topos[:maxi], "sorties": sorties}
+
+
 def _liste_topos(fichier: str, q: dict, pages: int = 20) -> list:
     """Topos de l'API (/api/topos?…), gardés 7 jours sur le disque : les topos changent peu, le quota est de 1000 par jour."""
     with verrou:
@@ -1840,11 +1879,13 @@ def _texte(v) -> str:
     return t.replace("\xa0", " ").strip()
 
 
-def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domaines: list | None = None):
-    """Un échange avec Claude (recherche web permise) jusqu'à l'appel de l'outil final. Renvoie (entrée de l'outil, coût, jetons)."""
+def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domaines: list | None = None, locaux: dict | None = None):
+    """Un échange avec Claude (recherche web permise) jusqu'à l'appel de l'outil final. Renvoie (entrée de l'outil, coût, jetons).
+    locaux : outils lus ici (nom → (définition, fonction(entrée) → résultat)), par exemple chercher dans skitour pour Bud."""
+    locaux = locaux or {}
     messages = [{"role": "user", "content": demande}]
     cout, jetons = 0.0, {"entree": 0, "sortie": 0, "recherches_web": 0}
-    for _ in range(5):
+    for _ in range(7):
         r = client.beta.messages.create(
             model=MODELE, max_tokens=8000,
             betas=["server-side-fallback-2026-07-01"], fallbacks="default",
@@ -1852,7 +1893,7 @@ def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domai
             system=consigne,
             tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": recherches,
                     "user_location": {"type": "approximate", "country": "FR"},
-                    **({"allowed_domains": domaines} if domaines else {})}, outil],
+                    **({"allowed_domains": domaines} if domaines else {})}, *(d for d, _ in locaux.values()), outil],
             messages=messages,
         )
         u = r.usage
@@ -1869,7 +1910,17 @@ def appeler(consigne: str, demande: str, outil: dict, recherches: int = 4, domai
         if r.stop_reason == "refusal":
             raise RuntimeError("Claude a refusé la demande")
         messages.append({"role": "assistant", "content": r.content})
-        if r.stop_reason != "pause_turn":
+        demandes = [b for b in r.content if b.type == "tool_use" and b.name in locaux]
+        if demandes:
+            res = []
+            for b in demandes:
+                try:
+                    sortie = json.dumps(locaux[b.name][1](b.input), ensure_ascii=False)[:20_000]
+                except Exception as ex:  # noqa: BLE001
+                    sortie = f"erreur : {ex}"
+                res.append({"type": "tool_result", "tool_use_id": b.id, "content": sortie})
+            messages.append({"role": "user", "content": res})
+        elif r.stop_reason != "pause_turn":
             messages.append({"role": "user", "content": f"Appelle maintenant l'outil {outil['name']}."})
     raise RuntimeError("pas de réponse exploitable")
 
@@ -2015,7 +2066,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "photos-choix", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace", "geotrek-liste", "geotrek-trace", "refuges"], "geotrek": GEOTREK_ETAT, "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "photos-choix", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace", "geotrek-liste", "geotrek-trace", "refuges", "skitour-chercher"], "geotrek": GEOTREK_ETAT, "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
 
     def _visugpx(self, liste: bool):
         if not VISUGPX_CLE:
@@ -2079,7 +2130,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/photos-choix", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace", "/geotrek-liste", "/geotrek-trace", "/refuges")):
+        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/photos-choix", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace", "/geotrek-liste", "/geotrek-trace", "/refuges", "/skitour-chercher")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -2089,6 +2140,16 @@ class Relais(BaseHTTPRequestHandler):
             return self._facture()
         if chemin.endswith("/refuges"):
             return self._refuges()
+        if chemin.endswith("/skitour-chercher"):
+            try:
+                d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)))
+                texte = " ".join(str(d["texte"]).split())[:80]
+            except (ValueError, KeyError, TypeError):
+                return self._json(400, {"erreur": "texte invalide"})
+            try:
+                return self._json(200, skitour_chercher(texte))
+            except Exception as ex:  # noqa: BLE001
+                return self._json(502, {"erreur": str(ex)})
         if chemin.endswith("/photos-choix"):
             return self._photos_choix()
         if chemin.endswith("/skitour"):
@@ -2358,7 +2419,8 @@ class Relais(BaseHTTPRequestHandler):
                 return self._json(429, {"erreur": f"Bud a assez parlé pour aujourd'hui ({MAX_PAR_JOUR} demandes)"})
             _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
         try:
-            r, cout, jetons = appeler(CONSIGNE_BUD, f"Aujourd'hui : {jour}\n\n{contexte}\n\n" + (f"Sites à regarder en priorité pour un hébergement : {', '.join(sites)}\n\n" if sites else "") + f"Question : {question}", OUTIL_BUD, 4)
+            r, cout, jetons = appeler(CONSIGNE_BUD, f"Aujourd'hui : {jour}\n\n{contexte}\n\n" + (f"Sites à regarder en priorité pour un hébergement : {', '.join(sites)}\n\n" if sites else "") + f"Question : {question}", OUTIL_BUD, 4,
+                                      locaux={"chercher_skitour": (OUTIL_SKITOUR, lambda e: skitour_chercher(str(e.get("nom", ""))[:80], 5))})
         except anthropic.APIError as e:
             return self._json(502, {"erreur": f"Bud ne répond pas : {getattr(e, 'message', e)}"})
         except Exception as e:  # noqa: BLE001

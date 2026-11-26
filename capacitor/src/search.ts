@@ -135,3 +135,15 @@ export function demandeRefuges(text: string): { nature: NatureRefuge; lieu: stri
   const lieu = m[2].replace(/^[\s:,]*(?:(?:autour|pr[eè]s)\s+(?:de|du|des|d['’])|vers|à|a|au|aux|dans\s+(?:le|la|les)|de\s+la|du|des|de|d['’])?\s*/i, '').trim();
   return { nature, lieu };
 }
+
+// ——— Loupe rangée par catégories (Seb, 26/11 : « c'est fourre-tout ») ———
+
+export type Categorie = 'courses' | 'sommets' | 'refuges' | 'lieux';
+
+/** Catégorie d'un lieu trouvé, d'après sa nature (IGN, OpenStreetMap ou noms gardés sur le téléphone). */
+export function categorie(p: Place): Exclude<Categorie, 'courses'> {
+  const d = normalize(p.detail);
+  if (/refuge|cabane|gite|abri|bivouac|chalet d alpage/.test(d)) return 'refuges';
+  if (/sommet|col\b|cret|arete|pic\b|aiguille|glacier|falaise|rocher|dome|pointe|montagne|orograph|massif|vallon|gorge|grotte|cascade|lac\b|source|point de vue/.test(d)) return 'sommets';
+  return 'lieux';
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { demandeRefuges } from '../src/search';
+import { categorie, demandeRefuges } from '../src/search';
 import { autour } from '../src/refuges';
 
 describe('demandeRefuges', () => {
@@ -21,5 +21,18 @@ describe('autour', () => {
     const b = autour({ lon: 6.87, lat: 45.92 });
     expect(b.n - b.s).toBeCloseTo(0.18, 2);
     expect(b.e - b.o).toBeGreaterThan(0.25);
+  });
+});
+
+describe('categorie', () => {
+  const p = (detail: string) => ({ label: 'x', detail, lon: 0, lat: 0, zoom: 15 });
+  it('sorts places into the loupe categories', () => {
+    expect(categorie(p('sommet'))).toBe('sommets');
+    expect(categorie(p('Col'))).toBe('sommets');
+    expect(categorie(p('refuge'))).toBe('refuges');
+    expect(categorie(p('cabane'))).toBe('refuges');
+    expect(categorie(p('commune'))).toBe('lieux');
+    expect(categorie(p('rue'))).toBe('lieux');
+    expect(categorie(p('collège'))).toBe('lieux');
   });
 });
