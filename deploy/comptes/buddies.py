@@ -19,12 +19,13 @@ from typing import Any
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
+import droits
 from modeles import (Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, maintenant)
 
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
-# Me Time : un par personne, même identifiant sur tous ses téléphones.
+# Groupe perso (ex-Me Time) : un par personne, même identifiant sur tous ses téléphones.
 ESPACE_ME_TIME = uuid.UUID("6f0c2f7e-5b8f-4a43-9a2e-0c1f6d2b7d11")
 # Discussion à deux : toujours la même pour deux buddies (comme AppBase), même identifiant chez l'un et l'autre.
 ESPACE_DUO = uuid.UUID("0b6d8f4e-2c1a-4e57-9f3d-6a1e5c7b9d20")
@@ -68,13 +69,17 @@ def photo_valide(p: Any) -> str | None:
     return p
 
 
+# Les Me Time d'avant cette date sont ceux que Seb a fait effacer le 25 novembre ; après, c'est le Groupe perso.
+FIN_ME_TIME = datetime(2026, 11, 26, tzinfo=timezone.utc)
+
+
 def ranger_me_time(s: Session, u: Utilisateur) -> None:
-    """Le Me Time n'existe plus (Seb, 25 novembre : « celui qui veut ses sorties perso se crée un groupe »).
-    À la synchro, l'ancien Me Time de la personne est effacé avec tout ce qu'il contient, pour tout le monde
-    (choix de Seb : « Tout effacer ») : ses sorties et, par cascade de la base, leurs traces, photos (fichiers
-    compris), dépenses, messages, hébergements, positions, carnets."""
+    """Le Me Time d'avant le 26 novembre n'existe plus (Seb, 25 novembre : « Tout effacer »). À la synchro,
+    l'ancien Me Time de la personne est effacé avec tout ce qu'il contient, pour tout le monde : ses sorties et,
+    par cascade de la base, leurs traces, photos (fichiers compris), dépenses, messages, hébergements,
+    positions, carnets. Le Groupe perso d'après (`groupe_perso`) n'est pas touché."""
     g = s.get(Groupe, uuid.uuid5(ESPACE_ME_TIME, str(u.id)))
-    if g is None or g.nature != "me_time":
+    if g is None or g.nature != "me_time" or date(iso(g.cree_le)) >= FIN_ME_TIME:
         return
     sids = list(s.scalars(select(Sortie.id).where(Sortie.groupe_id == g.id)))
     photos = list(s.scalars(select(Photo.id).where(Photo.sortie_id.in_(sids)))) if sids else []
@@ -104,6 +109,18 @@ def duo(s: Session, u: Utilisateur, op: dict) -> None:
             s.add(Membre(groupe_id=gid, utilisateur_id=x, role="membre"))
 
 
+def groupe_perso(s: Session, u: Utilisateur) -> Groupe:
+    """Le Groupe perso, sans nom (Seb, 26 novembre) : il naît à la première sortie « Seul », puis resservira."""
+    gid = uuid.uuid5(ESPACE_ME_TIME, str(u.id))
+    g = s.get(Groupe, gid)
+    if g is None:
+        g = Groupe(id=gid, nom="", nature="me_time", cree_par=u.id)
+        s.add(g)
+        s.flush()
+        s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role=droits.ADMIN_PRINCIPAL))
+    return g
+
+
 def membre(s: Session, gid: uuid.UUID, uid: uuid.UUID) -> Membre | None:
     return s.get(Membre, (gid, uid))
 
@@ -113,13 +130,16 @@ def toucher(g: Groupe) -> None:
 
 
 def groupe_de(s: Session, u: Utilisateur, gid: Any, admin: bool = False) -> Groupe:
-    if gid == "me-time":  # ancien téléphone : le Me Time n'existe plus
-        raise Refus("Choisis un groupe (le Me Time n'existe plus)")
+    if gid == "me-time":  # ancien téléphone
+        raise Refus("Choisis un groupe")
     g = s.get(Groupe, uuid.UUID(str(gid)))
-    m = membre(s, g.id, u.id) if g else None
-    if g is None or m is None:
+    if g is None:
         raise Refus("Groupe inconnu")
-    if admin and m.role != "admin":
+    # droits.py : un admin de son club ou le Super User y agit aussi sans en être membre.
+    chef = droits.admin_du_groupe(s, u, g)
+    if membre(s, g.id, u.id) is None and not chef:
+        raise Refus("Groupe inconnu")
+    if admin and not chef:
         raise Refus("Réservé aux admins du groupe")
     return g
 
@@ -135,7 +155,7 @@ def creer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
         raise Refus("Il faut un nom")
     s.add(Groupe(id=gid, nom=nom, nature="bande", photo=photo_valide(op.get("photo")), cree_par=u.id))
     s.flush()
-    s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role="admin"))
+    s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role=droits.ADMIN_PRINCIPAL))
 
 
 def renommer_groupe(s: Session, u: Utilisateur, op: dict) -> None:
@@ -205,16 +225,45 @@ def quitter(s: Session, u: Utilisateur, op: dict) -> None:
 def retirer(s: Session, u: Utilisateur, op: dict) -> None:
     g = groupe_de(s, u, op["groupe"], admin=True)
     m = membre(s, g.id, uuid.UUID(str(op["buddy"])))
-    if m is not None:
-        partir(s, g, m)
+    if m is None:
+        return
+    if not droits.peut_retirer(s, u, g, m):
+        raise Refus("Seul l'admin principal retire un admin" if m.role == droits.ADMIN else "On ne retire pas l'admin principal")
+    partir(s, g, m)
+
+
+def cible_admin_principal(s: Session, u: Utilisateur, op: dict) -> tuple[Groupe, Membre | None]:
+    """Nommer, retirer un admin, transmettre : réservé à l'admin principal du Groupe (droits.py)."""
+    g = groupe_de(s, u, op["groupe"])
+    if not droits.admin_principal_du_groupe(s, u, g):
+        raise Refus("Réservé à l'admin principal du groupe")
+    return g, membre(s, g.id, uuid.UUID(str(op["buddy"])))
 
 
 def nommer_admin(s: Session, u: Utilisateur, op: dict) -> None:
-    g = groupe_de(s, u, op["groupe"], admin=True)
-    m = membre(s, g.id, uuid.UUID(str(op["buddy"])))
-    if m is not None and m.role != "admin":
-        m.role = "admin"
+    g, m = cible_admin_principal(s, u, op)
+    if m is not None and m.role == droits.MEMBRE:
+        m.role = droits.ADMIN
         toucher(g)
+
+
+def retirer_admin(s: Session, u: Utilisateur, op: dict) -> None:
+    """Un admin redevient simple membre."""
+    g, m = cible_admin_principal(s, u, op)
+    if m is not None and m.role == droits.ADMIN:
+        m.role = droits.MEMBRE
+        toucher(g)
+
+
+def transmettre(s: Session, u: Utilisateur, op: dict) -> None:
+    """L'admin principal passe son rôle à un autre membre et reste admin (il n'y en a toujours qu'un)."""
+    g, m = cible_admin_principal(s, u, op)
+    if m is None or m.role == droits.ADMIN_PRINCIPAL:
+        return
+    for x in s.scalars(select(Membre).where(Membre.groupe_id == g.id, Membre.role == droits.ADMIN_PRINCIPAL)):
+        x.role = droits.ADMIN
+    m.role = droits.ADMIN_PRINCIPAL
+    toucher(g)
 
 
 def annuler_invitation(s: Session, u: Utilisateur, op: dict) -> None:
@@ -227,15 +276,17 @@ def annuler_invitation(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def partir(s: Session, g: Groupe, m: Membre) -> None:
-    """Un membre s'en va ; le groupe garde toujours un admin, et disparaît s'il est vide."""
+    """Un membre s'en va ; le groupe garde toujours un admin principal (l'admin le plus ancien, sinon le membre
+    le plus ancien), et disparaît s'il est vide."""
     s.delete(m)
     s.flush()
     restants = s.scalars(select(Membre).where(Membre.groupe_id == g.id).order_by(Membre.rejoint_le)).all()
     if not restants:
         s.delete(g)
         return
-    if not any(r.role == "admin" for r in restants):
-        restants[0].role = "admin"
+    if not any(r.role == droits.ADMIN_PRINCIPAL for r in restants):
+        admins = [r for r in restants if r.role == droits.ADMIN]
+        (admins or restants)[0].role = droits.ADMIN_PRINCIPAL
     toucher(g)
 
 
@@ -261,7 +312,7 @@ def creer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
     sid = uuid.UUID(str(op["sortie"]))
     if s.get(Sortie, sid) is not None:
         return
-    g = groupe_de(s, u, op["groupe"])
+    g = groupe_perso(s, u) if op["groupe"] == "seul" else groupe_de(s, u, op["groupe"])
     nom = propre(op.get("nom"), 80)
     if not nom:
         raise Refus("Il faut un nom")
@@ -312,8 +363,8 @@ def sortie_a_supprimer(s: Session, u: Utilisateur, op: dict) -> Sortie | None:
     so = s.get(Sortie, uuid.UUID(str(op["sortie"])))
     if so is None or not sortie_visible(s, u, so):
         raise Refus("Sortie inconnue")
-    m = membre(s, so.groupe_id, u.id)
-    if so.cree_par != u.id and (m is None or m.role != "admin"):
+    g = s.get(Groupe, so.groupe_id)
+    if so.cree_par != u.id and not droits.admin_du_groupe(s, u, g):
         raise Refus("Seul celui qui a créé la sortie (ou un admin du groupe) peut la supprimer")
     return so
 
@@ -453,13 +504,13 @@ def placer_photo(s: Session, u: Utilisateur, op: dict) -> None:
 
 
 def retirer_photo(s: Session, u: Utilisateur, op: dict) -> None:
-    """Seul l'auteur retire sa photo (le fichier est effacé par le serveur)."""
+    """L'auteur retire sa photo, ou un admin du groupe (le fichier est effacé par le serveur)."""
     try:
         p = photo_de(s, u, op["photo"])
     except Refus:
         return  # déjà retirée : rejouer ne coûte rien
-    if p.par != u.id:
-        raise Refus("Seul l'auteur peut retirer sa photo")
+    if p.par != u.id and not droits.admin_du_groupe(s, u, s.get(Groupe, s.get(Sortie, p.sortie_id).groupe_id)):
+        raise Refus("Seul l'auteur (ou un admin du groupe) peut retirer sa photo")
     s.delete(p)
     toucher(s.get(Sortie, p.sortie_id))
     for taille in TAILLES:
@@ -560,11 +611,18 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
+def a_moi_ou_admin(s: Session, u: Utilisateur, par: uuid.UUID, so: Sortie, quoi: str) -> None:
+    """La règle de Seb (26 novembre) : un membre ne supprime que ce qu'il a apporté ; un admin du groupe, tout."""
+    if par != u.id and not droits.admin_du_groupe(s, u, s.get(Groupe, so.groupe_id)):
+        raise Refus(f"Seul celui qui a ajouté {quoi} (ou un admin du groupe) peut le retirer")
+
+
 def retirer_depense(s: Session, u: Utilisateur, op: dict) -> None:
     d = s.get(Depense, uuid.UUID(str(op["depense"])))
     if d is None:
         return  # déjà retirée
     so = sortie_de(s, u, d.sortie_id)
+    a_moi_ou_admin(s, u, d.par, so, "cette dépense")
     s.delete(d)
     toucher(so)
 
@@ -695,6 +753,7 @@ def retenir_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
 
 def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     h, so = hebergement_de(s, u, op["hebergement"])
+    a_moi_ou_admin(s, u, h.par, so, "cet hébergement")
     s.delete(h)
     toucher(so)
 
@@ -858,8 +917,7 @@ def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
     if m is None or m.supprime:
         return
     if m.par != u.id:
-        mb = membre(s, g.id, u.id) if g else None
-        if mb is None or mb.role != "admin":
+        if g is None or not droits.admin_du_groupe(s, u, g):
             raise Refus("On ne supprime que ses messages")
     m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
     m.fichier_id = m.sondage = None
@@ -925,7 +983,8 @@ def fichier_photo(pid: uuid.UUID, taille: str) -> str:
 
 OPERATIONS = {
     "creer_groupe": creer_groupe, "renommer_groupe": renommer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
-    "retirer": retirer, "nommer_admin": nommer_admin, "annuler_invitation": annuler_invitation,
+    "retirer": retirer, "nommer_admin": nommer_admin, "retirer_admin": retirer_admin, "transmettre": transmettre,
+    "annuler_invitation": annuler_invitation,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
     "supprimer_sortie": supprimer_sortie, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
@@ -950,6 +1009,7 @@ def vue_groupe(s: Session, g: Groupe) -> dict[str, Any]:
                             .order_by(Invitation.cree_le)).all()
     return {
         "id": str(g.id), "nom": g.nom, "nature": g.nature, "photo": g.photo, "modifie_le": iso(g.modifie_le),
+        "organisation": str(g.organisation_id) if g.organisation_id else None,
         "membres": [{**personne(u), "role": m.role} for m, u in membres],
         "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact,
                          "par": str(i.invite_par)} for i in invitations],
@@ -1010,7 +1070,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     positions_g = s.scalars(select(PositionGroupe).join(Membre, (Membre.groupe_id == PositionGroupe.groupe_id)
                                                         & (Membre.utilisateur_id == PositionGroupe.utilisateur_id))
                             .where(PositionGroupe.groupe_id.in_(gids), PositionGroupe.modifie_le > debut - GARDE_POSITIONS)).all()
-    return {"curseur": iso(debut), "moi": str(u.id), "ids": [str(g) for g in gids],
+    return {"curseur": iso(debut), "moi": str(u.id), "roles": droits.vue_roles(u), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
             "ids_traces": [str(t.id) for t in traces], "traces": [vue_trace(s, t) for t in traces if neuf(t.cree_le)],

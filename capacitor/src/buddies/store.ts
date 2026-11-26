@@ -17,7 +17,8 @@ export const LIEN_INVITATION = 'https://silvaplana.cloud/mountaintest/rejoindre.
 const CLE = 'buddies';
 
 export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
-export type Buddy = { id: string; pseudo: string; photo: string | null; role?: 'admin' | 'membre' };
+/** role : dans un groupe (spec §7.17) ; un seul admin_principal, le créateur, qui peut transmettre. */
+export type Buddy = { id: string; pseudo: string; photo: string | null; role?: 'admin_principal' | 'admin' | 'membre' };
 export type Invitation = { id: string; code: string; canal: Canal; nom: string; contact: string; par: string; attente?: boolean };
 export type Groupe = {
   /** duo : discussion à deux (§7.13), sans nom : on montre l'autre buddy. */
@@ -173,7 +174,7 @@ export const lien = (code: string) => LIEN_INVITATION + code;
 
 function moiBuddy(e: Etat): Buddy {
   const c = lireCompte();
-  return { id: e.moi ?? 'moi', pseudo: nomAffiche(c), photo: c.profil?.photo ?? null, role: 'admin' };
+  return { id: e.moi ?? 'moi', pseudo: nomAffiche(c), photo: c.profil?.photo ?? null, role: 'admin_principal' };
 }
 
 /** Sorties et traces partagées tels qu'affichés (version du serveur + opérations en attente). */
@@ -428,6 +429,13 @@ export function appliquer(e: Etat): Groupe[] {
       case 'nommer_admin':
         if (g) g.membres = g.membres.map((m) => m.id === op.buddy ? { ...m, role: 'admin' } : m);
         break;
+      case 'retirer_admin':
+        if (g) g.membres = g.membres.map((m) => m.id === op.buddy ? { ...m, role: 'membre' } : m);
+        break;
+      case 'transmettre':
+        if (g) g.membres = g.membres.map((m) => m.id === op.buddy ? { ...m, role: 'admin_principal' }
+          : m.role === 'admin_principal' ? { ...m, role: 'admin' } : m);
+        break;
     }
   }
   // Façon WhatsApp : le plus récemment actif en haut.
@@ -446,7 +454,17 @@ export function nouveautes(e: Etat = lire()): number {
 }
 export function marquerVu() { ecrire({ ...lire(), vu: Date.now() }); }
 
-export const estAdmin = (g: Groupe, e: Etat = lire()) => g.membres.some((m) => (m.id === e.moi || m.id === 'moi') && m.role === 'admin');
+/** Rôles dans un groupe (spec §7.17), lus seulement ici : l'admin principal est aussi admin. */
+const monRole = (g: Groupe, e: Etat) => g.membres.find((m) => m.id === e.moi || m.id === 'moi')?.role;
+export const estAdmin = (g: Groupe, e: Etat = lire()) => ['admin', 'admin_principal'].includes(monRole(g, e) ?? '');
+export const estAdminPrincipal = (g: Groupe, e: Etat = lire()) => monRole(g, e) === 'admin_principal';
+/** Retirer une chose d'une sortie (photo, dépense, hébergement) : celui qui l'a apportée, ou un admin du groupe (Seb, 26 novembre). */
+export function peutRetirer(par: string | undefined, sortie: string, e: Etat = lire()): boolean {
+  if (!par || par === (e.moi ?? 'moi')) return true;
+  const so = e.sorties.find((x) => x.id === sortie);
+  const g = so && appliquer(e).find((x) => x.id === so.groupe);
+  return !!g && estAdmin(g, e);
+}
 
 // ------------------------------------------------------------------ actions (tout de suite à l'écran)
 
@@ -701,6 +719,9 @@ export const annulerInvitation = (invitation: string) => ajouter({ type: 'annule
 export const quitter = (groupe: string) => ajouter({ type: 'quitter', groupe });
 export const retirer = (groupe: string, buddy: string) => ajouter({ type: 'retirer', groupe, buddy });
 export const nommerAdmin = (groupe: string, buddy: string) => ajouter({ type: 'nommer_admin', groupe, buddy });
+export const retirerAdmin = (groupe: string, buddy: string) => ajouter({ type: 'retirer_admin', groupe, buddy });
+/** L'admin principal passe son rôle (il reste admin). */
+export const transmettre = (groupe: string, buddy: string) => ajouter({ type: 'transmettre', groupe, buddy });
 /** Lien d'invitation ouvert (fr.assomoutain.rando://rejoindre?c=…). */
 export function rejoindre(code: string) {
   if (!code || lire().attente.some((o) => o.type === 'rejoindre' && o.code === code)) return;

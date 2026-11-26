@@ -33,7 +33,7 @@ def ancien_me_time(sub, avec_sortie):
     with serveur.Sessions() as s:
         u = s.scalar(buddies.select(Utilisateur).where(Utilisateur.logto_id == sub))
         gid = uuid.uuid5(buddies.ESPACE_ME_TIME, str(u.id))
-        s.add(Groupe(id=gid, nom="Me Time", nature="me_time", cree_par=u.id))
+        s.add(Groupe(id=gid, nom="Me Time", nature="me_time", cree_par=u.id, cree_le=buddies.FIN_ME_TIME - buddies.timedelta(days=1)))
         s.flush()
         s.add(Membre(groupe_id=gid, utilisateur_id=u.id, role="admin"))
         if avec_sortie:
@@ -75,7 +75,7 @@ def test_inviter_puis_rejoindre_par_le_lien(client):
     # Julie installe l'appli, se connecte et rejoint.
     r = sync(client, sub="julie", ops=[{"id": "x", "type": "rejoindre", "code": "CodeSecret0123456789"}])
     g = par_nom(r, "Ski du dimanche")
-    assert [m["role"] for m in g["membres"]] == ["admin", "membre"]
+    assert [m["role"] for m in g["membres"]] == ["admin_principal", "membre"]
     assert g["invitations"] == []  # l'invitation de Julie est utilisée
     # Seb la voit arriver dans « nouveautés depuis ».
     assert len(par_nom(sync(client), "Ski du dimanche")["membres"]) == 2
@@ -109,12 +109,12 @@ def test_droits_et_depart(client):
     seb = par_nom(sync(client), "Ski du dimanche")["membres"][0]["id"]
     r = sync(client, sub="julie", ops=[{"id": "r1", "type": "retirer", "groupe": gid, "buddy": seb}])
     assert r["refus"][0]["id"] == "r1"
-    # Seb la nomme admin puis quitte : Julie reste admin du groupe.
+    # Seb (admin principal, le créateur) la nomme admin puis quitte : Julie devient admin principale.
     sync(client, ops=[{"id": "a", "type": "nommer_admin", "groupe": gid, "buddy": julie},
                       {"id": "q", "type": "quitter", "groupe": gid}])
     assert gid not in sync(client)["ids"]
     g = par_nom(sync(client, sub="julie"), "Ski du dimanche")
-    assert [(m["id"], m["role"]) for m in g["membres"]] == [(julie, "admin")]
+    assert [(m["id"], m["role"]) for m in g["membres"]] == [(julie, "admin_principal")]
     # Dernier membre parti : le groupe disparaît.
     sync(client, sub="julie", ops=[{"id": "q2", "type": "quitter", "groupe": gid}])
     assert gid not in sync(client, sub="julie")["ids"]
@@ -126,7 +126,7 @@ def test_dernier_admin_qui_part_passe_la_main(client):
     sync(client, ops=[op, invitation(gid)])
     sync(client, sub="julie", ops=[{"id": "j", "type": "rejoindre", "code": "CodeSecret0123456789"}])
     sync(client, ops=[{"id": "q", "type": "quitter", "groupe": gid}])
-    assert par_nom(sync(client, sub="julie"), "Ski du dimanche")["membres"][0]["role"] == "admin"
+    assert par_nom(sync(client, sub="julie"), "Ski du dimanche")["membres"][0]["role"] == "admin_principal"
 
 
 @pytest.mark.parametrize("op", [

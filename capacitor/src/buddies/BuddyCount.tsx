@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { aujourdhui, enregistrerDepense, lire, retirerDepense, type Depense, type Sortie } from './store';
+import { aujourdhui, enregistrerDepense, lire, peutRetirer, retirerDepense, type Depense, type Sortie } from './store';
 import { compte, euros, icone, lireEuros } from './count';
 import { Visage } from './Buddies';
 
@@ -113,6 +113,6 @@ export function UneDepense({ x, d, onFini, onToast, onClose }: {
     <label className="bd-champ"><small>Le jour</small><input type="date" value={jour} onChange={(e) => setJour(e.target.value)} /></label>
     <span style={{ flex: 1 }} />
     <button className="primary bd-grand" onClick={enregistrer}>Enregistrer</button>
-    {d && <button className="bd-grand" onClick={() => { retirerDepense(d.id); onToast(`« ${d.titre} » retirée`); onFini(); }}>Retirer la dépense</button>}
+    {d && peutRetirer(d.par, d.sortie) && <button className="bd-grand" onClick={() => { retirerDepense(d.id); onToast(`« ${d.titre} » retirée`); onFini(); }}>Retirer la dépense</button>}
   </div>;
 }

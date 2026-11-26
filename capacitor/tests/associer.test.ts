@@ -19,6 +19,6 @@ describe('associer une trace à une sortie', () => {
     const x = { id: 's', groupe: 'g', nom: 'Week-end Écrins' } as Sortie;
     const gs = [{ id: 'g', nom: 'Les Lyonnais', nature: 'bande' }, { id: 'm', nom: 'x', nature: 'me_time' }];
     expect(nomLien({ groupe: 'g', sortie: 's' }, [x], gs)).toMatchObject({ titre: 'Week-end Écrins', sous: 'Les Lyonnais' });
-    expect(nomLien({ groupe: 'm', sortie: null }, [x], gs)).toMatchObject({ titre: 'Me Time', sous: 'tout le groupe' });
+    expect(nomLien({ groupe: 'm', sortie: null }, [x], gs)).toMatchObject({ titre: 'Seul', sous: 'tout le groupe' });
   });
 });

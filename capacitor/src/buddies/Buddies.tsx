@@ -23,7 +23,7 @@ import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, autreDuDuo, monEpingle, creerGroupe, creerSortie, estAdmin, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, nonLus,
+  annulerInvitation, appliquer, aujourdhui, autreDuDuo, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
   nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -426,7 +426,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // Une sortie terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
   const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
-  // Ancien Me Time (retiré, Seb 25 novembre) : tant qu'un téléphone en garde un avant la synchro, on l'écarte comme avant.
+  // Groupe perso, sans nom (« Seul », Seb 26 novembre) : il naît à la première sortie seul.
   const meTime = groupes.find((x) => x.nature === 'me_time');
   // 📅 : les plannings du groupe ouvert, sinon de toutes mes bandes (spec §5.5).
   const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' || vue.ecran === 'conv' ? vue.id : undefined;
@@ -513,11 +513,12 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onSortie={ouvrir} onRemplir={() => setVue({ ecran: 'dispos', id: pl.id, groupe: vue.groupe })} onRetour={() => retourPlannings(vue.groupe)} />
       : vue.ecran === 'dispos' && pl ? <MesDispos p={pl} onClose={onClose} onRetour={() => setVue({ ecran: 'planning', id: pl.id, groupe: vue.groupe })} />
       : vue.ecran === 'nouveau' ? <Nouveau onToast={onToast} onFini={(id) => setVue({ ecran: 'groupe', id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-      : vue.ecran === 'sortie' && !groupes.some((x) => x.id === vue.groupe)
+      : vue.ecran === 'sortie' && vue.groupe !== SEUL && !groupes.some((x) => x.id === vue.groupe)
         ? <ChoixGroupe groupes={groupes.filter((x) => x.nature === 'bande')} onChoix={(id) => setVue({ ecran: 'sortie', groupe: id })}
+          onSeul={() => setVue({ ecran: 'sortie', groupe: meTime?.id ?? SEUL })}
           onNouveau={() => setVue({ ecran: 'nouveau' })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-      : vue.ecran === 'sortie' ? <NouvelleSortie g={groupes.find((x) => x.id === vue.groupe)!} onToast={onToast} onClose={onClose}
-        onRetour={() => setVue({ ecran: 'groupe', id: vue.groupe })}
+      : vue.ecran === 'sortie' ? <NouvelleSortie g={groupes.find((x) => x.id === vue.groupe) ?? groupeSeul()} onToast={onToast} onClose={onClose}
+        onRetour={() => setVue(vue.groupe === SEUL ? { ecran: 'liste' } : { ecran: 'groupe', id: vue.groupe })}
         onFini={(id) => { const x = vueSorties(lire()).sorties.find((y) => y.id === id); if (x) ouvrir(x); }} />
       : g ? <UnGroupe g={g} plannings={plannings.filter((x) => x.groupe === g.id)} onRemplir={remplir} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
         onToast={onToast} onOuvrir={voir} onTrace={(t) => onCarte({ traces: [t] })}
@@ -527,21 +528,29 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   </div>;
 }
 
-/** ＋ Sortie depuis la liste : dans quel groupe ? (plus de Me Time : Seb, 25 novembre). */
-function ChoixGroupe({ groupes, onChoix, onNouveau, onRetour, onClose }: {
-  groupes: Groupe[]; onChoix: (id: string) => void; onNouveau: () => void; onRetour: () => void; onClose: () => void;
+/** Sortie seul avant que le Groupe perso existe : le serveur le crée, sans nom, à la première (Seb, 26 novembre). */
+const SEUL = 'seul';
+const groupeSeul = (): Groupe => ({ id: SEUL, nom: '', nature: 'me_time', photo: null, modifie_le: '', membres: [], invitations: [] });
+
+/** ＋ Sortie depuis la liste : seul, ou dans quel groupe ? */
+function ChoixGroupe({ groupes, onChoix, onSeul, onNouveau, onRetour, onClose }: {
+  groupes: Groupe[]; onChoix: (id: string) => void; onSeul: () => void; onNouveau: () => void; onRetour: () => void; onClose: () => void;
 }) {
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button><h2>Nouvelle sortie</h2>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
+    <button className="bd-ligne" onClick={onSeul}>
+      <Visage b={{ id: SEUL, pseudo: nomAffiche(), photo: lireCompte().profil?.photo ?? null }} taille={56} />
+      <span className="bd-texte"><b>Seul</b><small>Mes sorties à moi</small></span>
+    </button>
     <h3 className="bd-section">Dans quel groupe ?</h3>
     {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onChoix(g.id)}>
       <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} />
       <span className="bd-texte"><b>{g.nom}</b><small>{resume(g)}</small></span>
     </button>)}
-    {!groupes.length && <p className="bd-vide">Crée d'abord un groupe : une bande de copains, ou rien que toi pour tes sorties perso.</p>}
+    {!groupes.length && <p className="bd-vide">Pas encore de groupe : crée-le pour partir avec ta bande de copains.</p>}
     <span style={{ flex: 1 }} />
     <button className={groupes.length ? 'bd-grand' : 'primary bd-grand'} onClick={onNouveau}>＋ Groupe</button>
   </div>;
@@ -564,7 +573,7 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
     {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
       {g.nature === 'me_time' ? <Visage b={{ id: g.id, pseudo: nomAffiche(), photo: lireCompte().profil?.photo ?? null }} taille={56} />
         : <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} />}
-      <span className="bd-texte"><b>{g.nom}</b>
+      <span className="bd-texte"><b>{g.nature === 'me_time' ? 'Seul' : g.nom}</b>
         <small>{g.nature === 'me_time' ? 'Mes sorties à moi' : resume(g)}</small></span>
       <small className="bd-quand">{g.attente ? '🕓' : quand(g.modifie_le)}</small>
     </button>)}
@@ -602,11 +611,11 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <span className="bd-titre" onClick={() => setNommer(true)}><b>{g.nom}</b><small>{me ? 'Mes sorties à moi' : `Groupe · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
-      <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={22} /></button>
+      <span className="bd-titre" onClick={() => setNommer(!me)}><b>{me ? 'Seul' : g.nom}</b><small>{me ? 'Mes sorties à moi' : `Groupe · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
+      {!me && <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={22} /></button>}
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    {nommer && <FeuilleNom titre={me ? 'Nom de mes sorties à moi' : 'Nom du groupe'} nom={g.nom}
+    {nommer && <FeuilleNom titre="Nom du groupe" nom={g.nom}
       onEnregistrer={(n) => renommerGroupe(g.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
     {!me && <button className="bd-visages" onClick={() => setMembres(true)} aria-label="Les buddies">
       {g.membres.map((m) => <Visage key={m.id} b={m} taille={34} />)}
@@ -636,18 +645,21 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   </div>;
 }
 
-/** Les buddies d'un groupe (toucher les visages) : inviter, nommer admin, retirer, quitter (spec §5.3). */
+/** Les buddies d'un groupe (toucher les visages) : inviter, nommer admin, retirer, quitter (spec §5.3, rôles §7.17). */
 function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string; onToast: (m: string) => void; onFermer: () => void; onParti: () => void }) {
   const e = lire();
   const admin = estAdmin(g, e);
+  const principal = estAdminPrincipal(g, e);
+  // Un admin retire un membre ; un admin, seul l'admin principal le retire ; l'admin principal, personne.
+  const retirable = (b: Buddy) => b.role === 'admin_principal' ? false : b.role === 'admin' ? principal : admin;
   const [choisi, setChoisi] = useState<Buddy | null>(null);
   const moi = (b: Buddy) => b.id === e.moi || b.id === 'moi';
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
     <h3>Inviter mes copains</h3>
     <Inviter nomGroupe={g.nom} qrExistant={qr} onToast={onToast} onInvite={(i) => { inviter(g.id, i); if (i.canal !== 'qr') onToast(`Invitation envoyée à ${i.nom}`); }} />
     <h3>Dans la bande</h3>
-    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={!admin || moi(m)} onClick={() => setChoisi(m)}>
-      <Visage b={m} /><span className="bd-texte"><b>{m.pseudo}{moi(m) ? ' (toi)' : ''}</b>{m.role === 'admin' && <small>admin</small>}</span>
+    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m) || !(principal || retirable(m))} onClick={() => setChoisi(m)}>
+      <Visage b={m} /><span className="bd-texte"><b>{m.pseudo}{moi(m) ? ' (toi)' : ''}</b>{m.role === 'admin_principal' ? <small>admin principal</small> : m.role === 'admin' && <small>admin</small>}</span>
     </button>)}
     {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <div key={i.id} className="bd-ligne petite bd-invite">
       <Visage b={{ id: i.id, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
@@ -656,8 +668,11 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
     </div>)}
     {choisi && <div className="bd-actions">
       <b>{choisi.pseudo}</b>
-      {choisi.role !== 'admin' && <button onClick={() => { nommerAdmin(g.id, choisi.id); setChoisi(null); }}>Nommer admin</button>}
-      <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer de la bande</button>
+      {principal && choisi.role === 'membre' && <button onClick={() => { nommerAdmin(g.id, choisi.id); setChoisi(null); }}>Nommer admin</button>}
+      {principal && choisi.role === 'admin' && <button onClick={() => { retirerAdmin(g.id, choisi.id); setChoisi(null); }}>N'est plus admin</button>}
+      {principal && <button onClick={() => { transmettre(g.id, choisi.id); setChoisi(null); onToast(`${choisi.pseudo} devient admin principal`); }}>
+        Lui passer mon rôle d'admin principal</button>}
+      {retirable(choisi) && <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer de la bande</button>}
       <button onClick={() => setChoisi(null)}>Annuler</button>
     </div>}
     <button className="acc-deco" onClick={() => {
@@ -751,7 +766,7 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
       <label>du<input type="date" value={debut} onChange={(ev) => { setDebut(ev.target.value); if (fin < ev.target.value) setFin(ev.target.value); }} /></label>
       <label>au<input type="date" value={fin} min={debut} onChange={(ev) => setFin(ev.target.value)} /></label>
     </div>
-    <h3 className="bd-section">Avec qui <small>{me ? g.nom : `${g.nom} · ${qui.size} sur ${g.membres.length}`}</small></h3>
+    <h3 className="bd-section">Avec qui <small>{me ? 'Seul' : `${g.nom} · ${qui.size} sur ${g.membres.length}`}</small></h3>
     {me ? <>
       <Inviter sortie nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast} onInvite={(i) => setInvites((l) => [...l, i])} />
       {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">

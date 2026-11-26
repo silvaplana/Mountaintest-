@@ -45,7 +45,7 @@ export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
       <p className="hint">Connecte-toi (👤) pour associer tes traces à tes sorties.</p>
     </> : g ? <>
       <div className="xp-head"><button onClick={() => setGroupeVu(null)} aria-label="Retour">‹</button>
-        <h3>{g.nature === 'me_time' ? 'Me Time' : g.nom}</h3><button onClick={onFermer} aria-label="Fermer">✕</button></div>
+        <h3>{g.nature === 'me_time' ? 'Seul' : g.nom}</h3><button onClick={onFermer} aria-label="Fermer">✕</button></div>
       <h3 className="bd-section">Ses sorties</h3>
       {(() => {
         const ses = sorties.filter((x) => x.groupe === g.id);
@@ -70,8 +70,8 @@ export function AssocierPanel({ nom, lien, ouverte, onChoisir, onFermer }: {
       {groupes.map((x) => {
         const n = sorties.filter((y) => y.groupe === x.id).length;
         return <button key={x.id} className="bd-ligne" onClick={() => setGroupeVu(x.id)}>
-          <Visage b={{ id: x.id, nom: x.nature === 'me_time' ? 'Me Time' : x.nom, photo: x.photo }} taille={46} />
-          <span className="bd-texte"><b>{x.nature === 'me_time' ? 'Me Time' : x.nom}</b><small>{n} sortie{n > 1 ? 's' : ''}</small></span>
+          <Visage b={{ id: x.id, nom: x.nature === 'me_time' ? 'Seul' : x.nom, photo: x.photo }} taille={46} />
+          <span className="bd-texte"><b>{x.nature === 'me_time' ? 'Seul' : x.nom}</b><small>{n} sortie{n > 1 ? 's' : ''}</small></span>
           <span className="bd-fleche">›</span></button>;
       })}
       {bas}

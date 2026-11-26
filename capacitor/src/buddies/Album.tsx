@@ -6,7 +6,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { adresse, garder, preparer } from './album';
 import { annulerChoix, budChoisit, COMBIEN } from './budPhotos';
-import { aujourdhui, deposerPhotos, lire, mettreEtoile, parJour, placerPhoto, retirerPhoto, uuid, type PhotoBuddy, type Sortie } from './store';
+import { aujourdhui, deposerPhotos, mettreEtoile, parJour, peutRetirer, placerPhoto, retirerPhoto, uuid, type PhotoBuddy, type Sortie } from './store';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Natif, Visage } from './Buddies';
@@ -172,7 +172,7 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
       <div className="bd-recues" onClick={(ev) => ev.stopPropagation()}>
         <button onClick={() => { void partagerPhoto(menu, onToast); setMenu(null); }}>Partager</button>
         <button onClick={() => { mettreEtoile(menu.id, !menu.etoile); setMenu(null); }}>{menu.etoile ? 'Retirer du carnet' : '⭐ Garder pour le carnet'}</button>
-        {menu.par.id === (lire().moi ?? 'moi') && <button onClick={() => { retirerPhoto(menu.id); setMenu(null); }}>Retirer de l'album</button>}
+        {peutRetirer(menu.par.id, menu.sortie) && <button onClick={() => { retirerPhoto(menu.id); setMenu(null); }}>Retirer de l'album</button>}
         <button onClick={() => setMenu(null)}>Annuler</button>
       </div>
     </div>}
@@ -206,7 +206,7 @@ const heure = (p: PhotoBuddy) => p.prise_le.slice(11, 16).replace(':', ' h ');
  */
 export function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]; i: number; onI: (i: number) => void; onFermer: () => void; onPlacer?: (p: PhotoBuddy) => void }) {
   const p = l[i];
-  const moi = p.par.id === (lire().moi ?? 'moi');
+  const moi = peutRetirer(p.par.id, p.sortie);
   const [plein, setPlein] = useState(false);
   const etat = useRef({ l, i, onI, onFermer });
   etat.current = { l, i, onI, onFermer };
