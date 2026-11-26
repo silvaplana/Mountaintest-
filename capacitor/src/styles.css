@@ -652,6 +652,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-ajout { margin-left: 16px; width: 40px; height: 40px; border-radius: 50%; background: var(--card); display: grid; place-items: center; font-size: 22px; color: var(--accent); }
 .bd-vide { color: var(--muted); margin: 4px 0; }
 .bd-plus { display: flex; gap: 10px; }
+/* Seul (écran d'un groupe) : « ＋ Sortie » garde la taille et la place qu'il a dans la liste, pas toute la largeur (Seb 26/11). */
+.bd-plus > button.primary:only-child { flex: 0 1 calc(50% - 5px); margin-left: auto; }
 .bd-plus button { display: flex; align-items: center; gap: 10px; border-radius: 16px; min-height: 64px; font-size: 22px; text-align: left; }
 .bd-plus-texte { display: flex; flex-direction: column; font-size: 17px; line-height: 1.2; }
 .bd-plus-texte small { font-weight: 400; opacity: .85; font-size: 14px; }
