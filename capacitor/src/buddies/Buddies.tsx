@@ -125,12 +125,6 @@ function quand(iso: string) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-function heure(ms?: number) {
-  if (!ms) return 'pas encore synchronisé';
-  const d = new Date(ms), h = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', ' h ');
-  return d.toDateString() === new Date().toDateString() ? `à jour à ${h}` : `à jour le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${h}`;
-}
-
 function resume(g: Groupe) {
   const n = g.invitations.filter((i) => i.canal !== 'qr').length;
   return `${g.membres.length} ${g.membres.length > 1 ? 'buddies' : 'buddy'}${n ? ` · ${n} invitation${n > 1 ? 's' : ''} envoyée${n > 1 ? 's' : ''}` : ''}`;
@@ -565,7 +559,8 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
   const suppression = useSuppression();
   const nomGroupe = (x: Sortie) => groupes.find((g) => g.id === x.groupe)?.nom ?? '';
   return <div className="bd-corps">
-    <p className="hint">{enAttente ? `🕓 ${enAttente} changement${enAttente > 1 ? 's' : ''} partira au retour du réseau · ` : ''}{heure(e.synchro)}</p>
+    {/* Pas de « à jour à … » (Seb, 26 novembre) : seulement ce qui attend le réseau. */}
+    {enAttente > 0 && <p className="hint">🕓 {enAttente} changement{enAttente > 1 ? 's' : ''} partira au retour du réseau</p>}
     {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     {haut && <Affiche x={haut} onClick={() => onSortie(haut)} />}

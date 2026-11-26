@@ -714,8 +714,12 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-plus .bd-faces i { width: 18px; height: 18px; margin-right: -7px; }
 .bd-plus .bd-mini-carre { width: 24px; height: 24px; }
 .bd-dates label { min-width: 0; }
-.bd-plus button { flex-direction: column; justify-content: center; text-align: center; gap: 4px; }
+.bd-plus button { flex-direction: row; justify-content: center; text-align: center; gap: 8px; }
 .bd-plus .bd-plus-texte { align-items: center; }
+/* Petite icône à la hauteur du mot « Groupe » / « Sortie » (Seb, 26 novembre). */
+.bd-plus .bd-faces i { width: 14px; height: 14px; margin-right: -5px; border-width: 1.5px; }
+.bd-plus .bd-faces i:nth-child(3) { margin-right: 0; }
+.bd-plus .bd-mini-carre { width: 17px; height: 17px; border-radius: 4px; border-width: 1.5px; font-size: 8px; padding-bottom: 0; }
 
 /* Planning de saison (spec/buddies.md §5.5, écrans 16 à 19) */
 .bd-icone { font-size: 30px; line-height: 1; }
