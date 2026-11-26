@@ -172,13 +172,21 @@ function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: 
   </button>;
 }
 
-/** Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement. */
-function Colonne({ onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
-  onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
+/**
+ * Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement.
+ * Rétractable (Seb, 26/11) : ✕ toujours en haut, dessous une flèche qui fait descendre les icônes puis les remonte.
+ */
+function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
+  onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
   onAppel?: () => void; onPosition?: () => void;
 }) {
   const visible = !!monEpingle(useBuddies());
+  const [ouverte, setOuverte] = useState(false);
   return <div className="bd-colonne">
+    <button onClick={onClose} aria-label="Fermer">✕</button>
+    <button className={`bd-col-fleche${ouverte ? ' ouverte' : ''}`} onClick={() => setOuverte(!ouverte)}
+      aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
+    <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
     <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
@@ -192,7 +200,14 @@ function Colonne({ onToast, onExpenses, onLodging, onTravel, onAccount, onPlanni
     <button aria-label="Voyage en voiture" onClick={onTravel}>🚗</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Moi : mon compte" onClick={onAccount}>👤</button>
+    </div>
   </div>;
+}
+
+/** Flèche au trait (règle icônes de Seb) ; la colonne la retourne quand les icônes sont sorties. */
+function ChevronIcon() {
+  return <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6 9l6 6 6-6" /></svg>;
 }
 
 function Qr({ texte }: { texte: string }) {
@@ -395,9 +410,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   }, [onToast]);
 
   if (!connecte(compte)) {
-    const colonne = <Colonne onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} onTravel={onTravel} onAccount={onAccount} />;
+    const colonne = <Colonne onClose={onClose} onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} onTravel={onTravel} onAccount={onAccount} />;
     return <div className="buddies">{colonne}<div className="bd-corps">
-      <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
       <p className="bd-vide">Connecte-toi pour retrouver tes copains, créer tes groupes et partager vos sorties.</p>
       <button className="primary bd-grand" onClick={onAccount}>👤 Me connecter</button>
       {rejointsEnAttente(e).length > 0 && <p className="hint">🕓 Une invitation t'attend : elle s'ouvrira une fois connecté.</p>}
@@ -419,7 +433,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // 💶 : le Buddy count de la sortie ouverte, sinon tous ceux du groupe ouvert (ou de tous).
   const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) ? vue.id : undefined;
   // 🏨 : « Où on dort ? » de la sortie ouverte, sinon la recherche d'hébergement.
-  const colonne = <Colonne onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
+  const colonne = <Colonne onClose={onClose} onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
@@ -533,7 +547,7 @@ function ChoixGroupe({ groupes, onChoix, onNouveau, onRetour, onClose }: {
   </div>;
 }
 
-function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, onNouveau, onNouvelle, onClose, onToast }: {
+function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, onNouveau, onNouvelle, onToast }: {
   e: Etat; groupes: Groupe[]; sorties: Sortie[]; plannings: Planning[]; onRemplir: (p: Planning) => void; onOuvrir: (id: string) => void; onSortie: (x: Sortie) => void;
   onNouveau: () => void; onNouvelle: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
@@ -542,7 +556,6 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
   const suppression = useSuppression();
   const nomGroupe = (x: Sortie) => groupes.find((g) => g.id === x.groupe)?.nom ?? '';
   return <div className="bd-corps">
-    <div className="xp-head"><h2>Buddies</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
     <p className="hint">{enAttente ? `🕓 ${enAttente} changement${enAttente > 1 ? 's' : ''} partira au retour du réseau · ` : ''}{heure(e.synchro)}</p>
     {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
@@ -566,9 +579,9 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
       <button className="primary" onClick={onNouveau}><span className="bd-faces"><i /><i /><i /></span>
-        <span className="bd-plus-texte"><b>＋ Groupe</b><small>une bande</small></span></button>
+        <span className="bd-plus-texte"><b>＋ Groupe</b></span></button>
       <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
-        <span className="bd-plus-texte"><b>＋ Sortie</b><small>une sortie</small></span></button>
+        <span className="bd-plus-texte"><b>＋ Sortie</b></span></button>
     </div>
   </div>;
 }
@@ -617,7 +630,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
       <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
-        <span className="bd-plus-texte"><b>＋ Sortie</b><small>une sortie</small></span></button>
+        <span className="bd-plus-texte"><b>＋ Sortie</b></span></button>
     </div>
     {membres && <Membres g={g} qr={qr} onToast={onToast} onFermer={() => setMembres(false)} onParti={onRetour} />}
   </div>;

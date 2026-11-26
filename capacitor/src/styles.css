@@ -585,8 +585,22 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-corps { flex: 1; min-width: 0; overflow-y: auto; padding: 0 8px 0 14px; display: flex; flex-direction: column; gap: 10px; font-size: 17px; }
 .bd-corps .xp-head h2 { margin: 0; flex: 1; }
 .bd-corps .xp-head > button { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 22px; background: var(--card); border: 0; }
-.bd-colonne { display: flex; flex-direction: column; gap: 12px; padding: 64px 10px 0 2px; }
-.bd-colonne button { width: 52px; height: 52px; border-radius: 50%; padding: 0; font-size: 24px; background: var(--card); border: 0; }
+.bd-colonne { display: flex; flex-direction: column; gap: 12px; padding: 0 10px 0 2px; overflow-y: auto; flex: none; }
+.bd-colonne button { width: 52px; height: 52px; border-radius: 50%; padding: 0; font-size: 24px; background: var(--card); border: 0; flex: none; }
+/* Colonne rétractable (Seb, 26/11) : ✕ en haut, la flèche fait descendre les icônes puis les remonte. */
+.bd-colonne .bd-col-fleche { display: flex; align-items: center; justify-content: center; color: #1d2421; }
+.bd-col-fleche svg { transition: transform .3s ease; }
+.bd-col-fleche.ouverte svg { transform: rotate(180deg); }
+.bd-col-icones { display: flex; flex-direction: column; gap: 12px; max-height: 0; overflow: hidden; transition: max-height .35s ease; }
+.bd-col-icones.ouverte { max-height: 900px; }
+.bd-col-icones > button { opacity: 0; transform: translateY(-24px); transition: opacity .25s ease, transform .3s ease; }
+.bd-col-icones.ouverte > button { opacity: 1; transform: none; }
+.bd-col-icones.ouverte > button:nth-child(2) { transition-delay: .03s; } .bd-col-icones.ouverte > button:nth-child(3) { transition-delay: .06s; }
+.bd-col-icones.ouverte > button:nth-child(4) { transition-delay: .09s; } .bd-col-icones.ouverte > button:nth-child(5) { transition-delay: .12s; }
+.bd-col-icones.ouverte > button:nth-child(6) { transition-delay: .15s; } .bd-col-icones.ouverte > button:nth-child(7) { transition-delay: .18s; }
+.bd-col-icones.ouverte > button:nth-child(8) { transition-delay: .21s; } .bd-col-icones.ouverte > button:nth-child(9) { transition-delay: .24s; }
+/* Le ✕ est dans la colonne : pas de second ✕ dans l'en-tête des écrans de Buddies. */
+.buddies > .bd-corps .xp-head > button[aria-label="Fermer"] { display: none; }
 .bd-section { margin: 6px 0 0; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
 .bd-section small { text-transform: none; letter-spacing: 0; font-weight: 400; }
 .bd-ligne { display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 6px 0; text-align: left; width: 100%; font-size: 17px; min-height: 56px; }

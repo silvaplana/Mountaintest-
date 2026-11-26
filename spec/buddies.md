@@ -67,6 +67,10 @@ encore les anciens noms (§7.12).
 - Verticale, à droite, toujours visible **(Seb)** : 📞 appel, 📅 planning, 💬 messagerie,
   📸 album, 💶 Buddy count, 🏨 hébergement, 📍 ma position (Seb, 25 novembre : partager sa position
   même hors sortie, §7.14), 🚗 voyage, 👤 moi.
+- **Rétractable** (Seb, 26 novembre 2026) : le ✕ (fermer Buddies) reste toujours en haut de la colonne, dessous
+  une flèche ⌄ ; la toucher fait descendre les icônes avec une animation, la flèche se retourne ⌃ et les
+  remonte. Rangée à l'ouverture de Buddies. Plus de titre « Buddies » ni de second ✕ en haut des écrans ;
+  en bas de la liste, simplement « ＋ Groupe » et « ＋ Sortie » (sans sous-titre).
 - Elle ne change pas ; sa portée suit ce qui est ouvert à gauche **(proposé)** : dans la
   liste elle regarde tous mes buddies, dans un groupe ce groupe, dans une sortie
   cette sortie.
