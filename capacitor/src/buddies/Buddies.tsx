@@ -301,7 +301,7 @@ const dateCourte = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('
 export function dates(x: Sortie) { return x.fin === x.debut ? dateCourte(x.debut) : `${dateCourte(x.debut)} – ${dateCourte(x.fin)}`; }
 export function quandSortie(x: Sortie) {
   const n = joursAvant(x);
-  if (x.fin < aujourdhui()) return 'Souvenir';
+  if (x.fin < aujourdhui()) return 'Sortie passée';
   if (n <= 0) return 'En cours';
   return n === 1 ? 'Demain' : `Dans ${n} jours`;
 }
@@ -582,15 +582,15 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
     {sorties.map((x) => <div key={x.id} className="bd-ligne-outils"><button className="bd-ligne" onClick={() => onSortie(x)}>
       <Carre x={x} />
       <span className="bd-texte"><b>{x.nom}</b>
-        <small>{[nomGroupe(x), x.participants.length > 1 ? `${x.participants.length} partants` : '', x.fin < aujourdhui() ? 'souvenir' : ''].filter(Boolean).join(' · ')}</small></span>
+        <small>{[nomGroupe(x), x.participants.length > 1 ? `${x.participants.length} partants` : '', x.fin < aujourdhui() ? 'sortie passée' : ''].filter(Boolean).join(' · ')}</small></span>
       {x.attente && <small className="bd-quand">🕓</small>}
     </button><OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} /></div>)}
     {suppression.bandeau}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
-      <button className="primary" onClick={onNouveau}><span className="bd-faces"><i /><i /><i /></span>
+      <button className="primary" onClick={onNouveau}>
         <span className="bd-plus-texte"><b>＋ Groupe</b></span></button>
-      <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
+      <button className="primary" onClick={onNouvelle}>
         <span className="bd-plus-texte"><b>＋ Sortie</b></span></button>
     </div>
   </div>;
@@ -637,7 +637,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     {/* Plus de « Traces partagées » ici : les traces se partagent dans le chat pour l’instant (Seb, 26/11). */}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
-      <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
+      <button className="primary" onClick={onNouvelle}>
         <span className="bd-plus-texte"><b>＋ Sortie</b></span></button>
     </div>
     {membres && <Membres g={g} qr={qr} onToast={onToast} onFermer={() => setMembres(false)} onParti={onRetour} />}
@@ -884,7 +884,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
         </div>
         <div className="bd-chiffres">
           <span><b>{traces.length ? `${km.toFixed(km < 10 ? 1 : 0)} km` : '—'}</b><small>{traces.length > 1 ? `${traces.length} traces` : 'parcours'}</small></span>
-          <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'souvenir'}</small></span>
+          <span><b>{venir ? Math.max(0, joursAvant(x)) : '✓'}</b><small>{venir ? 'jours avant' : 'sortie passée'}</small></span>
           <button className="bd-chiffre-count" onClick={onCount}><b>💶 {depense ? euros(depense) : '＋'}</b><small>{depense ? `à ${x.participants.length}` : 'Buddy count'}</small></button>
         </div>
         {x.participants.length > 1 && <button className="bd-ligne bd-pos-acces" onClick={() => setMsg(true)}>
