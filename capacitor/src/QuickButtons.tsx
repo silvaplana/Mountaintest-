@@ -143,6 +143,21 @@ const SlopeIcon = () => (
   </svg>
 );
 
+/** Icône Buddies : deux bustes côte à côte, bleu foncé devant, bleu clair derrière (le 👥 des maquettes, Seb 26/11).
+ * Dessinée ici parce que l'émoji 👥 sort tout noir sur certains téléphones. */
+const BuddiesIcon = () => (
+  <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true">
+    <g fill="#1d9bf0">
+      <ellipse cx="31" cy="18" rx="8.5" ry="10.5" />
+      <path d="M18 41v-6c0-5 4-7 7-7h12c3 0 7 2 7 7v6Z" />
+    </g>
+    <g fill="#1a6fd0">
+      <ellipse cx="16" cy="18" rx="8.5" ry="10.5" />
+      <path d="M3 41v-6c0-5 4-7 7-7h12c3 0 7 2 7 7v6Z" />
+    </g>
+  </svg>
+);
+
 /** Icône « me localiser » : cercle traversé d'une croix horizontale et verticale, point au centre (même dessin côté Kotlin : ic_locate.xml). */
 const LocateIcon = () => (
   <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -437,7 +452,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
         className="aide-long" data-help="Choix de l'activité (ski, VTT, randonnée, vélo de route, gravel) : recherche collaborative de sorties (traces, topos)" {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
-      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}>👥
+      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}><BuddiesIcon />
         {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       <div className="pair" ref={meteoRef}>
       <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo · appui long : Météo-France"
