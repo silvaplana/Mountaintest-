@@ -222,7 +222,7 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     <div className={`bd-col-icones${ouverte || aide ? ' ouverte' : ''}${neuves ? ' pastilles' : ''}`} inert={!ouverte && !aide}>
     <button aria-label="Appel" data-help="Appeler mes buddies" {...c('#2e9a5b')} onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>{ic(TEL, '📞')}</button>
     {/* Ma position, un interrupteur sous le téléphone (Seb, 26/11) : un appui allume ou éteint, un appui long ouvre l'écran. */}
-    <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible} data-help="Ma position · appui long : qui me voit"
+    <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible} data-help="Signaler ma position à mes buddies"
       className={`bd-col-pin${visible ? ' actif' : ''}`} {...c('#2f7de1')}
       onPointerDown={() => { appui.current.long = false; clearTimeout(appui.current.t);
         if (onPositionLong) appui.current.t = window.setTimeout(() => { appui.current.long = true; onPositionLong(); }, 550); }}
