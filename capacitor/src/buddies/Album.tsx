@@ -245,10 +245,12 @@ export function Visionneuse({ l, i, onI, onFermer, onPlacer }: { l: PhotoBuddy[]
       hote.on('contentActivate', ({ content: c }) => {
         const el = c.element?.querySelector<HTMLElement>('.bd-pswp-film'), x = photos[c.index];
         if (!el || !x || el.firstChild) return;
-        void adresse(x.id, 'video', x.envoyee).then((u) => {
+        // La couverture du film sert d'image d'attente : sans elle Android montre son dessin gris « lecture » (Seb, 26/11).
+        void Promise.all([adresse(x.id, 'video', x.envoyee), adresse(x.id, 'grande', x.envoyee).catch(() => null)]).then(([u, couverture]) => {
           if (!u || el.firstChild) { if (!u) el.textContent = '🕓'; return; }
           const v = document.createElement('video');
-          v.src = u; v.controls = true; v.playsInline = true;
+          if (couverture) v.poster = couverture;
+          v.src = u; v.controls = true; v.playsInline = true; v.preload = 'metadata';
           el.appendChild(v);
         });
       });
