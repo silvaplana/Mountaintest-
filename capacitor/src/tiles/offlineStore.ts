@@ -20,6 +20,8 @@ export interface TileStore {
   /** Enregistre une tuile déjà reçue (cache des tuiles vues en ligne). */
   put(t: TileCoord, data: ArrayBuffer): Promise<void>;
   count(): number;
+  /** « z/x/y » des tuiles gardées. */
+  keys(): IterableIterator<string>;
   /** Place occupée sur le téléphone par les tuiles de cette couche, en octets. */
   bytes(): number;
   clear(): Promise<void>;
@@ -69,6 +71,7 @@ class NativeTileStore implements TileStore {
 
   has(t: TileCoord) { return this.index.has(key(t)); }
   count() { return this.index.size; }
+  keys() { return this.index.keys(); }
   bytes() { let n = 0; for (const b of this.index.values()) n += b; return n; }
 
   async read(t: TileCoord) {
@@ -144,6 +147,7 @@ class WebTileStore implements TileStore {
 
   has(t: TileCoord) { return this.index.has(key(t)); }
   count() { return this.index.size; }
+  keys() { return this.index.keys(); }
   bytes() { let n = 0; for (const b of this.index.values()) n += b; return n; }
 
   async read(t: TileCoord) {
