@@ -149,6 +149,9 @@ lieux, avec le nombre trouvé) montre une seule catégorie ; la pastille Refuges
 autour de <texte> » (refuges.info). Toucher un topo ou une sortie ouvre sa fiche skitour. Relais `/skitour-chercher` :
 topos gardés sur le disque (sans appel à l'API) et sorties des 365 derniers jours dont le nom contient les mots tapés.
 Bud cherche aussi dans skitour d'abord (outil `chercher_skitour` du relais) pour un sommet, une course ou des conditions.
+Auberges et gîtes privés dans la loupe (Seb, 26/11 : « Auberge La Jabiore » introuvable) : OpenStreetMap (Photon) garde
+aussi hôtels, gîtes et chambres d'hôtes, auberges de jeunesse, chalets, campings, et les restaurants dont le nom dit
+auberge, refuge, gîte, chalet ou hôtel ; ils vont dans « Refuges, gîtes, auberges ». Photon tolère les petites fautes de frappe.
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à

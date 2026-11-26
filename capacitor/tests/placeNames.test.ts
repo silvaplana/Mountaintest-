@@ -96,6 +96,14 @@ describe('loupe : Le Dôme des Écrins (Seb, 25/11)', () => {
     ]);
   });
 
+  it('garde les auberges, gîtes et hôtels, et les restaurants seulement si leur nom dit auberge', () => {
+    expect(parsePhoton({ features: [
+      { geometry: { coordinates: [6.37, 44.67] }, properties: { name: 'Auberge La Jabiore', osm_key: 'amenity', osm_value: 'restaurant', city: 'Orcières' } },
+      { geometry: { coordinates: [6.3, 44.6] }, properties: { name: 'Gîte du Lac', osm_key: 'tourism', osm_value: 'guest_house' } },
+      { geometry: { coordinates: [6.3, 44.6] }, properties: { name: 'Pizzeria du Lac', osm_key: 'amenity', osm_value: 'restaurant' } },
+    ] }).map((p) => [p.label, p.detail])).toEqual([['Auberge La Jabiore, Orcières', 'auberge, restaurant'], ['Gîte du Lac', 'gîte, chambre d’hôtes']]);
+  });
+
   it('sommets IGN puis OSM avant les adresses, sans doublons, jusqu’à 30', async () => {
     const urls: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (u: string) => {
