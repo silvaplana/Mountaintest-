@@ -403,13 +403,17 @@ function Partants({ x }: { x: Sortie }) {
     {n > 3 && <i>+{n - 3}</i>}</span>;
 }
 
-function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; onClick: () => void }) {
-  // Sortie passée sans photo : une ligne compacte, couleur en bande à gauche, partants sous le titre (Seb, 26/11).
-  if (petite && !x.photo) return <button className="bd-sortie-ligne" onClick={onClick}>
+export function LigneSortie({ x, onClick }: { x: Sortie; onClick: () => void }) {
+  return <button className="bd-sortie-ligne" onClick={onClick}>
     <span className="bd-bande" style={{ background: couleur(x.id) }} />
     <span className="bd-texte"><b>{x.nom}</b>
       <small>{dateCourte(x.debut)}{x.attente ? ' · 🕓' : ''}<Partants x={x} /></small></span>
   </button>;
+}
+
+function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; onClick: () => void }) {
+  // Sortie passée sans photo : une ligne compacte, couleur en bande à gauche, partants sous le titre (Seb, 26/11).
+  if (petite && !x.photo) return <LigneSortie x={x} onClick={onClick} />;
   return <button className={`bd-affiche${petite ? ' petite' : ''}`} onClick={onClick}
     style={{ background: x.photo ? `linear-gradient(#0000 40%, #000a), center/cover url("${x.photo}")` : `linear-gradient(#0000 30%, #0008), ${couleur(x.id)}` }}>
     {!petite && <span className="bd-pastille">{quandSortie(x)}</span>}
