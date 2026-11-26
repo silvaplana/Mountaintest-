@@ -176,10 +176,14 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
 }) {
   const visible = !!monEpingle(useBuddies());
   const [ouverte, setOuverte] = useState(false);
-  return <div className="bd-colonne">
+  // Rangée : ✕ et la flèche en haut, côte à côte, et l'écran prend toute la largeur ; ouverte, la colonne
+  // pousse l'écran vers l'autre côté (Seb, 26/11).
+  return <div className={`bd-colonne${ouverte ? '' : ' rangee'}`}>
+    <div className="bd-col-haut">
     <button onClick={onClose} aria-label="Fermer">✕</button>
     <button className={`bd-col-fleche${ouverte ? ' ouverte' : ''}`} onClick={() => setOuverte(!ouverte)}
       aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
+    </div>
     <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
     <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
