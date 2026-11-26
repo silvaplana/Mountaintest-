@@ -69,7 +69,7 @@ export function BuddyCount({ x, depenses, onDepense, onRetour, onClose }: {
     </button>)}
     {!ds.length && <p className="bd-vide">Pas encore de dépense : le gîte, l'essence, les courses… chacun ajoute ce qu'il a payé.</p>}
     <span style={{ flex: 1 }} />
-    <button className="primary bd-grand" onClick={() => onDepense()}>＋ Dépense</button>
+    <div className="bd-plus"><button className="primary" onClick={() => onDepense()}><span className="bd-plus-texte"><b>＋ Dépense</b></span></button></div>
   </div>;
 }
 

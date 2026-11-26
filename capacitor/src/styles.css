@@ -927,6 +927,10 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-barre i { position: absolute; top: 0; bottom: 0; border-radius: 7px; min-width: 10px; }
 .bd-barre i.plus { background: #2f9e64; } .bd-barre i.moins { background: #e4572e; }
 .bd-solde > b { min-width: 84px; text-align: right; font-size: 19px; }
+/* « ＋ Dépense » : petite pilule à droite comme « ＋ Sortie » (.bd-plus, Seb 26/11) ;
+   les équilibres et le texte s'arrêtent avant la colonne d'icônes (le montant passait dessous). */
+.buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide) { margin-right: 60px; }
+.icones-gauche .buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide) { margin-right: 0; margin-left: 60px; }
 .bd-count b.plus { color: #2f7d4f; } .bd-count b.moins { color: #c2410c; }
 .bd-virement { flex: none; display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 16px; padding: 10px 12px; }
 .bd-virement .bd-texte { flex: 1; min-width: 0; }
