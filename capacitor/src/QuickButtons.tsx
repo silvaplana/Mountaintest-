@@ -355,11 +355,11 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         }}>Ouvrir les réglages</button>
       </div>
     </div>}
-    {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
+    {help && <div className="help-close" onClick={() => setHelp(false)}><p className="help-haut">Touche n'importe où pour fermer l'aide</p></div>}
     <div className={help ? 'quick help' : 'quick'} onContextMenu={(e) => e.preventDefault()}>
       <button className="toggle" aria-label={onFermer ? 'Fermer' : "Quitter l'appli"} data-help={onFermer ? 'Revenir à l’écran d’avant' : "Quitter l'appli"} {...lp('close')}
         onClick={() => { if (onFermer) onFermer(); else if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
-      <button className="toggle arrow" aria-label={wide ? 'Moins d’icônes' : 'Toutes les icônes'} data-help="Appui : plus ou moins d'icônes · appui long : aide"
+      <button className="toggle arrow" aria-label={wide ? 'Moins d’icônes' : 'Toutes les icônes'} data-help={help ? "Plus ou moins d'icônes" : "Appui : plus ou moins d'icônes · appui long : aide"}
         onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
         onPointerUp={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
@@ -372,13 +372,13 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
       {/* 🔍 de nouveau visible sous ◎, même en colonne réduite (Seb, 25/11). */}
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
-      <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
+      <button disabled={!native} aria-label="Prendre une photo" data-help="Prendre des photos sans quitter l'application" {...lp('photo')}
         onClick={() => {
           noterPrise();
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
         }}>📷</button>
       <div className="pair" ref={pairRef}>
-      <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche" {...lp('avion')}
+      <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion (et mode poche)" {...lp('avion')}
         onClick={() => {
           if (!pair && !help) { setPairOpen('avion'); return; }
           if (!native) { onToast('Mode avion : seulement dans l’appli'); return; }
@@ -392,53 +392,55 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>}
-      {(pair || help) && <button className={`ring ${settingsOpen || junctionWake || offVibrate ? 'on' : 'off'}`} aria-label="Réglages du suivi de trace" data-help="Réglages du suivi · appui : ⑂, vibration, double tap" {...lp('reglages')}
+      {/* Pas d'aide pour les 4 réglages du suivi (Seb, 26/11) : cachés pendant l'aide. */}
+      {pair && !help && <button className={`ring ${settingsOpen || junctionWake || offVibrate ? 'on' : 'off'}`} aria-label="Réglages du suivi de trace" data-help="Réglages du suivi de trace" {...lp('reglages')}
         onClick={() => setSettingsOpen(!settingsOpen)}><span className="gear">⚙</span></button>}
-      {((pair && settingsOpen) || help) && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
+      {pair && settingsOpen && !help && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
         onClick={() => {
           const on = !junctionWake;
           onJunctionWake(on);
           onToast(on ? 'Écran aux carrefours activé : pendant ▶ Commencer la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace'
             : 'Écran aux carrefours désactivé');
         }}><JunctionWakeIcon /></button>}
-      {((pair && settingsOpen) || help) && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
+      {pair && settingsOpen && !help && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
         onClick={() => {
           const on = !offVibrate;
           onOffVibrate(on);
           onToast(on ? 'Vibration hors trace activée : pendant ▶ Commencer la trace, le téléphone vibre si tu t’éloignes de plus de 50 m'
             : 'Vibration hors trace désactivée');
         }}><OffTrackVibrateIcon /></button>}
-      {((pair && settingsOpen) || help) && <button aria-label="Double tap pour allumer l'écran (réglage du téléphone)" data-help="Double tap pour allumer l'écran" {...lp('doubletap')}
+      {pair && settingsOpen && !help && <button aria-label="Double tap pour allumer l'écran (réglage du téléphone)" data-help="Double tap pour allumer l'écran" {...lp('doubletap')}
         onClick={() => setDtBubble(true)}><DoubleTapIcon /></button>}
       </div>
-      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏
+      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Trace : tracer au doigt, suivi et vidéo 3D" {...lp('draw')} onClick={onDraw}>✏
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
       <div className="pair calques" ref={reliefRef}>
       {/* Calques (Seb, 26/11) : ouvre ou referme la ligne des calques ; chacun s'allume à part, on peut les mélanger. */}
-      <button aria-label="Calques de la carte" data-help="Calques : pentes, 3D, ombres, forêts, drones, hors ligne, fond de carte" {...lp('layers')}
+      {/* Aide : une seule bulle pour tous les calques (Seb, 26/11). */}
+      <button className="aide-long" aria-label="Calques de la carte" data-help="Calques : pentes, vue 3D, ombres, forêts, zones drones, hors ligne, fond de carte" {...lp('layers')}
         onClick={() => { if (!help) setPairOpen(relief ? null : 'relief'); }}><LayersIcon /></button>
-      {(relief || help) && <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" {...lp('slopes')} onClick={() => onSlopes(!slopes)}><SlopeIcon /></button>}
-      {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}><View3dIcon /></button>}
-      {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
-      {(relief || help) && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
-      {(relief || help) && <button className={drones ? 'on' : ''} aria-label="Zones drones" data-help="Zones drones · appui long : légende" {...lp('drones')}
+      {relief && !help && <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" {...lp('slopes')} onClick={() => onSlopes(!slopes)}><SlopeIcon /></button>}
+      {relief && !help && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}><View3dIcon /></button>}
+      {relief && !help && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
+      {relief && !help && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
+      {relief && !help && <button className={drones ? 'on' : ''} aria-label="Zones drones" data-help="Zones drones · appui long : légende" {...lp('drones')}
         onClick={() => {
           onDrones(!drones);
           if (!drones) onToast('Drones : rouge = interdit, orange = hauteur limitée, sans couleur = 120 m max. Appui long : légende');
         }}><DroneIcon /></button>}
-      {(relief || help) && <button className={offline ? 'on' : ''} aria-label="Hors ligne : ce qui est gardé sur le téléphone" data-help="Hors ligne" {...lp('offline')}
+      {relief && !help && <button className={offline ? 'on' : ''} aria-label="Hors ligne : ce qui est gardé sur le téléphone" data-help="Hors ligne" {...lp('offline')}
         onClick={() => onOffline(!offline)}><OfflineLayerIcon /></button>}
       {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}
-      {(relief || help) && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
+      {relief && !help && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
       </div>
       {/* Activité : toucher ouvre les sorties ⛷ ou les itinéraires ; appui long : ⛷ 🚵 🚴 🚲 🥾 au choix. */}
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
-        data-help={`${ACTIVITY_LABEL[activity]} · appui long : changer`} {...lpPick('activity')}
+        className="aide-long" data-help="Choix de l'activité (ski, VTT, randonnée, vélo de route, gravel) : recherche collaborative de sorties (traces, topos)" {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
-      <button aria-label="Buddies" data-help="Buddies (voyage, hébergement, partage des frais, mon profil dedans)" {...lp('groups')} onClick={onBuddies}>👥
+      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}>👥
         {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       <div className="pair" ref={meteoRef}>
-      <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo sur la carte · appui : montre aussi la météo montagne · appui long : appli Météo-France"
+      <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo · appui long : Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
         onPointerUp={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
         onPointerLeave={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}

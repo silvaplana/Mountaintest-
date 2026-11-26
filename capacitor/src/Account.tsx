@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { choisirIcones, choisirMain, choisirNouvellesIcones, iconesAGauche, main, nouvellesIcones, type Main } from './doigt';
+import { aideAOuverture, choisirAideAOuverture } from './Accueil';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -79,6 +80,7 @@ function ChoixMain() {
   const [g, setG] = useState(iconesAGauche);
   const icones = (v: boolean) => { choisirIcones(v); setG(v); };
   const [n, setN] = useState(nouvellesIcones);
+  const [aide, setAide] = useState(aideAOuverture);
   return (
     <div className="acc-main">
       <p className="acc-main-titre">Point décalé du doigt</p>
@@ -94,6 +96,7 @@ function ChoixMain() {
         <button className={!g ? 'on' : ''} onClick={() => icones(false)}>À droite</button>
       </div>
       <label className="acc-case"><input type="checkbox" checked={n} onChange={(ev) => { choisirNouvellesIcones(ev.target.checked); setN(ev.target.checked); }} />Nouvelles icônes dans Buddies</label>
+      <label className="acc-case"><input type="checkbox" checked={aide} onChange={(ev) => { choisirAideAOuverture(ev.target.checked); setAide(ev.target.checked); }} />Afficher l'aide à l'ouverture</label>
     </div>
   );
 }

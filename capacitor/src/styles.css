@@ -272,6 +272,9 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
   background: rgba(29, 36, 33, 0.88); color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 13px; text-align: center;
 }
 .quick.help button:disabled { opacity: 1; }
+.quick.help button.aide-long::before { white-space: normal; width: min(290px, calc(100vw - 90px)); text-align: left; }
+/* Bulles sur 2-3 lignes : de la place au-dessus et au-dessous pour ne pas chevaucher les voisines. */
+.quick.help button.aide-long { margin-block: 12px; }
 .help-close p { bottom: calc(env(safe-area-inset-bottom) + 64px); }
 
 /* Étiquettes de pente le long des tracés */
@@ -1546,3 +1549,38 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .notifs-fenetre ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; text-align: left; align-self: stretch; }
 .notifs-fenetre li { display: flex; flex-direction: column; font-size: 17px; }
 .notifs-fenetre li small { color: var(--muted); font-size: 15px; }
+
+/* Panneau d'accueil (Accueil.tsx, Seb 26/11) : une seule fois ; la flèche de la carte reste visible au-dessus du voile,
+   entourée d'un cercle qui pulse. */
+.accueil-voile { position: fixed; inset: 0; z-index: 30; background: #16222f66; display: flex; align-items: flex-end; justify-content: center;
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 24px); }
+.accueil { width: 100%; max-width: 400px; background: var(--card); color: var(--fg); border-radius: 24px; padding: 22px 20px 18px;
+  box-shadow: 0 8px 30px #0005; text-align: center; font-size: 17px; }
+.accueil img { width: 64px; height: 64px; border-radius: 16px; }
+.accueil h2 { font-size: 24px; margin: 8px 0; }
+.accueil p { margin: 8px 0; color: var(--muted); }
+.accueil-aide { display: flex; gap: 12px; align-items: center; text-align: left; background: var(--bg); border-radius: 16px; padding: 12px; margin: 14px 0; color: var(--muted); }
+.accueil-aide b { color: var(--fg); }
+.accueil-fleche { flex: none; width: 52px; height: 52px; border-radius: 50%; background: #fff; color: #16222f; display: grid; place-items: center; font-size: 22px; box-shadow: 0 2px 6px #0002; }
+.accueil button.primary { width: 100%; min-height: 52px; border-radius: 26px; font-size: 19px; font-weight: 800; }
+body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outline-offset: 3px; animation: accueil-pulse 1.4s infinite; }
+@keyframes accueil-pulse { 50% { outline-offset: 8px; } }
+
+/* Aide de la colonne Buddies (Seb 26/11) : appui long sur sa flèche, une bulle à gauche de chaque icône, comme sur la carte. */
+.bd-aide-voile { position: fixed; inset: 0; z-index: 1; background: #16222f55; }
+.bd-colonne.aide { z-index: 2; }
+.bd-colonne.aide .bd-col-icones { overflow: visible; }
+.bd-colonne.aide button { position: relative; }
+.bd-colonne.aide .bd-col-icones button, .bd-colonne.aide .bd-col-haut > button:first-child { pointer-events: none; }
+.bd-colonne.aide button::before {
+  content: attr(data-help); position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+  background: rgba(29, 36, 33, 0.88); color: #fff; font-size: 13px; line-height: 1.2; font-weight: 400; font-style: normal;
+  padding: 6px 10px; border-radius: 8px; white-space: nowrap; pointer-events: none;
+}
+.icones-gauche .bd-colonne.aide button::before { right: auto; left: calc(100% + 8px); }
+.bd-colonne.aide button:not([data-help])::before { display: none; }
+.bd-colonne.aide button.aide-long::before { white-space: normal; width: min(240px, calc(100vw - 100px)); text-align: left; }
+/* « Touche n'importe où » en haut, du côté opposé aux icônes : il ne chevauche plus aucune bulle (Seb 26/11). */
+.bd-aide-voile p, .help-close p.help-haut { position: absolute; left: 12px; right: auto; bottom: auto; top: calc(env(safe-area-inset-top) + 12px);
+  max-width: 130px; margin: 0; background: #1d2421; color: #fff; border-radius: 10px; padding: 8px 10px; font-size: 13px; text-align: left; }
+.icones-gauche .bd-aide-voile p, .icones-gauche .help-close p.help-haut { left: auto; right: 12px; }
