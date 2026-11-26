@@ -1506,3 +1506,4 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .sel-ligne small { font-size: 15px; color: var(--muted); }
 .sel-ligne .sel-effacer { min-width: 52px; min-height: 52px; color: #c62828; border-color: #c6282866; display: inline-flex; align-items: center; justify-content: center; }
 .sel-ligne .sel-telecharger { flex: 0 0 auto; min-height: 52px; background: var(--accent); color: var(--on-accent); }
+.phone-space-tel { width: 96px; text-align: right; color: var(--muted); white-space: nowrap; }

@@ -49,6 +49,10 @@ class Utilisateur(Base):
     # Super User (spec/buddies.md §7.17, comme AppBase) : au-dessus de tous les clubs et Groupes. Donné
     # seulement par la commande `python super_user.py <e-mail>` sur le VPS, jamais depuis l'appli.
     super_user: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Place prise par l'appli sur son téléphone, envoyée par le téléphone (calque Hors ligne, Seb 26/11) :
+    # le Super User la voit pour tout le monde.
+    telephone_octets: Mapped[int | None] = mapped_column(BigInteger)
+    telephone_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Organisation(Base):

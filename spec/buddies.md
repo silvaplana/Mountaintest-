@@ -193,6 +193,9 @@ Plan IGN seulement. Calque allumé, l'appui long ouvre le rectangle de sélectio
 sur les tuiles entières, toujours un rectangle) et les traces de Mes traces : une ligne « N traces » + poubelle, une ligne
 « N tuiles » (celles déjà là) + poubelle + « Télécharger M tuiles » (celles qui manquent, tout : Plan IGN de loin, SCAN 25
 de près, relief). Supprimer = « Annuler » pendant 6 s, puis effacé du téléphone (maquettes maquettes/calque-hors-ligne/).
+Le même panneau montre aussi ma place sur le serveur des comptes (mes photos et films, mes fichiers joints, mes traces et
+messages), pas celle des autres. Le Super User voit en plus, pour chacun, sa place sur le serveur et sur son téléphone
+(chaque appli l'envoie une fois par jour : PUT /stockage/telephone ; GET /stockage).
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
 sa gauche, on en choisit une.

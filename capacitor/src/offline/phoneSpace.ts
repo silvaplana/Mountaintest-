@@ -2,6 +2,7 @@
 // Réutilise la mesure de 📊 (plugin StorageUsage) ; les photos et vidéos sont dans IndexedDB, qu'on additionne ici.
 import { Capacitor } from '@capacitor/core';
 import { StorageUsage } from '../Usage';
+import { api, connecte } from '../compte/auth';
 
 export interface PhoneSpace { cartes: number; photos: number; donnees: number; total: number; libre: number | null }
 
@@ -56,4 +57,33 @@ export async function measurePhoneSpace(cartes: number): Promise<PhoneSpace> {
 export function splitSpace(total: number, cartes: number, photos: number, libre: number | null): PhoneSpace {
   const sum = Math.max(total, cartes + photos);
   return { cartes, photos, donnees: sum - cartes - photos, total: sum, libre };
+}
+
+/** Place sur le serveur des comptes (GET /stockage) : la mienne par nature ; « tous » pour le Super User. */
+export interface ServerSpace {
+  moi: { photos: number; fichiers: number; donnees: number };
+  tous?: { pseudo: string; photos: number; fichiers: number; donnees: number; telephone: number | null; telephone_le: string | null }[];
+}
+
+/** Place totale prise par l'appli sur ce téléphone (même mesure que 📊). */
+async function phoneTotal(): Promise<number> {
+  if (Capacitor.isNativePlatform()) return (await StorageUsage.measure()).donnees;
+  return (await navigator.storage?.estimate?.())?.usage ?? 0;
+}
+
+const DERNIER_ENVOI = 'placeTelephoneEnvoyee';
+
+/** Une fois par jour, l'appli dit au serveur la place qu'elle prend ici : le Super User la voit pour chacun (Seb, 26/11). */
+export async function reportPhoneDaily(now = Date.now()) {
+  if (!connecte()) return;
+  try { if (now - Number(localStorage.getItem(DERNIER_ENVOI) ?? 0) < 86_400_000) return; } catch { /* ignoré */ }
+  await api('PUT', '/stockage/telephone', { octets: Math.round(await phoneTotal()) });
+  try { localStorage.setItem(DERNIER_ENVOI, String(now)); } catch { /* ignoré */ }
+}
+
+/** Envoie ma place sur le téléphone puis lit la place sur le serveur ; null sans compte ou sans réseau. */
+export async function serverSpace(telephone: number): Promise<ServerSpace | null> {
+  if (!connecte()) return null;
+  await api('PUT', '/stockage/telephone', { octets: Math.round(telephone) }).catch(() => {});
+  return api<ServerSpace>('GET', '/stockage').catch(() => null);
 }
