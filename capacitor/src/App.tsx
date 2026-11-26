@@ -308,7 +308,10 @@ export function App() {
   const [geo, setGeo] = useState<GeolocateControl | null>(null);
   /** Petit message passager, visible même en mode nature. */
   const [toast, setToast] = useState('');
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t); }, [toast]);
+  // Un message peut demander moins de temps (« Buddy count de groupe créé » : 2 s, Seb 26/11).
+  const toastMs = useRef(3500);
+  const toastDuree = (m: string, ms?: number) => { toastMs.current = ms ?? 3500; setToast(m); };
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), toastMs.current); toastMs.current = 3500; return () => clearTimeout(t); }, [toast]);
   /** Lieu choisi (recherche, appui long, départ d'une trace importée) : « Y aller » ouvre Google Maps. */
   const [target, setTarget] = useState<{ lon: number; lat: number; label: string } | null>(null);
   const marker = useRef<maplibregl.Marker | null>(null);
@@ -1508,7 +1511,7 @@ export function App() {
         onProposer={proposerHebergementTrouve}
         onShowOnMap={(p) => { setLodging(false); setLodgingPins(p); }} />}
       {lodgingPins.length > 0 && !lodging && <LodgingsOnMap map={map} items={lodgingPins} onProposer={proposerHebergementTrouve} onList={() => setLodging(true)} onClose={() => setLodgingPins([])} />}
-      {buddies && <Buddies key={JSON.stringify(buddiesDepart ?? '')} onToast={setToast} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
+      {buddies && <Buddies key={JSON.stringify(buddiesDepart ?? '')} onToast={toastDuree} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onCarte={montrerBuddies} />}

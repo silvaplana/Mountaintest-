@@ -552,7 +552,7 @@ export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'do
 export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, depart }: {
-  onClose: () => void; onToast: (m: string) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
+  onClose: () => void; onToast: (m: string, ms?: number) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
   /** Ouvrir une sortie sur la carte (écran 4), ou une trace partagée dans un groupe. */
   onCarte: (x: CarteBuddies) => void;
   depart?: DepartBuddies;
@@ -654,20 +654,20 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
           onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })}
           // ＋ Buddy count partout (Seb, 26/11) : dans un groupe, créé tout de suite au nom du groupe (« 2 », « 3 »… s'il
           // y en a déjà, renommable) ; hors d'un groupe, on choisit le groupe sur l'écran suivant.
-          onNouveau={gi?.nature === 'bande' ? () => setVue({ ecran: 'count', id: creerCount(gi.id, nomDeCount(gi, counts)), groupe: gi.id })
+          onNouveau={gi?.nature === 'bande' ? () => { setVue({ ecran: 'count', id: creerCount(gi.id, nomDeCount(gi, counts)), groupe: gi.id }); onToast('Buddy count de groupe créé', 2000); }
             : groupes.some((x) => x.nature === 'bande') ? () => setVue({ ecran: 'nvCount', groupe: '' }) : undefined}
           onNouveauSortie={sorties.some((x) => !vue.groupe || x.groupe === vue.groupe) ? () => setVue({ ecran: 'nvCountSortie', groupe: vue.groupe ?? '' }) : undefined}
           onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />;
       })()
       : vue.ecran === 'nvCount' ? <NouveauCount groupes={groupes.filter((x) => x.nature === 'bande')} depart={vue.groupe} onClose={onClose}
         onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
-        onCreer={(gid, nom) => setVue({ ecran: 'count', id: creerCount(gid, nom), groupe: gid })} />
+        onCreer={(gid, nom) => { setVue({ ecran: 'count', id: creerCount(gid, nom), groupe: gid }); onToast('Buddy count de groupe créé', 2000); }} />
       : vue.ecran === 'nvCountSortie' ? (() => {
         const ici = sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe);
         const avec = new Set(sortiesAvecCount(ici, counts, depenses).map((x) => x.id));
         return <NouveauCountSortie sorties={ici.filter((x) => !avec.has(x.id)).sort((a, b) => b.debut.localeCompare(a.debut))} onClose={onClose}
           onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
-          onChoix={(x) => { changerCount(x.id, counts.some((c) => c.sortie === x.id && c.supprime) ? { supprime: false } : {}); setVue({ ecran: 'count', id: x.id, groupe: vue.groupe || undefined }); }} />;
+          onChoix={(x) => { changerCount(x.id, counts.some((c) => c.sortie === x.id && c.supprime) ? { supprime: false } : {}); onToast('Buddy count de sortie créé', 2000); setVue({ ecran: 'count', id: x.id, groupe: vue.groupe || undefined }); }} />;
       })()
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
         onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
