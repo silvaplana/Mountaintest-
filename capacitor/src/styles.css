@@ -1207,6 +1207,15 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
   .quick:not(.help) .pair.calques { height: 40px; padding-right: 48px; }
   .quick > button:not(.arrow), .quick > .pair, .quick-reste > button, .quick-reste > .pair { margin-right: 8px; }
 }
+/* Aide (appui long sur la flèche) : toute la colonne doit tenir, jusqu'à 👥 Buddies tout en bas (Seb, 26/11). */
+@media (max-height: 800px) {
+  .quick.help { gap: 4px; }
+  .quick.help button:not(.toggle) { width: 40px; height: 40px; font-size: 20px; }
+}
+@media (max-height: 720px) {
+  .quick.help { gap: 3px; }
+  .quick.help button:not(.toggle) { width: 36px; height: 36px; font-size: 18px; }
+}
 /* « 🔍 Rechercher ici » (façon Komoot) : en haut au centre, flou ; grisé dans la zone déjà cherchée. */
 .search-here { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 116px);
   min-height: 48px; padding: 0 18px; border-radius: 24px; border: 2px solid transparent; font-size: 17px; font-weight: 600;
@@ -1396,7 +1405,7 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 /* Icônes à gauche (👤 Mon compte, Seb 25/11) : la colonne d'icônes à gauche ; le reste passe à droite. */
 .icones-gauche .quick { right: auto; left: 10px; align-items: flex-start; }
 .icones-gauche .quick .pair { flex-direction: row; }
-.icones-gauche .quick.help .pair { align-items: flex-start; }
+.icones-gauche .quick.help .pair { flex-direction: column; align-items: flex-start; }
 .icones-gauche .quick:not(.help) .pair.calques { padding-right: 0; padding-left: 52px; }
 .icones-gauche .quick:not(.help) .pair.calques > button:first-child { right: auto; left: 0; }
 .icones-gauche .quick.help button::before { right: auto; left: 52px; }

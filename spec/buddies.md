@@ -158,7 +158,7 @@ Dans la barre étendue de la carte, 👥 ouvre Buddies (pastille = du nouveau) ;
 (profil, compte, réglages, état hors ligne). 👤 reprend l'écran « Mon compte » existant. **(Seb)**
 
 Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 🔍, 📷 ;
-étendue = ✕, flèche, ◎, 🔍, 📷, ✈, ✏, Calques, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
+étendue = ✕, flèche, ◎, 🔍, 📷, ✈, ✏, Calques, activité, 🌦 (🏔 à sa gauche, comme 👖 pour ✈), 👥 (tout en bas, le bouton important, Seb 26/11).
 🔍 (chercher un lieu) est de nouveau un bouton visible juste sous ◎, même en barre réduite (Seb, 25/11 ; avant : appui long sur ◎).
 La loupe 🔍 (Seb, 25/11) cherche d'abord dans les noms de lieux gardés sur le téléphone (sommets, cols, crêtes,
 lieux-dits, sources, refuges, calanques… de la BD TOPO IGN complétée par OpenStreetMap), téléchargés avec les cartes

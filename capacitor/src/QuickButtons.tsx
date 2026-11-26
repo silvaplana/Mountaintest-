@@ -452,8 +452,6 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
         className="aide-long" data-help="Choix de l'activité (ski, VTT, randonnée, vélo de route, gravel) : recherche collaborative de sorties (traces, topos)" {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
-      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}><BuddiesIcon />
-        {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       <div className="pair" ref={meteoRef}>
       <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo · appui long : Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
@@ -468,6 +466,9 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         }}>🌦</button>
       {(meteo || help) && <button aria-label="Météo montagne" data-help="Météo montagne" {...lp('weatherMountain')} onClick={() => openWeather(true)}>🏔</button>}
       </div>
+      {/* Buddies tout en bas de la colonne, après la météo : c'est le bouton important (Seb, 26/11). */}
+      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}><BuddiesIcon />
+        {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       </div>
     </div>
     </>
