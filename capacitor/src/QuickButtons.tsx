@@ -392,23 +392,24 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>}
-      {(pair || help) && <button className={`ring ${settingsOpen || junctionWake || offVibrate ? 'on' : 'off'}`} aria-label="Réglages du suivi de trace" data-help="Réglages du suivi de trace" {...lp('reglages')}
+      {/* Pas d'aide pour les 4 réglages du suivi (Seb, 26/11) : cachés pendant l'aide. */}
+      {pair && !help && <button className={`ring ${settingsOpen || junctionWake || offVibrate ? 'on' : 'off'}`} aria-label="Réglages du suivi de trace" data-help="Réglages du suivi de trace" {...lp('reglages')}
         onClick={() => setSettingsOpen(!settingsOpen)}><span className="gear">⚙</span></button>}
-      {((pair && settingsOpen) || help) && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
+      {pair && settingsOpen && !help && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
         onClick={() => {
           const on = !junctionWake;
           onJunctionWake(on);
           onToast(on ? 'Écran aux carrefours activé : pendant ▶ Commencer la trace, l’écran se rallume avant chaque carrefour et si tu quittes la trace'
             : 'Écran aux carrefours désactivé');
         }}><JunctionWakeIcon /></button>}
-      {((pair && settingsOpen) || help) && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
+      {pair && settingsOpen && !help && <button className={`ring ${offVibrate ? 'on' : 'off'}`} aria-label="Vibration quand je quitte la trace suivie" data-help="Vibration hors trace" {...lp('vibre')}
         onClick={() => {
           const on = !offVibrate;
           onOffVibrate(on);
           onToast(on ? 'Vibration hors trace activée : pendant ▶ Commencer la trace, le téléphone vibre si tu t’éloignes de plus de 50 m'
             : 'Vibration hors trace désactivée');
         }}><OffTrackVibrateIcon /></button>}
-      {((pair && settingsOpen) || help) && <button aria-label="Double tap pour allumer l'écran (réglage du téléphone)" data-help="Double tap pour allumer l'écran" {...lp('doubletap')}
+      {pair && settingsOpen && !help && <button aria-label="Double tap pour allumer l'écran (réglage du téléphone)" data-help="Double tap pour allumer l'écran" {...lp('doubletap')}
         onClick={() => setDtBubble(true)}><DoubleTapIcon /></button>}
       </div>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏
