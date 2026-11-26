@@ -3,7 +3,7 @@
  */
 export type IconKey =
   | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'
-  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi' | 'drones';
+  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi' | 'drones' | 'layers';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
@@ -18,8 +18,9 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   vibre: { title: 'Vibration hors trace', text: 'Vibre si tu t’éloignes de 50 m de la trace suivie.' },
   doubletap: { title: 'Double tap', text: 'Ouvre le réglage du téléphone : deux coups sur l’écran éteint le rallument.' },
   draw: { title: '✏ Tracer au doigt', text: 'Dessine un parcours : km et dénivelé.' },
-  slopes: { title: '⛰ Pentes', text: 'Carte IGN des pentes :' },
-  view3d: { title: '🗻 Vue 3D', text: 'Incline la carte sur le relief. Aussi : deux doigts vers le haut. Inclinée, elle tourne à deux doigts.' },
+  layers: { title: 'Calques', text: 'Ouvre la ligne des calques : pentes, 3D, ombres, forêts, drones, fond de carte. Chacun s’allume à part, on peut les mélanger.' },
+  slopes: { title: 'Pentes', text: 'Carte IGN des pentes :' },
+  view3d: { title: 'Vue 3D', text: 'Incline la carte sur le relief. Aussi : deux doigts vers le haut. Inclinée, elle tourne à deux doigts.' },
   compass: { title: '🧭 À plat', text: 'Remet la carte à plat, nord en haut.' },
   shade: { title: '🌗 Ombres', text: 'Ombres du soleil heure par heure.' },
   forests: { title: '🌲 Forêts', text: 'Forêts par essence de la zone affichée (carte forestière IGN). Encore : les efface.' },
