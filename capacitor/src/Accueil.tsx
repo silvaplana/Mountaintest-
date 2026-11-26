@@ -17,7 +17,7 @@ export default function Accueil() {
       <img src="logo.svg" alt="" />
       <h2>Bienvenue !</h2>
       <p>Mountain Buddies, c'est la carte ergonomique dans ta poche, même sans réseau, pour préparer et vivre tes sorties.</p>
-      <p>Et c'est collaboratif : traces, photos, vidéos 3D, dépenses communes et positions, partagées avec ta bande.</p>
+      <p>Et c'est collaboratif : traces, photos, vidéos, vidéos 3D, dépenses communes et positions, partagées avec ta bande.</p>
       <div className="accueil-aide">
         <span className="accueil-fleche">{iconesAGauche() ? '▶' : '◀'}</span>
         <span><b>Besoin d'aide ?</b><br />Appuie longtemps sur la flèche en haut à {cote}, sur la carte comme dans l'écran de tes «&nbsp;buddies&nbsp;» (les deux bonhommes)&nbsp;: chaque bouton dit ce qu'il fait.</span>
