@@ -77,10 +77,12 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
   const [r, setR] = useState<Reglages>(lire);
   // Poignée commune des panneaux ; le survol s'ouvre en grand pour que tous ses boutons se voient.
   const sheet = useSheet('survol', { defaut: 2 });
-  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | 'films' | 'photos' | 'nom' | null>(null);
-  // Nom du film, demandé au moment de filmer (Seb, 26/11) ; vide = le nom de la trace.
+  const [ouvert, setOuvert] = useState<'duree' | 'hauteur' | 'plage' | 'style' | 'films' | 'photos' | null>(null);
+  // Nom du film, demandé pendant qu'il se fabrique, en temps masqué (Seb, 26/11) ; vide = le nom de la trace.
   const [nom, setNom] = useState('');
   const nomDuFilm = nom.trim() || trail.name || 'Survol';
+  const nomCourant = useRef(nomDuFilm);
+  nomCourant.current = nomDuFilm;
   // 📷 Photos de la sortie montrées dans le film, là où elles ont été prises ; `sans` = celles qu'on a décochées.
   const [sans, setSans] = useState<Set<string>>(new Set());
   /** 📁 Derniers films gardés sur le téléphone, et celui qu'on regarde (pour le retirer si on le jette). */
@@ -149,6 +151,7 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
 
   async function tourner() {
     setOuvert(null);
+    setNom('');
     const ctl = new AbortController();
     const ecran = await ecranAllume();
     arret.current = ctl;
@@ -303,7 +306,7 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
       const image = await (couverture as Promise<ImageBitmap> | null)?.catch(() => null) ?? null;
       setFilm({ blob, url: URL.createObjectURL(blob), couverture: image });
       // 📁 Gardé tout de suite parmi les derniers films.
-      setFilmId(await garderFilm(blob, { nom: nomDuFilm, secondes: dureeFilmee, vertical: r.vertical,
+      setFilmId(await garderFilm(blob, { nom: nomCourant.current, secondes: dureeFilmee, vertical: r.vertical,
         couverture: image ? await reduire(image, PX.grande, 0.8).catch(() => null) : null }));
       void lireFilms().then(setGarde);
       setRange(null); setTelecharge(null);
@@ -480,10 +483,6 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
           ) : ouvert === 'hauteur' ? (
             <div className="survol-choix">{(['bas', 'moyen', 'haut'] as Hauteur[]).map((h) => (
               <button key={h} className={r.hauteur === h ? 'on' : ''} onClick={() => { maj({ hauteur: h }); setOuvert(null); }}><HauteurIcon h={h} size={26} /> {NOMS[h]}</button>))}</div>
-          ) : ouvert === 'nom' ? (
-            <label className="survol-nom">Nom du film (si tu veux)
-              <input value={nom} placeholder={trail.name || 'Survol'} maxLength={60} enterKeyHint="go"
-                onChange={(e) => setNom(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void tourner(); }} /></label>
           ) : ouvert === 'films' ? (
             <div className="survol-films">
               {garde.map((f) => <FilmLigne key={f.id} f={f} revoir={() => void revoir(f)} renommer={(n) => void renommerFilm(f.id, n).then(lireFilms).then(setGarde)} jeter={() => void oublierFilm(f.id).then(lireFilms).then(setGarde)} />)}
@@ -554,11 +553,14 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
                 <button className={`bascule ${r.pentes ? 'on' : ''}`} onClick={() => maj({ pentes: !r.pentes })} aria-label="Pentes dans le film">◭ pentes</button>
                 <button className="pastille" disabled={!garde.length} onClick={() => setOuvert('films')} aria-label="Mes derniers films">📁 {garde.length}</button>
               </>}
-            <button className="survol-rec" onClick={() => { if (ouvert === 'nom') void tourner(); else setOuvert('nom'); }} aria-label="Filmer"><i /><span>Filmer</span></button>
+            <button className="survol-rec" onClick={() => void tourner()} aria-label="Filmer"><i /><span>Filmer</span></button>
           </div>}
           <input ref={choixMusique} type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setMusique(f); e.target.value = ''; }} />
         </>}
         {occupe && <>
+          <label className="survol-nom">Nom du film (si tu veux)
+            <input value={nom} placeholder={trail.name || 'Survol'} maxLength={60} enterKeyHint="done"
+              onChange={(e) => setNom(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} /></label>
           <p className="hint">{etape === 'preparation' ? avance : `Le film se fabrique… ${avance}`}<br />Tu peux fermer ce panneau et continuer. Ne ferme pas l’appli.</p>
           <div className="survol-bas"><span />
             <button className="survol-rec stop" onClick={() => arret.current?.abort()} aria-label="Arrêter"><i /><span>Arrêter</span></button></div>
