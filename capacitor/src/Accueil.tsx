@@ -20,7 +20,7 @@ export default function Accueil() {
       <p>Et c'est collaboratif : traces, photos, vidéos, vidéos 3D, dépenses communes, positions et messagerie, partagées avec ta bande.</p>
       <div className="accueil-aide">
         <span className="accueil-fleche">{iconesAGauche() ? '▶' : '◀'}</span>
-        <span><b>Besoin d'aide ?</b><br />Appuie longtemps sur la flèche en haut à {cote}, sur la carte comme dans le second écran, celui de tes «&nbsp;buddies&nbsp;»&nbsp;: chaque bouton dit ce qu'il fait.</span>
+        <span><b>Besoin d'aide ?</b><br />Appuie longtemps sur la flèche en haut à {cote}, sur la carte comme dans le second écran (👥), celui de tes «&nbsp;buddies&nbsp;»&nbsp;: chaque bouton dit ce qu'il fait.</span>
       </div>
       <button className="primary" onClick={fermer}>C'est parti</button>
     </div>
