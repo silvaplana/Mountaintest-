@@ -168,7 +168,7 @@ function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: 
 
 /**
  * Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement.
- * Rétractable (Seb, 26/11) : ✕ toujours en haut, dessous une flèche qui fait descendre les icônes puis les remonte.
+ * Rétractable (Seb, 26/11) : ✕ toujours en haut, dessous une flèche horizontale qui fait sortir les icônes du bord (droit, ou gauche si les icônes sont à gauche) puis les range.
  */
 function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
   onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
