@@ -9,7 +9,7 @@ const tileLon = (x: number, z: number) => (x / 2 ** z) * 360 - 180;
 const tileLat = (y: number, z: number) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** z))) * 180) / Math.PI;
 
 /** Carrés du zoom 14 gardés (« x/y »), d'après les clés « z/x/y » des tuiles gardées, toutes couches confondues. */
-function ownedSquares(keys: Iterable<string>): Set<string> {
+export function ownedSquares(keys: Iterable<string>): Set<string> {
   const shift = DETAIL_ZOOM - COVER_ZOOM;
   const seen = new Set<string>();
   const counts = new Map<string, number>();
@@ -88,12 +88,16 @@ function rings(squares: Set<string>): Pt[][] {
 const area = (r: Pt[]) => r.reduce((s, p, i) => (i ? s + (r[i - 1][0] * p[1] - p[0] * r[i - 1][1]) : s), 0) / 2;
 const lonLat = (r: Pt[]) => r.map(([x, y]) => [tileLon(x, COVER_ZOOM), tileLat(y, COVER_ZOOM)]);
 
+const sqPolygon = (x0: number, y0: number, x1: number, y1: number) =>
+  lonLat([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]);
+
 /**
  * Calque « Hors ligne » (Seb, 26/11, maquette « Voile ») : un voile sur tout ce qui n'est pas gardé,
  * et le trait qui borde ce qui l'est. Un carré gardé = tout son territoire est là, sans demi-mesure.
+ * planOnly : carrés qui n'ont que le Plan IGN (pas le SCAN 25), entourés de bleu.
  */
-export function offlineVeil(keys: Iterable<string>): { veil: GeoJSON.FeatureCollection; edge: GeoJSON.FeatureCollection } {
-  const rs = rings(ownedSquares(keys));
+export function offlineVeil(owned: Set<string>, planOnly: Set<string> = new Set()) {
+  const rs = rings(owned);
   const outer = rs.filter((r) => area(r) > 0), holes = rs.filter((r) => area(r) < 0);
   const world = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
   const veil: GeoJSON.Feature[] = [
@@ -101,8 +105,41 @@ export function offlineVeil(keys: Iterable<string>): { veil: GeoJSON.FeatureColl
     // Un carré manquant au milieu d'une zone gardée est voilé lui aussi.
     ...holes.map((r): GeoJSON.Feature => ({ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [lonLat(r)] } })),
   ];
+  const fc = (features: GeoJSON.Feature[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
   return {
-    veil: { type: 'FeatureCollection', features: veil },
-    edge: { type: 'FeatureCollection', features: rs.map((r) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: lonLat(r) } })) },
+    veil: fc(veil),
+    edge: fc(rs.map((r) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: lonLat(r) } }))),
+    plan: fc([...planOnly].map((p) => {
+      const [x, y] = p.split('/').map(Number);
+      return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [sqPolygon(x, y, x + 1, y + 1)] } };
+    })),
   };
+}
+
+/** Carrés (« x/y » du zoom 14) touchés par un rectangle, et le cadre aligné sur eux (Seb : toujours un rectangle). */
+export function squaresInBbox([w, s, e, n]: [number, number, number, number]) {
+  const x0 = Math.floor(((w + 180) / 360) * 2 ** COVER_ZOOM), x1 = Math.floor(((e + 180) / 360) * 2 ** COVER_ZOOM);
+  const tileY = (lat: number) => { const r = (lat * Math.PI) / 180; return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** COVER_ZOOM); };
+  const y0 = tileY(n), y1 = tileY(s);
+  const squares: string[] = [];
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) squares.push(`${x}/${y}`);
+  return { squares, frame: sqPolygon(x0, y0, x1 + 1, y1 + 1) };
+}
+
+/** Rectangle géographique d'un carré, rentré d'un cheveu pour ne pas déborder sur les voisins. */
+export function squareBbox(p: string): [number, number, number, number] {
+  const [x, y] = p.split('/').map(Number);
+  const eps = 1e-7;
+  return [tileLon(x, COVER_ZOOM) + eps, tileLat(y + 1, COVER_ZOOM) + eps, tileLon(x + 1, COVER_ZOOM) - eps, tileLat(y, COVER_ZOOM) - eps];
+}
+
+/** Clés « z/x/y » des tuiles d'un carré, du zoom 14 au zoom 16 (les zooms plus petits servent à plusieurs carrés). */
+export function squareTileKeys(p: string): string[] {
+  const [x, y] = p.split('/').map(Number);
+  const out: string[] = [];
+  for (let z = COVER_ZOOM; z <= DETAIL_ZOOM; z++) {
+    const k = 2 ** (z - COVER_ZOOM);
+    for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) out.push(`${z}/${x * k + i}/${y * k + j}`);
+  }
+  return out;
 }

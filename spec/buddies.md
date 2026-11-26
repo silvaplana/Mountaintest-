@@ -186,8 +186,13 @@ s'allume à part et on peut les mélanger ; seul 🗺 change de fond. Icônes au
 Calque « Hors ligne » (quadrillage + trace, Seb 26/11, avant 🗺) : ce qui n'est pas gardé sur le téléphone est voilé de
 blanc, les zones gardées restent nettes, bordées de vert (un carré du zoom 14 gardé = tout son territoire, 0 ou 1), et
 toutes les traces de Mes traces sont dessinées dans le même vert. Rien n'y est touchable. En bas, une petite fenêtre
-« place sur le téléphone » : repliée sur une ligne, la flèche la déplie (cartes, photos et vidéos, données, place libre),
-la croix toujours à droite la ferme jusqu'au prochain allumage (maquettes maquettes/calque-hors-ligne/).
+« place sur le téléphone » : le panneau remontable habituel (poignée), réduit à sa barre de titre ; remonté : cartes,
+photos et vidéos, données, nombre de tuiles gardées et poids moyen d'une tuile, place libre. La croix à droite le ferme
+jusqu'au prochain allumage. Une tuile (on ne dit pas « carré ») = un carré du zoom 14 ; verte = SCAN 25 gardé, bleue =
+Plan IGN seulement. Calque allumé, l'appui long ouvre le rectangle de sélection, qui prend aussi les tuiles (cadre aligné
+sur les tuiles entières, toujours un rectangle) et les traces de Mes traces : une ligne « N traces » + poubelle, une ligne
+« N tuiles » (celles déjà là) + poubelle + « Télécharger M tuiles » (celles qui manquent, tout : Plan IGN de loin, SCAN 25
+de près, relief). Supprimer = « Annuler » pendant 6 s, puis effacé du téléphone (maquettes maquettes/calque-hors-ligne/).
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
 sa gauche, on en choisit une.

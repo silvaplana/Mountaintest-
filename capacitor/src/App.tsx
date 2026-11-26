@@ -50,14 +50,14 @@ import { CORRIDOR_M, lineBbox, tilesForBbox, tilesForCorridor, type TileCoord } 
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
 import { clearPlaceNames, savePlaceNames } from './places/placeNames';
-import { coverageGeoJson, offlineVeil } from './tiles/coverage';
+import { coverageGeoJson, offlineVeil, ownedSquares, squareBbox, squareTileKeys } from './tiles/coverage';
 import { PhoneSpacePanel } from './offline/PhoneSpacePanel';
 import { clearDroneZones, localDroneZones, saveDroneZones } from './drones/droneZones';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { TraceList, TraceMenu } from './TraceMenu';
-import { defaultTraceName, deleteTrace, listTraces, readLien, readPins, renameTrace, saveTrace, traceLine, updateTrace, type SavedTrace } from './trails/savedTraces';
+import { defaultTraceName, deleteTrace, listTraces, readLien, readPins, renameTrace, saveTrace, traceLine, updateTrace, TRACES_CHANGED, type SavedTrace } from './trails/savedTraces';
 import { TraceEdit } from './TraceEdit';
 import { PinLayer } from './PinLayer';
 import { SelectBox, type Prise } from './SelectBox';
@@ -132,17 +132,83 @@ export function App() {
   const [showDrones, setShowDrones] = useState(false);
   /** Calque « Hors ligne » (Seb, 26/11) : voile sur ce qui n'est pas gardé, traces gardées en vert, place prise en bas. */
   const [showOffline, setShowOffline] = useState(false);
-  const [veil, setVeil] = useState<ReturnType<typeof offlineVeil> | null>(null);
-  const [offlineTraces, setOfflineTraces] = useState<GeoJSON.FeatureCollection>({ type: 'FeatureCollection', features: [] });
+  /** Tuiles gardées (« z/x/y ») de chaque fond, pour les carrés du calque. */
+  const [tileKeys, setTileKeys] = useState<{ scan: string[]; plan: string[] }>({ scan: [], plan: [] });
+  /** Carrés ou traces effacés depuis le rectangle, cachés pendant les 6 s où l'on peut encore annuler. */
+  const [hiddenSq, setHiddenSq] = useState<Set<string>>(new Set());
+  const [hiddenTr, setHiddenTr] = useState<Set<number>>(new Set());
+  const [savedAll, setSavedAll] = useState<SavedTrace[]>([]);
   const [spaceClosed, setSpaceClosed] = useState(false);
   const toggleOffline = (on: boolean) => {
     setShowOffline(on);
     if (!on) return;
     setSpaceClosed(false);
     void refreshStored();
-    void listTraces().then((l) => setOfflineTraces({ type: 'FeatureCollection',
-      features: l.map((t) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: t.line } })) }));
   };
+  // Mes traces lues à l'allumage du calque, puis à chaque changement (plus besoin de l'éteindre et le rallumer).
+  useEffect(() => {
+    if (!showOffline) return;
+    const load = () => void listTraces().then(setSavedAll);
+    load();
+    window.addEventListener(TRACES_CHANGED, load);
+    return () => window.removeEventListener(TRACES_CHANGED, load);
+  }, [showOffline]);
+  const owned = useMemo(() => {
+    if (!showOffline) return new Set<string>();
+    return new Set([...ownedSquares([...tileKeys.scan, ...tileKeys.plan])].filter((p) => !hiddenSq.has(p)));
+  }, [showOffline, tileKeys, hiddenSq]);
+  const offlineLayer = useMemo(() => {
+    if (!showOffline) return null;
+    const scan = ownedSquares(tileKeys.scan);
+    return { ...offlineVeil(owned, new Set([...owned].filter((p) => !scan.has(p)))),
+      traces: { type: 'FeatureCollection', features: savedAll.filter((t) => !hiddenTr.has(t.id))
+        .map((t) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: t.line } })) } as GeoJSON.FeatureCollection };
+  }, [showOffline, tileKeys, owned, savedAll, hiddenTr]);
+  /** Octets des tuiles (zooms 14 à 16, SCAN 25 et Plan IGN) de ces carrés. */
+  const squaresBytes = async (sq: Iterable<string>) => {
+    const stores = await Promise.all([getTileStore(LAYERS.scan25), getTileStore(LAYERS.planign)]);
+    let n = 0;
+    for (const p of sq) for (const k of squareTileKeys(p)) for (const st of stores) n += st.size(k);
+    return n;
+  };
+  const [ownedBytes, setOwnedBytes] = useState(0);
+  useEffect(() => { if (showOffline) void squaresBytes(owned).then(setOwnedBytes); }, [owned, showOffline]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** Efface plus tard (6 s pour annuler, comme le rectangle des traces) ; rend de quoi annuler. */
+  const plusTard = (cacher: () => void, montrer: () => void, effacer: () => Promise<void>) => {
+    cacher();
+    const t = setTimeout(() => { void effacer().finally(montrer); }, 6500);
+    return () => { clearTimeout(t); montrer(); };
+  };
+  const deleteSquares = (sq: string[]) => plusTard(
+    () => setHiddenSq((h) => new Set([...h, ...sq])),
+    () => setHiddenSq((h) => new Set([...h].filter((p) => !sq.includes(p)))),
+    async () => {
+      const keys = sq.flatMap(squareTileKeys);
+      for (const l of [LAYERS.scan25, LAYERS.planign]) await (await getTileStore(l)).remove(keys);
+      await refreshStored();
+    });
+  const deleteSaved = (ids: number[]) => plusTard(
+    () => setHiddenTr((h) => new Set([...h, ...ids])),
+    () => setHiddenTr((h) => new Set([...h].filter((i) => !ids.includes(i)))),
+    async () => { for (const id of ids) await deleteTrace(id); });
+  /** « Télécharger les tuiles » du rectangle : tout (Plan IGN de loin, SCAN 25 de près, relief), pour qu'elles soient vertes. */
+  async function downloadSquares(sq: string[]) {
+    if (!sq.length) return;
+    const bbs = sq.map(squareBbox);
+    const bbox: Bbox = [Math.min(...bbs.map((b) => b[0])), Math.min(...bbs.map((b) => b[1])), Math.max(...bbs.map((b) => b[2])), Math.max(...bbs.map((b) => b[3]))];
+    const tilesFor = (a: number, b: number) => {
+      const seen = new Map<string, TileCoord>();
+      for (const bb of bbs) for (const t of tilesForBbox(bb, a, b)) seen.set(`${t.z}/${t.x}/${t.y}`, t);
+      return [...seen.values()];
+    };
+    const steps = offlineSteps(tilesFor, bbox, 'auto');
+    const total = steps.slice(0, -1).reduce((n, st) => n + st.tiles.length, 0);
+    if (total > MAX_ZONE_TILES) { setToast(`Trop de tuiles d'un coup (${sq.length}) : fais un rectangle plus petit.`); return; }
+    setToast(`Téléchargement de ${sq.length} tuile${sq.length > 1 ? 's' : ''}…`);
+    const r = await runDownload(steps);
+    if (!r.aborted) { await savePlaceNames(bbox).catch(() => 0); await saveDrones(bbox); }
+    setToast(r.failed ? `Téléchargé, mais ${r.failed} morceaux ont échoué (réseau ?)` : `${sq.length} tuile${sq.length > 1 ? 's' : ''} téléchargée${sq.length > 1 ? 's' : ''}`);
+  }
   /** Carrés déjà gardés sur le téléphone, montrés en vert pendant « Hors ligne » (et son rectangle). */
   const [cover, setCover] = useState<GeoJSON.FeatureCollection | null>(null);
   const [droneZones, setDroneZones] = useState<GeoJSON.FeatureCollection>({ type: 'FeatureCollection', features: [] });
@@ -667,18 +733,18 @@ export function App() {
     const plan = await getTileStore(LAYERS.planign);
     const mnt = await getTileStore(MNT_LAYER);
     setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes(), mnt: mnt.count(), mntBytes: mnt.bytes() });
-    const keys = [...scan.keys(), ...plan.keys()];
-    setCover(coverageGeoJson(keys));
-    setVeil(offlineVeil(keys));
+    const sk = [...scan.keys()], pk = [...plan.keys()];
+    setCover(coverageGeoJson([...sk, ...pk]));
+    setTileKeys({ scan: sk, plan: pk });
   }
 
   /**
    * Étapes d'un téléchargement hors ligne : le fond affiché (zooms 10 à 16) sur les tuiles données,
    * puis le relief pour les ombres (zooms 10 à 14) sur le rectangle donné, pour le film sans réseau.
    */
-  function offlineSteps(tilesFor: (minZoom: number, maxZoom: number) => TileCoord[], reliefBbox: Bbox) {
+  function offlineSteps(tilesFor: (minZoom: number, maxZoom: number) => TileCoord[], reliefBbox: Bbox, mode: BaseMode = baseLayer) {
     return [
-      ...offlinePlan(baseLayer, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM).map((st) => {
+      ...offlinePlan(mode, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM).map((st) => {
         const layer = LAYERS[st.layer];
         return { layer, label: `${layer.label}, zooms ${st.minZoom} à ${st.maxZoom}`, tiles: tilesFor(st.minZoom, st.maxZoom),
           url: (t: TileCoord) => wmtsTileUrl(layer, t.z, t.x, t.y, apiKey) };
@@ -1262,7 +1328,7 @@ export function App() {
       {nature && superUser && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} droneZones={droneZones} onDroneZone={setToast}
         offlineCover={(open && tab === 'horsligne') || (framing && framingFor === 'horsligne') ? cover : null}
-        offlineLayer={showOffline && veil ? { ...veil, traces: offlineTraces } : null} recorded={recorded} imported={imported}
+        offlineLayer={offlineLayer} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
@@ -1308,7 +1374,9 @@ export function App() {
           onAssocier={() => setAssocier(true)} />
       )}
       {map && selection && <SelectBox map={map} depart={selection} trails={trails.filter((t) => isMine(t.id))}
-        onFin={() => setSelection(null)} onEffacer={effacerPrise} />}
+        onFin={() => setSelection(null)} onEffacer={effacerPrise}
+        offline={showOffline ? { saved: savedAll.filter((t) => !hiddenTr.has(t.id)), owned, squaresBytes, avg: owned.size ? ownedBytes / owned.size : 0,
+          onDeleteTraces: deleteSaved, onDeleteSquares: deleteSquares, onDownload: (sq) => void downloadSquares(sq) } : undefined} />}
       {map && <PinLayer map={map} trails={trails.filter((t) => isMine(t.id) && t.pins?.length || t.id === selected?.id)}
         pique={pique && traceMenu && !modifier && !survol} targetId={traceMenu && selected && isMine(selected.id) ? selected.id : null}
         editing={pinEdit} onEditing={setPinEdit} onPins={(id, pins) => changeMine(id, { pins })}
@@ -1473,7 +1541,8 @@ export function App() {
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       {toast && <div className="toast">{toast}</div>}
       {showOffline && !spaceClosed && !open && !drawing && !framing && (
-        <PhoneSpacePanel cartes={stored.scan25Bytes + stored.planignBytes + stored.mntBytes} onClose={() => setSpaceClosed(true)} />
+        <PhoneSpacePanel cartes={stored.scan25Bytes + stored.planignBytes + stored.mntBytes} squares={owned.size} squaresBytes={ownedBytes}
+          onClose={() => setSpaceClosed(true)} />
       )}
       {/* Nouvelle version : fenêtre au centre, bien lisible (Seb 25/11), cachée pendant un suivi de trace, une sortie enregistrée ou un survol. */}
       {maj.build && navId == null && !recording && !survol && !filmTrail && (

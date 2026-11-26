@@ -28,8 +28,12 @@ export async function listTraces(): Promise<SavedTrace[]> {
   } catch { return []; }
 }
 
+/** Prévenu à chaque changement de Mes traces (le calque « Hors ligne » se redessine). */
+export const TRACES_CHANGED = 'traces-changed';
+
 async function write(all: SavedTrace[]) {
   await Preferences.set({ key: KEY, value: JSON.stringify(all) });
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(TRACES_CHANGED));
 }
 
 const round = (line: LonLat[]) => line.map((p) => [+p.lon.toFixed(5), +p.lat.toFixed(5)] as [number, number]);
