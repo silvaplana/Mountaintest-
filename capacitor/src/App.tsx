@@ -166,6 +166,8 @@ export function App() {
   const [buddiesDepart, setBuddiesDepart] = useState<DepartBuddies | undefined>();
   /** Une sortie ouverte sur la carte (écran 4). */
   const [carteSortie, setCarteSortie] = useState<{ sortie: Sortie; traces: TraceBuddy[]; parler?: boolean } | null>(null);
+  /** ✕ (de la carte ou de la sortie) : retour au Buddy Group de la sortie ouverte sur la carte (Seb, 26/11). */
+  const retourSortie = () => { if (carteSortie) setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); };
   // 📍 Le point d'un message d'un groupe (« Julie est ici »), montré sur la carte.
   const [pointBuddy, setPointBuddy] = useState<CarteBuddies['point'] | null>(null);
   const [positionsBuddy, setPositionsBuddy] = useState<string | null>(null);
@@ -1359,7 +1361,7 @@ export function App() {
             setSelected((cur) => (cur?.savedId === t.id ? { ...cur, savedId: null } : cur));
           }} />
       )}
-      {!framing && !drawing && <QuickButtons sansQuitter={!!carteSortie} geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
+      {!framing && !drawing && <QuickButtons onFermer={carteSortie && !buddies ? retourSortie : undefined} geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
         onSearch={() => { setNature(false); setSearching(true); }}
         onBaseLayer={() => {
           // Fond de carte : Carte auto → SCAN 25 → Plan IGN → …
@@ -1440,7 +1442,7 @@ export function App() {
       {pointBuddy && !buddies && <PointSurCarte map={map} p={pointBuddy} />}
       {positionsBuddy && !buddies && <PositionsBuddiesSurCarte key={positionsBuddy} map={map} centre={positionsBuddy} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}
-        onRetour={() => { setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); }}
+        onRetour={retourSortie}
         onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCount={() => { setBuddiesDepart({ ecran: 'count', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}

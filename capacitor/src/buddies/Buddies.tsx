@@ -170,9 +170,14 @@ function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: 
  * Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement.
  * Rétractable (Seb, 26/11) : ✕ toujours en haut, dessous une flèche horizontale qui fait sortir les icônes du bord (droit, ou gauche si les icônes sont à gauche) puis les range.
  */
-function Colonne({ sansFermer, onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
-  /** Dans un groupe, une sortie… : pas de ✕, le ‹ de l'écran suffit (Seb, 26/11) ; ✕ seulement sur la liste. */
-  sansFermer?: boolean;
+/** ✕ et retour du téléphone (Seb, 26/11) : l'écran d'avant (le ‹ caché de l'écran ouvert ; le dernier de la page, pour
+ * qu'une visionneuse ouverte par-dessus passe avant), et depuis la liste, la carte. */
+function retourOuFermer(fermer: () => void) {
+  const retour = [...document.querySelectorAll<HTMLButtonElement>('.buddies [aria-label="Retour"]')].pop();
+  if (retour) retour.click(); else fermer();
+}
+
+function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
   onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
   onAppel?: () => void; onPosition?: () => void;
 }) {
@@ -182,7 +187,8 @@ function Colonne({ sansFermer, onClose, onToast, onExpenses, onLodging, onTravel
   // glisse et l'écran se resserre à côté d'elle (Seb, 26/11).
   return <div className={`bd-colonne${ouverte ? '' : ' rangee'}`}>
     <div className="bd-col-haut">
-    {!sansFermer && <button onClick={onClose} aria-label="Fermer">✕</button>}
+    {/* ✕ et flèche toujours en haut à droite, sur tous les écrans (Seb, 26/11). */}
+    <button onClick={() => retourOuFermer(onClose)} aria-label="Fermer">✕</button>
     <button className={`bd-col-fleche${ouverte ? ' ouverte' : ''}`} onClick={() => setOuverte(!ouverte)}
       aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
     </div>
@@ -395,6 +401,14 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const compte = useCompte();
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
     : depart?.ecran === 'conv' ? depart : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
+  // Plus de ‹ à l'écran (Seb, 26/11) : le retour du téléphone, comme ✕, revient à l'écran d'avant.
+  const fermer = useRef(onClose);
+  fermer.current = onClose;
+  useEffect(() => {
+    let sub: { remove: () => Promise<void> } | null = null, vivant = true;
+    void CapApp.addListener('backButton', () => retourOuFermer(fermer.current)).then((h) => { if (vivant) sub = h; else void h.remove(); }).catch(() => { /* web */ });
+    return () => { vivant = false; void sub?.remove(); };
+  }, []);
   // Derniers ouverts (proposés en premier pour associer une trace) : le groupe, la sortie de l'album, du carnet…
   useEffect(() => {
     if (vue.ecran === 'groupe') noterOuvert('groupes', vue.id);
@@ -433,7 +447,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // 💶 : le Buddy count de la sortie ouverte, sinon tous ceux du groupe ouvert (ou de tous).
   const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) ? vue.id : undefined;
   // 🏨 : « Où on dort ? » de la sortie ouverte, sinon la recherche d'hébergement.
-  const colonne = <Colonne sansFermer={vue.ecran !== 'liste'} onClose={onClose} onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
+  const colonne = <Colonne onClose={onClose} onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
@@ -842,7 +856,6 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   };
   if (supprime) return <>
     <div className="bd-carte-haut">
-      <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
       <span className="bd-texte"><b>{nom}</b><small>Sortie supprimé</small></span>
     </div>
     <div className="bd-carte-bas"><div className="bd-bandeau">Sortie supprimé
@@ -858,7 +871,6 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
   </>;
   return <>
     <div className="bd-carte-haut">
-      <button onClick={onRetour} aria-label="Retour aux Buddies">‹</button>
       <span className="bd-texte" onClick={() => setTitre(nom)}><b>{nom}</b><small>{pos ? `📍 ${visibles || 'aucun'} ${visibles > 1 ? 'buddies visibles' : 'buddy visible'}`
         : msg ? `💬 ${x.participants.length} ${x.participants.length > 1 ? 'buddies' : 'buddy'} + Bud` : `${dates(x)}${x.lieu ? ` · ${x.lieu}` : ''}`}</small></span>
       <button onClick={() => setTitre(nom)} aria-label="Changer le nom"><PencilIcon size={22} /></button>
