@@ -177,7 +177,7 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
   const visible = !!monEpingle(useBuddies());
   const [ouverte, setOuverte] = useState(false);
   // Rangée : ✕ et la flèche en haut, l’un au-dessus de l’autre, et l'écran prend toute la largeur ; ouverte, la colonne
-  // pousse l'écran vers l'autre côté (Seb, 26/11).
+  // glisse par-dessus l'écran, qui ne bouge pas (Seb, 26/11).
   return <div className={`bd-colonne${ouverte ? '' : ' rangee'}`}>
     <div className="bd-col-haut">
     <button onClick={onClose} aria-label="Fermer">✕</button>
