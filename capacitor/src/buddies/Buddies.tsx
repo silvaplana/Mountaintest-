@@ -281,12 +281,15 @@ export function BuddyCountIcon({ taille = 36 }: { taille?: number }) {
   </svg>;
 }
 
-/** Hébergement au trait : un lit dans une maison (Seb, 26/11). */
+/** Hébergement : une maison en couleur, toit rouge, sol, et un lit à couverture bleue (Seb, 26/11, maison 2). */
 function LitMaisonIcon() {
-  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 22L24 7l19 15M10 18v22M38 18v22" />
-    <path d="M14 39v-9M14 35h20v4M34 35v-2.5a3 3 0 0 0-3-3h-9v5.5" strokeWidth="2.2" />
-    <circle cx="18" cy="30.5" r="2" strokeWidth="2" />
+  return <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+    <path d="M10 20h28v22H10z" fill="#f5e6c8" stroke="#8a5a2b" strokeWidth="2" />
+    <path d="M4 23L24 6l20 17" fill="none" stroke="#c94141" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8 42h32" stroke="#8a5a2b" strokeWidth="2.6" strokeLinecap="round" />
+    <rect x="14" y="30" width="20" height="7" rx="2" fill="#3a78c9" />
+    <rect x="14" y="28" width="6" height="4" rx="1.5" fill="#fff" stroke="#8a5a2b" strokeWidth="1" />
+    <path d="M14 27v12M34 33v6" stroke="#5a3a1a" strokeWidth="2.2" strokeLinecap="round" />
   </svg>;
 }
 

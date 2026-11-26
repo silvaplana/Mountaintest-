@@ -95,6 +95,10 @@ et Ma position (point et ondes) sont les mêmes dans les deux cas. Ma position a
 seules les ondes passent en noir gras (avant : rond ardoise, jugé trop sombre).
 **Pièce (Seb, 26 novembre, plus tard)** : le B1 est frappé sur une pièce dorée, pour qu'on comprenne que c'est de
 l'argent ; c'est le symbole du Buddy count partout (colonne, listes), quel que soit le choix d'icônes.
+**Hébergement (Seb, 26 novembre)** : une maison en couleur, fermée avec un sol (toit rouge, murs crème, lit à
+couverture bleue), quel que soit le choix d'icônes.
+**Initiales** : prénom + nom s'ils sont remplis, sinon une lettre par mot du pseudo, chiffres et séparateurs ignorés
+(« sebastien.richard54 » → SR).
 
 ### 3.4 Le panneau de partage, le même partout **(Seb pour trace et hébergement)**
 

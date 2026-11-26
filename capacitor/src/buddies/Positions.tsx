@@ -3,6 +3,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
+import { initialesDe } from '../compte/auth';
 import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
@@ -23,7 +24,7 @@ function useReperes(x: Sortie) {
 }
 
 /** « Marc Dupont » → « MD », « Seb » → « S ». */
-export const initiales = (pseudo: string) => pseudo.trim().split(/\s+/).slice(0, 2).map((m) => m[0] ?? '').join('').toUpperCase();
+export const initiales = (pseudo: string) => initialesDe(pseudo);
 
 /** Les buddies sur la carte : une tête d'épingle à leurs initiales et l'heure de leur dernière position. */
 export function PositionsSurCarte({ map, x }: { map: MlMap | null; x: Sortie }) {

@@ -580,7 +580,7 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .acc-logo { width: 84px; height: 84px; border-radius: 20px; margin: 4px auto 0; display: block; }
 .acc-titre { text-align: center; margin: 0; font-size: 17px; font-weight: 600; }
 .acc-centre { text-align: center; }
-.acc-avatar { position: relative; width: 76px; height: 76px; margin: 6px auto; border-radius: 50%; background: var(--accent); color: var(--on-accent);
+.acc-avatar { position: relative; flex: none; aspect-ratio: 1; width: 76px; height: 76px; margin: 6px auto; border-radius: 50%; background: var(--accent); color: var(--on-accent);
   display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 700; }
 .acc-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .acc-avatar.acc-grand { width: 112px; height: 112px; font-size: 40px; }
