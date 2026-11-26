@@ -30,7 +30,7 @@ import { nomLien, noterOuvert } from './buddies/recents';
 import { useNotifMessages } from './buddies/notifs';
 import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
 import { LodgingsOnMap } from './LodgingMap';
-import { chercherRefugesInfo } from './refuges';
+import { chercherHebergements } from './refuges';
 import type { NatureRefuge } from './search';
 import { SkiPanel } from './SkiPanel';
 import { SkiTextPanel } from './SkiTextPanel';
@@ -160,15 +160,15 @@ export function App() {
   const buddiesEtat = useBuddies();
   const [lodging, setLodging] = useState(false);
   const [lodgingPins, setLodgingPins] = useState<PlacedLodging[]>([]);
-  /** Loupe 🔍 « refuge », « gîte », « cabane » (+ lieu) : refuges.info sur la carte, comme les hébergements trouvés. */
+  /** Loupe 🔍 « refuge », « gîte », « auberge », « hébergement »… (+ lieu) : sur la carte, comme les hébergements trouvés. */
   async function chercherRefuges(d: { nature: NatureRefuge; lieu: string }) {
     if (!map) return;
-    setToast('Je cherche sur refuges.info…');
+    setToast('Je cherche les hébergements…');
     try {
-      const l = await chercherRefugesInfo(d, { lon: map.getCenter().lng, lat: map.getCenter().lat }, [IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n'));
-      if (!l.length) { setToast('Rien trouvé sur refuges.info dans les 10 km'); return; }
+      const l = await chercherHebergements(d, { lon: map.getCenter().lng, lat: map.getCenter().lat }, [IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n'));
+      if (!l.length) { setToast('Rien trouvé à moins de 10 km'); return; }
       setLodging(false); setLodgingPins(l); setToast('');
-    } catch (e) { setToast(`refuges.info : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`); }
+    } catch (e) { setToast(`Recherche impossible : ${e instanceof TypeError ? 'pas de réseau' : (e as Error).message}`); }
   }
   const proposerHebergementTrouve = (h: Lodging) => setPartage({ nom: h.nom, ligne: [], hebergement: h,
     ailleurs: () => void (navigator.share?.({ title: h.nom, text: [h.nom, h.adresse, h.url].filter(Boolean).join('\n') }) ?? Promise.resolve()).catch(() => undefined) });
