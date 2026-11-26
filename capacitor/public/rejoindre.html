@@ -34,17 +34,26 @@
 
   <a class="b" id="ouvrir" href="#">Ouvrir dans Mountain Buddies</a>
 
+  <div id="android">
   <p><b>Pas encore l'appli ?</b></p>
   <ol>
     <li>Installe-la sur ton téléphone Android : <a href="apk/">page de téléchargement</a>.</li>
     <li>Ouvre-la et connecte-toi (avec Google ou ton adresse e-mail).</li>
     <li>Reviens sur cette page et touche « Ouvrir dans Mountain Buddies ».</li>
   </ol>
-  <p><small>Sur iPhone, l'appli arrive bientôt.</small></p>
+  </div>
+  <p id="web" hidden>L'appli s'ouvre dans ton navigateur : connecte-toi (avec Google ou ton adresse e-mail) et tu entres dans le groupe.</p>
 </main>
 <script>
   const code = new URLSearchParams(location.search).get('c') || '';
-  document.getElementById('ouvrir').href = 'fr.assomoutain.rando://rejoindre?c=' + encodeURIComponent(code);
+  // Android : l'appli installée. Ordinateur, iPhone : la version web, qui garde l'invitation jusqu'à la connexion (Seb, 26/11).
+  if (/android/i.test(navigator.userAgent)) {
+    document.getElementById('ouvrir').href = 'fr.assomoutain.rando://rejoindre?c=' + encodeURIComponent(code);
+  } else {
+    document.getElementById('ouvrir').href = './?rejoindre=' + encodeURIComponent(code);
+    document.getElementById('android').hidden = true;
+    document.getElementById('web').hidden = false;
+  }
   // Un lien tout juste envoyé peut arriver avant l'invitation sur le serveur (réseau lent chez celui qui invite) :
   // on réessaie quelques fois avant de dire qu'il n'est pas reconnu (Seb, 26/11 : « Ce lien a expiré » à tort).
   let essais = 0;

@@ -93,6 +93,14 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: () => voi
     onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
   };
   const subs: Promise<{ remove: () => Promise<void> }>[] = [];
+  // Version web (ordinateur, iPhone) : rejoindre.html renvoie sur …/mountaintest/?rejoindre=CODE.
+  const web = new URLSearchParams(window.location.search).get('rejoindre');
+  if (!Capacitor.isNativePlatform() && web) {
+    const u = new URL(window.location.href);
+    u.searchParams.delete('rejoindre');
+    window.history.replaceState(null, '', u.toString());
+    traiter(`${SCHEMA}://rejoindre?c=${encodeURIComponent(web)}`);
+  }
   if (Capacitor.isNativePlatform()) {
     subs.push(CapApp.addListener('appUrlOpen', ({ url }) => traiter(url)));
     void CapApp.getLaunchUrl().then((r) => { if (r?.url) traiter(r.url); }).catch(() => undefined);
@@ -680,7 +688,11 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const ouvrir = (x: Sortie, parler = false) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id), parler });
   // Une sortie terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
-  const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
+  const trouve = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
+  // Une discussion à deux (duo, support) n'a pas d'écran de groupe : son nom est technique (infos du support).
+  // On y arrivait en revenant d'un écran ouvert depuis la conversation (Seb, 26/11) : on montre la conversation.
+  const g = trouve && !aDeux(trouve) ? trouve : undefined;
+  const enConv = vue.ecran === 'conv' || (!!trouve && aDeux(trouve));
   // Groupe perso, sans nom (« Seul », Seb 26 novembre) : il naît à la première sortie seul.
   const meTime = groupes.find((x) => x.nature === 'me_time');
   // 📅 : les plannings du groupe ouvert, sinon de toutes mes bandes (spec §5.5).
@@ -759,10 +771,10 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'nouvelleConv' ? <NouvelleDiscussion onContact={parlerA} onNouveauGroupe={() => setVue({ ecran: 'nouveau' })} onClose={onClose}
         onRetour={() => setVue({ ecran: 'messages' })} />
-      : vue.ecran === 'conv' && groupes.some((x) => x.id === vue.id) ? (() => {
+      : enConv && 'id' in vue && groupes.some((x) => x.id === vue.id) ? (() => {
         const gc = groupes.find((x) => x.id === vue.id)!;
         return <div className="bd-corps bd-corps-conv">
-          <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: vue.retour ?? 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
+          <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: ('retour' in vue && vue.retour) || 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
             {aDeux(gc) && <Visage b={gc.nature === 'support' && !superUser() ? { id: gc.id, nom: 'Support', photo: null } : autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
             <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? gc.nom : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
