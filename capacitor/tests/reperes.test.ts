@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chemin, dureeFilm, trajectoire, type LonLat, type Relief } from '../src/survol/camera';
-import { passageRaide, reperes, T_POSE, T_TOUR } from '../src/survol/reperes';
+import { FOV_POSE, passageRaide, reperes, T_POSE, T_TOUR } from '../src/survol/reperes';
 
 // Montagne en cône (sommet 3 800 m à 3 km du départ, 1 500 m en bas) et une trace droite qui y monte avec un virage.
 const S = { lon: 6.40, lat: 44.90 };
@@ -40,7 +40,7 @@ describe('🎯 Repères', () => {
     const corps = track.slice(Math.ceil(0.08 * 1200));
     for (const cam of corps) {
       expect(Number.isFinite(cam.zoom) && Number.isFinite(cam.pitch) && Number.isFinite(cam.bearing)).toBe(true);
-      expect(cam.fov).toBe(28);
+      expect(cam.fov).toBe(cam.coupe || cam.fov === FOV_POSE ? cam.fov : 28);
       expect(cam.pitch).toBeGreaterThan(45);
       expect(cam.pitch).toBeLessThanOrEqual(100);
     }

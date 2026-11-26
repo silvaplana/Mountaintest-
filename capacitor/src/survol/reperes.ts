@@ -12,6 +12,8 @@ export const REPERES: Record<Hauteur, { recul: number; haut: number; fov: number
 };
 /** Durées (s) du tour à l'arrivée et du temps ajouté au plan posé du passage raide (on y ralentit pour lever les yeux). */
 export const T_TOUR = 12, T_POSE = 6;
+/** Champ de vision du plan posé : plus large, la paroi entière entre dans l'image quand on lève les yeux. */
+export const FOV_POSE = 36;
 
 type Chemin = ReturnType<typeof chemin>;
 interface P3 { x: number; y: number; z: number }
@@ -134,13 +136,13 @@ export function filmReperes(line: { lon: number; lat: number }[], hauteur: Haute
   const coupes = new Set<number>(), leveTete = ds.map(() => 0), pose = ds.map(() => false);
   let haut: P3 | null = null;
   if (raide) {
-    // Où poser le drone : en face de la paroi (±40° autour de la pente), de près à loin, de bas en haut ; la première
+    // Où poser le drone : en face de la paroi (±40° autour de la pente), assez loin pour la voir entière, de bas en haut ; la première
     // place d'où l'on voit le marcheur presque tout le passage, et le haut.
     const mid = marcheur((raide[0] + raide[1]) / 2), v = versant(mid.x, mid.y), a0 = Math.atan2(v.x, v.y);
     haut = marcheur(R.find((d) => d > raide[1]) ?? c.total);
     const dans = ds.map((d) => d >= raide[0] && d <= raide[1]), idx = dans.flatMap((x, i) => (x ? [i] : []));
     let s: P3 | null = null;
-    cherche: for (const D of [900, 1300, 1800, 2500].map((x) => x + A.recul - 500)) {
+    cherche: for (const D of [1800, 2500, 1300, 900].map((x) => x + A.recul - 500)) {
       for (const h of [0.1, 0.2, 0.3, 0.45]) {
         for (const da of [0, 20, -20, 40, -40]) {
           const a = a0 + da * rad, x = mid.x + D * Math.sin(a), y = mid.y + D * Math.cos(a), q = { x, y, z: Math.max(mid.z + D * h, alt(x, y) + 80) };
@@ -197,7 +199,7 @@ export function filmReperes(line: { lon: number; lat: number }[], hauteur: Haute
     const D = Math.hypot(L, dz);
     const zoom = Math.log2((0.5 * hauteurPx / Math.tan((A.fov / 2) * rad)) * 40_075_016.7 * Math.cos(cible.lat * rad) / (512 * D));
     return { lon: cible.lon, lat: cible.lat, zoom, pitch, bearing: Math.atan2(b[0], b[1]) / rad, d: ds[i], point: c.pr.depuis(c.at(ds[i])),
-      elevation: e.z + dz, garde: 40, fov: A.fov, coupe: coupes.has(i) || undefined };
+      elevation: e.z + dz, garde: 40, fov: pose[i] ? FOV_POSE : A.fov, coupe: coupes.has(i) || undefined };
   });
   for (let i = 1; i < out.length; i++) out[i].bearing = out[i - 1].bearing + ecartAngle(out[i - 1].bearing, out[i].bearing);
   return out;
