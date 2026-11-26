@@ -55,6 +55,9 @@ Pendant un appel, l'appui long montre toujours l'endroit aux autres. Trace chois
 
 ## Tracé au doigt ✏ (Seb, 25/11)
 « recaler sur sentiers » est toujours décoché quand on ouvre ✏ ; le dernier choix n'est pas retenu.
+Si le doigt finit (ou commence) un peu au-delà du bout d'un chemin, la trace recalée s'arrête au bout du chemin :
+on coupe la fin de l'itinéraire qui s'écarte du dessin (plus de 25 m) au lieu de faire un aller-retour par un autre
+chemin (Seb, 26/11). Les aller-retours en pointe sont aussi enlevés, comme pour Recoller.
 Avec ✏ ouvert, la carte se déplace et se zoome normalement ; un APPUI LONG d'un doigt (0,45 s, une vibration) démarre
 le trait, on glisse sans lever ; un appui TRÈS LONG sans bouger (1,4 s, deux vibrations) ouvre le rectangle de sélection.
 

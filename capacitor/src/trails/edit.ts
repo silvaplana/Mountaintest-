@@ -205,3 +205,34 @@ export function moveNode(line: LonLat[], nodes: number[], k: number, p: LonLat):
   const delta = seg.length - (nodes[d] - nodes[g] + 1);
   return { line: out, nodes: nodes.map((i, j) => (j <= g ? i : j < d ? nodes[g] + (j - g) * STEPS : i + delta)) };
 }
+
+/**
+ * « Recaler sur sentiers » : le doigt finit souvent un peu au-delà du bout d'un chemin. Le calcul d'itinéraire
+ * accroche alors ce dernier point sur un autre chemin et fait un aller-retour pour l'atteindre (Seb, 26/11).
+ * Si la fin de l'itinéraire s'écarte du dessin (plus de `nearM`), on la coupe au point le plus proche
+ * de la fin du dessin : la trace s'arrête au bout du chemin. Pareil pour le début.
+ */
+export function trimStrayEnds(route: LonLat[], drawn: LonLat[], nearM = 25): LonLat[] {
+  if (route.length < 3 || drawn.length < 2) return route;
+  const d = densify(drawn, 5);
+  const bout = (r: LonLat[], dessin: LonLat[]): LonLat[] => {
+    const proche = r.map((p) => nearestIndex(dessin, p));
+    let t = r.length;
+    while (t > 1 && proche[t - 1].d > nearM) t--;
+    let queue = 0;
+    for (let k = t; k < r.length; k++) queue += distanceM(r[k - 1], r[k]);
+    if (t === r.length || queue < 40) return r;
+    // Point de coupe : le plus proche de la fin du dessin, parmi ceux qui longent la fin du dessin (une boucle
+    // revient près du départ : on ne coupe pas là).
+    const fin = dessin[dessin.length - 1];
+    let k = t - 1, dk = Infinity;
+    for (let j = 0; j < t; j++) {
+      if (proche[j].i < 0.7 * dessin.length) continue;
+      const dj = distanceM(r[j], fin);
+      if (dj < dk) { dk = dj; k = j; }
+    }
+    return r.slice(0, k + 1);
+  };
+  const a = bout(route, d);
+  return bout([...a].reverse(), [...d].reverse()).reverse();
+}
