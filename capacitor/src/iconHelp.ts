@@ -3,7 +3,7 @@
  */
 export type IconKey =
   | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'
-  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi';
+  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi' | 'drones';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
@@ -31,7 +31,16 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   expenses: { title: 'Partage des frais', text: 'Qui doit combien à qui.' },
   groups: { title: '👥 Buddies', text: 'Mes Buddy Groups et mes sorties entre copains.' },
   moi: { title: '👤 Moi', text: 'Mon compte, mon profil. Rond vert : connecté.' },
+  drones: { title: 'Drones', text: 'Carte officielle des zones pour drone de loisir :' },
 };
+
+/** Légende de la carte DGAC « Restrictions UAS catégorie Ouverte et aéromodélisme ». */
+export const DRONE_LEGEND: { color: string; label: string }[] = [
+  { color: '#E3170A', label: 'Interdit' },
+  { color: '#FF9900', label: 'Hauteur limitée : 30 à 100 m selon la zone' },
+  { color: 'transparent', label: 'Sans couleur : jusqu’à 120 m' },
+];
+export const DRONE_HELP = 'Ne montre pas les interdictions du jour (préfet, mairie, parcs). Toujours loin des gens.';
 
 /** Légende de la couche IGN « Carte des pentes » (GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN). */
 export const SLOPE_LEGEND: { color: string; label: string }[] = [

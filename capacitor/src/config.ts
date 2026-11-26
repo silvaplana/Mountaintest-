@@ -78,6 +78,18 @@ export const LAYERS: Record<string, LayerDef> = {
     maxNativeZoom: 17,
     attribution: '© IGN',
   },
+  // Zones où le drone de loisir est interdit ou limité en hauteur (DGAC, publiée par l'IGN, sans clé).
+  // Identifiant vu sur cartes.gouv.fr (TRANSPORTS.DRONES.RESTRICTIONS) ; zoom max à confirmer par GetCapabilities.
+  drones: {
+    id: 'drones',
+    label: 'Restrictions drones',
+    wmtsLayer: 'TRANSPORTS.DRONES.RESTRICTIONS',
+    format: 'image/png',
+    ext: 'png',
+    needsKey: false,
+    maxNativeZoom: 15,
+    attribution: '© DGAC / IGN – restrictions drones',
+  },
 };
 
 /** Clé transitoire publiée par l'IGN en 2024 pour les SCAN ; remplacer par une clé personnelle cartes.gouv.fr. */

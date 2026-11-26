@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { ICON_HELP, SLOPE_LEGEND, SLOPE_TAGS_HELP, type IconKey } from './iconHelp';
+import { DRONE_HELP, DRONE_LEGEND, ICON_HELP, SLOPE_LEGEND, SLOPE_TAGS_HELP, type IconKey } from './iconHelp';
 import { iconesAGauche } from './doigt';
 
 /** Plugins natifs (android/.../PocketMode.java et BatterySettings.java, identiques côté Kotlin). */
@@ -38,6 +38,8 @@ export interface QuickProps {
   tilted: boolean; onTilt3d: () => void; onFlat: () => void;
   /** 🌲 à gauche de 🌗 : forêts par essence de la zone affichée ; allumé quand elles sont sur la carte. */
   forests: boolean; onForests: () => void;
+  /** Drone à gauche de 🌲 : zones interdites ou limitées aux drones de loisir (carte DGAC). */
+  drones: boolean; onDrones: (on: boolean) => void;
   /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de Buddy Groups qui ont bougé. */
   onBuddies: () => void;
   nouveautes: number;
@@ -94,6 +96,15 @@ export const OffTrackVibrateIcon = ({ size = 34 }: { size?: number }) => (
   </svg>
 );
 
+/** Icône drone au trait (Seb, 25/11 : icônes simples) : corps, quatre bras, quatre hélices. Couleur du texte. */
+const DroneIcon = () => (
+  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <rect x="9.5" y="9.5" width="5" height="5" rx="1.2" />
+    <path d="M9.5 9.5L7.6 7.6M14.5 9.5l1.9-1.9M9.5 14.5l-1.9 1.9M14.5 14.5l1.9 1.9" />
+    <circle cx="5.5" cy="5.5" r="3" /><circle cx="18.5" cy="5.5" r="3" /><circle cx="5.5" cy="18.5" r="3" /><circle cx="18.5" cy="18.5" r="3" />
+  </svg>
+);
+
 /** Icône « me localiser » : cercle traversé d'une croix horizontale et verticale, point au centre (même dessin côté Kotlin : ic_locate.xml). */
 const LocateIcon = () => (
   <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -107,7 +118,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -236,9 +247,12 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         tipPress.current.timer = setTimeout(() => {
           tipPress.current.long = true;
           const r = el.getBoundingClientRect();
+          const side = iconesAGauche() ? window.innerWidth - r.right - 16 : r.left - 16;
+          // Trop peu de place à côté (icône d'une rangée dépliée) : la bulle passe sous l'icône, sur toute la largeur.
+          if (side < 200) { setTip({ key, top: Math.min(r.bottom + 8, window.innerHeight - 260), left: 8, maxWidth: window.innerWidth - 16 }); return; }
           setTip({ key, top: Math.max(8, Math.min(r.top, window.innerHeight - 260)), ...(iconesAGauche()
-            ? { left: r.right + 8, maxWidth: Math.max(160, window.innerWidth - r.right - 16) }
-            : { right: window.innerWidth - r.left + 8, maxWidth: Math.max(160, r.left - 16) }) });
+            ? { left: r.right + 8, maxWidth: side }
+            : { right: window.innerWidth - r.left + 8, maxWidth: side }) });
         }, 550);
       },
       onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop,
@@ -275,6 +289,12 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
             {SLOPE_LEGEND.map((l) => <li key={l.label}><span style={{ background: l.color }} />{l.label}</li>)}
           </ul>
           <p>{SLOPE_TAGS_HELP}</p>
+        </>}
+        {tip.key === 'drones' && <>
+          <ul className="slope-legend">
+            {DRONE_LEGEND.map((l) => <li key={l.label}><span style={{ background: l.color }} />{l.label}</li>)}
+          </ul>
+          <p>{DRONE_HELP}</p>
         </>}
       </div>
     </div>}
@@ -360,6 +380,11 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
       {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}>🗻</button>}
       {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       {(relief || help) && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
+      {(relief || help) && <button className={drones ? 'on' : ''} aria-label="Zones drones" data-help="Zones drones · appui long : légende" {...lp('drones')}
+        onClick={() => {
+          onDrones(!drones);
+          if (!drones) onToast('Drones : rouge = interdit, orange = hauteur limitée, sans couleur = 120 m max. Appui long : légende');
+        }}><DroneIcon /></button>}
       {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}
       {(relief || help) && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
       </div>

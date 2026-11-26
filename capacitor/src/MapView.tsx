@@ -21,6 +21,8 @@ import { RELIEF_SOURCE } from './shade/terrain';
 export interface MapViewProps {
   baseLayer: BaseMode;
   showSlopes: boolean;
+  /** Calque des zones interdites ou limitées aux drones de loisir. */
+  showDrones: boolean;
   recorded: TrackPoint[];
   imported: TrackPoint[];
   position: { lat: number; lon: number } | null;
@@ -137,7 +139,7 @@ export function MapView(props: MapViewProps) {
       attributionControl: { compact: true },
       style: {
         version: 8,
-        sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'),
+        sources: { scan25: rasterSource('scan25'), planign: rasterSource('planign'), slopes: rasterSource('slopes'), drones: rasterSource('drones'),
           recorded: { type: 'geojson', data: EMPTY }, imported: { type: 'geojson', data: EMPTY }, me: { type: 'geojson', data: EMPTY },
           trails: { type: 'geojson', data: EMPTY }, trailEnds: { type: 'geojson', data: EMPTY }, trailSel: { type: 'geojson', data: EMPTY }, wayTypes: { type: 'geojson', data: EMPTY }, c2c: { type: 'geojson', data: EMPTY }, c2cLines: { type: 'geojson', data: EMPTY }, frame: { type: 'geojson', data: EMPTY },
           webHikes: { type: 'geojson', data: EMPTY }, travel: { type: 'geojson', data: EMPTY }, ski: { type: 'geojson', data: EMPTY }, skiPark: { type: 'geojson', data: EMPTY }, skiLines: { type: 'geojson', data: EMPTY }, topos: { type: 'geojson', data: EMPTY }, topoLine: { type: 'geojson', data: EMPTY },
@@ -148,6 +150,7 @@ export function MapView(props: MapViewProps) {
           { id: 'planign', type: 'raster', source: 'planign' },
           { id: 'scan25', type: 'raster', source: 'scan25' },
           { id: 'slopes', type: 'raster', source: 'slopes', paint: { 'raster-opacity': 0.6 }, layout: { visibility: 'none' } },
+          { id: 'drones', type: 'raster', source: 'drones', paint: { 'raster-opacity': 0.7 }, layout: { visibility: 'none' } },
           // Forêts sous les randos : couleur par essence, contour plus soutenu.
           { id: 'forests', type: 'fill', source: 'forests', paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.45 } },
           { id: 'forests-line', type: 'line', source: 'forests', paint: { 'line-color': ['get', 'color'], 'line-width': 1.2 } },
@@ -301,7 +304,8 @@ export function MapView(props: MapViewProps) {
     m.setPaintProperty('scan25', 'raster-opacity',
       auto ? ['interpolate', ['linear'], ['zoom'], AUTO_SCAN_FROM, 0, AUTO_PLAN_UNTIL, 1] : 1);
     m.setLayoutProperty('slopes', 'visibility', props.showSlopes ? 'visible' : 'none');
-  }, [props.baseLayer, props.showSlopes, ready]);
+    m.setLayoutProperty('drones', 'visibility', props.showDrones ? 'visible' : 'none');
+  }, [props.baseLayer, props.showSlopes, props.showDrones, ready]);
 
   useEffect(() => {
     if (!props.visible || !ready) return;
