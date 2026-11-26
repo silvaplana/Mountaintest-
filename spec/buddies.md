@@ -76,7 +76,7 @@ encore les anciens noms (§7.12).
   **Retouches (Seb, 26 novembre)** : icônes de la taille de celles de la carte (44 px) ; flèche horizontale ‹ / ›,
   les icônes sortent du bord de l'écran, à droite, ou à gauche si « Icônes de la carte : à gauche » (la colonne
   passe alors à gauche). Rangée, ✕ et la flèche sont l’un au-dessus de l’autre tout en haut (✕ en pastille basse, flèche de 56 px, comme sur la carte) et l'écran prend toute la largeur ; sortie,
-  la colonne glisse et **recouvre** l'écran (sans panneau : seulement les ronds des icônes, ombrés), qui ne bouge pas (Seb, 26 novembre, à l'essai ; avant : elle le poussait), en une seule animation ; le contenu de l'écran monte tout en haut, à côté de ✕ et de la flèche ; petite icône de « ＋ Groupe » / « ＋ Sortie » à la hauteur du mot ; plus de ligne
+  la colonne glisse (sans panneau : seulement les ronds des icônes, ombrés) et l'écran **se resserre** à côté d'elle, le texte se ré-enroule et tout reste visible (Seb, 26 novembre, 3e essai après « pousser » puis « recouvrir »), en une seule animation ; le contenu de l'écran monte tout en haut, à côté de ✕ et de la flèche ; petite icône de « ＋ Groupe » / « ＋ Sortie » à la hauteur du mot ; plus de ligne
   « à jour à … » (seulement « 🕓 n changements partiront au retour du réseau » quand il y en a).
 - Elle ne change pas ; sa portée suit ce qui est ouvert à gauche **(proposé)** : dans la
   liste elle regarde tous mes buddies, dans un groupe ce groupe, dans une sortie
