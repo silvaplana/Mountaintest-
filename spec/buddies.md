@@ -818,6 +818,11 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   au-dessus de « Déposer mes photos ». Pendant qu'il regarde : « Bud regarde les photos… ». Ensuite l'album passe sur
   « ⭐ Carnet » avec la ligne « Bud a gardé 8 photos pour le carnet. Tu peux en changer avec ⭐. · Annuler ».
   Jamais le mot « IA » : c'est Bud.
+- **Nombre réglable et photos non retenues** (Seb, 26/11) : « − » et « ＋ » de part et d'autre du bouton changent le
+  nombre (8 par défaut, de 1 à 12, toujours moins que le nombre de photos ; bouton dès 3 photos). Après le choix,
+  l'album reste sur « Toutes » : les photos sans ⭐ restent visibles, en plus pâle, avec la ligne « Bud a gardé n
+  photos ⭐ pour le carnet de la sortie. Les autres restent dans l'album, mais ne seront pas dans le carnet de la
+  sortie. Tu peux changer avec ⭐. · Annuler ».
 - **Comment** : le téléphone envoie les petites images (400 px) des photos, pas les films, avec leur date ; au-delà
   de 90 photos, une sur n répartie sur la sortie. Le relais (`POST /photos-choix`, `deploy/ia/relais.py`) les montre
   en une seule demande et rend les numéros retenus : nettes, bien cadrées, variées, jamais deux presque pareilles.

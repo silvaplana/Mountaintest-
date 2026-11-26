@@ -8,7 +8,9 @@ import { relayPost } from '../travel/travel';
 import { adresse } from './album';
 import { mettreEtoile, type PhotoBuddy } from './store';
 
+/** 8 par défaut ; − et ＋ le changent (Seb, 26/11), jusqu'à 12 (limite du relais). */
 export const COMBIEN = 8;
+export const COMBIEN_MAX = 12;
 /** Le relais n'en lit pas plus à la fois. */
 export const MAX_ENVOI = 90;
 
@@ -33,7 +35,7 @@ const base64 = (b: Blob) => new Promise<string>((ok, non) => {
 });
 
 /** Demande à Bud (réseau) et pose les ⭐. Renvoie ce qu'il a changé, pour « Annuler ». Lève une erreur lisible. */
-export async function budChoisit(photos: PhotoBuddy[]): Promise<{ n: number; faits: { id: string; etoile: boolean }[] }> {
+export async function budChoisit(photos: PhotoBuddy[], combien = COMBIEN): Promise<{ n: number; faits: { id: string; etoile: boolean }[] }> {
   const envoi: { id: string; image: string; quand: string }[] = [];
   for (const p of aMontrer(photos)) {
     const u = await adresse(p.id, 'petite', p.envoyee);
@@ -45,7 +47,7 @@ export async function budChoisit(photos: PhotoBuddy[]): Promise<{ n: number; fai
   const mdp = IA_MOT_DE_PASSE_INTEGRE || (await Preferences.get({ key: 'iaPassword' })).value || '';
   let r: { choix?: string[] };
   try {
-    r = await relayPost<{ choix?: string[] }>('photos-choix', { photos: envoi, combien: COMBIEN }, mdp);
+    r = await relayPost<{ choix?: string[] }>('photos-choix', { photos: envoi, combien }, mdp);
   } catch (e) {
     throw new Error(e instanceof TypeError ? 'Pas de réseau : redemande à Bud quand tu en auras' : `Bud n'a pas pu choisir (${(e as Error).message})`);
   }

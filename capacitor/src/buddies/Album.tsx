@@ -5,7 +5,7 @@ import 'photoswipe/style.css';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { adresse, garder, preparer } from './album';
-import { annulerChoix, budChoisit, COMBIEN } from './budPhotos';
+import { annulerChoix, budChoisit, COMBIEN, COMBIEN_MAX } from './budPhotos';
 import { aujourdhui, deposerPhotos, mettreEtoile, parJour, peutRetirer, placerPhoto, retirerPhoto, uuid, type PhotoBuddy, type Sortie } from './store';
 import { Capacitor } from '@capacitor/core';
 import { Directory, Filesystem } from '@capacitor/filesystem';
@@ -90,11 +90,11 @@ export async function partagerPhoto(p: PhotoBuddy, onToast?: (m: string) => void
   }
 }
 
-function Vignette({ p, onClick, onLong }: { p: PhotoBuddy; onClick: () => void; onLong?: () => void }) {
+function Vignette({ p, onClick, onLong, pale = false }: { p: PhotoBuddy; onClick: () => void; onLong?: () => void; pale?: boolean }) {
   // Appui long : le menu de la photo (partager…) ; le toucher qui suit ne l'ouvre pas en grand.
   const appui = useRef<{ t: number; long: boolean }>({ t: 0, long: false });
   const lacher = () => window.clearTimeout(appui.current.t);
-  return <button className={`bd-vignette${p.attente ? ' attente' : ''}`} onClick={() => { if (!appui.current.long) onClick(); }}
+  return <button className={`bd-vignette${p.attente ? ' attente' : ''}${pale ? ' pale' : ''}`} onClick={() => { if (!appui.current.long) onClick(); }}
     onContextMenu={(ev) => ev.preventDefault()} onPointerUp={lacher} onPointerLeave={lacher} onPointerCancel={lacher}
     onPointerDown={() => { appui.current.long = false; lacher(); if (onLong) appui.current.t = window.setTimeout(() => { appui.current.long = true; onLong(); }, 500); }}>
     <Image p={p} />
@@ -139,10 +139,16 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
   // 🐻 Bud choisit les photos du carnet : 'travail' pendant qu'il regarde, puis ce qu'il a changé (pour Annuler).
   const [bud, setBud] = useState<'travail' | { n: number; faits: { id: string; etoile: boolean }[] } | null>(null);
   const nPhotos = photos.filter((p) => !p.video).length;
+  // − et ＋ règlent le nombre (8 par défaut, toujours moins que le nombre de photos).
+  const maxi = Math.min(COMBIEN_MAX, nPhotos - 1);
+  const [combien, setCombien] = useState(COMBIEN);
+  const n = Math.max(1, Math.min(combien, maxi));
+  // Après le choix on reste sur « Toutes » : les photos sans ⭐ restent visibles, en plus pâle (Seb, 26/11).
   const choisir = () => {
     setBud('travail');
-    budChoisit(photos).then((r) => { setBud(r); setVue('carnet'); }, (e: Error) => { setBud(null); onToast(e.message); });
+    budChoisit(photos, n).then((r) => { setBud(r); setVue('toutes'); }, (e: Error) => { setBud(null); onToast(e.message); });
   };
+  const apresBud = !!bud && bud !== 'travail' && vue === 'toutes';
   return <div className="bd-corps">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
@@ -157,15 +163,20 @@ export function UnAlbum({ x, photos, carnet = false, onCarte, onRetour, onClose,
     {parJour(l, x).map((j) => <div key={j.jour} className="bd-jour-album">
       <h3 className="bd-section">{j.jour ? <>{j.n >= 1 ? `Jour ${j.n} · ` : ''}{jourLong(j.jour)}<small>{j.photos.length} photo{j.photos.length > 1 ? 's' : ''}</small></>
         : <>Film{j.photos.length > 1 ? 's' : ''}<small>{j.photos.length} film{j.photos.length > 1 ? 's' : ''}</small></>}</h3>
-      <div className="bd-grille-photos">{j.photos.map((p) => <Vignette key={p.id} p={p} onClick={() => setOuverte(l.indexOf(p))} onLong={() => setMenu(p)} />)}</div>
+      <div className="bd-grille-photos">{j.photos.map((p) => <Vignette key={p.id} p={p} pale={apresBud && !p.etoile && !p.video} onClick={() => setOuverte(l.indexOf(p))} onLong={() => setMenu(p)} />)}</div>
     </div>)}
     {!l.length && <p className="bd-vide">{vue === 'carnet' ? 'Touche ⭐ sur une photo pour la garder pour le carnet.' : 'Pas encore de photo : dépose les tiennes, chacun ajoute les siennes.'}</p>}
     {miennes > 0 && <p className="hint">🕓 {miennes} photo{miennes > 1 ? 's' : ''} à toi {miennes > 1 ? 'partiront' : 'partira'} au retour du réseau.</p>}
     <span style={{ flex: 1 }} />
-    {bud && bud !== 'travail' && <p className="bd-bud-choix">🐻 Bud a gardé {bud.n} photo{bud.n > 1 ? 's' : ''} pour le carnet. Tu peux en changer avec ⭐.
+    {bud && bud !== 'travail' && <p className="bd-bud-choix"><span>🐻 Bud a gardé {bud.n} photo{bud.n > 1 ? 's' : ''} ⭐ pour le carnet de la sortie.
+      Les autres restent dans l’album, mais ne seront pas dans le carnet de la sortie. Tu peux changer avec ⭐.</span>
       <button className="bd-lien" onClick={() => { annulerChoix(bud.faits); setBud(null); }}>Annuler</button></p>}
-    {nPhotos > COMBIEN && <button className="bd-grand" disabled={bud === 'travail'} onClick={choisir}>
-      {bud === 'travail' ? '🐻 Bud regarde les photos…' : `🐻 Bud choisit les ${COMBIEN} meilleures`}</button>}
+    {nPhotos > 2 && <div className="bd-bud-nombre">
+      <button aria-label="Moins de photos" disabled={bud === 'travail' || n <= 1} onClick={() => setCombien(n - 1)}>−</button>
+      <button className="bd-grand" disabled={bud === 'travail'} onClick={choisir}>
+        {bud === 'travail' ? '🐻 Bud regarde les photos…' : `🐻 Bud choisit les ${n} meilleures`}</button>
+      <button aria-label="Plus de photos" disabled={bud === 'travail' || n >= maxi} onClick={() => setCombien(n + 1)}>＋</button>
+    </div>}
     <BoutonDeposer x={x} onToast={onToast} texte="📷 Déposer mes photos" />
     {ouverte != null && l[ouverte] && <Visionneuse l={l} i={ouverte} onI={setOuverte} onFermer={() => setOuverte(null)} />}
     {menu && <div className="bd-recues-fond" onClick={() => setMenu(null)}>
