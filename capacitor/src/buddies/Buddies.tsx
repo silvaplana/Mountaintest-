@@ -244,7 +244,7 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Moi : mon compte" data-help="Mon compte et le support" {...c('#7a5bc4')} onClick={onAccount}>{ic(MOI, '👤')}</button>
     {/* 🔑 Le Super User seul (Seb, 26/11 : « comme je suis modeste, mettons la clé ») : ses demandes de support. */}
-    {onSuperUser && superUser() && <button aria-label="Super User" data-help="Super User : les demandes de support" className="bd-col-cle" onClick={onSuperUser}><CleIcon />
+    {onSuperUser && superUser() && <button aria-label="Super User" className="bd-col-cle" onClick={onSuperUser}><CleIcon />
       {supportNonLus(e) > 0 && <i className="bd-col-n">{supportNonLus(e)}</i>}</button>}
     </div>
   </div>
