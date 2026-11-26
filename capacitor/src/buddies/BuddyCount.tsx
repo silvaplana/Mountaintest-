@@ -32,8 +32,8 @@ export function Comptes({ sorties, depenses, onOuvrir, onAnciens, onRetour, onCl
 }
 
 /** Un Buddy count (écran 8). */
-export function BuddyCount({ x, depenses, onDepense, onRetour, onClose }: {
-  x: Sortie; depenses: Depense[]; onDepense: (id?: string) => void; onRetour: () => void; onClose: () => void;
+export function BuddyCount({ x, depenses, onDepense, onRetour, onClose, onToast }: {
+  x: Sortie; depenses: Depense[]; onDepense: (id?: string) => void; onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
   const moi = lire().moi ?? 'moi';
   const ds = depenses.filter((d) => d.sortie === x.id);
@@ -61,6 +61,9 @@ export function BuddyCount({ x, depenses, onDepense, onRetour, onClose }: {
       <b>{euros(Math.round(s.amount * 100))}</b>
     </div>)}
     {ds.length > 0 && !c.virements.length && <p className="hint">Tout est équilibré.</p>}
+    {/* Ce que je dois : comment rembourser, seulement ce que la personne a renseigné (Seb, 26/11). */}
+    {c.virements.filter((v) => v.from === moi).map((v) => <Rembourser key={v.to} nom={qui(v.to).pseudo}
+      moyens={lire().paiements?.[x.id]?.[v.to]} onToast={onToast} />)}
     <h3 className="bd-section">Dépenses</h3>
     {ds.map((d) => <button key={d.id} className="bd-ligne bd-depense" onClick={() => onDepense(d.id)}>
       <span className="bd-icone">{icone(d.titre)}</span>
@@ -70,6 +73,24 @@ export function BuddyCount({ x, depenses, onDepense, onRetour, onClose }: {
     {!ds.length && <p className="bd-vide">Pas encore de dépense : le gîte, l'essence, les courses… chacun ajoute ce qu'il a payé.</p>}
     <span style={{ flex: 1 }} />
     <div className="bd-plus"><button className="primary" onClick={() => onDepense()}><span className="bd-plus-texte"><b>＋ Dépense</b></span></button></div>
+  </div>;
+}
+
+/** IBAN lisible : par groupes de 4. */
+const ibanLisible = (iban: string) => iban.replace(/(.{4})/g, '$1 ').trim();
+
+/** « Rembourser Julie » : par Wero et/ou par virement, chacun avec Copier ; sinon une petite phrase. */
+function Rembourser({ nom, moyens, onToast }: { nom: string; moyens?: { iban?: string; wero?: string }; onToast: (m: string) => void }) {
+  const copier = (t: string, quoi: string) => {
+    navigator.clipboard?.writeText(t).then(() => onToast(`${quoi} copié`)).catch(() => onToast(t));
+  };
+  if (!moyens?.wero && !moyens?.iban) return <p className="hint bd-rembourser">{nom} n'a pas renseigné son Wero ni son IBAN.</p>;
+  return <div className="bd-rembourser">
+    <b>Rembourser {nom}</b>
+    {moyens.wero && <div className="bd-moyen"><span className="bd-texte"><small>par Wero</small><b>{moyens.wero}</b></span>
+      <button onClick={() => copier(moyens.wero!, 'Numéro Wero')}>Copier</button></div>}
+    {moyens.iban && <div className="bd-moyen"><span className="bd-texte"><small>par virement</small><b>{ibanLisible(moyens.iban)}</b></span>
+      <button onClick={() => copier(moyens.iban!, 'IBAN')}>Copier</button></div>}
   </div>;
 }
 

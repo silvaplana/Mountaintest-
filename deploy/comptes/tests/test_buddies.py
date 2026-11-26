@@ -816,3 +816,26 @@ def test_notification_des_nouveaux_messages(client, monkeypatch):
     sync(client, sub="julie", ops=[nouveau_message(groupe=duo["id"], nature="point", texte="", lon=6.8, lat=44.6)])
     assert envois[0][0] == [moi] and envois[0][1]["titre"] == envois[0][1]["de"] and envois[0][1]["duo"] == "1"
     assert envois[0][1]["texte"] == "📍 est ici"
+
+
+def test_iban_et_wero_seulement_pour_qui_doit(client):
+    """Seb, 26/11 : l'IBAN et le Wero de Julie ne vont qu'aux buddies de la sortie qui lui doivent de l'argent."""
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    seb = sync(client, ops=[so])["moi"]
+    client.put("/moi", headers=entete(sub="julie"), json={"iban": "FR76 3000 6000 0112 3456 7890 189", "wero": True,
+                                                           "telephone": "06 11 22 33 44"})
+    assert sync(client)["paiements"] == {}  # pas encore de dépense
+    sync(client, sub="julie", ops=[nouvelle_depense(so["sortie"], julie, [seb, julie])])
+    p = sync(client)["paiements"]
+    assert p == {so["sortie"]: {julie: {"iban": "FR7630006000011234567890189", "wero": "06 11 22 33 44"}}}
+    assert sync(client, sub="julie")["paiements"] == {}  # Julie ne doit rien
+    assert sync(client, sub="luc")["paiements"] == {}  # pas de la sortie
+    # Numéro Wero différent du portable ; sans la case, plus de Wero.
+    client.put("/moi", headers=entete(sub="julie"), json={"wero_numero": "julie@exemple.fr"})
+    assert sync(client)["paiements"][so["sortie"]][julie]["wero"] == "julie@exemple.fr"
+    client.put("/moi", headers=entete(sub="julie"), json={"wero": False})
+    assert "wero" not in sync(client)["paiements"][so["sortie"]][julie]
+    # Une fois remboursée (dépense inverse), Seb ne voit plus rien.
+    sync(client, ops=[nouvelle_depense(so["sortie"], seb, [julie], montant=12000, titre="Remboursement")])
+    assert sync(client)["paiements"] == {}

@@ -582,6 +582,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .acc-mail { text-align: center; margin: 0; font-size: 17px; color: var(--muted); overflow-wrap: anywhere; }
 .acc-role { align-self: center; padding: 6px 16px; border-radius: 999px; background: #f3dfb4; color: #5a3d00; font-size: 17px; }
 .acc-rubrique { margin: 14px 0 0; font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.acc-case { display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 17px; }
+.acc-case input { width: 24px; height: 24px; margin: 0; accent-color: var(--accent); }
 .acc-pastille { position: absolute; right: 2px; bottom: 2px; width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--bg); }
 .acc-pastille.vert, .quick .acc-dot.vert { background: #2f9e5f; }
 .acc-pastille.orange, .quick .acc-dot.orange { background: #f0a000; }
@@ -929,12 +931,19 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-solde > b { min-width: 84px; text-align: right; font-size: 19px; }
 /* « ＋ Dépense » : petite pilule à droite comme « ＋ Sortie » (.bd-plus, Seb 26/11) ;
    les équilibres et le texte s'arrêtent avant la colonne d'icônes (le montant passait dessous). */
-.buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide) { margin-right: 60px; }
-.icones-gauche .buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide) { margin-right: 0; margin-left: 60px; }
+.buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide, .bd-rembourser) { margin-right: 60px; }
+.icones-gauche .buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide, .bd-rembourser) { margin-right: 0; margin-left: 60px; }
 .bd-count b.plus { color: #2f7d4f; } .bd-count b.moins { color: #c2410c; }
 .bd-virement { flex: none; display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 16px; padding: 10px 12px; }
 .bd-virement .bd-texte { flex: 1; min-width: 0; }
 .bd-virement > b { font-size: 19px; }
+/* Rembourser (Seb 26/11) : Wero et IBAN de celui à qui je dois, chacun avec Copier. */
+.bd-rembourser { flex: none; display: flex; flex-direction: column; gap: 8px; }
+div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 12px; }
+.bd-moyen { display: flex; align-items: center; gap: 10px; }
+.bd-moyen .bd-texte { flex: 1; min-width: 0; }
+.bd-moyen .bd-texte b { overflow-wrap: anywhere; font-weight: 500; }
+.bd-moyen > button { flex: none; min-height: 48px; padding: 0 14px; border-radius: 24px; }
 .bd-depense > b { font-size: 18px; white-space: nowrap; }
 .bd-icone { font-size: 30px; width: 44px; text-align: center; flex: none; }
 .bd-avec-icone { display: flex; align-items: center; gap: 8px; } .bd-avec-icone span { font-size: 28px; }

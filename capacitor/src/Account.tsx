@@ -4,7 +4,7 @@ import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
-  changerInfos, changerPseudo, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
+  changerInfos, changerPseudo, changerWero, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
   initiales, nomAffiche, nomComplet, retourWeb, retourWebEnAttente, SCHEMA, suivre, synchroniser, type Etat, type Fournisseur, type Infos,
 } from './compte/auth';
 
@@ -182,7 +182,10 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
       <Champ titre="Téléphone (facultatif)" valeur={p?.telephone ?? ''} cle="telephone" type="tel" inputMode="tel" placeholder="06 12 34 56 78" onToast={onToast} />
       <h3 className="acc-rubrique">Remboursements</h3>
       <Champ titre="Mon IBAN (facultatif, pour les remboursements)" valeur={p?.iban ?? ''} cle="iban" placeholder="FR76 …" onToast={onToast} />
-      <p className="hint">Toi seul le vois.</p>
+      {/* Wero (Seb 26/11) : par défaut le portable ci-dessus ; un autre numéro ou un mail seulement s'il diffère. */}
+      <label className="acc-case"><input type="checkbox" checked={!!p?.wero} onChange={(ev) => { void changerWero(ev.target.checked); }} />J'ai Wero</label>
+      {p?.wero && <Champ titre="Numéro Wero, si différent" valeur={p?.wero_numero ?? ''} cle="wero_numero" inputMode="tel" placeholder={p?.telephone || '06 12 34 56 78 ou mail'} onToast={onToast} />}
+      <p className="hint">Seuls les buddies d'une sortie qui te doivent de l'argent les voient, pour te rembourser.</p>
       <h3 className="acc-rubrique">Paramètres</h3>
       {e.aReconnecter
         ? <div className="acc-bandeau orange"><span>⚠</span><span><b>Session expirée.</b> Tes données restent sur le téléphone ; reconnecte-toi quand tu as du réseau pour les synchroniser.</span></div>

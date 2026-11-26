@@ -876,14 +876,19 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   dans la fiche, comme le cœur d'AppBase : prénom, nom, téléphone, e-mail, IBAN, le téléphone et l'IBAN facultatifs.
 - **À l'écran** (👤, titre « Profil ») : pastille (photo, sinon initiales « SR »), « Prénom Nom » (sinon le pseudo),
   l'e-mail, le rôle (« Super User » ou « Membre »). Rubriques : **Mes infos** (Prénom, Nom, Pseudo vu par les amis,
-  Téléphone facultatif), **Remboursements** (« Mon IBAN (facultatif, pour les remboursements) », vu de moi seul),
+  Téléphone facultatif), **Remboursements** (« Mon IBAN (facultatif, pour les remboursements) », « J'ai Wero »),
   **Paramètres** (synchro, point décalé du doigt, côté des icônes), puis Se déconnecter.
 - **Hors ligne** : chaque champ s'enregistre quand on le quitte, tout de suite sur le téléphone, et part au serveur au
   retour du réseau (même file que le pseudo, `attente` de `compte/auth.ts`). L'e-mail vient de la connexion (Logto).
 - **Serveur** : colonnes `prenom`, `nom`, `telephone`, `iban` de `utilisateurs`, `GET/PUT /moi`. L'IBAN est vérifié
   comme dans AppBase (forme et clé, ISO 13616), aussi sur le téléphone avant l'envoi ; vide = effacé. Téléphone et
-  IBAN ne sont jamais envoyés aux autres buddies.
-- **Pas encore** : montrer l'IBAN à qui doit rembourser dans le Buddy count.
+  IBAN ne sont envoyés qu'aux buddies qui leur doivent de l'argent (ci-dessous).
+- **Wero et remboursement (Seb, 26 novembre)** : sous l'IBAN, case « J'ai Wero » (par défaut le portable du profil)
+  et « Numéro Wero, si différent » (numéro ou mail). Phrase sous les champs : « Seuls les buddies d'une sortie qui te
+  doivent de l'argent les voient, pour te rembourser. » Le serveur calcule les soldes de chaque sortie et envoie, dans
+  la synchro (`paiements`), l'IBAN et le Wero de ceux à qui je dois, seulement si je leur dois. Dans le Buddy count,
+  sous « qui doit à qui » : « Rembourser Julie », « par Wero : 06… » et/ou « par virement : FR76 … », chacun avec
+  Copier, seulement ce qu'elle a renseigné ; sinon « Julie n'a pas renseigné son Wero ni son IBAN ».
 
 ## 8. Hors périmètre pour l'instant
 

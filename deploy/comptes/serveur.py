@@ -102,6 +102,8 @@ COLONNES_AJOUTEES = [
     ("utilisateurs", "nom", "VARCHAR(100) NOT NULL DEFAULT ''"),
     ("utilisateurs", "telephone", "VARCHAR(50)"),
     ("utilisateurs", "iban", "VARCHAR(34)"),
+    ("utilisateurs", "wero", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("utilisateurs", "wero_numero", "VARCHAR(100)"),
     ("groupes", "organisation_id", "UUID REFERENCES organisations(id) ON DELETE SET NULL"),
 ]
 
@@ -202,7 +204,8 @@ def iso(d: datetime | None) -> str | None:
 def profil(u: Utilisateur) -> dict[str, Any]:
     """Mon profil (à moi seul : téléphone et IBAN ne partent jamais chez les autres)."""
     return {"id": str(u.id), "email": u.email, "pseudo": u.pseudo, "photo": u.photo, "cree_le": iso(u.cree_le),
-            "prenom": u.prenom, "nom": u.nom, "telephone": u.telephone, "iban": u.iban, "super_user": u.super_user}
+            "prenom": u.prenom, "nom": u.nom, "telephone": u.telephone, "iban": u.iban,
+            "wero": u.wero, "wero_numero": u.wero_numero, "super_user": u.super_user}
 
 
 def normaliser_iban(iban: str | None) -> str | None:
@@ -267,6 +270,8 @@ class Changement(BaseModel):
     nom: str | None = Field(None, max_length=100)
     telephone: str | None = Field(None, max_length=50)  # texte libre, vide = effacé
     iban: str | None = Field(None, max_length=60)  # vide = effacé
+    wero: bool | None = None
+    wero_numero: str | None = Field(None, max_length=100)  # vide = le portable du profil
 
 
 @app.put("/moi")
@@ -289,6 +294,10 @@ def changer_moi(ch: Changement, j: dict = Depends(jeton_requis), s: Session = De
         u.telephone = ch.telephone.strip() or None
     if ch.iban is not None:
         u.iban = normaliser_iban(ch.iban)
+    if ch.wero is not None:
+        u.wero = ch.wero
+    if ch.wero_numero is not None:
+        u.wero_numero = re.sub(r"\s+", " ", ch.wero_numero).strip() or None
     buddies.profil_change(s, u)
     s.commit()
     return profil(u)

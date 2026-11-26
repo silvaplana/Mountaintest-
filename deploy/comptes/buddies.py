@@ -1082,7 +1082,46 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "hebergements": [vue_hebergement(s, h) for h in hebergements if neuf(h.modifie_le)],
             "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, []), votes.get(m.id, []), fichiers.get(m.fichier_id)) for m in neufs],
             "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
-            "positions": [vue_position(x) for x in [*positions, *positions_g]], "appels": appels_en_cours(s, gids, sids), "refus": refus}
+            "positions": [vue_position(x) for x in [*positions, *positions_g]], "appels": appels_en_cours(s, gids, sids),
+            "paiements": paiements(s, u, depenses), "refus": refus}
+
+
+def soldes(depenses: list[Depense]) -> dict[uuid.UUID, float]:
+    """Solde de chacun dans une sortie, en centimes : + ce qu'il a payé, − sa part (comme count.ts)."""
+    sol: dict[uuid.UUID, float] = {}
+    for d in depenses:
+        pour = [uuid.UUID(x) for x in json.loads(d.pour or "[]")]
+        if not pour:
+            continue
+        sol[d.paye_par] = sol.get(d.paye_par, 0) + d.montant
+        for q in pour:
+            sol[q] = sol.get(q, 0) - d.montant / len(pour)
+    return sol
+
+
+def paiements(s: Session, u: Utilisateur, depenses: list[Depense]) -> dict[str, dict[str, dict[str, str]]]:
+    """Comment rembourser (Seb 26/11, spec §7.18) : par sortie où je dois de l'argent, l'IBAN et le Wero de ceux à
+    qui l'on doit. Personne d'autre ne les voit (ni les buddies quittes, ni ceux qui ne sont pas de la sortie)."""
+    par_sortie: dict[uuid.UUID, list[Depense]] = {}
+    for d in depenses:
+        par_sortie.setdefault(d.sortie_id, []).append(d)
+    res: dict[str, dict[str, dict[str, str]]] = {}
+    for sid, ds in par_sortie.items():
+        sol = soldes(ds)
+        if sol.get(u.id, 0) > -1:  # moins d'un centime : quitte
+            continue
+        for qui, v in sol.items():
+            if v < 1 or qui == u.id or s.get(Participant, (sid, qui)) is None:
+                continue
+            c = s.get(Utilisateur, qui)
+            moyens = {}
+            if c and c.iban:
+                moyens["iban"] = c.iban
+            if c and c.wero and (c.wero_numero or c.telephone):
+                moyens["wero"] = c.wero_numero or c.telephone or ""
+            if moyens:
+                res.setdefault(str(sid), {})[str(qui)] = moyens
+    return res
 
 
 def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
