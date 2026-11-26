@@ -422,6 +422,8 @@ def partager_trace(s: Session, u: Utilisateur, op: dict) -> None:
                         nom=propre(op.get("nom"), 80) or "Trace", ligne=json.dumps(points, separators=(",", ":")),
                         mot=propre(op.get("mot"), 300), par=u.id))
     toucher(so or g)
+    qui = participants(s, so) if so else set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id)))
+    prevenir(s, u, list(qui), so or g, (so or g).nom, f"a partagé la trace « {propre(op.get('nom'), 80) or 'Trace'} »")
 
 
 def creer_planning(s: Session, u: Utilisateur, op: dict) -> None:
@@ -490,6 +492,8 @@ def ajouter_photo(s: Session, u: Utilisateur, op: dict) -> None:
     s.add(Photo(id=pid, sortie_id=so.id, par=u.id, prise_le=heure_photo(op.get("prise_le")), lon=lon, lat=lat,
                 video=bool(op.get("video"))))
     toucher(so)
+    ajoutees = s.info.setdefault("photos_ajoutees", {})
+    ajoutees[so.id] = ajoutees.get(so.id, 0) + 1
 
 
 def photo_de(s: Session, u: Utilisateur, pid: Any) -> Photo:
@@ -652,13 +656,22 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
 MOYENS = {"virement": "par virement", "wero": "par Wero", "especes": "en espèces", "autre": ""}
 
 
-def prevenir_paiement(s: Session, u: Utilisateur, qui: uuid.UUID, lieu: Any, c: BuddyCount | None, texte: str) -> None:
-    """Notification à une seule personne (même forme qu'un message : la toucher ouvre la conversation)."""
+def prevenir(s: Session, u: Utilisateur, qui: list[uuid.UUID], lieu: Any, titre: str, texte: str) -> None:
+    """🔔 Les seules notifications avec les messages (Seb, 26 novembre) : paiements et partages. Même forme qu'un
+    message (la toucher ouvre la conversation de la sortie ou du groupe) ; envoyées après la réponse (serveur.py)."""
+    qui = [x for x in qui if x != u.id]
+    if not qui:
+        return
     so = lieu if isinstance(lieu, Sortie) else None
-    s.info.setdefault("paiements_a_prevenir", []).append(([qui], {
-        "type": "message", "cle": str(so.id if so else lieu.id), "groupe": "" if so else str(lieu.id), "sortie": str(so.id) if so else "",
-        "titre": so.nom if so else (c.nom if c else lieu.nom), "de": personne(u)["pseudo"], "texte": texte, "duo": "",
+    s.info.setdefault("a_prevenir", []).append((qui, {
+        "type": "message", "cle": str(lieu.id), "groupe": "" if so else str(lieu.id), "sortie": str(so.id) if so else "",
+        "titre": titre, "de": personne(u)["pseudo"], "texte": texte, "duo": "",
         "envoye_le": str(int(datetime.now(timezone.utc).timestamp() * 1000))}))
+
+
+def prevenir_paiement(s: Session, u: Utilisateur, qui: uuid.UUID, lieu: Any, c: BuddyCount | None, texte: str) -> None:
+    so = lieu if isinstance(lieu, Sortie) else None
+    prevenir(s, u, [qui], lieu, so.nom if so else (c.nom if c else lieu.nom), texte)
 
 
 def paye(s: Session, u: Utilisateur, op: dict) -> None:
@@ -1015,7 +1028,7 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
     l = []
     for mid in mids:
         m = s.get(MessageBuddy, mid)
-        if m is None:
+        if m is None or m.bud:  # pas de notification pour Bud (Seb, 26 novembre) : seulement les buddies
             continue
         a_deux = False
         if m.sortie_id:
@@ -1184,6 +1197,11 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
                 nouveaux.append(uuid.UUID(str(op["message"])))
         except (Refus, KeyError, ValueError, TypeError, IndexError) as e:
             refus.append({"id": op.get("id"), "raison": str(e) if isinstance(e, Refus) else "Opération mal formée"})
+    # 🔔 Photos ajoutées à un album : une seule notification par sortie et par synchro.
+    for sid, n in s.info.pop("photos_ajoutees", {}).items():
+        so = s.get(Sortie, sid)
+        if so is not None:
+            prevenir(s, u, list(participants(s, so)), so, so.nom, "a ajouté une photo à l'album" if n == 1 else f"a ajouté {n} photos à l'album")
     s.commit()
     s.info["nouveaux_messages"] = nouveaux  # pour les notifications (serveur.py, après la réponse)
     mes = s.scalars(select(Groupe).join(Membre, Membre.groupe_id == Groupe.id)

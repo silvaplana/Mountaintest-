@@ -65,6 +65,8 @@ export const Natif = registerPlugin<{
   addListener(e: 'finAppel', f: (x: { appel: string }) => void): Promise<{ remove: () => Promise<void> }>;
   /** 🔔 Nouveaux messages (MessagesNotif.java) : la conversation dont la notification a ouvert l'appli ; l'effacer. */
   conversationEnAttente(): Promise<{ conversation?: ConversationNotif }>;
+  /** Ce qui est arrivé appli fermée (MessagesNotif.java), pour la fenêtre d'explication ; la liste se vide. */
+  notifsAExpliquer(): Promise<{ liste: { titre: string; ligne: string }[] }>;
   effacerNotif(o: { cle: string }): Promise<void>;
   addListener(e: 'ouvrirConversation', f: (c: ConversationNotif) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'message', f: (x: { cle: string }) => void): Promise<{ remove: () => Promise<void> }>;

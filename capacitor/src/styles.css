@@ -1520,3 +1520,8 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .sel-ligne .sel-effacer { min-width: 52px; min-height: 52px; color: #c62828; border-color: #c6282866; display: inline-flex; align-items: center; justify-content: center; }
 .sel-ligne .sel-telecharger { flex: 0 0 auto; min-height: 52px; background: var(--accent); color: var(--on-accent); }
 .phone-space-tel { width: 96px; text-align: right; color: var(--muted); white-space: nowrap; }
+
+/* « Pendant ton absence » : les notifications arrivées appli fermée (Seb, 26/11). */
+.notifs-fenetre ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; text-align: left; align-self: stretch; }
+.notifs-fenetre li { display: flex; flex-direction: column; font-size: 17px; }
+.notifs-fenetre li small { color: var(--muted); font-size: 15px; }

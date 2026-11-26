@@ -37,6 +37,12 @@ final class MessagesNotif {
         l.put(ligne);
         while (l.length() > 6) l.remove(0);
         sp.edit().putString(cle, l.toString()).apply();
+        // À expliquer dans une fenêtre à la prochaine ouverture de l'appli (Seb, 26/11).
+        JSONArray ax;
+        try { ax = new JSONArray(sp.getString(A_EXPLIQUER, "[]")); } catch (Exception e) { ax = new JSONArray(); }
+        try { ax.put(new org.json.JSONObject().put("titre", d.get("titre")).put("ligne", ligne)); } catch (Exception ignored) { }
+        while (ax.length() > 20) ax.remove(0);
+        sp.edit().putString(A_EXPLIQUER, ax.toString()).apply();
         NotificationCompat.InboxStyle style = new NotificationCompat.InboxStyle();
         for (int i = 0; i < l.length(); i++) style.addLine(l.optString(i));
         if (l.length() > 1) style.setSummaryText(l.length() + " nouveaux messages");
@@ -53,6 +59,23 @@ final class MessagesNotif {
             .setAutoCancel(true)
             .setContentIntent(PendingIntent.getActivity(c, cle.hashCode(), i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         try { nm.notify(cle, 1, n.build()); } catch (SecurityException ignored) { } // notifications refusées
+    }
+
+    private static final String A_EXPLIQUER = "_aExpliquer";
+
+    /** Les notifications arrivées appli fermée, pour la fenêtre d'explication ; la liste est vidée, les notifications effacées. */
+    static JSONArray aExpliquer(Context c) {
+        SharedPreferences sp = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        JSONArray l;
+        try { l = new JSONArray(sp.getString(A_EXPLIQUER, "[]")); } catch (Exception e) { l = new JSONArray(); }
+        if (l.length() > 0) {
+            sp.edit().clear().apply();
+            NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+            for (android.service.notification.StatusBarNotification n : nm.getActiveNotifications()) {
+                if (n.getId() == 1 && n.getTag() != null) nm.cancel(n.getTag(), 1);
+            }
+        }
+        return l;
     }
 
     /** La conversation est ouverte : sa notification s'efface. */

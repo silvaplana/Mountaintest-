@@ -988,3 +988,18 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   (seul Y confirme), colonnes `depenses.remb` (annonce/recu) et `depenses.moyen` ; un remboursement ne se modifie pas.
 - **Équilibré** : un Buddy count avec des dépenses où plus personne ne doit rien porte « · équilibré » et un signe égal
   dans un rond, vert (version D), au bout de sa ligne dans la liste.
+
+### 7.21 Notifications : seulement ce que les buddies m'envoient (Seb, 26 novembre 2026)
+
+- **Notifications (et chiffre sur l'icône de l'appli)** seulement pour : un message d'un buddy (pas de Bud) ; « J'ai
+  payé », « OK, reçu », « Pas reçu » (à l'autre personne) ; une trace partagée ; des photos ajoutées à un album (une
+  notification par envoi : « a ajouté 3 photos à l'album »). Serveur : `buddies.prevenir`, même forme qu'un message.
+- **Plus de notification « Nouvelle version »** : la fenêtre de l'appli suffit.
+- **Voyants imposés par Android** (GPS en arrière-plan : partage de position, suivi de sortie, suivi de trace) : muets,
+  sans chiffre sur l'icône. Le partage de position : « Partage de position actif jusqu'à 19 h », priorité minimale
+  (nouveaux canaux, les anciens sont effacés). Batterie : une position toutes les 5 minutes, le GPS dort entre deux.
+- **« Pendant ton absence »** : à l'ouverture (ou au retour dans l'appli) qui suit des notifications arrivées appli
+  fermée, une fenêtre liste qui a écrit, payé ou partagé quoi (8 au plus), avec « OK » ; les notifications s'effacent.
+- **Pastille de 👥 sur la carte** : même règle ; elle compte les messages de buddies non lus, les « J'ai payé » qui
+  attendent ma réponse, les traces partagées et les albums où un buddy a ajouté des photos depuis ma dernière visite de
+  Buddies. Avant, elle comptait tout groupe, sortie ou planning modifié depuis la dernière ouverture, même par moi.

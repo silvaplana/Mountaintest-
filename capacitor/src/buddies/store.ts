@@ -471,12 +471,20 @@ export function appliquer(e: Etat): Groupe[] {
 /** Invitations reçues (liens ouverts) qui attendent le réseau pour faire entrer dans le groupe. */
 export const rejointsEnAttente = (e: Etat = lire()) => e.attente.filter((o) => o.type === 'rejoindre');
 
-/** Nombre de groupes qui ont bougé depuis la dernière ouverture de Buddies (pastille de 👥). */
+/**
+ * Pastille de 👥 (Seb, 26/11) : seulement ce que les buddies m'envoient, comme les notifications. Les messages des
+ * buddies non lus (pas Bud), les « J'ai payé » qui attendent ma réponse, les traces partagées et les albums où un
+ * buddy a ajouté des photos depuis ma dernière visite de Buddies. Avant, elle comptait tout groupe ou sortie modifié,
+ * même par moi.
+ */
 export function nouveautes(e: Etat = lire()): number {
-  const vu = e.vu ?? 0;
-  return e.serveur.filter((g) => Date.parse(g.modifie_le) > vu && g.nature === 'bande').length
-    + e.sorties.filter((x) => Date.parse(x.modifie_le) > vu).length
-    + (e.plannings ?? []).filter((x) => Date.parse(x.modifie_le) > vu).length;
+  const vu = e.vu ?? 0, moi = e.moi ?? 'moi';
+  const messages = (e.messages ?? []).filter((m) => !m.bud && !m.supprime && m.par !== moi
+    && Date.parse(m.cree_le) > (e.lus?.[m.groupe ?? m.sortie ?? ''] ?? 0)).length;
+  const paiements = (e.depenses ?? []).filter((d) => d.remb === 'annonce' && d.pour[0] === moi).length;
+  const traces = e.traces.filter((t) => t.par.id !== moi && Date.parse(t.cree_le) > vu).length;
+  const albums = new Set((e.photos ?? []).filter((p) => p.par.id !== moi && Date.parse(p.modifie_le) > vu).map((p) => p.sortie)).size;
+  return messages + paiements + traces + albums;
 }
 export function marquerVu() { ecrire({ ...lire(), vu: Date.now() }); }
 

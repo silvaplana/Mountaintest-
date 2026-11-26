@@ -386,8 +386,8 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     # 🔔 Nouveaux messages : une notification aux autres (en arrière-plan, sans clé Firebase : rien).
     for qui, data in buddies.a_prevenir(s, u, s.info.pop("nouveaux_messages", [])):
         appels.sonner(Sessions, qui, data, ttl="86400s")
-    # 💶 « J'ai payé » / « Pas reçu » : une notification à l'autre (même forme qu'un message).
-    for qui, data in s.info.pop("paiements_a_prevenir", []):
+    # 💶 Paiements, traces et photos partagées (buddies.prevenir) : même forme qu'un message.
+    for qui, data in s.info.pop("a_prevenir", []):
         appels.sonner(Sessions, qui, data, ttl="86400s")
     return r
 

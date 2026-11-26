@@ -94,6 +94,14 @@ public class BuddiesPlugin extends Plugin {
         call.resolve(r);
     }
 
+    /** 🔔 Ce qui est arrivé appli fermée (messages, paiements, partages), pour la fenêtre d'explication (Seb, 26/11). */
+    @PluginMethod
+    public void notifsAExpliquer(PluginCall call) {
+        JSObject r = new JSObject();
+        try { r.put("liste", new com.getcapacitor.JSArray(MessagesNotif.aExpliquer(getContext()).toString())); } catch (Exception e) { r.put("liste", new com.getcapacitor.JSArray()); }
+        call.resolve(r);
+    }
+
     /** La conversation est ouverte : sa notification s'efface. */
     @PluginMethod
     public void effacerNotif(PluginCall call) {

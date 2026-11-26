@@ -935,3 +935,21 @@ def test_j_ai_paye_puis_ok_recu(client, monkeypatch):
     assert [str(q) for q in sonne[-1][0]] == [julie] and sonne[-1][1]["texte"] == "n'a pas reçu tes 5 €"
     # On ne se rembourse pas soi-même.
     assert sync(client, ops=[op("paye", depense=str(uuid.uuid4()), sortie=sid, a=seb, montant=100)])["refus"]
+
+
+def test_notifications_partages_et_pas_bud(client, monkeypatch):
+    """Seb, 26 novembre : notifications pour une trace partagée, des photos ajoutées (une par synchro) ; pas pour Bud."""
+    import appels
+    import buddies
+    sonne = []
+    monkeypatch.setattr(appels, "sonner", lambda S, qui, data, ttl="45s": sonne.append(([str(q) for q in qui], data["texte"])))
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    sync(client, ops=[so])
+    sonne.clear()
+    t = op("partager_trace", trace=str(uuid.uuid4()), sortie=so["sortie"], nom="Col du Lautaret", ligne=[[6.4, 45.0], [6.41, 45.01]])
+    sync(client, ops=[t])
+    assert sonne == [([julie], "a partagé la trace « Col du Lautaret »")]
+    sonne.clear()
+    sync(client, ops=[nouvelle_photo(so["sortie"]) | {"id": str(uuid.uuid4()), "photo": str(uuid.uuid4())} for _ in range(3)])
+    assert sonne == [([julie], "a ajouté 3 photos à l'album")]

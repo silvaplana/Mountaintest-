@@ -33,7 +33,7 @@ import org.json.JSONObject;
  */
 public class EpingleService extends Service {
     static final String PREFS = "epingle";
-    private static final String CHANNEL = "buddies-position";
+    private static final String CHANNEL = "position-muet"; // Seb, 26/11 : le plus discret possible ; l'ancien est effacé
     private static final long INTERVALLE_MS = 5 * 60_000L;
     /** Appelé à chaque position (BuddiesPlugin, appli ouverte ou en arrière-plan). */
     static volatile Ecouteur ecouteur;
@@ -73,9 +73,9 @@ public class EpingleService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         long jusqu = intent != null ? intent.getLongExtra("jusqu", 0) : getSharedPreferences(PREFS, MODE_PRIVATE).getLong("jusqu", 0);
         long reste = jusqu - System.currentTimeMillis();
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong("jusqu", jusqu).apply();
         ServiceCompat.startForeground(this, 7, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
         if (reste <= 0) { stopSelf(); return START_NOT_STICKY; }
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putLong("jusqu", jusqu).apply();
         handler.removeCallbacks(fin);
         handler.postDelayed(fin, reste);
         fused.removeLocationUpdates(callback);
@@ -100,17 +100,26 @@ public class EpingleService extends Service {
     private Notification notification() {
         NotificationManager nm = getSystemService(NotificationManager.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Position pour mes buddies", NotificationManager.IMPORTANCE_LOW));
+            nm.deleteNotificationChannel("buddies-position");
+            NotificationChannel ch = new NotificationChannel(CHANNEL, "Partage de position", NotificationManager.IMPORTANCE_MIN);
+            ch.setShowBadge(false);
+            nm.createNotificationChannel(ch);
         }
+        long jusqu = getSharedPreferences(PREFS, MODE_PRIVATE).getLong("jusqu", 0);
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTimeInMillis(jusqu);
+        String heure = cal.get(java.util.Calendar.MINUTE) == 0 ? cal.get(java.util.Calendar.HOUR_OF_DAY) + " h"
+            : String.format(java.util.Locale.FRANCE, "%d h %02d", cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE));
         Intent open = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pi = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE);
         return new NotificationCompat.Builder(this, CHANNEL)
-            .setContentTitle("📍 Mes buddies me voient")
-            .setContentText("Ta position part toutes les 5 minutes, jusqu'à ce soir.")
+            .setContentTitle(jusqu > 0 ? "Partage de position actif jusqu'à " + heure : "Partage de position actif")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pi)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setSilent(true)
+            .setShowWhen(false)
             .build();
     }
 }

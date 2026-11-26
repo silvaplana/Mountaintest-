@@ -207,23 +207,9 @@ public final class Updater {
             if (r == null) return Result.success();
             if (r.build <= versionCode(ctx) || prefs.getInt("notifie", 0) >= r.build) return Result.success();
             prefs.edit().putInt("notifie", r.build).apply();
-            NotificationManager nm = ctx.getSystemService(NotificationManager.class);
-            if (Build.VERSION.SDK_INT >= 26) {
-                nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Mises à jour", NotificationManager.IMPORTANCE_DEFAULT));
-            }
-            Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
-            PendingIntent pi = PendingIntent.getActivity(ctx, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-            try {
-                NotificationManagerCompat.from(ctx).notify(42, new NotificationCompat.Builder(ctx, CHANNEL)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                    .setContentTitle("Nouvelle version disponible")
-                    .setContentText("Version " + r.build + " : ouvre l'appli pour l'installer.")
-                    .setContentIntent(pi)
-                    .setAutoCancel(true)
-                    .build());
-            } catch (SecurityException e) {
-                Log.i(TAG, "notifications refusées");
-            }
+            // Plus de notification « Nouvelle version » (Seb, 26/11 : seulement messages, paiements et partages) ;
+            // la fenêtre de l'appli suffit. L'ancien canal est effacé.
+            if (Build.VERSION.SDK_INT >= 26) ctx.getSystemService(NotificationManager.class).deleteNotificationChannel(CHANNEL);
             return Result.success();
         }
     }
