@@ -96,12 +96,36 @@ export const OffTrackVibrateIcon = ({ size = 34 }: { size?: number }) => (
   </svg>
 );
 
-/** Icône drone au trait (Seb, 25/11 : icônes simples) : corps, quatre bras, quatre hélices. Couleur du texte. */
+/** Icône drone au trait, vu de face : hélices, bras, corps, caméra et pieds (maquette « Drone B », Seb 26/11). */
 const DroneIcon = () => (
-  <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-    <rect x="9.5" y="9.5" width="5" height="5" rx="1.2" />
-    <path d="M9.5 9.5L7.6 7.6M14.5 9.5l1.9-1.9M9.5 14.5l-1.9 1.9M14.5 14.5l1.9 1.9" />
-    <circle cx="5.5" cy="5.5" r="3" /><circle cx="18.5" cy="5.5" r="3" /><circle cx="5.5" cy="18.5" r="3" /><circle cx="18.5" cy="18.5" r="3" />
+  <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 14h14M30 14h14M11 14v4M37 14v4M11 18h26" />
+    <rect x="18" y="16" width="12" height="7" rx="2.5" />
+    <path d="M19 23l-4 8M29 23l4 8M12 31h6M30 31h6" />
+    <circle cx="24" cy="27.5" r="2.4" />
+  </svg>
+);
+
+/** Icône « Calques » : trois strates empilées (maquette « Calques A », Seb 26/11). Ouvre la ligne des calques. */
+const LayersIcon = () => (
+  <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M24 7 42 16 24 25 6 16Z" /><path d="M6 24l18 9 18-9" /><path d="M6 32l18 9 18-9" />
+  </svg>
+);
+
+/** Icône vue 3D : un sommet au trait et « 3D » écrit dessous (maquette « 3D A », Seb 26/11). */
+const View3dIcon = () => (
+  <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 28 17 10l6 8 4-5 13 15" />
+    <text x="24" y="45" fontSize="16" fontWeight="800" fill="currentColor" stroke="none" textAnchor="middle" fontFamily="Roboto, Arial, sans-serif">3D</text>
+  </svg>
+);
+
+/** Icône pentes : triangle plein et « pente » écrit dessous (maquette « Pente B », Seb 26/11). */
+const SlopeIcon = () => (
+  <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true">
+    <path d="M24 4 38 27H10Z" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    <text x="24" y="44" fontSize="15" fontWeight="800" fill="currentColor" textAnchor="middle" fontFamily="Roboto, Arial, sans-serif">pente</text>
   </svg>
 );
 
@@ -129,7 +153,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
   const [watch, setWatch] = useState<WatchState>('OFF');
   const [airplane, setAirplane] = useState(false);
   const [pocket, setPocket] = useState(false);
-  // Duos : ✈ seul d'habitude, un appui le « déplie » et 👖 apparaît à sa gauche ; de même ⛰ puis 🌗, 🌦 puis 🏔.
+  // Duos : ✈ seul d'habitude, un appui le « déplie » et 👖 apparaît à sa gauche ; de même Calques puis la ligne des calques, 🌦 puis 🏔.
   // Ensuite chaque icône bascule son mode ; toucher ailleurs replie. La colonne ne bouge pas (alignée à droite).
   const [pairOpen, setPairOpen] = useState<'avion' | 'relief' | 'meteo' | null>(null);
   const pair = pairOpen === 'avion', relief = pairOpen === 'relief', meteo = pairOpen === 'meteo';
@@ -375,9 +399,11 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
       <div className="pair" ref={reliefRef}>
-      <button className={slopes ? 'on' : ''} aria-label={relief ? 'Pentes' : 'Pentes et ombres'} data-help="Pentes · appui : montre aussi les ombres" {...lp('slopes')}
-        onClick={() => { if (!relief && !help) { setPairOpen('relief'); return; } onSlopes(!slopes); }}>⛰</button>
-      {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}>🗻</button>}
+      {/* Calques (Seb, 26/11) : ouvre ou referme la ligne des calques ; chacun s'allume à part, on peut les mélanger. */}
+      <button aria-label="Calques de la carte" data-help="Calques : pentes, 3D, ombres, forêts, drones, fond de carte" {...lp('layers')}
+        onClick={() => { if (!help) setPairOpen(relief ? null : 'relief'); }}><LayersIcon /></button>
+      {(relief || help) && <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" {...lp('slopes')} onClick={() => onSlopes(!slopes)}><SlopeIcon /></button>}
+      {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}><View3dIcon /></button>}
       {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
       {(relief || help) && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
       {(relief || help) && <button className={drones ? 'on' : ''} aria-label="Zones drones" data-help="Zones drones · appui long : légende" {...lp('drones')}

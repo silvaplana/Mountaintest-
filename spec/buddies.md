@@ -128,7 +128,7 @@ Dans la barre étendue de la carte, 👥 ouvre Buddies (pastille = du nouveau) ;
 (profil, compte, réglages, état hors ligne). 👤 reprend l'écran « Mon compte » existant. **(Seb)**
 
 Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 🔍, 📷 ;
-étendue = ✕, flèche, ◎, 🔍, 📷, ✈, ✏, ⛰, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
+étendue = ✕, flèche, ◎, 🔍, 📷, ✈, ✏, Calques, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
 🔍 (chercher un lieu) est de nouveau un bouton visible juste sous ◎, même en barre réduite (Seb, 25/11 ; avant : appui long sur ◎).
 La loupe 🔍 (Seb, 25/11) cherche d'abord dans les noms de lieux gardés sur le téléphone (sommets, cols, crêtes,
 lieux-dits, sources, refuges, calanques… de la BD TOPO IGN complétée par OpenStreetMap), téléchargés avec les cartes
@@ -162,7 +162,9 @@ recherche à Bud (recherche web, payante, seulement si on touche) ; un texte qui
 « bad », « budd »… comme dans les conversations) est une question à Bud : plus de catégories, une ligne « Demander à
 Bud » (Entrée, ou tout de suite si c'est dicté), puis sa réponse, les endroits proposés (toucher = y aller) et « Tout
 voir sur la carte » pour ses hébergements. Bud reçoit le centre de la carte. Pas Google : payant et sans coordonnées.
-⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
+Calques (trois strates, Seb 26/11 ; avant ⛰) déplie la ligne des calques : pente, 3D, 🌗, 🌲, drone, 🗺. Chaque calque
+s'allume à part et on peut les mélanger ; seul 🗺 change de fond. Icônes au trait, « 3D » et « pente » écrits dedans
+(maquettes maquettes/icones-calques/ du dossier du projet).
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
 sa gauche, on en choisit une.
