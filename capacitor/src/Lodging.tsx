@@ -41,8 +41,16 @@ const KEY = 'hebergement';
 /** Les derniers résultats, retrouvés quand on rouvre la liste depuis la carte. */
 let dernier: Answer | null = null;
 let dernierPlaces: PlacedLodging[] = [];
-/** Sites proposés à cocher (on peut en ajouter) : cochés, Claude ne cherche que là ; aucun coché, tout le web. */
-export const SITES = ['gites-refuges.com', 'capverb.org'];
+/** Sites proposés à cocher (on peut en ajouter) : cochés, la recherche et Bud les regardent en priorité, puis le reste du web. */
+export const SITES = ['gites-refuges.com', 'capverb.org', 'refuges.info'];
+
+/** Les sites cochés dans la recherche (les trois proposés si on n'a jamais rien réglé) : Bud les regarde aussi en priorité. */
+export function sitesPrioritaires(): string[] {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Record<string, string>;
+    return s.checked ? (JSON.parse(s.checked) as string[]).filter((x) => typeof x === 'string').slice(0, 10) : SITES;
+  } catch { return SITES; }
+}
 export const cleanSite = (s: string) => s.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
 /** Ajoute des jours à une date AAAA-MM-JJ. */
 const plusJours = (d: string, n: number) => new Date(Date.parse(d + 'T12:00:00Z') + n * 86_400_000).toISOString().slice(0, 10);
@@ -78,8 +86,9 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
   const [date, setDate] = useState(saved.date && saved.date >= new Date().toISOString().slice(0, 10) ? saved.date : tomorrow());
   const [nights, setNights] = useState(saved.nights ?? '1');
   const [rayon, setRayon] = useState(RAYONS.includes(Number(saved.rayon)) ? Number(saved.rayon) : 10);
-  const [sites, setSites] = useState<string[]>(() => { try { return JSON.parse(saved.sites ?? 'null') ?? SITES; } catch { return SITES; } });
-  const [checked, setChecked] = useState<string[]>(() => { try { return JSON.parse(saved.checked ?? '[]'); } catch { return []; } });
+  // Un site ajouté à la liste proposée (refuges.info) apparaît aussi chez ceux qui avaient déjà réglé leurs sites.
+  const [sites, setSites] = useState<string[]>(() => { try { const x: string[] = JSON.parse(saved.sites ?? 'null') ?? []; return [...SITES, ...x.filter((y) => !SITES.includes(y))]; } catch { return SITES; } });
+  const [checked, setChecked] = useState<string[]>(() => { try { return JSON.parse(saved.checked ?? 'null') ?? SITES; } catch { return SITES; } });
   const [newSite, setNewSite] = useState('');
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -129,7 +138,7 @@ export function LodgingPanel({ password, onClose, onProposer, onShowOnMap }: { p
       </span>
       <label className="field">Distance autour de la ville<select value={rayon} onChange={(e) => setRayon(Number(e.target.value))}>
         {RAYONS.map((k) => <option key={k} value={k}>{k} km</option>)}</select></label>
-      <p className="hint">Chercher seulement sur (rien de coché : tout le web)</p>
+      <p className="hint">À regarder en priorité, puis le reste du web</p>
       {sites.map((x) => (
         <label key={x} className="check"><input type="checkbox" checked={checked.includes(x)}
           onChange={(e) => setChecked(e.target.checked ? [...checked, x] : checked.filter((y) => y !== x))} /> {x}

@@ -566,6 +566,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   Queyras, refuges des Écrins…), la recherche et Bud donnent le lien de sa page de réservation (le calendrier des
   places). Ils ne lisent pas les places libres : ces calendriers demandent un compte (et une salle d'attente à
   l'ouverture).
+- **Sites à regarder en priorité (26 novembre 2026, demande de Seb)** : les cases de la recherche proposent
+  gites-refuges.com, capverb.org et refuges.info (refuges, cabanes, gîtes d'étape), cochées par défaut ; on peut en
+  ajouter. Cochés, la recherche les regarde d'abord puis complète avec le reste du web (avant : seulement eux). Bud
+  reçoit les mêmes sites cochés et les regarde aussi en priorité quand on lui demande où dormir.
 - **Pas encore** : la ligne automatique dans le Buddy Count (le prix trouvé n'est pas toujours celui payé : on ajoute
   la dépense à la main). La recherche elle-même est l'écran existant, non retouché (voir point ouvert 6).
 - **Serveur** : tables `hebergements` (Buddy Time, nom, nature, prix par nuit en euros, adresse, lien http(s), résumé,

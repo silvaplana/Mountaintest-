@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { liensSites } from '../src/Lodging';
+import { liensSites, sitesPrioritaires } from '../src/Lodging';
 
 describe('liensSites', () => {
   it('fills place, dates and people on the three sites', () => {
@@ -11,5 +11,15 @@ describe('liensSites', () => {
   it('day trip counts one night, at least one person', () => {
     const [b] = liensSites('Ceillac', '2026-03-28', 0, 0);
     expect(b.url).toContain('checkin=2026-03-28&checkout=2026-03-29&group_adults=1');
+  });
+});
+
+describe('sitesPrioritaires', () => {
+  it('the three proposed sites when nothing was set, else the checked ones', () => {
+    const store: Record<string, string> = {};
+    globalThis.localStorage = { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v; } } as Storage;
+    expect(sitesPrioritaires()).toEqual(['gites-refuges.com', 'capverb.org', 'refuges.info']);
+    store.hebergement = JSON.stringify({ checked: JSON.stringify(['refuges.info']) });
+    expect(sitesPrioritaires()).toEqual(['refuges.info']);
   });
 });

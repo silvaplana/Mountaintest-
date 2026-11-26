@@ -7,6 +7,7 @@ import { Preferences } from '@capacitor/preferences';
 import { IA_MOT_DE_PASSE_INTEGRE, RELAIS_URL } from '../trails/webHikes';
 import { compte, euros } from './count';
 import { longueurTrace, type Dest } from './messages';
+import { sitesPrioritaires } from '../Lodging';
 import {
   aujourdhui, creerSortie, enregistrerDepense, remettreSortie, renommerSortie, repondre, retirerDepense, retirerSortie, supprimerSortie,
   type ActionBud, type Buddy, type Depense, type Hebergement, type MessageBuddy, type Planning, type Sortie, type TraceBuddy,
@@ -172,7 +173,7 @@ export async function demander(question: string, ctx: string): Promise<ReponseBu
   let res: Response;
   try {
     res = await fetch(RELAIS_URL.replace(/\/randos$/, '/bud'), {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mot-De-Passe': mdp }, body: JSON.stringify({ question, contexte: ctx }),
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Mot-De-Passe': mdp }, body: JSON.stringify({ question, contexte: ctx, sites: sitesPrioritaires() }),
     });
   } catch { throw new Error('Pas de réseau : redemande à Bud quand tu en auras'); }
   const r = (await res.json().catch(() => ({}))) as Partial<ReponseBud> & { erreur?: string };
