@@ -272,6 +272,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
   background: rgba(29, 36, 33, 0.88); color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 13px; text-align: center;
 }
 .quick.help button:disabled { opacity: 1; }
+.quick.help button.aide-long::before { white-space: normal; width: 230px; }
 .help-close p { bottom: calc(env(safe-area-inset-bottom) + 64px); }
 
 /* Étiquettes de pente le long des tracés */

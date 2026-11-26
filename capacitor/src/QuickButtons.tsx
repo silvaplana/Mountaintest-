@@ -416,21 +416,22 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
       <div className="pair calques" ref={reliefRef}>
       {/* Calques (Seb, 26/11) : ouvre ou referme la ligne des calques ; chacun s'allume à part, on peut les mélanger. */}
-      <button aria-label="Calques de la carte" data-help="Calques de la carte" {...lp('layers')}
+      {/* Aide : une seule bulle pour tous les calques (Seb, 26/11). */}
+      <button className="aide-long" aria-label="Calques de la carte" data-help="Calques : pentes, vue 3D, ombres, forêts, zones drones, hors ligne, fond de carte" {...lp('layers')}
         onClick={() => { if (!help) setPairOpen(relief ? null : 'relief'); }}><LayersIcon /></button>
-      {(relief || help) && <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" {...lp('slopes')} onClick={() => onSlopes(!slopes)}><SlopeIcon /></button>}
-      {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}><View3dIcon /></button>}
-      {(relief || help) && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
-      {(relief || help) && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
-      {(relief || help) && <button className={drones ? 'on' : ''} aria-label="Zones drones" data-help="Zones drones · appui long : légende" {...lp('drones')}
+      {relief && !help && <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" {...lp('slopes')} onClick={() => onSlopes(!slopes)}><SlopeIcon /></button>}
+      {relief && !help && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}><View3dIcon /></button>}
+      {relief && !help && <button className={shade ? 'on' : ''} aria-label="Ombres du relief" data-help="Ombres" {...lp('shade')} onClick={() => onShade(!shade)}>🌗</button>}
+      {relief && !help && <button className={forests ? 'on' : ''} aria-label="Forêts" data-help="Forêts" {...lp('forests')} onClick={onForests}>🌲</button>}
+      {relief && !help && <button className={drones ? 'on' : ''} aria-label="Zones drones" data-help="Zones drones · appui long : légende" {...lp('drones')}
         onClick={() => {
           onDrones(!drones);
           if (!drones) onToast('Drones : rouge = interdit, orange = hauteur limitée, sans couleur = 120 m max. Appui long : légende');
         }}><DroneIcon /></button>}
-      {(relief || help) && <button className={offline ? 'on' : ''} aria-label="Hors ligne : ce qui est gardé sur le téléphone" data-help="Hors ligne" {...lp('offline')}
+      {relief && !help && <button className={offline ? 'on' : ''} aria-label="Hors ligne : ce qui est gardé sur le téléphone" data-help="Hors ligne" {...lp('offline')}
         onClick={() => onOffline(!offline)}><OfflineLayerIcon /></button>}
       {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}
-      {(relief || help) && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
+      {relief && !help && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
       </div>
       {/* Activité : toucher ouvre les sorties ⛷ ou les itinéraires ; appui long : ⛷ 🚵 🚴 🚲 🥾 au choix. */}
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
