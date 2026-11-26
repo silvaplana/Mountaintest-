@@ -3,11 +3,12 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
+import { initialesDe } from '../compte/auth';
 import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
-  appliquer, autreDuDuo, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
+  aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
   type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
@@ -23,7 +24,7 @@ function useReperes(x: Sortie) {
 }
 
 /** « Marc Dupont » → « MD », « Seb » → « S ». */
-export const initiales = (pseudo: string) => pseudo.trim().split(/\s+/).slice(0, 2).map((m) => m[0] ?? '').join('').toUpperCase();
+export const initiales = (pseudo: string) => initialesDe(pseudo);
 
 /** Les buddies sur la carte : une tête d'épingle à leurs initiales et l'heure de leur dernière position. */
 export function PositionsSurCarte({ map, x }: { map: MlMap | null; x: Sortie }) {
@@ -99,7 +100,7 @@ export function ciblesIci(e: Etat, groupes: Groupe[], sorties: Sortie[], sortie?
   const x = sortie ? sorties.find((y) => y.id === sortie) : undefined;
   if (x) return { cibles: [{ sortie: x.id }], nom: x.nom };
   const g = groupe ? groupes.find((y) => y.id === groupe && y.nature !== 'me_time') : undefined;
-  if (g) return { cibles: [{ groupe: g.id }], nom: g.nature === 'duo' ? autreDuDuo(g, e)?.pseudo ?? g.nom : g.nom };
+  if (g) return { cibles: [{ groupe: g.id }], nom: aDeux(g) ? nomDiscussion(g, e) : g.nom };
   const bandes = groupes.filter((y) => y.nature === 'bande');
   return { cibles: bandes.map((y) => ({ groupe: y.id })), nom: bandes.length > 1 ? 'tous tes groupes' : bandes[0]?.nom ?? '' };
 }

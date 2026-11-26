@@ -95,6 +95,10 @@ et Ma position (point et ondes) sont les mêmes dans les deux cas. Ma position a
 seules les ondes passent en noir gras (avant : rond ardoise, jugé trop sombre).
 **Pièce (Seb, 26 novembre, plus tard)** : le B1 est frappé sur une pièce dorée, pour qu'on comprenne que c'est de
 l'argent ; c'est le symbole du Buddy count partout (colonne, listes), quel que soit le choix d'icônes.
+**Hébergement (Seb, 26 novembre)** : une maison en couleur, fermée avec un sol (toit rouge, murs crème, lit à
+couverture bleue), quel que soit le choix d'icônes.
+**Initiales** : prénom + nom s'ils sont remplis, sinon une lettre par mot du pseudo, chiffres et séparateurs ignorés
+(« sebastien.richard54 » → SR).
 
 ### 3.4 Le panneau de partage, le même partout **(Seb pour trace et hébergement)**
 
@@ -406,7 +410,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 3** : un groupe, ses visages (toucher : inviter, nommer admin, retirer, quitter).
   Le dernier admin qui part passe la main au plus ancien membre ; un groupe vide disparaît.
 - **Écran 20** : photo, nom, invitations par Contacts (sélecteur d'Android, sans permission
-  « contacts »), Mail, Téléphone (SMS) ou QR code.
+  « contacts »), Partager, Téléphone (SMS) ou QR code. 26/11 : « Mail » devient « Partager » (feuille de
+  partage du téléphone : WhatsApp, mail, SMS…, avec le lien réutilisable) ; l'appli n'envoie pas de mail
+  elle-même (pas de Brevo pour l'instant). L'invitation part au serveur avant le message, pour que le lien
+  marche tout de suite ; valable 30 jours. La page du lien (rejoindre.html) prend les couleurs de l'appli,
+  un seul bouton, et réessaie une minute avant de dire « pas reconnu » (plus de faux « expiré »).
 - **Colonne d'icônes** : visible partout ; 💶 ouvre le partage des frais et 🏨 l'hébergement
   existants ; 📞 📅 💬 📸 disent « Bientôt » jusqu'à leur bloc.
 - **Me Time** : créé par le serveur à la première synchro, le même sur tous les téléphones de la
@@ -429,7 +437,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   passés, en vignettes) et les traces partagées dans le groupe, plus « ＋ Sortie ».
 - **Écran 21** : photo, nom, date de début et de fin (fin = début si vide), lieu ; dans une bande,
   on coche qui part (le créateur part toujours) ; dans Me Time, on invite des copains à la sortie
-  (Contacts, Mail, SMS, QR) : le lien les ajoute à la sortie, pas à un groupe.
+  (Contacts, Partager, SMS, QR) : le lien les ajoute à la sortie, pas à un groupe.
 - **Écran 4** : toucher une sortie ouvre la carte, cadrée sur ses traces. En haut nom, dates,
   lieu ; en bas un bandeau qu'on replie (« Dans N jours », « En cours » ou « Souvenir », qui part,
   km du parcours, jours avant). Les traces partagées s'ajoutent à Mes traces affichées (« Partagée
@@ -1011,3 +1019,17 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Pastille de 👥 sur la carte** : même règle ; elle compte les messages de buddies non lus, les « J'ai payé » qui
   attendent ma réponse, les traces partagées et les albums où un buddy a ajouté des photos depuis ma dernière visite de
   Buddies. Avant, elle comptait tout groupe, sortie ou planning modifié depuis la dernière ouverture, même par moi.
+
+### 7.22 Écrire au support, espace Super User (Seb, 26 novembre 2026)
+
+- **Profil** : rubrique « Aide », ligne « Écrire au support » (pas pour le Super User lui-même). Elle ouvre une
+  discussion à deux avec le Super User, toujours la même, comme avec un buddy : réponses, photos, dictée, notifications
+  (un message de buddy), coches « lu ». La version de l'appli et le téléphone sont joints (nom de la discussion, vu par
+  le Super User sous le pseudo).
+- **🔑 Clé d'or** (Seb : « comme je suis modeste, mettons la clé ») : en bas de la colonne, sous 👤, pour le Super User
+  seul, avec une pastille rouge des messages de support non lus. Elle ouvre « Super User » : la partie « Support »
+  (une ligne par personne, dernier message, non lus) ; plus tard la place serveur de chacun, les comptes…
+  Les demandes arrivent aussi dans 💬 Messages.
+- **Serveur** : opération `support {groupe, infos}` ; groupe de nature `support`, identifiant uuid5 « support:<id> »,
+  membres = la personne + les Super Users. Refusée tant qu'aucun Super User n'existe (« Le support n'est pas encore
+  ouvert »).

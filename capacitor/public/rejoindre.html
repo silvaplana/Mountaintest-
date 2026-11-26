@@ -4,54 +4,62 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mountain Buddies : invitation</title>
-<!-- Page du lien d'invitation à un groupe (SMS, mail, QR code) : spec/buddies.md §5.3.
-     Servie sur https://silvaplana.cloud/mountaintest/rejoindre.html?c=CODE -->
+<!-- Page du lien d'invitation à un groupe ou une sortie (SMS, mail, QR code) : spec/buddies.md §5.3.
+     Servie sur https://silvaplana.cloud/mountaintest/rejoindre.html?c=CODE
+     Couleurs de l'appli (Seb, 26/11 : ciel breton, ardoise, verre dépoli ; un seul bouton, plus de vert). -->
 <style>
-  :root { --ink: #1d2421; --muted: #5f6b66; --accent: #2f6f4f; }
-  body { margin: 0; font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: #f4f6f5; }
+  :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --card: #f6f8fa; --glass: #f6f8fab3; --line: #b3c2cf; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --card: #1d2834; --glass: #1d2834cc; --line: #38495b; } }
+  body { margin: 0; font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
   main { max-width: 440px; margin: 0 auto; padding: 28px 16px 40px; text-align: center; }
-  .rond { width: 112px; height: 112px; border-radius: 50%; margin: 8px auto 14px; background: #dfe8e3 center/cover; display: grid; place-items: center; font-size: 46px; }
-  h1 { font-size: 24px; margin: 0 0 4px; }
+  .logo { width: 72px; height: 72px; border-radius: 18px; }
+  .rond { width: 112px; height: 112px; border-radius: 50%; margin: 14px auto; background: var(--card) center/cover; display: grid; place-items: center;
+    color: var(--accent); box-shadow: 0 2px 10px #0002; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
   p { color: var(--muted); margin: 8px 0; }
-  a.b { display: block; margin: 12px 0; padding: 15px; border-radius: 14px; text-decoration: none; font-weight: 600; min-height: 48px; box-sizing: border-box; }
-  a.p { background: var(--accent); color: #fff; }
-  a.s { background: #fff; color: var(--ink); border: 1px solid #d9dfdc; }
+  a.b { display: block; margin: 18px 0; padding: 15px; border-radius: 26px; text-decoration: none; font-weight: 800; min-height: 52px; box-sizing: border-box;
+    background: var(--glass); color: var(--accent); border: 1.5px solid var(--line); box-shadow: 0 2px 8px #0002; font-size: 19px; }
   ol { text-align: left; color: var(--muted); padding-left: 22px; }
+  ol a { color: var(--accent); font-weight: 700; }
   small { color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
-  <img src="logo.svg" alt="" width="64" height="64">
-  <div class="rond" id="photo">👥</div>
+  <img class="logo" src="logo.svg" alt="">
+  <div class="rond" id="photo"><svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+    <circle cx="18" cy="17" r="6"/><path d="M6 38c0-7 5-12 12-12s12 5 12 12"/><circle cx="32" cy="15" r="5"/><path d="M30 24c7 0 12 4 12 11"/></svg></div>
   <h1 id="titre">Tu es invité dans un groupe</h1>
   <p id="par">Sur Mountain Buddies, l'appli des sorties montagne entre copains.</p>
 
-  <a class="b p" id="ouvrir" href="#">Ouvrir dans Mountain Buddies</a>
-  <a class="b s" id="ouvrirK" href="#">Ouvrir dans Mountain Buddies K</a>
+  <a class="b" id="ouvrir" href="#">Ouvrir dans Mountain Buddies</a>
 
   <p><b>Pas encore l'appli ?</b></p>
   <ol>
     <li>Installe-la sur ton téléphone Android : <a href="apk/">page de téléchargement</a>.</li>
-    <li>Ouvre-la et connecte-toi avec ton adresse e-mail (👤 dans la 2e barre de la carte).</li>
+    <li>Ouvre-la et connecte-toi (avec Google ou ton adresse e-mail).</li>
     <li>Reviens sur cette page et touche « Ouvrir dans Mountain Buddies ».</li>
   </ol>
   <p><small>Sur iPhone, l'appli arrive bientôt.</small></p>
 </main>
 <script>
   const code = new URLSearchParams(location.search).get('c') || '';
-  const q = '://rejoindre?c=' + encodeURIComponent(code);
-  document.getElementById('ouvrir').href = 'fr.assomoutain.rando' + q;
-  document.getElementById('ouvrirK').href = 'fr.assomoutain.proto.kotlin' + q;
-  if (code) {
-    fetch('/mountaintest-api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
-      .then((a) => {
-        document.getElementById('titre').textContent = a.groupe;
-        document.getElementById('par').textContent = a.par + ' t’invite dans ce groupe.';
-        if (a.photo) { const p = document.getElementById('photo'); p.textContent = ''; p.style.backgroundImage = 'url("' + a.photo + '")'; }
-      })
-      .catch((e) => { if (e === 404) document.getElementById('par').textContent = 'Ce lien a expiré : demande-en un nouveau à ton copain.'; });
-  }
+  document.getElementById('ouvrir').href = 'fr.assomoutain.rando://rejoindre?c=' + encodeURIComponent(code);
+  // Un lien tout juste envoyé peut arriver avant l'invitation sur le serveur (réseau lent chez celui qui invite) :
+  // on réessaie quelques fois avant de dire qu'il n'est pas reconnu (Seb, 26/11 : « Ce lien a expiré » à tort).
+  let essais = 0;
+  const lire = () => fetch('/mountaintest-api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
+    .then((a) => {
+      document.getElementById('titre').textContent = a.groupe;
+      document.getElementById('par').textContent = a.par + (a.sortie ? ' t’invite à cette sortie.' : ' t’invite dans ce groupe.');
+      if (a.photo) { const p = document.getElementById('photo'); p.textContent = ''; p.style.backgroundImage = 'url("' + a.photo + '")'; }
+    })
+    .catch((e) => {
+      if (e !== 404) return;
+      if (++essais < 6) { setTimeout(lire, 5000); return; }
+      document.getElementById('par').textContent = 'Ce lien n’est pas reconnu : demande à ton copain de te le renvoyer.';
+    });
+  if (code) lire();
 </script>
 </body>
 </html>

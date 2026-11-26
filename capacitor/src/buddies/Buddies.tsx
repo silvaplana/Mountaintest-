@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { nouvellesIcones } from '../doigt';
 import type { Map as MlMap } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
@@ -24,8 +24,8 @@ import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, autreDuDuo, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
+  aDeux, annulerInvitation, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -180,8 +180,8 @@ function retourOuFermer(fermer: () => void) {
   if (retour) retour.click(); else fermer();
 }
 
-function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition, onPositionLong }: {
-  onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
+function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition, onPositionLong, onSuperUser }: {
+  onSuperUser?: () => void; onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
   onAppel?: () => void; onPosition?: () => void; onPositionLong?: () => void;
 }) {
   const e = useBuddies();
@@ -236,7 +236,46 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
       onClick={() => { if (!appui.current.long) onTravel(); }}>{neuves ? <VoitureIcon garee={garee} /> : <span className="bd-col-auto">🚗{garee && <i>📍</i>}</span>}</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Moi : mon compte" {...c('#7a5bc4')} onClick={onAccount}>{ic(MOI, '👤')}</button>
+    {/* 🔑 Le Super User seul (Seb, 26/11 : « comme je suis modeste, mettons la clé ») : ses demandes de support. */}
+    {onSuperUser && superUser() && <button aria-label="Super User" className="bd-col-cle" onClick={onSuperUser}><CleIcon />
+      {supportNonLus(e) > 0 && <i className="bd-col-n">{supportNonLus(e)}</i>}</button>}
     </div>
+  </div>;
+}
+
+/** 🔑 Clé d'or du Super User (Seb, 26/11). */
+function CleIcon() {
+  return <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+    <circle cx="15" cy="24" r="9" fill="#f2c230" stroke="#b8860b" strokeWidth="2.2" />
+    <circle cx="15" cy="24" r="3.5" fill="#f4f6f8" stroke="#b8860b" strokeWidth="1.6" />
+    <path d="M24 24h18M36 24v6M41 24v5" stroke="#b8860b" strokeWidth="4" strokeLinecap="round" />
+  </svg>;
+}
+/** Messages de support pas encore lus (pastille de la clé). */
+const supportNonLus = (e: Etat) => { const v = vueSorties(e); return demandesSupport(e).reduce((n, g) => n + nonLus(e, g.id, v.messages), 0); };
+
+/** Espace du Super User (Seb, 26/11) : les demandes de support ; plus tard la place serveur, les comptes… */
+function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir: (id: string) => void; onRetour: () => void; onClose: () => void }) {
+  const v = vueSorties(e);
+  const l = demandesSupport(e).map((g) => {
+    const f = v.messages.filter((m) => m.groupe === g.id && !m.supprime);
+    return { g, dernier: f.at(-1), n: nonLus(e, g.id, v.messages) };
+  }).sort((a, b) => (b.dernier?.cree_le ?? b.g.modifie_le).localeCompare(a.dernier?.cree_le ?? a.g.modifie_le));
+  const moi = e.moi ?? 'moi';
+  return <div className="bd-corps">
+    <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>Super User</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    <h3 className="bd-section">Support</h3>
+    {l.length ? l.map(({ g, dernier, n }) => {
+      const qui = autreDuDuo(g, e);
+      return <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
+        <Visage b={qui ?? { id: g.id, nom: '?', photo: null }} />
+        <span className="bd-texte"><b>{qui?.pseudo ?? '?'}</b>
+          <small>{dernier ? `${dernier.par === moi ? 'Toi : ' : ''}${dernier.texte || '📎'}` : g.nom}</small></span>
+        {n > 0 && <span className="bd-nonlu">{n}</span>}
+      </button>;
+    }) : <p className="bd-vide">Pas encore de demande</p>}
+    <h3 className="bd-section">Plus tard</h3>
+    <p className="hint">La place sur le serveur de chacun, les comptes, les chiffres d'usage…</p>
   </div>;
 }
 
@@ -267,26 +306,43 @@ function ChevronIcon() {
     <path d="M6 9l6 6 6-6" /></svg>;
 }
 
-/** Buddy count : B et C entrelacés avec les deux barres du $ (B1), frappés sur une pièce dorée, partout où il apparaît
- * (Seb, 26/11 : « le BC c'est comme une monnaie »). */
-export function BuddyCountIcon({ taille = 36 }: { taille?: number }) {
-  const t = { fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: 28, textAnchor: 'middle' as const, fill: '#7a5200', stroke: 'none' };
+/** Buddy count : B et C entrelacés avec les deux barres du $ (B1), frappés sur une pièce dorée à tranche crénelée,
+ * avec un reflet et une petite ombre, partout où il apparaît (Seb, 26/11 : pièce A). */
+const CRANS = Array.from({ length: 60 }, (_, i) => {
+  const a = (i / 60) * 2 * Math.PI, c = Math.cos(a), s = Math.sin(a);
+  return `M${(24 + 18.6 * c).toFixed(2)} ${(24 + 18.6 * s).toFixed(2)}L${(24 + 21 * c).toFixed(2)} ${(24 + 21 * s).toFixed(2)}`;
+}).join('');
+export function BuddyCountIcon({ taille = 38 }: { taille?: number }) {
+  const id = useId().replace(/:/g, '');
+  const t = { fontFamily: 'Inter, Roboto, Arial, sans-serif', fontWeight: 800, fontSize: 28, textAnchor: 'middle' as const, fill: '#6b4700', stroke: 'none' };
   return <svg width={taille} height={taille} viewBox="0 0 48 48" aria-hidden="true">
-    <circle cx="24" cy="24" r="22" fill="#f2c230" stroke="#b8860b" strokeWidth="2" />
-    <circle cx="24" cy="24" r="15.8" fill="none" stroke="#d9a520" strokeWidth="1.6" />
-    <g transform="translate(4.8 4.8) scale(0.8)" fill="none" stroke="#7a5200" strokeWidth="2.4" strokeLinecap="round">
+    <defs>
+      <radialGradient id={`or${id}`} cx="35%" cy="30%" r="75%"><stop offset="0" stopColor="#fff3b0" /><stop offset=".45" stopColor="#f2c230" /><stop offset="1" stopColor="#b8860b" /></radialGradient>
+      <filter id={`om${id}`}><feDropShadow dx="0" dy="1.2" stdDeviation="1" floodOpacity=".35" /></filter>
+    </defs>
+    <g filter={`url(#om${id})`}>
+      <circle cx="24" cy="24" r="21" fill="#b8860b" />
+      <path d={CRANS} stroke="#7a5200" strokeWidth="1.1" />
+      <circle cx="24" cy="24" r="18.2" fill={`url(#or${id})`} stroke="#9a6e00" strokeWidth="1.2" />
+      <circle cx="24" cy="24" r="15" fill="none" stroke="#fff6c8" strokeWidth="1" opacity=".8" />
+      <circle cx="24" cy="24" r="14.3" fill="none" stroke="#a87a00" strokeWidth="1" />
+    </g>
+    <g transform="translate(24 24) scale(.62) translate(-24 -24)" fill="none" stroke="#6b4700" strokeWidth="2.6" strokeLinecap="round">
       <text x="17" y="34" {...t}>B</text><text x="31" y="34" {...t}>C</text>
       <path d="M21 4v8M27 4v8M21 34v9M27 34v9" />
     </g>
   </svg>;
 }
 
-/** Hébergement au trait : un lit dans une maison (Seb, 26/11). */
+/** Hébergement : une maison en couleur, toit rouge, sol, et un lit à couverture bleue (Seb, 26/11, maison 2). */
 function LitMaisonIcon() {
-  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M5 22L24 7l19 15M10 18v22M38 18v22" />
-    <path d="M14 39v-9M14 35h20v4M34 35v-2.5a3 3 0 0 0-3-3h-9v5.5" strokeWidth="2.2" />
-    <circle cx="18" cy="30.5" r="2" strokeWidth="2" />
+  return <svg width="34" height="34" viewBox="0 0 48 48" aria-hidden="true">
+    <path d="M10 20h28v22H10z" fill="#f5e6c8" stroke="#8a5a2b" strokeWidth="2" />
+    <path d="M4 23L24 6l20 17" fill="none" stroke="#c94141" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8 42h32" stroke="#8a5a2b" strokeWidth="2.6" strokeLinecap="round" />
+    <rect x="14" y="30" width="20" height="7" rx="2" fill="#3a78c9" />
+    <rect x="14" y="28" width="6" height="4" rx="1.5" fill="#fff" stroke="#8a5a2b" strokeWidth="1" />
+    <path d="M14 27v12M34 33v6" stroke="#5a3a1a" strokeWidth="2.2" strokeLinecap="round" />
   </svg>;
 }
 
@@ -303,7 +359,7 @@ function Qr({ texte }: { texte: string }) {
 type Formulaire = { canal: 'mail' | 'sms'; nom: string; contact: string };
 
 /**
- * Les quatre façons d'inviter (écran 20) : Contacts, Mail, Téléphone, QR code. On n'invite que des gens qu'on
+ * Les quatre façons d'inviter (écran 20) : Contacts, Partager, Téléphone, QR code. On n'invite que des gens qu'on
  * connaît, jamais par recherche (spec §3.5). Le message part tout de suite, même sans réseau ; l'invitation
  * est enregistrée par `onInvite` (et envoyée au serveur au retour du réseau).
  */
@@ -319,16 +375,26 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
 
   const envoyer = async (canal: Canal, nom: string, contact: string) => {
     const code = nouveauCode();
-    try {
-      if (canal === 'mail') {
-        const sujet = `${nomAffiche()} t'invite ${sortie ? 'à' : 'dans'} « ${nomGroupe} »`;
-        if (Capacitor.isNativePlatform()) await Natif.mail({ adresse: contact, sujet, texte: texte(code) });
-        else window.location.href = `mailto:${encodeURIComponent(contact)}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(texte(code))}`;
-      } else if (Capacitor.isNativePlatform()) await Natif.sms({ numero: contact, texte: texte(code) });
-      else window.location.href = `sms:${encodeURIComponent(contact)}?body=${encodeURIComponent(texte(code))}`;
-    } catch (err) { onToast(String((err as Error).message)); return; }
+    // L'invitation part au serveur avant le SMS : le copain peut ouvrir le lien tout de suite.
     onInvite({ canal, nom: nom.trim() || contact, contact, code });
     setForm(null);
+    try {
+      if (Capacitor.isNativePlatform()) await Natif.sms({ numero: contact, texte: texte(code) });
+      else window.location.href = `sms:${encodeURIComponent(contact)}?body=${encodeURIComponent(texte(code))}`;
+    } catch (err) { onToast(String((err as Error).message)); }
+  };
+  /** Par la feuille de partage du téléphone (WhatsApp, mail, SMS…) avec le lien réutilisable, comme le QR code.
+   * Remplace « Mail » (Seb, 26/11) : l'appli n'envoie pas de mail elle-même. */
+  const partager = async () => {
+    if (!pret()) return;
+    let code = qrExistant;
+    if (!code) { code = nouveauCode(); onInvite({ canal: 'qr', nom: '', contact: '', code }); }
+    await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]);
+    try {
+      if (Capacitor.isNativePlatform()) await Natif.partager({ titre: nomGroupe, texte: texte(code) });
+      else if (navigator.share) await navigator.share({ title: nomGroupe, text: texte(code) });
+      else { await navigator.clipboard.writeText(texte(code)); onToast('Copié : colle-le dans un message'); }
+    } catch { /* annulé */ }
   };
 
   const contacts = async () => {
@@ -350,7 +416,7 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   return <>
     <div className="bd-inviter">
       <button onClick={() => void contacts()}><span>📇</span>Contacts</button>
-      <button onClick={() => { if (pret()) setForm({ canal: 'mail', nom: '', contact: '' }); }}><span>✉️</span>Mail</button>
+      <button onClick={() => void partager()}><span>📤</span>Partager</button>
       <button onClick={() => { if (pret()) setForm({ canal: 'sms', nom: '', contact: '' }); }}><span>📱</span>Téléphone</button>
       <button onClick={montrerQr}><span>🔳</span>QR code</button>
     </div>
@@ -488,6 +554,7 @@ async function partagerChoix(c: { groupe: Groupe } | { sortie: Sortie }, nomGrou
       x.participants.length > 1 ? `${x.participants.length} partants` : '',
       `Rejoins la sortie sur Mountain Buddies : ${lienReutilisable(c)}`].filter(Boolean).join('\n');
   }
+  await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]); // le lien est connu du serveur avant de partir
   try {
     if (Capacitor.isNativePlatform()) await Natif.partager({ titre, texte });
     else if (navigator.share) await navigator.share({ title: titre, text: texte });
@@ -551,7 +618,7 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
-  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' }
+  | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string; retour?: 'superUser' } | { ecran: 'nouvelleConv' } | { ecran: 'superUser' }
   | { ecran: 'position'; groupe?: string; sortie?: string } | { ecran: 'nvCount'; groupe: string } | { ecran: 'nvCountSortie'; groupe: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un groupe (‹ depuis la carte), l'album ou le carnet d'une sortie. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
@@ -625,6 +692,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
+    onSuperUser={() => setVue({ ecran: 'superUser' })}
     onPositionLong={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
     // Un appui : la sortie ouverte, sinon le groupe ouvert, sinon tous mes groupes (Seb, 26/11).
     onPosition={() => void basculerPosition(e, ciblesIci(e, groupes, sorties, sortieIci, ici), onToast)}
@@ -657,7 +725,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       onOuvrir={(x) => setVue({ ecran: 'album', id: x.id, groupe: vue.groupe })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'comptes' ? (() => {
-        const gi = groupes.find((x) => x.id === vue.groupe && x.nature !== 'me_time' && x.nature !== 'duo');
+        const gi = groupes.find((x) => x.id === vue.groupe && x.nature !== 'me_time' && !aDeux(x));
         return <Comptes groupes={groupes.filter((x) => !vue.groupe || x.id === vue.groupe)} sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)}
           counts={counts} depenses={depenses} ici={gi} onClose={onClose}
           onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })}
@@ -678,6 +746,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
           onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe || undefined })}
           onChoix={(x) => { changerCount(x.id, counts.some((c) => c.sortie === x.id && c.supprime) ? { supprime: false } : {}); onToast('Buddy count de sortie créé', 2000); setVue({ ecran: 'count', id: x.id, groupe: vue.groupe || undefined }); }} />;
       })()
+      : vue.ecran === 'superUser' ? <EspaceSuperUser e={e} onClose={onClose} onRetour={() => setVue({ ecran: 'liste' })}
+        onOuvrir={(id) => setVue({ ecran: 'conv', id, retour: 'superUser' })} />
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
         onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
         onNouvelle={() => setVue({ ecran: 'nouvelleConv' })}
@@ -687,9 +757,9 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'conv' && groupes.some((x) => x.id === vue.id) ? (() => {
         const gc = groupes.find((x) => x.id === vue.id)!;
         return <div className="bd-corps bd-corps-conv">
-          <div className="xp-head"><button onClick={() => setVue(gc.nature === 'duo' ? { ecran: 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
-            {gc.nature === 'duo' && <Visage b={autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
-            <span className="bd-titre"><b>{autreDuDuo(gc, e)?.pseudo ?? gc.nom}</b><SousTitre g={gc} e={e} /></span>
+          <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: vue.retour ?? 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
+            {aDeux(gc) && <Visage b={gc.nature === 'support' && !superUser() ? { id: gc.id, nom: 'Support', photo: null } : autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
+            <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? gc.nom : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
             onPoint={(p) => onCarte({ traces: [], point: p })} onTrace={(t) => onCarte({ traces: [t] })} />
@@ -739,7 +809,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : g ? <UnGroupe g={g} plannings={plannings.filter((x) => x.groupe === g.id)} onRemplir={remplir} sorties={sorties.filter((x) => x.groupe === g.id)} traces={traces.filter((t) => t.groupe === g.id)}
         onToast={onToast} onOuvrir={voir} onTrace={(t) => onCarte({ traces: [t] })}
         onNouvelle={() => setVue({ ecran: 'sortie', groupe: g.id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
-        : <Liste e={e} groupes={groupes.filter((x) => x.nature !== 'duo')} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
+        : <Liste e={e} groupes={groupes.filter((x) => !aDeux(x))} sorties={sorties} plannings={plannings} onRemplir={remplir} onOuvrir={(id) => setVue({ ecran: 'groupe', id })} onSortie={voir}
           onNouveau={() => setVue({ ecran: 'nouveau' })} onNouvelle={() => setVue({ ecran: 'sortie', groupe: '' })} onClose={onClose} onToast={onToast} />}
   </div>;
 }

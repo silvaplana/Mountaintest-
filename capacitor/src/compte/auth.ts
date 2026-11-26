@@ -277,8 +277,13 @@ export function nomComplet(e: Etat = lire()) {
 }
 export function initiales(e: Etat = lire()) {
   const p = e.profil;
-  const i = p?.prenom && p?.nom ? p.prenom[0] + p.nom[0] : nomAffiche(e).slice(0, 2);
-  return i.toUpperCase();
+  return p?.prenom && p?.nom ? (p.prenom[0] + p.nom[0]).toUpperCase() : initialesDe(nomAffiche(e));
+}
+/** « sebastien.richard54 » → « SR », « Marc Dupont » → « MD », « luc » → « L » : une lettre par mot, chiffres et
+ * séparateurs (point, tiret, souligné, espace, @) ignorés (Seb, 26/11 : « SE » le choquait). */
+export function initialesDe(texte: string) {
+  const mots = texte.split('@')[0].split(/[\s._-]+/).map((m) => m.replace(/[^\p{L}]/gu, '')).filter(Boolean);
+  return mots.slice(0, 2).map((m) => m[0]).join('').toUpperCase() || texte.trim().slice(0, 1).toUpperCase();
 }
 
 /** Se déconnecter : oublie la session (les traces et le reste de l'appli ne bougent pas). */

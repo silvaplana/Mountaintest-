@@ -109,6 +109,25 @@ def duo(s: Session, u: Utilisateur, op: dict) -> None:
             s.add(Membre(groupe_id=gid, utilisateur_id=x, role="membre"))
 
 
+def support(s: Session, u: Utilisateur, op: dict) -> None:
+    """Écrire au support (Seb, 26 novembre) : une discussion à deux avec le ou les Super Users, toujours la même ;
+    `infos` (version de l'appli, téléphone) devient son nom, que le Super User voit sous le pseudo."""
+    gid = uuid.uuid5(ESPACE_DUO, f"support:{u.id}")
+    sus = set(s.scalars(select(Utilisateur.id).where(Utilisateur.super_user.is_(True))))
+    if not sus - {u.id}:
+        raise Refus("Le support n'est pas encore ouvert")
+    g = s.get(Groupe, gid)
+    if g is None:
+        g = Groupe(id=gid, nom="", nature="support", cree_par=u.id)
+        s.add(g)
+        s.flush()
+    if op.get("infos"):
+        g.nom = propre(op["infos"], 120)
+    for x in {u.id, *sus}:
+        if membre(s, gid, x) is None:
+            s.add(Membre(groupe_id=gid, utilisateur_id=x, role="membre"))
+
+
 def groupe_perso(s: Session, u: Utilisateur) -> Groupe:
     """Le Groupe perso, sans nom (Seb, 26 novembre) : il naît à la première sortie « Seul », puis resservira."""
     gid = uuid.uuid5(ESPACE_ME_TIME, str(u.id))
@@ -1037,7 +1056,7 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
         else:
             g = s.get(Groupe, m.groupe_id)
             qui = set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id)))
-            a_deux = g.nature == "duo"
+            a_deux = g.nature in ("duo", "support")
             titre = personne(u)["pseudo"] if a_deux else g.nom
         de = "🐻 Bud" if m.bud else personne(u)["pseudo"]
         texte = resume_message(m, s.get(FichierBuddy, m.fichier_id) if m.fichier_id else None)
@@ -1155,7 +1174,7 @@ OPERATIONS = {
     "recit": recit, "fiche": fiche, "carnet": carnet, "depense": depense, "retirer_depense": retirer_depense, "paye": paye, "recu": recu, "buddy_count": buddy_count,
     "epingle": epingle, "position": position, "voiture": voiture, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
-    "message": message, "retirer_message": retirer_message, "duo": duo, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
+    "message": message, "retirer_message": retirer_message, "duo": duo, "support": support, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
 }
 
 

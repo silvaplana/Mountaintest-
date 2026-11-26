@@ -14,6 +14,7 @@ import { adresse, estImage, estVideo, ouvrir, preparer, taille } from './fichier
 import {
   appliquer, autreDuDuo, contacts, DELAI_MODIFIER, presence, envoyerMessage, estAdmin, lire, marquerLu, modifierMessage, noterActionsBud, nonLus, proposerHebergement, reagir, retirerMessage, signalerEcrit, statut,
   synchroniser, transferer, voter, vue, type Buddy, type FichierMessage, type Groupe, type Hebergement, type Lecture, type MessageBuddy, type Sortie, type TraceBuddy,
+  nomDiscussion,
 } from './store';
 import { TrashIcon } from '../icones';
 
@@ -506,7 +507,7 @@ export function Conversations({ groupes, sorties, onGroupe, onSortie, onContact,
   const l = [
     ...groupes.filter((g) => g.nature !== 'me_time').map((g) => {
       const autre = autreDuDuo(g, e);
-      return { id: g.id, nom: autre?.pseudo ?? g.nom, visage: autre ?? { id: g.id, nom: g.nom, photo: g.photo }, membres: g.membres, ouvrir: () => onGroupe(g),
+      return { id: g.id, nom: nomDiscussion(g, e), visage: autre ?? { id: g.id, nom: g.nom, photo: g.photo }, membres: g.membres, ouvrir: () => onGroupe(g),
         sous: autre ? '' : `${g.membres.length} buddies`, dest: { groupe: g.id }, cree: g.modifie_le, duo: !!autre };
     }),
     ...sorties.filter((x) => x.participants.length > 1).map((x) => ({ id: x.id, nom: x.nom, visage: { id: x.id, nom: x.nom, photo: x.photo }, membres: x.participants,

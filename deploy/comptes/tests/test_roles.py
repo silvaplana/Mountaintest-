@@ -154,3 +154,26 @@ def test_place_sur_le_serveur_et_le_telephone(client, tmp_path, monkeypatch):  #
     tous = client.get("/stockage", headers=entete(sub="u2")).json()["tous"]
     assert [t["telephone"] for t in tous] == [2_110_000_000, 5_000]
     assert tous[0]["fichiers"] == 7
+
+
+def test_ecrire_au_support(client, monkeypatch):
+    """Seb, 26 novembre : « Écrire au support » = une discussion à deux avec le Super User, toujours la même,
+    notifiée comme un message de buddy ; infos (version, téléphone) en nom."""
+    import appels
+    import buddies
+    sonne = []
+    monkeypatch.setattr(appels, "sonner", lambda S, qui, data, ttl="45s": sonne.append(([str(q) for q in qui], data["titre"], data["duo"])))
+    sync(client, sub="seb")
+    sync(client, sub="julie")
+    op = {"id": str(uuid.uuid4()), "type": "support", "infos": "1.4.238 · Pixel 7"}
+    assert sync(client, sub="julie", ops=[op])["refus"][0]["raison"] == "Le support n'est pas encore ouvert"
+    rendre_super_user("seb")
+    r = sync(client, sub="julie", ops=[op | {"id": str(uuid.uuid4())}])
+    assert r["refus"] == []
+    gid = str(uuid.uuid5(buddies.ESPACE_DUO, f"support:{r['moi']}"))
+    g = next(x for x in r["groupes"] if x["id"] == gid)
+    assert g["nature"] == "support" and g["nom"] == "1.4.238 · Pixel 7" and len(g["membres"]) == 2
+    sync(client, sub="julie", ops=[nouveau_message(groupe=gid, texte="Le planning ne s'ouvre plus")])
+    seb = sync(client, sub="seb")
+    assert any(x["id"] == gid for x in seb["groupes"])
+    assert sonne and sonne[-1][0] == [seb["moi"]] and sonne[-1][2] == "1"
