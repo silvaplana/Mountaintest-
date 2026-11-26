@@ -25,7 +25,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   aDeux, annulerInvitation, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
+  inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -359,7 +359,7 @@ function Qr({ texte }: { texte: string }) {
 type Formulaire = { canal: 'mail' | 'sms'; nom: string; contact: string };
 
 /**
- * Les quatre façons d'inviter (écran 20) : Contacts, Mail, Téléphone, QR code. On n'invite que des gens qu'on
+ * Les quatre façons d'inviter (écran 20) : Contacts, Partager, Téléphone, QR code. On n'invite que des gens qu'on
  * connaît, jamais par recherche (spec §3.5). Le message part tout de suite, même sans réseau ; l'invitation
  * est enregistrée par `onInvite` (et envoyée au serveur au retour du réseau).
  */
@@ -375,16 +375,26 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
 
   const envoyer = async (canal: Canal, nom: string, contact: string) => {
     const code = nouveauCode();
-    try {
-      if (canal === 'mail') {
-        const sujet = `${nomAffiche()} t'invite ${sortie ? 'à' : 'dans'} « ${nomGroupe} »`;
-        if (Capacitor.isNativePlatform()) await Natif.mail({ adresse: contact, sujet, texte: texte(code) });
-        else window.location.href = `mailto:${encodeURIComponent(contact)}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(texte(code))}`;
-      } else if (Capacitor.isNativePlatform()) await Natif.sms({ numero: contact, texte: texte(code) });
-      else window.location.href = `sms:${encodeURIComponent(contact)}?body=${encodeURIComponent(texte(code))}`;
-    } catch (err) { onToast(String((err as Error).message)); return; }
+    // L'invitation part au serveur avant le SMS : le copain peut ouvrir le lien tout de suite.
     onInvite({ canal, nom: nom.trim() || contact, contact, code });
     setForm(null);
+    try {
+      if (Capacitor.isNativePlatform()) await Natif.sms({ numero: contact, texte: texte(code) });
+      else window.location.href = `sms:${encodeURIComponent(contact)}?body=${encodeURIComponent(texte(code))}`;
+    } catch (err) { onToast(String((err as Error).message)); }
+  };
+  /** Par la feuille de partage du téléphone (WhatsApp, mail, SMS…) avec le lien réutilisable, comme le QR code.
+   * Remplace « Mail » (Seb, 26/11) : l'appli n'envoie pas de mail elle-même. */
+  const partager = async () => {
+    if (!pret()) return;
+    let code = qrExistant;
+    if (!code) { code = nouveauCode(); onInvite({ canal: 'qr', nom: '', contact: '', code }); }
+    await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]);
+    try {
+      if (Capacitor.isNativePlatform()) await Natif.partager({ titre: nomGroupe, texte: texte(code) });
+      else if (navigator.share) await navigator.share({ title: nomGroupe, text: texte(code) });
+      else { await navigator.clipboard.writeText(texte(code)); onToast('Copié : colle-le dans un message'); }
+    } catch { /* annulé */ }
   };
 
   const contacts = async () => {
@@ -406,7 +416,7 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   return <>
     <div className="bd-inviter">
       <button onClick={() => void contacts()}><span>📇</span>Contacts</button>
-      <button onClick={() => { if (pret()) setForm({ canal: 'mail', nom: '', contact: '' }); }}><span>✉️</span>Mail</button>
+      <button onClick={() => void partager()}><span>📤</span>Partager</button>
       <button onClick={() => { if (pret()) setForm({ canal: 'sms', nom: '', contact: '' }); }}><span>📱</span>Téléphone</button>
       <button onClick={montrerQr}><span>🔳</span>QR code</button>
     </div>
@@ -544,6 +554,7 @@ async function partagerChoix(c: { groupe: Groupe } | { sortie: Sortie }, nomGrou
       x.participants.length > 1 ? `${x.participants.length} partants` : '',
       `Rejoins la sortie sur Mountain Buddies : ${lienReutilisable(c)}`].filter(Boolean).join('\n');
   }
+  await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]); // le lien est connu du serveur avant de partir
   try {
     if (Capacitor.isNativePlatform()) await Natif.partager({ titre, texte });
     else if (navigator.share) await navigator.share({ title: titre, text: texte });

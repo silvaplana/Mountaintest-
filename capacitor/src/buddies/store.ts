@@ -510,7 +510,14 @@ export function peutRetirer(par: string | undefined, sortie: string, e: Etat = l
 function ajouter(...ops: Omit<Op, 'id' | 't'>[]) {
   const t = Date.now();
   ecrire({ ...lire(), attente: [...lire().attente, ...ops.map((o) => ({ ...o, id: uuid(), t }) as Op)] });
-  void synchroniser().catch(() => undefined);
+  void envoyerAttente();
+}
+
+/** Envoie tout de suite ce qui attend. Une synchro déjà en route est partie sans les derniers ajouts : on en
+ * relance une derrière (Seb, 26/11 : un lien d'invitation tout juste partagé disait « expiré »). */
+export async function envoyerAttente(): Promise<void> {
+  await synchroniser().catch(() => undefined);
+  if (lire().attente.length) await synchroniser().catch(() => undefined);
 }
 
 export type NouvelleInvitation = { canal: Canal; nom: string; contact: string; code: string };

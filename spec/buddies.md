@@ -410,7 +410,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 3** : un groupe, ses visages (toucher : inviter, nommer admin, retirer, quitter).
   Le dernier admin qui part passe la main au plus ancien membre ; un groupe vide disparaît.
 - **Écran 20** : photo, nom, invitations par Contacts (sélecteur d'Android, sans permission
-  « contacts »), Mail, Téléphone (SMS) ou QR code.
+  « contacts »), Partager, Téléphone (SMS) ou QR code. 26/11 : « Mail » devient « Partager » (feuille de
+  partage du téléphone : WhatsApp, mail, SMS…, avec le lien réutilisable) ; l'appli n'envoie pas de mail
+  elle-même (pas de Brevo pour l'instant). L'invitation part au serveur avant le message, pour que le lien
+  marche tout de suite ; valable 30 jours. La page du lien (rejoindre.html) prend les couleurs de l'appli,
+  un seul bouton, et réessaie une minute avant de dire « pas reconnu » (plus de faux « expiré »).
 - **Colonne d'icônes** : visible partout ; 💶 ouvre le partage des frais et 🏨 l'hébergement
   existants ; 📞 📅 💬 📸 disent « Bientôt » jusqu'à leur bloc.
 - **Me Time** : créé par le serveur à la première synchro, le même sur tous les téléphones de la
@@ -433,7 +437,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   passés, en vignettes) et les traces partagées dans le groupe, plus « ＋ Sortie ».
 - **Écran 21** : photo, nom, date de début et de fin (fin = début si vide), lieu ; dans une bande,
   on coche qui part (le créateur part toujours) ; dans Me Time, on invite des copains à la sortie
-  (Contacts, Mail, SMS, QR) : le lien les ajoute à la sortie, pas à un groupe.
+  (Contacts, Partager, SMS, QR) : le lien les ajoute à la sortie, pas à un groupe.
 - **Écran 4** : toucher une sortie ouvre la carte, cadrée sur ses traces. En haut nom, dates,
   lieu ; en bas un bandeau qu'on replie (« Dans N jours », « En cours » ou « Souvenir », qui part,
   km du parcours, jours avant). Les traces partagées s'ajoutent à Mes traces affichées (« Partagée
