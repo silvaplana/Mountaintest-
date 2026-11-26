@@ -853,3 +853,44 @@ def test_voiture_garee_vue_par_les_buddies(client):
     sync(client, ops=[op("voiture", garee=False, quand=T0 + 60_000)])
     w, = sync(client, sub="julie")["voitures"]
     assert w["jusqu"] == T0 + 60_000
+
+
+def test_buddy_count_de_groupe_ferme_et_supprime(client):
+    gid, julie = bande_avec_julie(client)
+    seb = sync(client)["moi"]
+    cid = str(uuid.uuid4())
+    assert sync(client, ops=[op("buddy_count", count=cid, groupe=gid, nom="Cagnotte saison")])["refus"] == []
+    d = op("depense", depense=str(uuid.uuid4()), count=cid, titre="Minibus", montant=34000, paye_par=seb, pour=[seb, julie], jour="2026-11-26")
+    assert sync(client, ops=[d])["refus"] == []
+    r = sync(client, sub="julie")
+    c, = r["counts"]
+    assert (c["groupe"], c["nom"], c["ferme"], c["supprime"]) == (gid, "Cagnotte saison", False, False)
+    x, = r["depenses"]
+    assert (x["count"], x["sortie"], x["montant"]) == (cid, None, 34000)
+    # Julie doit 170 € à Seb : elle voit comment le rembourser si Seb a renseigné son IBAN (rien ici).
+    assert r["paiements"] == {}
+    # Fermé par Julie (tout membre) : plus de dépense.
+    assert sync(client, sub="julie", ops=[op("buddy_count", count=cid, ferme=True)])["refus"] == []
+    d2 = op("depense", depense=str(uuid.uuid4()), count=cid, titre="Essence", montant=5000, paye_par=seb, pour=[seb], jour="2026-11-26")
+    assert sync(client, ops=[d2])["refus"]
+    # Supprimé : seulement un admin (Julie est membre, Seb admin).
+    assert sync(client, sub="julie", ops=[op("buddy_count", count=cid, supprime=True)])["refus"]
+    assert sync(client, ops=[op("buddy_count", count=cid, supprime=True)])["refus"] == []
+    assert sync(client, sub="julie")["counts"][0]["supprime"] is True
+    assert sync(client, sub="luc")["counts"] == []
+
+
+def test_buddy_count_de_sortie_ferme(client):
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    seb = sync(client, ops=[so])["moi"]
+    sid = so["sortie"]
+    # Deux téléphones ferment en même temps : une seule ligne pour la sortie.
+    r = sync(client, ops=[op("buddy_count", count=str(uuid.uuid4()), sortie=sid, ferme=True)])
+    sync(client, sub="julie", ops=[op("buddy_count", count=str(uuid.uuid4()), sortie=sid, ferme=True)])
+    c, = sync(client)["counts"]
+    assert (c["sortie"], c["ferme"]) == (sid, True)
+    d = op("depense", depense=str(uuid.uuid4()), sortie=sid, titre="Gîte", montant=1000, paye_par=seb, pour=[seb], jour="2026-11-26")
+    assert sync(client, ops=[d])["refus"]
+    sync(client, ops=[op("buddy_count", count=c["id"], ferme=False)])
+    assert sync(client, ops=[d])["refus"] == []

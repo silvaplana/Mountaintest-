@@ -57,10 +57,19 @@ export type PhotoBuddy = {
   /** 🎥 Film d'un survol 3D : petite et grande sont sa couverture, le film est la taille « video » (album.ts). */
   video?: boolean;
 };
-/** Buddy count (spec §5.10) : une dépense d'une sortie ; montant en centimes, pour = identifiants des buddies. */
+/**
+ * Buddy count (spec §5.10, §7.20) : une dépense ; montant en centimes, pour = identifiants des buddies.
+ * `sortie` = ce à quoi elle appartient : la sortie, ou le Buddy count de groupe (alors `count` aussi), pour que les
+ * calculs (count.ts) servent aux deux.
+ */
 export type Depense = {
-  id: string; sortie: string; titre: string; montant: number; paye_par: string; pour: string[]; jour: string; par: string; modifie_le: string;
+  id: string; sortie: string; count?: string | null; titre: string; montant: number; paye_par: string; pour: string[]; jour: string; par: string; modifie_le: string;
   attente?: boolean;
+};
+/** Un Buddy count (Seb, 26/11, §7.20) : de groupe (`groupe`, avec un nom) ou de sortie (`sortie`) ; ouvert ou fermé. */
+export type BuddyCountEtat = {
+  id: string; groupe: string | null; sortie: string | null; nom: string; ferme: boolean; supprime: boolean; par?: string; cree_le: string;
+  modifie_le: string; attente?: boolean;
 };
 /** 🏨 Hébergement proposé dans une sortie (§5.11) : ♥ de chacun (identifiants), ✅ retenu. Prix par nuit, en euros. */
 export type Hebergement = {
@@ -110,6 +119,7 @@ export type Etat = {
   plannings: Planning[];
   photos: PhotoBuddy[];
   depenses?: Depense[];
+  counts?: BuddyCountEtat[];
   positions?: Position[];
   voitures?: Voiture[];
   hebergements?: Hebergement[];
@@ -237,7 +247,7 @@ export function vue(e: Etat): {
       photos = photos.filter((x) => x.id !== op.photo);
     } else if (op.type === 'depense') {
       const avant = depenses.find((x) => x.id === op.depense);
-      const d: Depense = { id: String(op.depense), sortie: avant?.sortie ?? String(op.sortie), titre: String(op.titre), montant: Number(op.montant),
+      const d: Depense = { id: String(op.depense), sortie: avant?.sortie ?? String(op.count ?? op.sortie), count: avant?.count ?? (op.count ? String(op.count) : null), titre: String(op.titre), montant: Number(op.montant),
         paye_par: String(op.paye_par), pour: op.pour as string[], jour: String(op.jour), par: avant?.par ?? moi, modifie_le: quand(op), attente: true };
       depenses = [...depenses.filter((x) => x.id !== d.id), d];
     } else if (op.type === 'retirer_depense') {
@@ -467,7 +477,8 @@ export const estAdminPrincipal = (g: Groupe, e: Etat = lire()) => monRole(g, e) 
 export function peutRetirer(par: string | undefined, sortie: string, e: Etat = lire()): boolean {
   if (!par || par === (e.moi ?? 'moi')) return true;
   const so = e.sorties.find((x) => x.id === sortie);
-  const g = so && appliquer(e).find((x) => x.id === so.groupe);
+  const gid = so?.groupe ?? mesCounts(e).find((c) => c.id === sortie)?.groupe;
+  const g = gid ? appliquer(e).find((x) => x.id === gid) : undefined;
   return !!g && estAdmin(g, e);
 }
 
@@ -552,9 +563,43 @@ export function enregistrerDepense(d: { depense?: string; sortie: string; titre:
   if (!(d.montant > 0)) throw new Error('Indique le montant');
   if (!d.pour.length) throw new Error('Coche au moins un buddy');
   const depense = d.depense ?? uuid();
-  ajouter({ type: 'depense', ...d, depense, titre: d.titre.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Dépense', montant: Math.round(d.montant) });
+  // Un Buddy count de groupe : `sortie` est son identifiant ; le serveur le reçoit en `count`.
+  const { sortie, ...reste } = d;
+  const ou = mesCounts().some((c) => c.id === sortie && c.groupe) ? { count: sortie } : { sortie };
+  ajouter({ type: 'depense', ...reste, ...ou, depense, titre: d.titre.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Dépense', montant: Math.round(d.montant) });
   return depense;
 }
+/** Les Buddy counts connus (serveur + changements en attente), supprimés compris. */
+export function mesCounts(e: Etat = lire()): BuddyCountEtat[] {
+  let l = (e.counts ?? []).map((c) => ({ ...c }));
+  for (const op of e.attente) {
+    if (op.type !== 'buddy_count') continue;
+    let c = l.find((x) => x.id === op.count || (op.sortie && x.sortie === op.sortie));
+    if (!c) {
+      c = { id: String(op.count), groupe: op.groupe ? String(op.groupe) : null, sortie: op.sortie ? String(op.sortie) : null, nom: String(op.nom ?? ''),
+        ferme: false, supprime: false, par: e.moi, cree_le: new Date(op.t).toISOString(), modifie_le: '' };
+      l = [...l, c];
+    }
+    if (op.nom != null && c.groupe) c.nom = String(op.nom);
+    if (op.ferme != null) c.ferme = !!op.ferme;
+    if (op.supprime != null) c.supprime = !!op.supprime;
+    c.modifie_le = new Date(op.t).toISOString(); c.attente = true;
+  }
+  return l;
+}
+/** ＋ Buddy count dans un groupe : rend son identifiant. */
+export function creerCount(groupe: string, nom: string): string {
+  const count = uuid();
+  ajouter({ type: 'buddy_count', count, groupe, nom: nom.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Buddy count' });
+  return count;
+}
+/** Fermer, rouvrir, renommer ou supprimer un Buddy count (`id` : celui de groupe, ou la sortie). */
+export function changerCount(id: string, ch: { nom?: string; ferme?: boolean; supprime?: boolean }) {
+  const c = mesCounts().find((x) => x.id === id || x.sortie === id);
+  const vise = c ? { count: c.id, ...(c.sortie ? { sortie: c.sortie } : {}) } : { count: uuid(), sortie: id };
+  ajouter({ type: 'buddy_count', ...vise, ...ch });
+}
+
 /** L'épingle se relève seule ce soir à 19 h (Seb, 26/11 ; à minuit si on l'enfonce après 18 h). */
 export function finEpingle(d = new Date()): number {
   const f = new Date(d); f.setHours(19, 0, 0, 0);
@@ -759,6 +804,7 @@ type Reponse = {
   curseur: string; moi: string; ids: string[]; groupes: Groupe[]; refus: { id: string; raison: string }[];
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
+  counts?: BuddyCountEtat[];
   positions?: Position[];
   voitures?: Voiture[];
   ids_hebergements?: string[]; hebergements?: Hebergement[];
@@ -791,7 +837,8 @@ export function synchroniser(): Promise<string[]> {
       const tr = fusion(e.traces ?? [], r.traces ?? [], r.ids_traces ?? []);
       const pl = fusion(e.plannings ?? [], r.plannings ?? [], r.ids_plannings ?? []);
       const ph = fusion(e.photos ?? [], r.photos ?? [], r.ids_photos ?? []);
-      const dp = fusion(e.depenses ?? [], r.depenses ?? [], r.ids_depenses ?? []);
+      // Dépense d'un Buddy count de groupe : `sortie` porte son identifiant (voir Depense).
+      const dp = fusion(e.depenses ?? [], (r.depenses ?? []).map((d) => (d.count ? { ...d, sortie: d.count } : d)), r.ids_depenses ?? []);
       const hb = fusion(e.hebergements ?? [], r.hebergements ?? [], r.ids_hebergements ?? []);
       const mg = fusion(e.messages ?? [], r.messages ?? [], r.ids_messages ?? []);
       const envoyees = new Set(ops.map((o) => o.id));
@@ -800,7 +847,7 @@ export function synchroniser(): Promise<string[]> {
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
-        positions: r.positions ?? e.positions, voitures: r.voitures ?? e.voitures, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
+        counts: r.counts ?? e.counts, positions: r.positions ?? e.positions, voitures: r.voitures ?? e.voitures, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
         lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });

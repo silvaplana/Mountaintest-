@@ -70,7 +70,7 @@ encore les anciens noms (§7.12).
   partager sa position même hors sortie, §7.14), 💬 messagerie, 📅 planning (ordre de Seb, 26/11), 📸 album,
   💶 Buddy count, 🏨 hébergement, 🚗 voyage, 👤 moi. Toutes au trait, sans émoji (Seb, 26/11) : Buddy count = B et C
   entrelacés, deux petites barres communes (B1) ; ma position = un point et des ondes de chaque côté (P1) ; moi = une
-  silhouette dans un rond ; 🚗 garée = une épingle posée sur la voiture (§7.16).
+  silhouette dans un rond ; 🚗 garée = une épingle posée sur la voiture (§7.19).
 - **Rétractable** (Seb, 26 novembre 2026) : le ✕ (fermer Buddies) reste toujours en haut de la colonne, dessous
   une flèche ⌄ ; la toucher fait descendre les icônes avec une animation, la flèche se retourne ⌃ et les
   remonte. Rangée à l'ouverture de Buddies. Plus de titre « Buddies » ni de second ✕ en haut des écrans ;
@@ -823,18 +823,6 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   associée depuis la sortie ne change pas le lien de sa copie déjà affichée sur la carte.
 
 
-### 7.16 🚗 Retrouver ma voiture (Seb, 26 novembre 2026)
-
-- **Appui long sur 🚗** (colonne) : la voiture est garée là où est le téléphone ; l'icône devient la voiture avec une
-  épingle posée dessus, sur fond ardoise. Message : « Ta voiture est garée ici. Tes buddies la voient aussi, jusqu'à
-  minuit. ». Un nouvel appui long l'enlève (« Ta voiture n'est plus sur la carte. ») ; l'appui court ouvre toujours le
-  voyage en voiture.
-- **Sur la carte** (la mienne et celles des buddies de mes groupes) : une tête d'épingle avec la voiture, et
-  « ma voiture · 8 h 40 » ou les initiales du buddy et l'heure.
-- **Une journée** : elle s'efface seule à minuit (heure du téléphone).
-- **Serveur** : table `voitures` (une par buddy : lat, lon, `garee_le`, `jusqu` en ms) ; opération `voiture`
-  `{garee: true, lat, lon, garee_le, jusqu}` ou `{garee: false, quand}` ; la synchro rend `voitures` (la mienne et
-  celles des membres de mes groupes, oubliées après 48 h).
 ### 7.16 🐻 Bud choisit les photos du carnet (Seb, 25 novembre 2026)
 
 - **Demande de Seb** : « quand on est dans tout l'album et qu'il faut sélectionner pour le carnet, est-ce que tu peux
@@ -936,3 +924,31 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
    « Je cherche les meilleurs prix… »), accord de Seb le 23 novembre. Même chose pour la recherche de randos sur le web, le coût du
    voyage (carburant, péages), la lecture de facture et l'aide des icônes. Seul l'écran 📊 du menu (usage et coûts,
    pour Seb) garde ses mots techniques.
+### 7.19 🚗 Retrouver ma voiture (Seb, 26 novembre 2026)
+
+- **Appui long sur 🚗** (colonne) : la voiture est garée là où est le téléphone ; l'icône devient la voiture avec une
+  épingle posée dessus, sur fond ardoise. Message : « Ta voiture est garée ici. Tes buddies la voient aussi, jusqu'à
+  minuit. ». Un nouvel appui long l'enlève (« Ta voiture n'est plus sur la carte. ») ; l'appui court ouvre toujours le
+  voyage en voiture.
+- **Sur la carte** (la mienne et celles des buddies de mes groupes) : une tête d'épingle avec la voiture, et
+  « ma voiture · 8 h 40 » ou les initiales du buddy et l'heure.
+- **Une journée** : elle s'efface seule à minuit (heure du téléphone).
+- **Serveur** : table `voitures` (une par buddy : lat, lon, `garee_le`, `jusqu` en ms) ; opération `voiture`
+  `{garee: true, lat, lon, garee_le, jusqu}` ou `{garee: false, quand}` ; la synchro rend `voitures` (la mienne et
+  celles des membres de mes groupes, oubliées après 48 h).
+
+### 7.20 Buddy counts de groupe et de sortie (Seb, 26 novembre 2026)
+
+- **L'icône Buddy count** (colonne) ouvre la liste : « Buddy counts de groupe » d'abord, puis « Buddy counts de
+  sortie » ; dans chaque partie, les ouverts en tête. Un cadenas au trait dit « Ouvert » (pastille ardoise) ou
+  « Fermé » (pâle, la ligne pâlie). Dans une sortie, l'icône ouvre directement le Buddy count de la sortie.
+- **＋ Buddy count** (liste ouverte depuis un groupe) : un nom, « Créer » ; c'est un Buddy count de groupe, plusieurs
+  par groupe, partagé entre les membres. Une sortie a toujours un seul Buddy count, à son nom.
+- **Un Buddy count** : « Buddy count de groupe » ou « de sortie » sous le titre ; crayon (renommer, de groupe),
+  poubelle (seulement un admin du groupe ; caché chez tous, rien n'est effacé) ; « Fermer » (tout membre) : on voit
+  tout, plus de « ＋ Dépense » ni de changement ; « Rouvrir ».
+- **Serveur** : table `buddy_counts` (groupe ou sortie, nom, `ferme`, `supprime_le`) ; la ligne d'une sortie ne naît
+  qu'à son premier changement (une seule par sortie). `depenses.count_id` pour les dépenses d'un Buddy count de groupe
+  (`sortie_id` devient facultatif). Opération `buddy_count {count, groupe, nom}` (créer) ou `{count | sortie, nom?,
+  ferme?, supprime?}` ; `depense` accepte `count` à la place de `sortie` ; la synchro rend `counts`.
+

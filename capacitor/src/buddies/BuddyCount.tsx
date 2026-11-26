@@ -1,40 +1,93 @@
 import { useState } from 'react';
-import { aujourdhui, enregistrerDepense, lire, peutRetirer, retirerDepense, type Depense, type Sortie } from './store';
+import { aujourdhui, enregistrerDepense, lire, peutRetirer, retirerDepense, type BuddyCountEtat, type Depense, type Groupe, type Sortie } from './store';
 import { compte, euros, icone, lireEuros } from './count';
-import { Visage } from './Buddies';
+import { BuddyCountIcon, FeuilleNom, Visage } from './Buddies';
+import { PencilIcon, TrashIcon } from '../icones';
 
 /**
  * Buddy count (spec/buddies.md §5.10, écran 8) : le partage des frais d'une sortie, partagé entre téléphones.
  * Équilibres en barres, « qui doit à qui », dépenses, « ＋ Dépense ». Mêmes écrans côté Kotlin (BuddiesPanel.kt).
  */
 
-/** Tous les Buddy counts : un par sortie (le plus récent en haut), et l'ancien partage des frais. */
-export function Comptes({ sorties, depenses, onOuvrir, onAnciens, onRetour, onClose }: {
-  sorties: Sortie[]; depenses: Depense[]; onOuvrir: (x: Sortie) => void; onAnciens: () => void; onRetour: () => void; onClose: () => void;
+/** Cadenas au trait : ouvert ou fermé (Seb, 26/11). */
+export function Cadenas({ ouvert, size = 18 }: { ouvert: boolean; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d={ouvert ? 'M12 22h24v18H12zM17 22v-6a7 7 0 0 1 13.5-2.5' : 'M12 22h24v18H12zM17 22v-6a7 7 0 0 1 14 0v6'} /></svg>;
+}
+export const Etat = ({ ferme }: { ferme: boolean }) => <span className={`bd-count-etat${ferme ? '' : ' ouvert'}`}><Cadenas ouvert={!ferme} />{ferme ? 'Fermé' : 'Ouvert'}</span>;
+
+/** Une sortie vue comme un Buddy count de groupe, pour réutiliser les écrans : ses membres partagent les frais. */
+export function sortieDuCount(c: BuddyCountEtat, g: Groupe): Sortie {
+  return { id: c.id, groupe: g.id, nom: c.nom, photo: null, debut: '0000-01-01', fin: '9999-12-31', lieu: '', modifie_le: c.modifie_le,
+    par: c.par, participants: g.membres, invitations: [] };
+}
+
+/**
+ * Tous les Buddy counts (Seb, 26/11, §7.20) : ceux de groupe d'abord, puis ceux de sortie ; dans chaque partie, les
+ * ouverts en tête. « ＋ Buddy count » dans un groupe en crée un de groupe.
+ */
+export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onNouveau, onAnciens, onRetour, onClose }: {
+  groupes: Groupe[]; sorties: Sortie[]; counts: BuddyCountEtat[]; depenses: Depense[]; ici?: Groupe;
+  onOuvrir: (x: Sortie, deGroupe: boolean) => void; onNouveau?: () => void; onAnciens: () => void; onRetour: () => void; onClose: () => void;
 }) {
-  const l = [...sorties].sort((a, b) => b.debut.localeCompare(a.debut));
+  const total = (id: string) => depenses.filter((d) => d.sortie === id).reduce((n, d) => n + d.montant, 0);
+  const etat = (id: string) => counts.find((c) => c.id === id || c.sortie === id);
+  const deGroupe = counts.filter((c) => c.groupe && !c.supprime && groupes.some((g) => g.id === c.groupe))
+    .sort((a, b) => Number(a.ferme) - Number(b.ferme) || b.cree_le.localeCompare(a.cree_le))
+    .map((c) => sortieDuCount(c, groupes.find((g) => g.id === c.groupe)!));
+  const deSortie = sorties.filter((x) => !etat(x.id)?.supprime)
+    .sort((a, b) => Number(!!etat(a.id)?.ferme) - Number(!!etat(b.id)?.ferme) || b.debut.localeCompare(a.debut));
+  const ligne = (x: Sortie, g: boolean, sous: string) => {
+    const ferme = !!etat(x.id)?.ferme, t = total(x.id);
+    return <button key={x.id} className={`bd-ligne bd-count-ligne${ferme ? ' ferme' : ''}`} onClick={() => onOuvrir(x, g)}>
+      <span className="bd-album-mini"><BuddyCountIcon /></span>
+      <span className="bd-texte"><b>{x.nom}</b><small>{t ? `${euros(t)} à ${x.participants.length}` : 'pas encore de dépense'}{sous}</small></span>
+      <Etat ferme={ferme} />
+    </button>;
+  };
   return <div className="bd-corps">
     <div className="xp-head">
-      <button onClick={onRetour} aria-label="Retour">‹</button><h2>Buddy count</h2>
+      <button onClick={onRetour} aria-label="Retour">‹</button>
+      <span className="bd-titre"><b>Buddy count</b>{ici && <small>{ici.nom}</small>}</span>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    {l.map((x) => {
-      const t = depenses.filter((d) => d.sortie === x.id).reduce((n, d) => n + d.montant, 0);
-      return <button key={x.id} className="bd-ligne" onClick={() => onOuvrir(x)}>
-        <span className="bd-album-mini">💶</span>
-        <span className="bd-texte"><b>{x.nom}</b><small>{t ? `${euros(t)} à ${x.participants.length}` : 'pas encore de dépense'}</small></span>
-      </button>;
-    })}
-    {!l.length && <p className="bd-vide">Chaque sortie a son Buddy count : les dépenses de la sortie, partagées entre vous.</p>}
+    {deGroupe.length > 0 && <h3 className="bd-section">Buddy counts de groupe</h3>}
+    {deGroupe.map((x) => ligne(x, true, ici ? '' : ` · ${groupes.find((g) => g.id === x.groupe)?.nom ?? ''}`))}
+    {deSortie.length > 0 && <h3 className="bd-section">Buddy counts de sortie</h3>}
+    {deSortie.map((x) => ligne(x, false, ''))}
+    {!deGroupe.length && !deSortie.length && <p className="bd-vide">Chaque sortie a son Buddy count : les dépenses de la sortie, partagées entre vous.</p>}
     <span style={{ flex: 1 }} />
     <button className="bd-grand" onClick={onAnciens}>💰 Mes partages de frais hors sortie</button>
+    {onNouveau && <div className="bd-plus"><button className="primary" onClick={onNouveau}><span className="bd-plus-texte"><b>＋ Buddy count</b></span></button></div>}
   </div>;
 }
 
-/** Un Buddy count (écran 8). */
-export function BuddyCount({ x, depenses, onDepense, onRetour, onClose, onToast }: {
-  x: Sortie; depenses: Depense[]; onDepense: (id?: string) => void; onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
+/** ＋ Buddy count dans un groupe : son nom, puis « Créer » (Seb, 26/11). */
+export function NouveauCount({ g, onCreer, onRetour, onClose }: { g: Groupe; onCreer: (nom: string) => void; onRetour: () => void; onClose: () => void }) {
+  const [nom, setNom] = useState('');
+  return <div className="bd-corps bd-count">
+    <div className="xp-head">
+      <button onClick={onRetour} aria-label="Retour">‹</button>
+      <span className="bd-titre"><b>Nouveau Buddy count</b></span>
+      <button onClick={onClose} aria-label="Fermer">✕</button>
+    </div>
+    <label className="bd-champ"><small>Nom</small>
+      <input value={nom} maxLength={80} autoFocus onChange={(e) => setNom(e.target.value)} placeholder="Cagnotte de la saison, abonnement…" /></label>
+    <p className="hint">Buddy count de groupe · {g.nom}. Pour les dépenses de tout le groupe, hors sortie.</p>
+    <span style={{ flex: 1 }} />
+    <div className="bd-plus"><button className="primary" onClick={() => onCreer(nom)}><span className="bd-plus-texte"><b>Créer</b></span></button></div>
+  </div>;
+}
+
+/**
+ * Un Buddy count (écran 8) : de sortie, ou de groupe (`deGroupe`, la sortie vue par sortieDuCount). Ouvert ou fermé
+ * (fermé : plus de « ＋ Dépense ») ; crayon (de groupe), poubelle (admin du groupe) (Seb, 26/11).
+ */
+export function BuddyCount({ x, depenses, ferme = false, deGroupe = false, onFermer, onRenommer, onSupprimer, onDepense, onRetour, onClose, onToast }: {
+  x: Sortie; depenses: Depense[]; ferme?: boolean; deGroupe?: boolean; onFermer: (ferme: boolean) => void; onRenommer?: (nom: string) => void;
+  onSupprimer?: () => void; onDepense: (id?: string) => void; onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
+  const [nommer, setNommer] = useState(false);
   const moi = lire().moi ?? 'moi';
   const ds = depenses.filter((d) => d.sortie === x.id);
   const c = compte(x, ds, moi);
@@ -43,9 +96,14 @@ export function BuddyCount({ x, depenses, onDepense, onRetour, onClose, onToast 
   return <div className="bd-corps bd-count">
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <span className="bd-titre"><b>{x.nom}</b><small>💶 {euros(c.total)} à {x.participants.length}</small></span>
+      <span className="bd-titre"><b>{x.nom}</b><small>{deGroupe ? 'Buddy count de groupe' : 'Buddy count de sortie'} · {euros(c.total)} à {x.participants.length}</small></span>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
+    <div className="bd-count-outils"><Etat ferme={ferme} /><span style={{ flex: 1 }} />
+      {onRenommer && <button className="bd-crayon" onClick={() => setNommer(true)} aria-label="Changer le nom"><PencilIcon size={18} /></button>}
+      {onSupprimer && <button className="bd-crayon" onClick={onSupprimer} aria-label="Supprimer ce Buddy count"><TrashIcon size={18} /></button>}
+    </div>
+    {nommer && onRenommer && <FeuilleNom titre="Nom du Buddy count" nom={x.nom} onEnregistrer={onRenommer} onFermer={() => setNommer(false)} onToast={onToast} />}
     <div className="bd-entre"><b className="bd-gros">Équilibres</b><small>{euros(c.chacun)} chacun</small></div>
     {x.participants.map((p) => {
       const v = c.soldes[p.id] ?? 0, l = Math.abs(v) / max * 50;
@@ -65,14 +123,18 @@ export function BuddyCount({ x, depenses, onDepense, onRetour, onClose, onToast 
     {c.virements.filter((v) => v.from === moi).map((v) => <Rembourser key={v.to} nom={qui(v.to).pseudo}
       moyens={lire().paiements?.[x.id]?.[v.to]} onToast={onToast} />)}
     <h3 className="bd-section">Dépenses</h3>
-    {ds.map((d) => <button key={d.id} className="bd-ligne bd-depense" onClick={() => onDepense(d.id)}>
+    {ds.map((d) => <button key={d.id} className="bd-ligne bd-depense" onClick={() => (ferme ? onToast('Ce Buddy count est fermé : rouvre-le pour changer une dépense') : onDepense(d.id))}>
       <span className="bd-icone">{icone(d.titre)}</span>
       <span className="bd-texte"><b>{d.titre}</b><small>payé par {qui(d.paye_par).pseudo}{d.pour.length < x.participants.length ? ` · pour ${d.pour.length}` : ''}{d.attente ? ' · 🕓' : ''}</small></span>
       <b>{euros(d.montant)}</b>
     </button>)}
     {!ds.length && <p className="bd-vide">Pas encore de dépense : le gîte, l'essence, les courses… chacun ajoute ce qu'il a payé.</p>}
     <span style={{ flex: 1 }} />
-    <div className="bd-plus"><button className="primary" onClick={() => onDepense()}><span className="bd-plus-texte"><b>＋ Dépense</b></span></button></div>
+    {ferme && <p className="hint">Fermé : on voit tout, on n'ajoute plus rien.</p>}
+    <div className="bd-plus bd-plus-deux">
+      <button onClick={() => onFermer(!ferme)}><Cadenas ouvert={ferme} size={20} /><span className="bd-plus-texte"><b>{ferme ? 'Rouvrir' : 'Fermer'}</b></span></button>
+      {!ferme && <button className="primary" onClick={() => onDepense()}><span className="bd-plus-texte"><b>＋ Dépense</b></span></button>}
+    </div>
   </div>;
 }
 

@@ -105,6 +105,7 @@ COLONNES_AJOUTEES = [
     ("utilisateurs", "wero", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("utilisateurs", "wero_numero", "VARCHAR(100)"),
     ("groupes", "organisation_id", "UUID REFERENCES organisations(id) ON DELETE SET NULL"),
+    ("depenses", "count_id", "UUID REFERENCES buddy_counts(id) ON DELETE CASCADE"),
 ]
 
 
@@ -140,6 +141,10 @@ def ajouter_colonnes():
         for table, colonne, sql in COLONNES_AJOUTEES:
             if table in tables and colonne not in {x["name"] for x in inspect(c).get_columns(table)}:
                 c.execute(text(f"ALTER TABLE {table} ADD COLUMN {colonne} {sql}"))
+        # Buddy counts de groupe (§7.20) : une dépense n'a plus forcément de sortie (Postgres sur le VPS).
+        if c.dialect.name == "postgresql" and "depenses" in tables and next(
+                x for x in inspect(c).get_columns("depenses") if x["name"] == "sortie_id")["nullable"] is False:
+            c.execute(text("ALTER TABLE depenses ALTER COLUMN sortie_id DROP NOT NULL"))
 
 
 app = FastAPI(title="Mountain Buddies, comptes", lifespan=cycle, docs_url=None, redoc_url=None)

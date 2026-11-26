@@ -11,7 +11,7 @@ import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth
 import { useCompte } from '../Account';
 import type { ConversationNotif } from './notifs';
 import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
-import { BuddyCount, Comptes, UneDepense } from './BuddyCount';
+import { BuddyCount, Comptes, NouveauCount, sortieDuCount, UneDepense } from './BuddyCount';
 import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
@@ -23,7 +23,7 @@ import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  annulerInvitation, appliquer, aujourdhui, autreDuDuo, maVoiture, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  annulerInvitation, appliquer, aujourdhui, autreDuDuo, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
   nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -257,7 +257,7 @@ function ChevronIcon() {
 }
 
 /** Buddy count au trait : B et C entrelacés, le B à gauche, deux petites barres communes comme le $ (choix B1 de Seb, 26/11). */
-function BuddyCountIcon() {
+export function BuddyCountIcon() {
   return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
     <text x="17" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">B</text>
     <text x="31" y="34" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="28" fill="currentColor" stroke="none" textAnchor="middle">C</text>
@@ -407,7 +407,7 @@ function useSuppression() {
 }
 
 /** Feuille « Nom du … » : changer le nom d'une sortie, d'un groupe ou du Me Time. */
-function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
+export function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
   titre: string; nom: string; onEnregistrer: (nom: string) => void; onFermer: () => void; onToast: (m: string) => void;
 }) {
   const [texte, setTexte] = useState(nom);
@@ -441,7 +441,7 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
   | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string } | { ecran: 'nouvelleConv' }
-  | { ecran: 'position'; groupe?: string; sortie?: string };
+  | { ecran: 'position'; groupe?: string; sortie?: string } | { ecran: 'nvCount'; groupe: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un groupe (‹ depuis la carte), l'album ou le carnet d'une sortie. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
 
@@ -503,7 +503,13 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // 📅 : les plannings du groupe ouvert, sinon de toutes mes bandes (spec §5.5).
   const ici = 'groupe' in vue ? vue.groupe : vue.ecran === 'groupe' || vue.ecran === 'conv' ? vue.id : undefined;
   // 💶 : le Buddy count de la sortie ouverte, sinon tous ceux du groupe ouvert (ou de tous).
-  const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) ? vue.id : undefined;
+  const sortieIci = 'id' in vue && ['carnet', 'ecrire', 'album', 'count', 'depense', 'dodo'].includes(vue.ecran) && sorties.some((x) => x.id === vue.id) ? vue.id : undefined;
+  // Buddy counts (Seb, 26/11, §7.20) : celui de groupe ouvert est montré comme une sortie dont les membres partagent les frais.
+  const counts = mesCounts(e);
+  const etatCount = (id: string) => counts.find((c) => c.id === id || c.sortie === id);
+  const cg = 'id' in vue && (vue.ecran === 'count' || vue.ecran === 'depense') ? counts.find((c) => c.id === vue.id && c.groupe && !c.supprime) : undefined;
+  const gcg = cg && groupes.find((x) => x.id === cg.groupe);
+  const gDe = (x: Sortie) => groupes.find((y) => y.id === x.groupe);
   // 🏨 : « Où on dort ? » de la sortie ouverte, sinon la recherche d'hébergement.
   const colonne = <Colonne onClose={onClose} onToast={onToast} onTravel={onTravel} onAccount={onAccount} onLodging={() => (sortieIci ? setVue({ ecran: 'dodo', id: sortieIci, groupe: ici }) : onLodging())}
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
@@ -534,6 +540,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       else onToast('Ouvre un groupe ou une sortie pour appeler toute la bande');
     }} />;
   const album = sortieIci ? sorties.find((x) => x.id === sortieIci) : undefined;
+  const caisse = album ?? (cg && gcg ? sortieDuCount(cg, gcg) : undefined);
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
   const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
@@ -546,9 +553,17 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'albums' ? <Albums sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} photos={photos} onClose={onClose}
       onOuvrir={(x) => setVue({ ecran: 'album', id: x.id, groupe: vue.groupe })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
-      : vue.ecran === 'comptes' ? <Comptes sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} depenses={depenses} onClose={onClose}
-        onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })} onAnciens={onExpenses}
-        onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
+      : vue.ecran === 'comptes' ? (() => {
+        const gi = groupes.find((x) => x.id === vue.groupe && x.nature !== 'me_time' && x.nature !== 'duo');
+        return <Comptes groupes={groupes.filter((x) => !vue.groupe || x.id === vue.groupe)} sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)}
+          counts={counts} depenses={depenses} ici={gi} onClose={onClose}
+          onOuvrir={(x) => setVue({ ecran: 'count', id: x.id, groupe: vue.groupe })} onAnciens={onExpenses}
+          onNouveau={gi ? () => setVue({ ecran: 'nvCount', groupe: gi.id }) : undefined}
+          onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />;
+      })()
+      : vue.ecran === 'nvCount' && groupes.some((x) => x.id === vue.groupe) ? <NouveauCount g={groupes.find((x) => x.id === vue.groupe)!} onClose={onClose}
+        onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe })}
+        onCreer={(nom) => setVue({ ecran: 'count', id: creerCount(vue.groupe, nom), groupe: vue.groupe })} />
       : vue.ecran === 'messages' ? <Conversations groupes={groupes} sorties={sorties} onClose={onClose}
         onGroupe={(x) => setVue({ ecran: 'conv', id: x.id })} onSortie={(x) => ouvrir(x, true)} onContact={parlerA}
         onNouvelle={() => setVue({ ecran: 'nouvelleConv' })}
@@ -568,11 +583,18 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       })()
       : vue.ecran === 'dodo' && album ? <OuOnDort x={album} hebergements={hebergements} onToast={onToast} onClose={onClose} onChercher={onLodging}
         onRetour={() => (album.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: album.id, groupe: vue.groupe }) : ouvrir(album))} />
-      : vue.ecran === 'count' && album ? <BuddyCount x={album} depenses={depenses} onClose={onClose} onToast={onToast}
-        onDepense={(d) => setVue({ ecran: 'depense', id: album.id, depense: d, groupe: vue.groupe })}
-        onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe })} />
-      : vue.ecran === 'depense' && album ? <UneDepense key={vue.depense ?? 'nouvelle'} x={album} d={depenses.find((y) => y.id === vue.depense)}
-        onToast={onToast} onClose={onClose} onFini={() => setVue({ ecran: 'count', id: album.id, groupe: vue.groupe })} />
+      : vue.ecran === 'count' && caisse ? (() => {
+        const g = gDe(caisse);
+        return <BuddyCount x={caisse} depenses={depenses} onClose={onClose} onToast={onToast} ferme={!!etatCount(caisse.id)?.ferme} deGroupe={!!cg}
+          onFermer={(f) => { changerCount(caisse.id, { ferme: f }); onToast(f ? 'Buddy count fermé' : 'Buddy count rouvert'); }}
+          onRenommer={cg ? (nom) => changerCount(caisse.id, { nom }) : undefined}
+          onSupprimer={g && estAdmin(g, e) ? () => { changerCount(caisse.id, { supprime: true }); onToast(`Buddy count « ${caisse.nom} » supprimé`);
+            setVue({ ecran: 'comptes', groupe: vue.groupe }); } : undefined}
+          onDepense={(d) => setVue({ ecran: 'depense', id: caisse.id, depense: d, groupe: vue.groupe })}
+          onRetour={() => setVue({ ecran: 'comptes', groupe: vue.groupe })} />;
+      })()
+      : vue.ecran === 'depense' && caisse ? <UneDepense key={vue.depense ?? 'nouvelle'} x={caisse} d={depenses.find((y) => y.id === vue.depense)}
+        onToast={onToast} onClose={onClose} onFini={() => setVue({ ecran: 'count', id: caisse.id, groupe: vue.groupe })} />
       : vue.ecran === 'carnet' && album ? <UnCarnet x={album} depenses={depenses.filter((d) => d.sortie === album.id)}
         onCount={() => setVue({ ecran: 'count', id: album.id, groupe: vue.groupe })} photos={photos.filter((p) => p.sortie === album.id)}
         traces={traces.filter((t) => t.sortie === album.id)} onToast={onToast} onClose={onClose} onCarte={() => ouvrir(album)}
