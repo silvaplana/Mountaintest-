@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
 import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
-import { detail, etiquette, heureCourte, opacite, pendant, reperes, reperesTous, type Repere } from './positions';
+import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
-  appliquer, aujourdhui, autreDuDuo, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, memeCible, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
+  appliquer, autreDuDuo, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
   type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
@@ -72,12 +72,12 @@ export function BandePositions({ x, onToast }: { x: Sortie; onToast: (m: string)
       <span className="bd-texte"><b>{r.b.pseudo}</b><small>{detail(r, moi) || ' '}</small></span>
       <b>{etiquette(r)}</b>
     </div>)}
-    {!autres.length && <p className="hint">Personne n'est visible pour l'instant : chacun choisit d'enfoncer son épingle 📍.</p>}
+    {!autres.length && <p className="hint">Personne n'est visible pour l'instant : chacun choisit de partager sa position.</p>}
     {ici ? <div className="bd-epingle oui">
-      <span className="bd-epingle-icone">📍</span>
+      <span className="bd-epingle-icone"><PositionIcon on /></span>
       <span className="bd-texte"><b>Mes buddies me voient</b><small>depuis {heureCourte(ici.depuis)} · s'arrête seul à {heureCourte(ici.jusqu)}</small></span>
       <button onClick={() => { releverEpingle({ sortie: x.id }); onToast(MESSAGE_ARRET); }}>Arrêter</button>
-    </div> : <button className="primary bd-grand" onClick={() => void enfoncer()}>📍 Mes buddies peuvent me voir</button>}
+    </div> : <button className="primary bd-grand" onClick={() => void enfoncer()}>Partager ma position</button>}
     <p className="hint">{ici ? 'Sans réseau, tes positions sont gardées avec leur heure et partent au retour.'
       : 'Ta position part toutes les 5 minutes, jusqu\'à 19 h, seulement vers les buddies de cette sortie.'}</p>
   </>;
@@ -92,14 +92,24 @@ export const messagePartage = (nom: string, jusqu = finEpingle()) =>
 const MESSAGE_ARRET = "Ta position n'est plus partagée : plus personne ne te voit.";
 
 /**
- * Le bouton de la colonne, un interrupteur (Seb, 26/11) : allumée, on l'éteint partout ; éteinte, on partage avec
- * le groupe ou la sortie ouverte. Hors groupe et hors sortie, on ouvre l'écran pour choisir qui.
+ * Avec qui partager (Seb, 26/11) : la sortie ouverte, sinon le groupe ouvert, sinon tous mes groupes (sans le
+ * Groupe perso ni les discussions à deux). Rend aussi les noms, pour le message.
  */
-export async function basculerPosition(e: Etat, ici: { cible: CiblePosition; nom: string } | undefined, onToast: (m: string) => void, choisir: () => void) {
+export function ciblesIci(e: Etat, groupes: Groupe[], sorties: Sortie[], sortie?: string, groupe?: string): { cibles: CiblePosition[]; nom: string } {
+  const x = sortie ? sorties.find((y) => y.id === sortie) : undefined;
+  if (x) return { cibles: [{ sortie: x.id }], nom: x.nom };
+  const g = groupe ? groupes.find((y) => y.id === groupe && y.nature !== 'me_time') : undefined;
+  if (g) return { cibles: [{ groupe: g.id }], nom: g.nature === 'duo' ? autreDuDuo(g, e)?.pseudo ?? g.nom : g.nom };
+  const bandes = groupes.filter((y) => y.nature === 'bande');
+  return { cibles: bandes.map((y) => ({ groupe: y.id })), nom: bandes.length > 1 ? 'tous tes groupes' : bandes[0]?.nom ?? '' };
+}
+
+/** Le bouton de la colonne, un interrupteur (Seb, 26/11) : allumée, on l'éteint partout ; éteinte, on partage (ciblesIci). */
+export async function basculerPosition(e: Etat, ici: { cibles: CiblePosition[]; nom: string }, onToast: (m: string) => void) {
   if (mesEpingles(e).length) { releverEpingle(); onToast(MESSAGE_ARRET); return; }
-  if (!ici) { choisir(); return; }
+  if (!ici.cibles.length) { onToast("Crée d'abord un groupe avec tes copains"); return; }
   if (!(await autoriser(onToast))) return;
-  enfoncerEpingle([ici.cible]);
+  enfoncerEpingle(ici.cibles);
   onToast(messagePartage(ici.nom));
 }
 
@@ -118,15 +128,14 @@ function useTous() {
 }
 
 /**
- * Ma position dans la colonne (choix P1 de Seb, 26/11) : un point et des ondes de chaque côté ; éteinte, les ondes sont
- * pâles et immobiles ; allumée, elles battent doucement (animation CSS `.bd-ondes`, presque rien pour la batterie :
- * c'est le GPS qui coûte).
+ * Ma position (choix P1 de Seb, 26/11) : un point et des ondes de chaque côté, immobiles (Seb) ; éteinte, les ondes
+ * sont grisées ; allumée, en gras bien marqué.
  */
 export function PositionIcon({ on, size = 30 }: { on: boolean; size?: number }) {
   return <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor"
     strokeWidth="2.6" strokeLinecap="round" overflow="visible">
     <circle cx="24" cy="24" r="5" fill="currentColor" stroke="none" />
-    <g className={on ? 'bd-ondes' : undefined} opacity={on ? undefined : 0.35}>
+    <g opacity={on ? undefined : 0.35} strokeWidth={on ? 3.6 : 2.6}>
       <path d="M15 15a13 13 0 0 0 0 18M33 15a13 13 0 0 1 0 18" />
       <path d="M9 10a20 20 0 0 0 0 28M39 10a20 20 0 0 1 0 28" />
     </g>
@@ -134,63 +143,36 @@ export function PositionIcon({ on, size = 30 }: { on: boolean; size?: number }) 
 }
 
 /**
- * 📍 de la colonne de Buddies (spec §7.14) : partager ma position avec un ou plusieurs groupes, même hors
- * Sortie (même épingle : toutes les 5 minutes, jusqu'à ce soir), et voir les buddies qui se montrent.
+ * L'appui long sur Ma position (spec §7.14, simplifié avec Seb le 26/11) : ma position partagée ou non, un seul
+ * bouton pour l'allumer ou l'éteindre (comme l'icône), et les buddies qui me montrent la leur.
  */
-export function MaPosition({ groupes, sorties, ici, onVoir, onRetour, onClose, onToast }: {
-  groupes: Groupe[]; sorties: Sortie[]; ici?: CiblePosition; onVoir: (r: Repere) => void; onRetour: () => void; onClose: () => void;
-  onToast: (m: string) => void;
+export function MaPosition({ ici, onVoir, onRetour, onClose, onToast }: {
+  ici: { cibles: CiblePosition[]; nom: string }; onVoir: (r: Repere) => void; onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
   const e = useBuddies();
   const rs = useTous();
   const moi = rs.find((r) => r.moi);
-  const autres = rs.filter((r) => !r.moi);
+  const autres = rs.filter((r) => !r.moi && r.actif);
   const mes = mesEpingles(e);
-  // Avec qui : mes bandes, les sorties d'aujourd'hui, puis les buddies de mes discussions à deux.
-  const choix = [
-    ...groupes.filter((g) => g.nature === 'bande').map((g) => ({ c: { groupe: g.id } as CiblePosition, nom: g.nom, visage: { id: g.id, nom: g.nom, photo: g.photo } })),
-    ...sorties.filter((x) => pendant(x, aujourdhui()) && x.participants.length > 1)
-      .map((x) => ({ c: { sortie: x.id } as CiblePosition, nom: x.nom, visage: { id: x.id, nom: x.nom, photo: x.photo } })),
-    ...groupes.filter((g) => g.nature === 'duo').flatMap((g) => {
-      const a = autreDuDuo(g, e);
-      return a ? [{ c: { groupe: g.id } as CiblePosition, nom: a.pseudo ?? '', visage: a }] : [];
-    }),
-  ];
-  const cle = (c: CiblePosition) => c.groupe ? `g${c.groupe}` : `s${c.sortie}`;
-  const [qui, setQui] = useState<Set<string>>(() => new Set(choix.filter((o, _i, l) => (ici ? memeCible(o.c, ici) : l.length === 1)).map((o) => cle(o.c))));
-  const nomDe = (p: { sortie?: string; groupe?: string }) => choix.find((o) => memeCible(p, o.c))?.nom
-    ?? groupes.find((g) => g.id === p.groupe)?.nom ?? sorties.find((x) => x.id === p.sortie)?.nom ?? '';
-  const enfoncer = async () => {
-    if (!(await autoriser(onToast))) return;
-    const l = choix.filter((o) => qui.has(cle(o.c)));
-    enfoncerEpingle(l.map((o) => o.c));
-    onToast(messagePartage(l.map((o) => o.nom).join(', ')));
-  };
+  const noms = mes.map((p) => appliquer(e).find((g) => g.id === p.groupe)?.nom ?? vue(e).sorties.find((x) => x.id === p.sortie)?.nom).filter(Boolean);
   return <div className="bd-corps">
-    <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>📍 Position</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
-    {autres.map((r) => <button key={r.b.id} className={`bd-ligne bd-pos-ligne${r.actif ? '' : ' vieux'}`} onClick={() => onVoir(r)}>
+    <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>Ma position</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    <div className={`bd-epingle${mes.length ? ' oui' : ''}`}>
+      <span className="bd-epingle-icone"><PositionIcon on={!!mes.length} /></span>
+      <span className="bd-texte">{mes.length
+        ? <><b>Ta position est partagée</b><small>{noms.join(', ')} · jusqu'à {heureRonde(mes[0].jusqu)}, s'il y a du réseau</small></>
+        : <><b>Ta position n'est pas partagée</b><small>Personne ne te voit</small></>}</span>
+    </div>
+    <h3 className="bd-section">Qui me montre sa position</h3>
+    {autres.map((r) => <button key={r.b.id} className="bd-ligne bd-pos-ligne" onClick={() => onVoir(r)}>
       <Visage b={r.b} taille={44} />
       <span className="bd-texte"><b>{r.b.pseudo}</b><small>{detail(r, moi) || ' '}</small></span>
       <b>{etiquette(r)}</b>
     </button>)}
-    {!autres.length && <p className="hint">Personne n'est visible pour l'instant : chacun choisit d'enfoncer son épingle 📍.</p>}
-    {mes.length ? <div className="bd-epingle oui">
-      <span className="bd-epingle-icone">📍</span>
-      <span className="bd-texte"><b>Mes buddies me voient</b>
-        <small>{mes.map(nomDe).filter(Boolean).join(', ')} · depuis {heureCourte(mes[0].depuis)} · s'arrête seul à {heureCourte(mes[0].jusqu)}</small></span>
-      <button onClick={() => { releverEpingle(); onToast(MESSAGE_ARRET); }}>Arrêter</button>
-    </div> : <>
-      <h3 className="bd-section">Qui peut me voir ?</h3>
-      {choix.length ? <div className="bd-qui bd-qui-noms">
-        {choix.map((o) => <button key={cle(o.c)} className={qui.has(cle(o.c)) ? 'oui' : ''}
-          onClick={() => setQui((q) => { const n = new Set(q); if (n.has(cle(o.c))) n.delete(cle(o.c)); else n.add(cle(o.c)); return n; })}>
-          <Visage b={o.visage} taille={48} /><small>{qui.has(cle(o.c)) ? '✓ ' : ''}{o.nom}</small></button>)}
-      </div> : <p className="hint">Crée d'abord un groupe avec tes copains.</p>}
-      <span style={{ flex: 1 }} />
-      <button className="primary bd-grand" disabled={!qui.size} onClick={() => void enfoncer()}>📍 Mes buddies peuvent me voir</button>
-    </>}
-    <p className="hint">{mes.length ? 'Sans réseau, tes positions sont gardées avec leur heure et partent au retour.'
-      : 'Ta position part toutes les 5 minutes, jusqu\'à 19 h, seulement vers les buddies choisis.'}</p>
+    {!autres.length && <p className="hint">Personne pour l'instant.</p>}
+    <span style={{ flex: 1 }} />
+    <button className="primary bd-grand" onClick={() => void basculerPosition(e, ici, onToast)}>{mes.length ? 'Arrêter de partager' : 'Partager ma position'}</button>
+    <p className="hint">Un appui sur l'icône fait pareil. Ta position part toutes les 5 minutes, jusqu'à 19 h ; sans réseau, elle part au retour.</p>
   </div>;
 }
 

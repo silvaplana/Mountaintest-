@@ -16,7 +16,7 @@ import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
-import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosition, basculerVoiture, PositionsSurCarte, useReperes } from './Positions';
+import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosition, basculerVoiture, ciblesIci, PositionsSurCarte, useReperes } from './Positions';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
@@ -516,14 +516,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
     onPositionLong={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
-    onPosition={() => {
-      // Un appui : la sortie ouverte, sinon le groupe ouvert ; hors des deux, l'écran pour choisir qui.
-      const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
-      const gr = ici && ici !== meTime?.id ? groupes.find((y) => y.id === ici) : undefined;
-      const nom = gr?.nature === 'duo' ? autreDuDuo(gr, e)?.pseudo ?? gr.nom : gr?.nom;
-      const cible = x ? { cible: { sortie: x.id }, nom: x.nom } : gr ? { cible: { groupe: gr.id }, nom: nom ?? '' } : undefined;
-      void basculerPosition(e, cible, onToast, () => setVue({ ecran: 'position' }));
-    }}
+    // Un appui : la sortie ouverte, sinon le groupe ouvert, sinon tous mes groupes (Seb, 26/11).
+    onPosition={() => void basculerPosition(e, ciblesIci(e, groupes, sorties, sortieIci, ici), onToast)}
     onMessages={() => {
       // 💬 : la conversation de la sortie ouverte (sur sa carte), sinon celle du groupe ouvert, sinon toutes.
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
@@ -546,8 +540,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
   return <div className="buddies">
     {colonne}
-    {vue.ecran === 'position' ? <MaPosition groupes={groupes} sorties={sorties} onToast={onToast} onClose={onClose}
-      ici={vue.sortie ? { sortie: vue.sortie } : vue.groupe ? { groupe: vue.groupe } : undefined}
+    {vue.ecran === 'position' ? <MaPosition onToast={onToast} onClose={onClose} ici={ciblesIci(e, groupes, sorties, vue.sortie, vue.groupe)}
       onVoir={(r) => onCarte({ traces: [], positions: r.b.id })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'albums' ? <Albums sorties={sorties.filter((x) => !vue.groupe || x.groupe === vue.groupe)} photos={photos} onClose={onClose}

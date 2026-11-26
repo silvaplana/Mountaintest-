@@ -778,18 +778,15 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
 - **Demande de Seb** : « dès qu'on est dans Buddies, il faut dans le menu à droite pouvoir partager pareillement,
   même si on n'est pas dans une sortie ».
-- **Colonne, un interrupteur (Seb, 26/11)** : juste sous 📞, un point et des ondes au trait (pâles éteint) ; allumé, le rond est plein ardoise
-  et des ondes battent doucement de chaque côté (animation CSS, presque rien pour la batterie : c'est le GPS qui
-  coûte). Un appui allume : partage avec la sortie ouverte, sinon le groupe ouvert (hors des deux, l'écran
-  ci-dessous s'ouvre pour choisir) ; un appui éteint partout. Un message de 3 secondes : « Ta position est partagée :
-  les buddies de La Ciotat ski club te voient jusqu'à 19 h, s'il y a du réseau. » ou « Ta position n'est plus
-  partagée : plus personne ne te voit. ». Appui long : l'écran « Position ».
-- **Écran « 📍 Position »** : en haut, les buddies visibles de tous mes groupes et sorties, une fois chacun
-  (sa position la plus récente), mêmes lignes que l'écran 15 ; un toucher montre la carte avec tous les visages,
-  centrée sur lui. Puis « Qui peut me voir ? » : mes groupes, les sorties d'aujourd'hui, puis les buddies de
-  mes discussions à deux, chacun avec son visage ; on en touche un ou plusieurs (déjà coché : le groupe ou le
-  sortie ouverte, ou le seul qu'on a). Bouton principal « 📍 Mes buddies peuvent me voir ». Enfoncée : « Mes
-  buddies me voient · Les Queyrassiens · depuis 9 h 10 · s'arrête seul à 19 h » et « Arrêter ».
+- **Colonne, un interrupteur (Seb, 26/11)** : juste sous 📞, un point et des ondes au trait, immobiles : grisées
+  éteint, en gras allumé (rond plein ardoise). Un appui allume : partage avec la sortie ouverte, sinon le groupe
+  ouvert, sinon tous mes groupes ; un appui éteint partout. Un message de 3 secondes : « Ta position est partagée :
+  les buddies de La Ciotat ski club (ou « de tous tes groupes ») te voient jusqu'à 19 h, s'il y a du réseau. » ou
+  « Ta position n'est plus partagée : plus personne ne te voit. ».
+- **Appui long : écran « Ma position »** (simplifié le 26/11, Seb ne comprenait pas l'écran de choix) : en haut, ma
+  position partagée ou non (avec qui, jusqu'à quelle heure) ; « Qui me montre sa position » : les buddies visibles,
+  un toucher montre la carte centrée sur lui ; un seul bouton « Partager ma position » / « Arrêter de partager »,
+  qui fait comme l'icône. Plus de choix des groupes un par un.
 - **Même mécanique** que §7.7 : toutes les 5 minutes, écran éteint compris, jusqu'à 19 h, sans réseau la dernière
   attend. Toujours une seule épingle : l'enfoncer ici relève celle d'une sortie, et inversement ; une même
   position part vers chaque groupe choisi.
