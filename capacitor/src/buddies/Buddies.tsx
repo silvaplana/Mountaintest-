@@ -197,8 +197,8 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
-    <button aria-label="Buddy count" onClick={onExpenses}>💶</button>
-    <button aria-label="Hébergement" onClick={onLodging}>🏨</button>
+    <button aria-label="Buddy count" onClick={onExpenses}><BuddyCountIcon /></button>
+    <button aria-label="Hébergement" onClick={onLodging}><LitMaisonIcon /></button>
     {/* 📍 Partager ma position avec mes buddies, même hors sortie (Seb, 25/11) ; verte tant qu'ils me voient. */}
     <button aria-label="Ma position" className={`bd-col-pin${visible ? ' actif' : ''}`}
       onClick={onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position'))}><PinIcon /></button>
@@ -214,6 +214,24 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
 function ChevronIcon() {
   return <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M6 9l6 6 6-6" /></svg>;
+}
+
+/** Buddy count au trait : grand B barré de deux traits comme le $, petit C après (Seb, 26/11). */
+function BuddyCountIcon() {
+  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+    <text x="19" y="35" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="30" fill="currentColor" stroke="none" textAnchor="middle">B</text>
+    <path d="M15.5 4v7M22.5 4v7M15.5 35v8M22.5 35v8" />
+    <text x="38" y="35" fontFamily="Inter, Roboto, Arial, sans-serif" fontWeight="800" fontSize="15" fill="currentColor" stroke="none" textAnchor="middle">C</text>
+  </svg>;
+}
+
+/** Hébergement au trait : un lit dans une maison (Seb, 26/11). */
+function LitMaisonIcon() {
+  return <svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 22L24 7l19 15M10 18v22M38 18v22" />
+    <path d="M14 39v-9M14 35h20v4M34 35v-2.5a3 3 0 0 0-3-3h-9v5.5" strokeWidth="2.2" />
+    <circle cx="18" cy="30.5" r="2" strokeWidth="2" />
+  </svg>;
 }
 
 function Qr({ texte }: { texte: string }) {
