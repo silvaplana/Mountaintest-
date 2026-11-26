@@ -626,15 +626,13 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     <h3 className="bd-section">À venir</h3>
     {avenir.length ? avenir.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} onClick={() => onOuvrir(x)} />
       <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)
-      : <p className="bd-vide">{me ? 'Tes sorties à toi, seul ou avec un ou deux copains invités.' : 'Rien de prévu pour l’instant : ＋ Sortie quand vous êtes sûrs de partir.'}</p>}
-    {souvenirs.length > 0 && <><h3 className="bd-section">Souvenirs</h3>
-      <div className="bd-grille">{souvenirs.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} petite onClick={() => onOuvrir(x)} />
+      : <p className="bd-vide">Rien de prévu pour l’instant</p>}
+    {/* Sorties passées, chacune sur toute la largeur (Seb, 26/11). */}
+    {souvenirs.length > 0 && <><h3 className="bd-section">Sorties passées</h3>
+      <div className="bd-passees">{souvenirs.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} petite onClick={() => onOuvrir(x)} />
         <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)}</div></>}
     {suppression.bandeau}
-    {traces.length > 0 && <><h3 className="bd-section">Traces partagées</h3>
-      {traces.map((t) => <button key={t.id} className="bd-ligne petite" onClick={() => onTrace(t)}>
-        <Visage b={t.par} /><span className="bd-texte"><b>〰 {t.nom}</b><small>{t.par.pseudo}{t.mot ? ` : ${t.mot}` : ''}</small></span>
-        <small className="bd-quand">{t.attente ? '🕓' : quand(t.cree_le)}</small></button>)}</>}
+    {/* Plus de « Traces partagées » ici : les traces se partagent dans le chat pour l’instant (Seb, 26/11). */}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
       <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>

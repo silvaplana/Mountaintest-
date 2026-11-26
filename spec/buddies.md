@@ -200,7 +200,7 @@ sa gauche, on en choisit une.
 - Création : une photo, un nom, des invitations par contacts, mail, téléphone (SMS) ou QR
   code. L'invité reçoit un lien qui installe l'appli et le fait entrer. Réutilise les
   comptes et invitations existants (`deploy/comptes/`, `capacitor/src/compte/`). **(Seb)**
-- Ouvert, il montre ses sorties : à venir d'abord, puis les souvenirs en images.
+- Ouvert, il montre ses sorties : à venir d'abord (sinon « Rien de prévu pour l'instant »), puis « Sorties passées », chacune sur toute la largeur (Seb, 26 novembre). Plus de « Traces partagées » sur cet écran : les traces se partagent dans le chat.
 - Toucher les visages en haut ouvre les membres : inviter, nommer admin, retirer. Pas
   d'icône d'administration. **(proposé)**
 - « ＋ Sortie » dans un groupe ne demande pas quel groupe. **(Seb)**
