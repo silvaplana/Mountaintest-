@@ -35,6 +35,6 @@ export type LienBuddy = { groupe: string; sortie: string | null };
 /** Nom affiché du lien : la sortie (et son groupe), ou le groupe seul. */
 export function nomLien(l: LienBuddy, sorties: Sortie[], groupes: { id: string; nom: string; nature: string }[]) {
   const g = groupes.find((x) => x.id === l.groupe), x = l.sortie ? sorties.find((y) => y.id === l.sortie) : undefined;
-  const gn = g ? (g.nature === 'me_time' ? 'Me Time' : g.nom) : '';
+  const gn = g ? (g.nature === 'me_time' ? 'Seul' : g.nom) : '';
   return x ? { titre: x.nom, sous: gn, sortie: x } : { titre: gn || 'Groupe', sous: 'tout le groupe', sortie: undefined };
 }

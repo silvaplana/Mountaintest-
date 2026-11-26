@@ -4,7 +4,7 @@ import type { Map as MlMap } from 'maplibre-gl';
 import { searchPlaces } from '../search';
 import { LiensSites, type Lodging } from '../Lodging';
 import { Visage } from './Buddies';
-import { lire, mettreCoeur, proposerHebergement, retenirHebergement, retirerHebergement, type Hebergement, type Sortie } from './store';
+import { lire, mettreCoeur, peutRetirer, proposerHebergement, retenirHebergement, retirerHebergement, type Hebergement, type Sortie } from './store';
 
 /**
  * Hébergement d'une sortie (spec/buddies.md §5.11, écrans 9 et 23) : « Où on dort ? », les idées proposées par
@@ -51,7 +51,7 @@ export function OuOnDort({ x, hebergements, onChercher, onRetour, onClose, onToa
             {h.retenu ? 'Plus retenu' : 'On le prend'}</button>
         </div>
         {h.attente && <small className="hint">🕓 partira au retour du réseau</small>}
-        {!h.retenu && <button className="bd-lien petit" onClick={() => { retirerHebergement(h.id); onToast(`« ${h.nom} » retiré`); }}>Retirer l'idée</button>}
+        {!h.retenu && peutRetirer(h.par, h.sortie) && <button className="bd-lien petit" onClick={() => { retirerHebergement(h.id); onToast(`« ${h.nom} » retiré`); }}>Retirer l'idée</button>}
       </div>;
     })}
     {!hs.length && <p className="bd-vide">Pas encore d'idée : cherche un hébergement, puis « Proposer à mes buddies ». Chacun met un ♥, et vous en retenez un.</p>}

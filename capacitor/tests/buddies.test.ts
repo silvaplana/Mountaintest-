@@ -151,6 +151,15 @@ describe('Sorties et traces partagées (bloc 2)', () => {
     expect(() => creerSortie({ groupe: 'me', nom: ' ', photo: null, debut: '2026-11-29', fin: '', lieu: '', participants: [] })).toThrow();
   });
 
+  it('première sortie seul, sans Groupe perso encore : envoyée vers « seul », visible tout de suite (Seb, 26 novembre)', () => {
+    reseau(() => 'coupure');
+    const id = creerSortie({ groupe: 'seul', nom: 'Calanques', photo: null, debut: '2026-11-29', fin: '', lieu: '', participants: [] });
+    expect(lire().attente.at(-1)).toMatchObject({ type: 'creer_sortie', sortie: id, groupe: 'seul' });
+    const x = vue(lire()).sorties.find((y) => y.id === id)!;
+    expect(x.attente).toBe(true);
+    expect(x.participants.map((p) => p.pseudo)).toEqual(['Seb']);
+  });
+
   it('partager une trace : un envoi par sortie ou groupe choisi, visible tout de suite', () => {
     reseau(() => 'coupure');
     partagerTrace('Col Girardin', [[6.700001, 44.6], [6.71, 44.61]], 'samedi ?', { sorties: ['s1'], groupes: ['a'] });

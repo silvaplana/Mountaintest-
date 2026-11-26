@@ -24,7 +24,9 @@ séance, pas encore confirmée. Les points ouverts sont regroupés au §9.
 | **Buddies** | L'espace entier, ouvert par 👥 dans la barre étendue de la carte. |
 | **Groupe** | Une bande de copains (comme une conversation de groupe). |
 | **Sortie** | Une sortie ou un week-end passé ensemble. |
-| ~~Me Time~~ | **Retiré** (Seb, 25 novembre 2026 : « il vaudrait mieux qu'il n'existe pas ; celui qui veut se créer un groupe avec ses sorties perso, il le fait »). Voir §5.4. |
+| ~~Me Time~~ | **Retiré** (Seb, 25 novembre 2026). Remplacé le 26 novembre par **Seul** : un Groupe perso sans nom, né à la première sortie seul (§7.17). |
+| **Club** | Une organisation (asso) facultative au-dessus de ses Groupes-sections, comme une école d'AppBase. Pas encore d'écran (§7.17). |
+| **admin principal**, **admin** | Les rôles dans un Groupe ou un club (§7.17). |
 | **Buddy count** | Le partage des frais (l'actuel « partage des frais » du menu Voyage). |
 | **Carnet** | Le compte rendu final d'une sortie. |
 | **buddy** | Une personne d'un de mes groupes ou sorties. |
@@ -221,7 +223,7 @@ sa gauche, on en choisit une.
   est **effacé avec tout ce qu'il contient**, pour tout le monde (choix de Seb : « Tout effacer ») : ses sorties
   et leurs traces, photos (fichiers compris), dépenses, messages, hébergements, carnets. Un téléphone pas encore à
   jour qui range une sortie dans « me-time » est refusé (« Choisis un groupe »). Le paragraphe suivant (inviter
-  à une seule sortie sans groupe) ne vaut plus.
+  à une seule sortie sans groupe) ne vaut plus. **Remplacé le 26 novembre par « Seul » (§7.17).**
 - Crayon et poubelle aussi **à côté de chaque sortie** des listes (Seb, 25 novembre 2026) : la liste des Buddies
   (l'heure de la ligne laisse sa place) et les affiches d'un groupe (en haut à droite de l'image). Le crayon
   ouvre une feuille « Nom de la sortie » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.
@@ -818,6 +820,45 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Coût** : compté dans la limite du jour du relais et dans 📊 (ligne « Bud choisit les photos du carnet ») ;
   environ 1 à 2 centimes pour 15 photos, 5 à 8 centimes pour 60.
 - **Pas encore** : il faut du réseau ; Bud ne voit que les petites images (un léger flou peut lui échapper).
+
+### 7.17 Rôles, club et Groupe perso, comme AppBase (Seb, 26 novembre 2026)
+
+- **Demande de Seb** : les mêmes rôles qu'AppBase (Super User, Administrateur principal, Admin, Membre ; « élève »
+  devient « membre »), même si certains ne servent pas encore, pour qu'AppBase puisse un jour passer sur Logto avec
+  la même structure.
+- **Trois étages.** L'**appli** : tout le monde y a un seul profil, et le Super User (Seb) est au-dessus de tout. Le
+  **club** (`organisations`, facultatif) : l'organisation d'AppBase, qui regroupe des Groupes-sections (ski de rando,
+  escalade…). Le **Groupe** : une bande de copains sans club, ou une section d'un club. Une Sortie est toujours dans un
+  Groupe. Différence avec AppBase : **rien n'est étanche**, on est dans plusieurs Groupes et clubs avec le même
+  profil, et des espaces communs viendront (forum matériel, messages entre membres). Le club dit seulement quels
+  Groupes sont à lui et qui l'administre. **Aujourd'hui aucun club n'existe** et il n'y a pas d'écran de club :
+  tous les Groupes ont `organisation_id` vide.
+- **Où vivent les rôles** : dans la base du serveur des comptes, pas dans Logto (Logto ne garde que l'identité).
+  `deploy/comptes/droits.py` est le seul endroit qui les lit, comme `comptes/roles.py` d'AppBase ;
+  `estAdmin`, `estAdminPrincipal` et `peutRetirer` dans `capacitor/src/buddies/store.ts` côté appli.
+- **Ce que fait chaque rôle dans un Groupe** (règle de Seb : « le membre peut tout créer, seul l'admin peut
+  supprimer ce qu'ont fait les autres ») :
+  - **Membre** : tout créer (Groupe, sortie, trace, photo, dépense, hébergement, planning, message), inviter,
+    renommer le Groupe, retenir l'hébergement ✅ ; il ne retire que ce qu'il a apporté lui-même.
+  - **Admin** : en plus, retirer un membre, supprimer la sortie, le message, la photo, la dépense ou l'hébergement
+    d'un autre.
+  - **Admin principal** (un seul : le créateur) : en plus, nommer un admin, retirer le rôle d'admin, retirer un
+    admin du Groupe, passer son rôle à un autre (il reste admin). Personne ne le retire, sauf le Super User. S'il
+    quitte le Groupe, le rôle passe à l'admin le plus ancien, sinon au membre le plus ancien.
+  - **Super User** : tout, dans tous les Groupes, même sans en être membre (il ne les voit pas pour autant).
+  - Les mêmes rôles existent dans un club (`roles_organisation`, cumulables comme dans AppBase) : un admin du club
+    agit comme un admin dans les Groupes du club, son admin principal comme leur admin principal.
+- **Super User** : `docker exec mb-api python super_user.py <e-mail>` sur le VPS (`--retirer` pour l'enlever),
+  jamais depuis l'appli. La personne doit s'être connectée une fois. La synchro le dit à l'appli
+  (`roles.super_user`), sans écran pour l'instant.
+- **Groupe perso « Seul »** (Seb : « je ne vais pas me créer un groupe de moi seul ») : dans ＋ Sortie, la ligne
+  « Seul » en haut. La première fois, l'appli envoie la sortie vers `seul` et le serveur crée le Groupe perso,
+  sans nom, dont on est l'admin principal ; ensuite il resservira. Tant qu'on n'est pas sorti seul, il n'existe pas.
+  Il s'affiche « Seul · Mes sorties à moi », sans crayon. Les anciens Me Time (créés avant le 26 novembre) restent
+  effacés à la synchro comme décidé le 25.
+- **Reprise des Groupes existants** (au démarrage du serveur) : la colonne des rôles s'élargit, et chaque Groupe sans
+  admin principal en reçoit un : son créateur s'il en est encore admin, sinon l'admin le plus ancien.
+- **Pas encore** : écran de club, écran du Super User, suppression d'un Groupe entier.
 
 ## 8. Hors périmètre pour l'instant
 

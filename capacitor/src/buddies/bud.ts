@@ -138,7 +138,7 @@ export function agir(actions: ActionDemandee[], d: Dest, x: Donnees & { groupe?:
           faites.push({ genre: 'renommage', id: so.id, avant: so.nom, texte: `✏ « ${so.nom} » devient « ${n} »` });
           continue;
         }
-        const admin = x.groupe?.membres.find((b) => b.id === x.moi)?.role === 'admin';
+        const admin = ['admin', 'admin_principal'].includes(x.groupe?.membres.find((b) => b.id === x.moi)?.role ?? '');
         if (so.par && so.par !== x.moi && !admin) throw new Error('seul celui qui a créé la sortie (ou un admin) peut la supprimer');
         supprimerSortie(so.id);
         faites.push({ genre: 'suppression', copie: so, texte: `🗑 Sortie « ${so.nom} » supprimée` });

@@ -36,6 +36,34 @@ class Utilisateur(Base):
     photo: Mapped[str | None] = mapped_column(Text)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     vu_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    # Super User (spec/buddies.md §7.17, comme AppBase) : au-dessus de tous les clubs et Groupes. Donné
+    # seulement par la commande `python super_user.py <e-mail>` sur le VPS, jamais depuis l'appli.
+    super_user: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class Organisation(Base):
+    """Un club (spec/buddies.md §7.17) : l'organisation d'AppBase (une école), facultative. Il regroupe ses
+    sections, qui sont des Groupes. Il ne cloisonne personne : on garde le même profil partout.
+    Pas encore d'écran : aucun club n'existe pour l'instant."""
+
+    __tablename__ = "organisations"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    nom: Mapped[str] = mapped_column(String(80), nullable=False)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class RoleOrganisation(Base):
+    """Les rôles d'une personne dans un club, cumulables comme dans AppBase (spec/core.md §7) :
+    membre, admin, admin_principal. Lus seulement par droits.py."""
+
+    __tablename__ = "roles_organisation"
+    __table_args__ = (CheckConstraint("role in ('membre', 'admin', 'admin_principal')", name="roles_organisation_role"),)
+
+    organisation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("organisations.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True, index=True)
+    role: Mapped[str] = mapped_column(String(16), primary_key=True)
 
 
 class Groupe(Base):
@@ -49,6 +77,8 @@ class Groupe(Base):
     nature: Mapped[str] = mapped_column(String(10), nullable=False, default="bande")
     # Petite image en data: URL (~256 px), comme la photo du profil.
     photo: Mapped[str | None] = mapped_column(Text)
+    # Le club dont ce Groupe est une section ; vide pour une bande de copains (le cas de tous aujourd'hui).
+    organisation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("organisations.id", ondelete="SET NULL"), index=True)
     activite: Mapped[str] = mapped_column(String(16), nullable=False, default="")
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     cree_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
@@ -58,12 +88,13 @@ class Groupe(Base):
 
 class Membre(Base):
     __tablename__ = "membres"
-    __table_args__ = (CheckConstraint("role in ('admin', 'membre')", name="membres_role"),)
+    # Rôles dans le Groupe (spec/buddies.md §7.17) : un seul admin_principal (le créateur, qui peut transmettre).
+    __table_args__ = (CheckConstraint("role in ('admin_principal', 'admin', 'membre')", name="membres_role"),)
 
     groupe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), primary_key=True)
     utilisateur_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True, index=True)
-    role: Mapped[str] = mapped_column(String(10), nullable=False, default="membre")
+    role: Mapped[str] = mapped_column(String(16), nullable=False, default="membre")
     rejoint_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 
 

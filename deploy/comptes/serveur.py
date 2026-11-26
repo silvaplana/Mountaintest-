@@ -51,7 +51,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import appels
 import buddies
-from modeles import Base, Utilisateur, maintenant
+from modeles import Base, Groupe, Membre, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
 LOGTO_INTERNE = os.environ.get("LOGTO_INTERNE", LOGTO).rstrip("/")
@@ -75,6 +75,7 @@ def db():
 async def cycle(_app: FastAPI):
     Base.metadata.create_all(moteur)  # crée les tables manquantes (pas encore de migrations)
     ajouter_colonnes()
+    roles_de_groupe()
     yield
 
 
@@ -96,7 +97,35 @@ COLONNES_AJOUTEES = [
     ("messages_buddies", "transfere", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("photos", "video", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("sorties", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
+    ("utilisateurs", "super_user", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("groupes", "organisation_id", "UUID REFERENCES organisations(id) ON DELETE SET NULL"),
 ]
+
+
+def roles_de_groupe():
+    """Rôle admin_principal dans les Groupes (spec/buddies.md §7.17, 26 novembre) : on élargit la colonne et sa
+    contrainte (Postgres), puis chaque Groupe qui n'en a pas reçoit le sien : son créateur s'il en est encore
+    admin, sinon l'admin le plus ancien, sinon le membre le plus ancien."""
+    with moteur.begin() as c:
+        if "membres" not in inspect(c).get_table_names():
+            return
+        if c.dialect.name == "postgresql":
+            role = next(x for x in inspect(c).get_columns("membres") if x["name"] == "role")
+            if getattr(role["type"], "length", 16) < 16:
+                c.execute(text("ALTER TABLE membres DROP CONSTRAINT IF EXISTS membres_role"))
+                c.execute(text("ALTER TABLE membres ALTER COLUMN role TYPE VARCHAR(16)"))
+                c.execute(text("ALTER TABLE membres ADD CONSTRAINT membres_role "
+                               "CHECK (role in ('admin_principal', 'admin', 'membre'))"))
+    with Sessions() as s:
+        avec = select(Membre.groupe_id).where(Membre.role == "admin_principal")
+        for g in s.scalars(select(Groupe).where(Groupe.nature != "duo", Groupe.id.not_in(avec))).all():
+            ms = s.scalars(select(Membre).where(Membre.groupe_id == g.id).order_by(Membre.rejoint_le)).all()
+            createur = [m for m in ms if m.utilisateur_id == g.cree_par and m.role == "admin"]
+            admins = [m for m in ms if m.role == "admin"]
+            choix = (createur or admins or ms or [None])[0]
+            if choix is not None:
+                choix.role = "admin_principal"
+        s.commit()
 
 
 def ajouter_colonnes():
