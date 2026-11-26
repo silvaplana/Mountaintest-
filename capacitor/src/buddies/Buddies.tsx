@@ -632,10 +632,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
       <div className="bd-passees">{souvenirs.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} petite onClick={() => onOuvrir(x)} />
         <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)}</div></>}
     {suppression.bandeau}
-    {traces.length > 0 && <><h3 className="bd-section">Traces partagées</h3>
-      {traces.map((t) => <button key={t.id} className="bd-ligne petite" onClick={() => onTrace(t)}>
-        <Visage b={t.par} /><span className="bd-texte"><b>〰 {t.nom}</b><small>{t.par.pseudo}{t.mot ? ` : ${t.mot}` : ''}</small></span>
-        <small className="bd-quand">{t.attente ? '🕓' : quand(t.cree_le)}</small></button>)}</>}
+    {/* Plus de « Traces partagées » ici : les traces se partagent dans le chat pour l’instant (Seb, 26/11). */}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
       <button className="primary" onClick={onNouvelle}><span className="bd-mini-carre">{jourMois(aujourdhui()).j}</span>
