@@ -412,7 +412,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       {pair && settingsOpen && !help && <button aria-label="Double tap pour allumer l'écran (réglage du téléphone)" data-help="Double tap pour allumer l'écran" {...lp('doubletap')}
         onClick={() => setDtBubble(true)}><DoubleTapIcon /></button>}
       </div>
-      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏
+      <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Trace : tracer au doigt, suivi et vidéo 3D" {...lp('draw')} onClick={onDraw}>✏
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
       <div className="pair calques" ref={reliefRef}>
       {/* Calques (Seb, 26/11) : ouvre ou referme la ligne des calques ; chacun s'allume à part, on peut les mélanger. */}
