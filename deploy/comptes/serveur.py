@@ -51,6 +51,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import appels
 import buddies
+import droits
 from modeles import Base, Groupe, Membre, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
@@ -107,6 +108,8 @@ COLONNES_AJOUTEES = [
     ("utilisateurs", "wero_numero", "VARCHAR(100)"),
     ("groupes", "organisation_id", "UUID REFERENCES organisations(id) ON DELETE SET NULL"),
     ("depenses", "count_id", "UUID REFERENCES buddy_counts(id) ON DELETE CASCADE"),
+    ("utilisateurs", "telephone_octets", "BIGINT"),
+    ("utilisateurs", "telephone_le", "TIMESTAMP WITH TIME ZONE"),
 ]
 
 
@@ -267,6 +270,60 @@ def moi_requis(j: dict = Depends(jeton_requis), s: Session = Depends(db)) -> Uti
 @app.get("/moi")
 def moi(u: Utilisateur = Depends(moi_requis)):
     return profil(u)
+
+
+# ---------------------------------------------------------------- 💾 place prise (calque Hors ligne, Seb 26/11)
+
+def _taille(chemin: str) -> int:
+    try:
+        return os.path.getsize(chemin)
+    except OSError:
+        return 0
+
+
+def place_serveur(s: Session) -> dict[uuid.UUID, dict[str, int]]:
+    """Octets pris sur le serveur par chacun : photos et films de l'album, fichiers joints aux messages,
+    et ses données dans la base (traces partagées, messages), comptées à la longueur du texte."""
+    place: dict[uuid.UUID, dict[str, int]] = {}
+    def de(qui):
+        return place.setdefault(qui, {"photos": 0, "fichiers": 0, "donnees": 0})
+    for pid, par, video in s.execute(select(buddies.Photo.id, buddies.Photo.par, buddies.Photo.video)):
+        de(par)["photos"] += sum(_taille(buddies.fichier_photo(pid, t)) for t in (("petite", "grande", "video") if video else ("petite", "grande")))
+    for fid, par in s.execute(select(buddies.FichierBuddy.id, buddies.FichierBuddy.par).where(buddies.FichierBuddy.envoye)):
+        de(par)["fichiers"] += _taille(os.path.join(buddies.DOSSIER_FICHIERS, str(fid)))
+    for par, n in s.execute(select(buddies.TracePartagee.par, func.sum(func.length(buddies.TracePartagee.ligne))).group_by(buddies.TracePartagee.par)):
+        de(par)["donnees"] += int(n or 0)
+    for par, n in s.execute(select(buddies.MessageBuddy.par, func.sum(func.length(buddies.MessageBuddy.texte))).group_by(buddies.MessageBuddy.par)):
+        de(par)["donnees"] += int(n or 0)
+    return place
+
+
+class PlaceTelephone(BaseModel):
+    octets: int = Field(ge=0, le=10**13)
+
+
+@app.put("/stockage/telephone")
+def noter_place_telephone(p: PlaceTelephone, u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """Le téléphone dit la place que prend l'appli chez lui (le Super User la voit pour tout le monde)."""
+    u = s.merge(u)
+    u.telephone_octets = p.octets
+    u.telephone_le = maintenant()
+    s.commit()
+    return {"ok": True}
+
+
+@app.get("/stockage")
+def stockage(u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """Ma place sur le serveur par nature ; le Super User a en plus celle de chacun (serveur et téléphone)."""
+    place = place_serveur(s)
+    vide = {"photos": 0, "fichiers": 0, "donnees": 0}
+    r: dict[str, Any] = {"moi": place.get(u.id, vide)}
+    if droits.est_super_user(u):
+        r["tous"] = sorted(({"pseudo": x.pseudo or (x.email or "").split("@")[0], **place.get(x.id, vide),
+                             "telephone": x.telephone_octets, "telephone_le": x.telephone_le.isoformat() if x.telephone_le else None}
+                            for x in s.scalars(select(Utilisateur))),
+                           key=lambda d: -(d["photos"] + d["fichiers"] + d["donnees"] + (d["telephone"] or 0)))
+    return r
 
 
 class Changement(BaseModel):

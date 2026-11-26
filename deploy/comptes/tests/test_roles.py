@@ -131,3 +131,26 @@ def test_reprise_des_groupes_d_avant(client):
     assert roles(client, gid) == {seb: "admin", julie: "membre"}
     serveur.roles_de_groupe()
     assert roles(client, gid) == {seb: "admin_principal", julie: "membre"}
+
+
+def test_place_sur_le_serveur_et_le_telephone(client, tmp_path, monkeypatch):  # noqa: F811
+    """Calque Hors ligne (Seb 26/11) : chacun voit sa place ; le Super User voit celle de tout le monde."""
+    import buddies
+    import serveur
+    from modeles import FichierBuddy, Utilisateur
+    monkeypatch.setattr(buddies, "DOSSIER_FICHIERS", str(tmp_path))
+    assert client.put("/stockage/telephone", json={"octets": 2_110_000_000}, headers=entete()).status_code == 200
+    assert client.put("/stockage/telephone", json={"octets": 5_000}, headers=entete(sub="u2")).status_code == 200
+    with serveur.Sessions() as s:
+        seb = s.scalar(buddies.select(Utilisateur).where(Utilisateur.logto_id == "u1"))
+        f = FichierBuddy(id=uuid.uuid4(), par=seb.id, nom="topo.pdf", mime="application/pdf", taille=7, envoye=True)
+        s.add(f)
+        s.commit()
+        fid = f.id
+    (tmp_path / str(fid)).write_bytes(b"1234567")
+    moi = client.get("/stockage", headers=entete()).json()
+    assert moi["moi"]["fichiers"] == 7 and "tous" not in moi
+    rendre_super_user("u2")
+    tous = client.get("/stockage", headers=entete(sub="u2")).json()["tous"]
+    assert [t["telephone"] for t in tous] == [2_110_000_000, 5_000]
+    assert tous[0]["fichiers"] == 7

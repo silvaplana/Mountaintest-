@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { formatBytes } from '../Usage';
 import { useSheet } from '../useSheet';
-import { measurePhoneSpace, type PhoneSpace } from './phoneSpace';
+import { measurePhoneSpace, serverSpace, type PhoneSpace, type ServerSpace } from './phoneSpace';
 
 const PARTS: { key: 'cartes' | 'photos' | 'donnees'; label: string; color: string }[] = [
   { key: 'cartes', label: 'Cartes', color: '#0f7a45' },
@@ -11,11 +11,21 @@ const PARTS: { key: 'cartes' | 'photos' | 'donnees'; label: string; color: strin
   { key: 'donnees', label: 'Données (traces, groupes…)', color: '#9fb1c2' },
 ];
 
+const SRV_PARTS: { key: 'photos' | 'fichiers' | 'donnees'; label: string; color: string }[] = [
+  { key: 'photos', label: 'Mes photos et films', color: '#3e5368' },
+  { key: 'fichiers', label: 'Mes fichiers joints', color: '#7a8ea3' },
+  { key: 'donnees', label: 'Mes traces et messages', color: '#9fb1c2' },
+];
+
 /** squares : tuiles (carrés) gardées ; squaresBytes : leur poids, pour la moyenne. */
 export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose }: { cartes: number; squares: number; squaresBytes: number; onClose: () => void }) {
   const [space, setSpace] = useState<PhoneSpace | null>(null);
   const sheet = useSheet('placeTelephone', { defaut: 0, masque: false });
-  useEffect(() => { void measurePhoneSpace(cartes).then(setSpace).catch(() => {}); }, [cartes]);
+  const [srv, setSrv] = useState<ServerSpace | null>(null);
+  useEffect(() => {
+    void measurePhoneSpace(cartes).then((sp) => { setSpace(sp); return serverSpace(sp.total).then(setSrv); }).catch(() => {});
+  }, [cartes]);
+  const total = (x: { photos: number; fichiers: number; donnees: number }) => x.photos + x.fichiers + x.donnees;
 
   return (
     <div className={`travel phone-space${sheet.classe}`}>
@@ -40,6 +50,28 @@ export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose }: { ca
         <p className="phone-space-legend"><span className="leg vert" /> SCAN 25 (tout) <span className="leg bleu" /> Plan IGN seul</p>
         <p className="phone-space-free">Appui long sur la carte : le rectangle prend des tuiles et des traces, pour les supprimer ou télécharger les tuiles.</p>
         {space.libre != null && <p className="phone-space-free">Encore {formatBytes(space.libre)} libres sur le téléphone.</p>}
+        {/* Sur le serveur (Seb, 26/11) : chacun voit la sienne ; le Super User voit celle de tout le monde. */}
+        {srv && <>
+          <p className="phone-space-tiles"><b>{formatBytes(total(srv.moi))}</b> à moi sur le serveur</p>
+          {SRV_PARTS.map((p) => (
+            <div key={p.key} className="phone-space-row">
+              <span className="phone-space-dot" style={{ background: p.color }} />
+              <span>{p.label}</span><b>{formatBytes(srv.moi[p.key])}</b>
+            </div>
+          ))}
+        </>}
+        {srv?.tous && <>
+          <p className="phone-space-tiles"><b>Tout le monde</b> · serveur / téléphone</p>
+          {srv.tous.map((x, i) => (
+            <div key={i} className="phone-space-row">
+              <span style={{ flex: 1 }}>{x.pseudo || '—'}</span>
+              <b style={{ whiteSpace: 'nowrap' }}>{formatBytes(total(x))}</b>
+              <b className="phone-space-tel">{x.telephone != null ? formatBytes(x.telephone) : '—'}</b>
+            </div>
+          ))}
+          <p className="phone-space-free">Total sur le serveur : {formatBytes(srv.tous.reduce((n, x) => n + total(x), 0))}.
+            Téléphone : envoyé par chaque appli une fois par jour.</p>
+        </>}
       </>}
     </div>
   );

@@ -52,6 +52,7 @@ import { SearchBar } from './SearchBar';
 import { clearPlaceNames, savePlaceNames } from './places/placeNames';
 import { coverageGeoJson, offlineVeil, ownedSquares, squareBbox, squareTileKeys } from './tiles/coverage';
 import { PhoneSpacePanel } from './offline/PhoneSpacePanel';
+import { reportPhoneDaily } from './offline/phoneSpace';
 import { clearDroneZones, localDroneZones, saveDroneZones } from './drones/droneZones';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
@@ -145,6 +146,8 @@ export function App() {
     setSpaceClosed(false);
     void refreshStored();
   };
+  // Place prise sur ce téléphone, envoyée au serveur une fois par jour (le Super User la voit pour chacun), 30 s après le lancement.
+  useEffect(() => { const t = setTimeout(() => void reportPhoneDaily().catch(() => {}), 30_000); return () => clearTimeout(t); }, []);
   // Mes traces lues à l'allumage du calque, puis à chaque changement (plus besoin de l'éteindre et le rallumer).
   useEffect(() => {
     if (!showOffline) return;
