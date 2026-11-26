@@ -860,6 +860,21 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   admin principal en reçoit un : son créateur s'il en est encore admin, sinon l'admin le plus ancien.
 - **Pas encore** : écran de club, écran du Super User, suppression d'un Groupe entier.
 
+### 7.18 👤 Profil comme AppBase (Seb, 26 novembre 2026)
+
+- **Demande de Seb** (capture du Profil d'AppBase) : pastille aux initiales, nom, e-mail, rôle, puis des rubriques ;
+  dans la fiche, comme le cœur d'AppBase : prénom, nom, téléphone, e-mail, IBAN, le téléphone et l'IBAN facultatifs.
+- **À l'écran** (👤, titre « Profil ») : pastille (photo, sinon initiales « SR »), « Prénom Nom » (sinon le pseudo),
+  l'e-mail, le rôle (« Super User » ou « Membre »). Rubriques : **Mes infos** (Prénom, Nom, Pseudo vu par les amis,
+  Téléphone facultatif), **Remboursements** (« Mon IBAN (facultatif, pour les remboursements) », vu de moi seul),
+  **Paramètres** (synchro, point décalé du doigt, côté des icônes), puis Se déconnecter.
+- **Hors ligne** : chaque champ s'enregistre quand on le quitte, tout de suite sur le téléphone, et part au serveur au
+  retour du réseau (même file que le pseudo, `attente` de `compte/auth.ts`). L'e-mail vient de la connexion (Logto).
+- **Serveur** : colonnes `prenom`, `nom`, `telephone`, `iban` de `utilisateurs`, `GET/PUT /moi`. L'IBAN est vérifié
+  comme dans AppBase (forme et clé, ISO 13616), aussi sur le téléphone avant l'envoi ; vide = effacé. Téléphone et
+  IBAN ne sont jamais envoyés aux autres buddies.
+- **Pas encore** : montrer l'IBAN à qui doit rembourser dans le Buddy count.
+
 ## 8. Hors périmètre pour l'instant
 
 - Le calcul des péages et la comparaison avec ViaMichelin : laissé de côté. **(Seb)**

@@ -98,6 +98,10 @@ COLONNES_AJOUTEES = [
     ("photos", "video", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("sorties", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
     ("utilisateurs", "super_user", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("utilisateurs", "prenom", "VARCHAR(100) NOT NULL DEFAULT ''"),
+    ("utilisateurs", "nom", "VARCHAR(100) NOT NULL DEFAULT ''"),
+    ("utilisateurs", "telephone", "VARCHAR(50)"),
+    ("utilisateurs", "iban", "VARCHAR(34)"),
     ("groupes", "organisation_id", "UUID REFERENCES organisations(id) ON DELETE SET NULL"),
 ]
 
@@ -196,7 +200,21 @@ def iso(d: datetime | None) -> str | None:
 
 
 def profil(u: Utilisateur) -> dict[str, Any]:
-    return {"id": str(u.id), "email": u.email, "pseudo": u.pseudo, "photo": u.photo, "cree_le": iso(u.cree_le)}
+    """Mon profil (à moi seul : téléphone et IBAN ne partent jamais chez les autres)."""
+    return {"id": str(u.id), "email": u.email, "pseudo": u.pseudo, "photo": u.photo, "cree_le": iso(u.cree_le),
+            "prenom": u.prenom, "nom": u.nom, "telephone": u.telephone, "iban": u.iban, "super_user": u.super_user}
+
+
+def normaliser_iban(iban: str | None) -> str | None:
+    """Sans espaces, en majuscules, clé de contrôle vérifiée (ISO 13616) : la même règle qu'AppBase."""
+    texte = "".join((iban or "").split()).upper()
+    if not texte:
+        return None
+    if not (15 <= len(texte) <= 34 and texte[:2].isalpha() and texte[2:4].isdigit() and texte.isalnum()):
+        raise HTTPException(422, "Cet IBAN n'a pas la bonne forme (ex. FR76 3000 6000 0112 3456 7890 189).")
+    if int("".join(str(int(c, 36)) for c in texte[4:] + texte[:4])) % 97 != 1:
+        raise HTTPException(422, "Cet IBAN est incorrect : un caractère est sans doute mal recopié.")
+    return texte
 
 
 @app.get("/")
@@ -245,6 +263,10 @@ def moi(u: Utilisateur = Depends(moi_requis)):
 class Changement(BaseModel):
     pseudo: str | None = Field(None, max_length=40)
     photo: str | None = Field(None, max_length=300_000)  # petite image en data: URL (JPEG ~ 256 px)
+    prenom: str | None = Field(None, max_length=100)
+    nom: str | None = Field(None, max_length=100)
+    telephone: str | None = Field(None, max_length=50)  # texte libre, vide = effacé
+    iban: str | None = Field(None, max_length=60)  # vide = effacé
 
 
 @app.put("/moi")
@@ -259,6 +281,14 @@ def changer_moi(ch: Changement, j: dict = Depends(jeton_requis), s: Session = De
         if ch.photo and not ch.photo.startswith(("data:image/", "https://")):
             raise HTTPException(422, "Photo : data:image/… ou https://… attendu")
         u.photo = ch.photo or None
+    if ch.prenom is not None:
+        u.prenom = re.sub(r"\s+", " ", ch.prenom).strip()
+    if ch.nom is not None:
+        u.nom = re.sub(r"\s+", " ", ch.nom).strip()
+    if ch.telephone is not None:
+        u.telephone = ch.telephone.strip() or None
+    if ch.iban is not None:
+        u.iban = normaliser_iban(ch.iban)
     buddies.profil_change(s, u)
     s.commit()
     return profil(u)

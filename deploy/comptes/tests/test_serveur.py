@@ -83,3 +83,16 @@ def test_jetons_refuses(client, mauvais):
 
 def test_sans_jeton(client):
     assert client.get("/moi").status_code == 401
+
+
+def test_fiche_du_membre_comme_appbase(client):
+    """Prénom, nom, téléphone et IBAN facultatifs (spec/buddies.md §7.18) ; IBAN vérifié comme dans AppBase."""
+    p = client.get("/moi", headers=entete()).json()
+    assert (p["prenom"], p["nom"], p["telephone"], p["iban"], p["super_user"]) == ("", "", None, None, False)
+    r = client.put("/moi", headers=entete(), json={"prenom": " Sébastien ", "nom": "Richard", "telephone": "06 12 34 56 78",
+                                                    "iban": "fr76 3000 6000 0112 3456 7890 189"})
+    assert r.status_code == 200, r.text
+    assert (r.json()["prenom"], r.json()["iban"]) == ("Sébastien", "FR7630006000011234567890189")
+    assert client.put("/moi", headers=entete(), json={"iban": "FR76 3000 6000 0112 3456 7890 188"}).status_code == 422
+    r = client.put("/moi", headers=entete(), json={"iban": "", "telephone": ""}).json()
+    assert (r["iban"], r["telephone"], r["nom"]) == (None, None, "Richard")
