@@ -843,7 +843,7 @@ def _geotrek_json(url: str, timeout: int = 20):
 
 # ——— refuges.info (loupe 🔍 « refuge », « gîte », « cabane ») : API publique gratuite, sans clé ———
 
-REFUGES_NATURES = {"refuge": ("refuge", "cabane"), "cabane": ("cabane",), "gite": ("gîte", "gite")}
+REFUGES_NATURES = {"refuge": ("refuge", "cabane"), "cabane": ("cabane",), "gite": ("gîte", "gite"), "hebergement": ("refuge", "cabane", "gîte", "gite")}
 
 
 def _refuge(f: dict, garder: tuple) -> dict | None:

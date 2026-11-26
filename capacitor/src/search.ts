@@ -130,16 +130,17 @@ export async function searchPlacesWide(text: string, signal?: AbortSignal, near?
   return mergePlaces(got.map((g) => (g.status === 'fulfilled' ? g.value : [])));
 }
 
-// ——— Loupe 🔍 « refuge », « gîte », « cabane » (+ un lieu) : refuges.info sur la carte (Seb, 26/11) ———
+// ——— Loupe 🔍 « refuge », « gîte », « auberge », « hébergement »… (+ « près de » un lieu) : posés sur la carte (Seb, 26/11) ———
 
-export type NatureRefuge = 'refuge' | 'cabane' | 'gite';
+export type NatureRefuge = 'refuge' | 'cabane' | 'gite' | 'auberge' | 'hotel' | 'hebergement';
 
 /** « refuges vers Chamonix » → { nature: 'refuge', lieu: 'Chamonix' } ; « refuge » seul → lieu vide (autour de la carte). */
 export function demandeRefuges(text: string): { nature: NatureRefuge; lieu: string } | null {
-  const m = /^\s*(refuges?|cabanes?|g[iî]tes?(?: d['’]étapes?)?)\b(.*)$/i.exec(text);
+  const m = /^\s*(refuges?|cabanes?|g[iî]tes?(?: d['’]étapes?)?|auberges?|h[oô]tels?|h[ée]bergements?|logements?|o[uù] dormir|dormir)(?![\p{L}])(.*)$/iu.exec(text);
   if (!m) return null;
   const mot = normalize(m[1]);
-  const nature: NatureRefuge = mot.startsWith('cabane') ? 'cabane' : mot.startsWith('gite') ? 'gite' : 'refuge';
+  const nature: NatureRefuge = mot.startsWith('cabane') ? 'cabane' : mot.startsWith('gite') ? 'gite' : mot.startsWith('auberge') ? 'auberge'
+    : mot.startsWith('hotel') ? 'hotel' : mot.startsWith('refuge') ? 'refuge' : 'hebergement';
   const lieu = m[2].replace(/^[\s:,]*(?:(?:autour|pr[eè]s)\s+(?:de|du|des|d['’])|vers|à|a|au|aux|dans\s+(?:le|la|les)|de\s+la|du|des|de|d['’])?\s*/i, '').trim();
   return { nature, lieu };
 }

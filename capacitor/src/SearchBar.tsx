@@ -21,7 +21,7 @@ const Icone = ({ c }: { c: Categorie }) => <svg className="cat-icone" viewBox="0
   strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">{ICONES[c]}</svg>;
 const TITRES: Record<Categorie, string> = { courses: 'Courses skitour', sommets: 'Sommets et nature', refuges: 'Refuges, gîtes, auberges', lieux: 'Villes et lieux' };
 const ORDRE: Categorie[] = ['courses', 'sommets', 'refuges', 'lieux'];
-const NOMS_REFUGES: Record<NatureRefuge, string> = { refuge: 'Refuges et cabanes', cabane: 'Cabanes', gite: 'Gîtes d’étape' };
+const NOMS_REFUGES: Record<NatureRefuge, string> = { refuge: 'Refuges et cabanes', cabane: 'Cabanes', gite: 'Gîtes', auberge: 'Auberges', hotel: 'Hôtels', hebergement: 'Hébergements' };
 /** Lignes montrées par catégorie dans « Tout » ; « Voir plus » ouvre la catégorie. */
 const PAR_CATEGORIE = 3;
 
@@ -38,7 +38,7 @@ const dateCourte = (s: number) => new Date(s * 1000).toLocaleDateString('fr-FR',
  */
 export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password, onTopo, onSortie }: {
   onPick: (p: Place) => void; onClose: () => void; near?: { lon: number; lat: number }; onToast: (m: string) => void;
-  /** « refuge », « gîte », « cabane » (+ un lieu) : les poser sur la carte d'après refuges.info. */
+  /** « refuge », « gîte », « auberge », « hébergement »… (+ un lieu) : les poser sur la carte (refuges.info, OpenStreetMap). */
   onRefuges?: (d: { nature: NatureRefuge; lieu: string }) => void;
   /** Mot de passe du relais, pour chercher dans skitour. */
   password?: string; onTopo?: (t: TopoRow) => void; onSortie?: (s: OutingRow) => void;
@@ -81,11 +81,11 @@ export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password,
 
   // Les lignes de chaque catégorie, dans l'ordre où elles s'affichent.
   const t = text.trim();
-  const demande = onRefuges ? demandeRefuges(t) ?? (filtre === 'refuges' && t.length >= 2 ? { nature: 'refuge' as const, lieu: t } : null) : null;
+  const demande = onRefuges ? demandeRefuges(t) ?? (filtre === 'refuges' && t.length >= 2 ? { nature: 'hebergement' as const, lieu: t } : null) : null;
   const lignes: Record<Categorie, Ligne[]> = { courses: [], sommets: [], refuges: [], lieux: [] };
   if (onTopo) ski.topos.forEach((x) => lignes.courses.push({ cle: `t${x.id}`, titre: x.nom, detail: ['topo', x.massif, x.denivele ? `${x.denivele} m D+` : '', x.dif_ski].filter(Boolean).join(' · '), choisir: () => onTopo(x) }));
   if (onSortie) ski.sorties.forEach((x) => lignes.courses.push({ cle: `s${x.id}`, titre: x.titre || x.sommet, detail: ['sortie', dateCourte(x.date), x.massif].filter(Boolean).join(' · '), choisir: () => onSortie(x) }));
-  if (demande) lignes.refuges.push({ cle: 'refuges.info', titre: `${NOMS_REFUGES[demande.nature]} autour ${demande.lieu ? `de ${demande.lieu}` : 'de la carte'}`, detail: 'refuges.info, sur la carte', choisir: () => onRefuges?.(demande) });
+  if (demande) lignes.refuges.push({ cle: 'refuges.info', titre: `${NOMS_REFUGES[demande.nature]} autour ${demande.lieu ? `de ${demande.lieu}` : 'de la carte'}`, detail: 'à 10 km, sur la carte', choisir: () => onRefuges?.(demande) });
   results.forEach((p, i) => lignes[categorie(p)].push({ cle: `p${i}`, titre: p.label, detail: p.detail, choisir: () => onPick(p) }));
   const premiere = ORDRE.map((c) => lignes[c][0]).find(Boolean);
   const montrees = filtre === 'tout' ? ORDRE.filter((c) => lignes[c].length) : [filtre];

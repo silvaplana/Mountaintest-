@@ -152,6 +152,11 @@ Bud cherche aussi dans skitour d'abord (outil `chercher_skitour` du relais) pour
 Auberges et gîtes privés dans la loupe (Seb, 26/11 : « Auberge La Jabiore » introuvable) : OpenStreetMap (Photon) garde
 aussi hôtels, gîtes et chambres d'hôtes, auberges de jeunesse, chalets, campings, et les restaurants dont le nom dit
 auberge, refuge, gîte, chalet ou hôtel ; ils vont dans « Refuges, gîtes, auberges ». Photon tolère les petites fautes de frappe.
+« X près de Lieu » dans la loupe (Seb, 26/11) : un texte qui commence par refuge, cabane, gîte, auberge, hôtel,
+hébergement, logement ou « où dormir », suivi ou non d'un lieu (« auberges près de Prapic »), ajoute la ligne
+« Auberges autour de Prapic » ; la toucher pose sur la carte, à environ 10 km du lieu, les hébergements de cette nature :
+refuges.info (refuges, cabanes, gîtes d'étape) et OpenStreetMap (Overpass : hôtels, gîtes, chambres d'hôtes, auberges,
+campings), un même lieu vu deux fois gardé une fois. La pastille Refuges propose « Hébergements autour de <texte> ».
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
