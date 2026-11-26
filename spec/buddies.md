@@ -73,7 +73,7 @@ encore les anciens noms (§7.12).
   silhouette dans un rond ; 🚗 garée = une épingle posée sur la voiture (§7.19).
 - **Rétractable** (Seb, 26 novembre 2026) : le ✕ (fermer Buddies) reste toujours en haut de la colonne, dessous
   une flèche ⌄ ; la toucher fait descendre les icônes avec une animation, la flèche se retourne ⌃ et les
-  remonte. Rangée à l'ouverture de Buddies. Plus de titre « Buddies » ni de second ✕ en haut des écrans ;
+  remonte. Sortie à l'ouverture de Buddies ; si on la range, l'appli s'en souvient pour la prochaine fois (Seb, 26 novembre, avant : rangée). Plus de titre « Buddies » ni de second ✕ en haut des écrans ;
   en bas de la liste, simplement « ＋ Groupe » et « ＋ Sortie » (sans sous-titre).
   **Retouches (Seb, 26 novembre)** : icônes de la taille de celles de la carte (44 px) ; flèche horizontale ‹ / ›,
   les icônes sortent du bord de l'écran, à droite, ou à gauche si « Icônes de la carte : à gauche » (la colonne
@@ -239,6 +239,14 @@ sa gauche, on en choisit une.
 - Crayon et poubelle aussi **à côté de chaque sortie** des listes (Seb, 25 novembre 2026) : la liste des Buddies
   (l'heure de la ligne laisse sa place) et les affiches d'un groupe (en haut à droite de l'image). Le crayon
   ouvre une feuille « Nom de la sortie » (Enregistrer, Annuler) ; la poubelle : « « … » supprimé · Annuler » 10 s.
+  **Remplacés le 26 novembre (Seb) par l'appui long, comme WhatsApp** : appuyer longtemps sur un groupe ou une sortie
+  (liste des Buddies, affiches d'un groupe) la choisit (fond teinté) et une barre ardoise prend le haut de l'écran :
+  ✕ (laisser), son nom, crayon (« Nom du groupe » / « Nom de la sortie »), Partager, et la poubelle pour une sortie
+  (son créateur ou un admin ; « Annuler » 10 s ; pas de poubelle pour un groupe). Un appui normal ouvre toujours.
+  **Partager** passe par la feuille de partage du téléphone (WhatsApp, SMS, mail…) : une sortie envoie son nom, ses
+  dates, le lieu, le groupe, le nombre de partants et « Rejoins la sortie sur Mountain Buddies : lien » (qui l'ouvre
+  devient partant) ; un groupe envoie son invitation (« X t'invite dans « groupe »… : lien »). Le lien est celui,
+  réutilisable, du QR code ; il est créé la première fois. « Seul » n'a pas d'appui long.
 - Ouvrir une sortie ouvre sa carte : traces, rendez-vous, hébergement, puis photos. Un
   bandeau en bas (dans combien de jours, qui vient, chiffres du parcours) se baisse pour ne
   laisser que la carte. **(proposé)**

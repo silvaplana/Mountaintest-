@@ -24,7 +24,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, autreDuDuo, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
+  inviterSortie, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -184,7 +184,9 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
   const e = useBuddies();
   const visible = !!monEpingle(e);
   const garee = !!maVoiture(e);
-  const [ouverte, setOuverte] = useState(false);
+  // Dépliée par défaut ; repliée, l'appli s'en souvient pour la prochaine fois (Seb, 26/11).
+  const [ouverte, setOuverteEtat] = useState(() => { try { return localStorage.getItem('buddiesIcones') !== '0'; } catch { return true; } });
+  const setOuverte = (o: boolean) => { setOuverteEtat(o); try { localStorage.setItem('buddiesIcones', o ? '1' : '0'); } catch { /* ignoré */ } };
   // Appui long sur Ma position : l'écran des buddies visibles et du choix des groupes.
   const appui = useRef<{ t?: number; long?: boolean }>({});
   /** Appui long (550 ms) : `long` est lancé, et le toucher qui suit ne fait rien d'autre. */
@@ -424,15 +426,77 @@ export function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
 }
 
 /** ✏ et poubelle, au trait, à côté de chaque sortie des listes (Seb, 25 novembre). */
-function OutilsBuddyTime({ x, e, onSupprimer, onToast, surImage = false }: {
-  x: Sortie; e: Etat; onSupprimer: (x: Sortie) => void; onToast: (m: string) => void; surImage?: boolean;
-}) {
+/** Le lien d'invitation réutilisable (comme le QR code) d'un groupe ou d'une sortie ; créé la première fois. */
+function lienReutilisable(c: { groupe: Groupe } | { sortie: Sortie }): string {
+  const l = 'groupe' in c ? c.groupe.invitations : c.sortie.invitations;
+  const deja = l.find((i) => i.canal === 'qr')?.code;
+  if (deja) return lien(deja);
+  const code = nouveauCode();
+  const i = { canal: 'qr' as Canal, nom: '', contact: '', code };
+  if ('groupe' in c) inviter(c.groupe.id, i); else inviterSortie(c.sortie.id, i);
+  return lien(code);
+}
+
+/** « Partager » de la barre d'appui long (Seb, 26/11) : une sortie, son résumé et un lien pour la rejoindre ; un groupe,
+ * son lien d'invitation. Par la feuille de partage du téléphone (WhatsApp, SMS, mail…), sinon copié. */
+async function partagerChoix(c: { groupe: Groupe } | { sortie: Sortie }, nomGroupe: string, onToast: (m: string) => void) {
+  let titre: string, texte: string;
+  if ('groupe' in c) {
+    titre = c.groupe.nom;
+    texte = `${nomAffiche()} t'invite dans « ${c.groupe.nom} » sur Mountain Buddies, pour nos sorties montagne : ${lienReutilisable(c)}`;
+  } else {
+    const x = c.sortie;
+    titre = x.nom;
+    texte = [x.nom, [dates(x), x.lieu, nomGroupe].filter(Boolean).join(' · '),
+      x.participants.length > 1 ? `${x.participants.length} partants` : '',
+      `Rejoins la sortie sur Mountain Buddies : ${lienReutilisable(c)}`].filter(Boolean).join('\n');
+  }
+  try {
+    if (Capacitor.isNativePlatform()) await Natif.partager({ titre, texte });
+    else if (navigator.share) await navigator.share({ title: titre, text: texte });
+    else { await navigator.clipboard.writeText(texte); onToast('Copié : colle-le dans un message'); }
+  } catch { /* annulé */ }
+}
+
+/** Icône Partager au trait (trois points reliés). */
+function PartagerIcon() {
+  return <svg width="24" height="24" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="36" cy="10" r="5" /><circle cx="12" cy="24" r="5" /><circle cx="36" cy="38" r="5" /><path d="M16.5 21.5l15-8.5M16.5 26.5l15 8.5" /></svg>;
+}
+
+/**
+ * Appui long sur un groupe ou une sortie, comme WhatsApp (Seb, 26/11) : la ligne est choisie et une barre ardoise
+ * prend le haut : ✕, Modifier (le nom), Partager, Supprimer (une sortie : son créateur ou un admin, avec « Annuler »).
+ * Un appui normal ouvre toujours.
+ */
+type Choix = { groupe: Groupe } | { sortie: Sortie };
+function useChoix(e: Etat, groupes: Groupe[], onToast: (m: string) => void, supprimer: (x: Sortie) => void) {
+  const [choix, setChoix] = useState<Choix | null>(null);
   const [nommer, setNommer] = useState(false);
-  return <span className={`bd-outils${surImage ? ' sur-image' : ''}`}>
-    <button onClick={() => setNommer(true)} aria-label={`Changer le nom de ${x.nom}`}><PencilIcon size={18} /></button>
-    {peutSupprimer(x, e) && <button onClick={() => onSupprimer(x)} aria-label={`Supprimer ${x.nom}`}><TrashIcon size={18} /></button>}
-    {nommer && <FeuilleNom titre="Nom de la sortie" nom={x.nom} onEnregistrer={(n) => renommerSortie(x.id, n)} onFermer={() => setNommer(false)} onToast={onToast} />}
-  </span>;
+  const t = useRef<number | undefined>(undefined);
+  const long = useRef(false);
+  const arreter = () => clearTimeout(t.current);
+  const appui = (c: Choix) => ({
+    onPointerDown: () => { long.current = false; arreter(); t.current = window.setTimeout(() => { long.current = true; setChoix(c); navigator.vibrate?.(20); }, 550); },
+    onPointerUp: arreter, onPointerLeave: arreter, onPointerCancel: arreter,
+    onContextMenu: (ev: React.MouseEvent) => ev.preventDefault(),
+    // Le toucher qui suit un appui long ne rouvre pas la ligne.
+    onClickCapture: (ev: React.MouseEvent) => { if (long.current) { ev.stopPropagation(); ev.preventDefault(); long.current = false; } },
+  });
+  const choisi = (c: Choix) => !!choix && ('groupe' in c ? 'groupe' in choix && choix.groupe.id === c.groupe.id : 'sortie' in choix && choix.sortie.id === c.sortie.id);
+  const nom = choix ? ('groupe' in choix ? choix.groupe.nom : choix.sortie.nom) : '';
+  const nomGroupe = choix && 'sortie' in choix ? groupes.find((g) => g.id === choix.sortie.groupe)?.nom ?? '' : '';
+  const barre = choix && <div className="bd-barre-choix">
+    <button onClick={() => setChoix(null)} aria-label="Annuler le choix">✕</button>
+    <b>{nom}</b><span style={{ flex: 1 }} />
+    <button onClick={() => setNommer(true)} aria-label={`Changer le nom de ${nom}`}><PencilIcon size={22} /></button>
+    <button onClick={() => { void partagerChoix(choix, nomGroupe, onToast); setChoix(null); }} aria-label={`Partager ${nom}`}><PartagerIcon /></button>
+    {'sortie' in choix && peutSupprimer(choix.sortie, e) && <button onClick={() => { supprimer(choix.sortie); setChoix(null); }} aria-label={`Supprimer ${nom}`}><TrashIcon size={22} /></button>}
+    {nommer && <FeuilleNom titre={'groupe' in choix ? 'Nom du groupe' : 'Nom de la sortie'} nom={nom} onToast={onToast}
+      onEnregistrer={(n) => ('groupe' in choix ? renommerGroupe(choix.groupe.id, n) : renommerSortie(choix.sortie.id, n))}
+      onFermer={() => { setNommer(false); setChoix(null); }} />}
+  </div>;
+  return { appui, choisi, barre };
 }
 
 type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }
@@ -659,14 +723,17 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
   const haut = prochaine(sorties);
   const suppression = useSuppression();
   const nomGroupe = (x: Sortie) => groupes.find((g) => g.id === x.groupe)?.nom ?? '';
+  const ch = useChoix(e, groupes, onToast, suppression.supprimer);
   return <div className="bd-corps">
+    {ch.barre}
     {/* Pas de « à jour à … » (Seb, 26 novembre) : seulement ce qui attend le réseau. */}
     {enAttente > 0 && <p className="hint">🕓 {enAttente} changement{enAttente > 1 ? 's' : ''} partira au retour du réseau</p>}
     {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     {haut && <Affiche x={haut} onClick={() => onSortie(haut)} />}
     <h3 className="bd-section">Groupes</h3>
-    {groupes.map((g) => <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
+    {groupes.map((g) => <button key={g.id} className={`bd-ligne${ch.choisi({ groupe: g }) ? ' choisi' : ''}`} onClick={() => onOuvrir(g.id)}
+      {...(g.nature === 'bande' ? ch.appui({ groupe: g }) : {})}>
       {g.nature === 'me_time' ? <Visage b={{ id: g.id, pseudo: nomAffiche(), photo: lireCompte().profil?.photo ?? null }} taille={56} />
         : <Visage b={{ id: g.id, nom: g.nom, photo: g.photo }} taille={56} />}
       {/* Plus de « 1 buddy · 1 invitation envoyée » sous le nom (Seb, 26/11) : juste le nom. */}
@@ -674,12 +741,13 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
       <small className="bd-quand">{g.attente ? '🕓' : quand(g.modifie_le)}</small>
     </button>)}
     {sorties.length > 0 && <h3 className="bd-section">Sorties</h3>}
-    {sorties.map((x) => <div key={x.id} className="bd-ligne-outils"><button className="bd-ligne" onClick={() => onSortie(x)}>
+    {sorties.map((x) => <div key={x.id} className="bd-ligne-outils"><button className={`bd-ligne${ch.choisi({ sortie: x }) ? ' choisi' : ''}`}
+      onClick={() => onSortie(x)} {...ch.appui({ sortie: x })}>
       <Carre x={x} />
       <span className="bd-texte"><b>{x.nom}</b>
         <small>{[nomGroupe(x), x.participants.length > 1 ? `${x.participants.length} partants` : '', x.fin < aujourdhui() ? 'sortie passée' : ''].filter(Boolean).join(' · ')}</small></span>
       {x.attente && <small className="bd-quand">🕓</small>}
-    </button><OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} /></div>)}
+    </button></div>)}
     {suppression.bandeau}
     <span style={{ flex: 1 }} />
     <div className="bd-plus">
@@ -704,7 +772,9 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   const souvenirs = sorties.filter((x) => x.fin < auj).sort((a, b) => b.debut.localeCompare(a.debut));
   const suppression = useSuppression();
   const e = useBuddies();
+  const ch = useChoix(e, [g], onToast, suppression.supprimer);
   return <div className="bd-corps">
+    {ch.barre}
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
       <span className="bd-titre" onClick={() => setNommer(!me)}><b>{me ? 'Seul' : g.nom}</b><small>{me ? 'Mes sorties à moi' : `Groupe · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
@@ -721,13 +791,13 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     {!me && <LigneAppel dest={{ groupe: g.id }} nom={g.nom} onToast={onToast} />}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     <h3 className="bd-section">À venir</h3>
-    {avenir.length ? avenir.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} onClick={() => onOuvrir(x)} />
-      <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)
+    {avenir.length ? avenir.map((x) => <div key={x.id} className={`bd-affiche-outils${ch.choisi({ sortie: x }) ? ' choisi' : ''}`} {...ch.appui({ sortie: x })}>
+      <Affiche x={x} onClick={() => onOuvrir(x)} /></div>)
       : <p className="bd-vide">Rien de prévu pour l’instant</p>}
     {/* Sorties passées, chacune sur toute la largeur (Seb, 26/11). */}
     {souvenirs.length > 0 && <><h3 className="bd-section">Sorties passées</h3>
-      <div className="bd-passees">{souvenirs.map((x) => <div key={x.id} className="bd-affiche-outils"><Affiche x={x} petite onClick={() => onOuvrir(x)} />
-        <OutilsBuddyTime x={x} e={e} onSupprimer={suppression.supprimer} onToast={onToast} surImage /></div>)}</div></>}
+      <div className="bd-passees">{souvenirs.map((x) => <div key={x.id} className={`bd-affiche-outils${ch.choisi({ sortie: x }) ? ' choisi' : ''}`} {...ch.appui({ sortie: x })}>
+        <Affiche x={x} petite onClick={() => onOuvrir(x)} /></div>)}</div></>}
     {suppression.bandeau}
     {/* Plus de « Traces partagées » ici : les traces se partagent dans le chat pour l’instant (Seb, 26/11). */}
     <span style={{ flex: 1 }} />

@@ -502,6 +502,8 @@ export function creerGroupe(nom: string, photo: string | null, invitations: Nouv
   return groupe;
 }
 export const inviter = (groupe: string, i: NouvelleInvitation) => ajouter({ type: 'inviter', groupe, invitation: uuid(), ...i });
+/** Inviter à une sortie (son lien partagé par l'appui long, Seb 26/11) : on en devient partant. */
+export const inviterSortie = (sortie: string, i: NouvelleInvitation) => ajouter({ type: 'inviter', sortie, invitation: uuid(), ...i });
 
 export type NouvelleSortie = { groupe: string; nom: string; photo: string | null; debut: string; fin: string; lieu: string; participants: string[] };
 /** Nouvelle sortie ; dans Me Time, les copains invités à l'unité (`invitations`). */
