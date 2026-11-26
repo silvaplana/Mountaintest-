@@ -964,12 +964,25 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .bd-solde > b { min-width: 84px; text-align: right; font-size: 19px; }
 /* « ＋ Dépense » : petite pilule à droite comme « ＋ Sortie » (.bd-plus, Seb 26/11) ;
    les équilibres et le texte s'arrêtent avant la colonne d'icônes (le montant passait dessous). */
-.buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide, .bd-rembourser) { margin-right: 60px; }
-.icones-gauche .buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-virement, .bd-vide, .bd-rembourser) { margin-right: 0; margin-left: 60px; }
+.buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-paiement, .bd-vide, .bd-rembourser, .bd-tout-ok) { margin-right: 60px; }
+.icones-gauche .buddies > .bd-count > :is(.bd-entre, .bd-solde, .bd-paiement, .bd-vide, .bd-rembourser, .bd-tout-ok) { margin-right: 0; margin-left: 60px; }
 .bd-count b.plus { color: #2f7d4f; } .bd-count b.moins { color: #c2410c; }
 .bd-virement { flex: none; display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 16px; padding: 10px 12px; }
 .bd-virement .bd-texte { flex: 1; min-width: 0; }
 .bd-virement > b { font-size: 19px; }
+/* « J'ai payé » / « OK, reçu » (Seb, 26/11). */
+.bd-paiement { flex: none; display: flex; flex-direction: column; gap: 6px; }
+.bd-virement.attente { outline: 2px dashed #c9862b; outline-offset: -2px; }
+.bd-virement small { display: block; color: var(--muted); }
+.bd-deux { display: flex; gap: 10px; }
+.bd-deux > button { flex: 1; }
+.bd-paiement button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.bd-remb { background: #dfeee4; border-radius: 14px; }
+.bd-tout-ok { color: #2a8a55; font-weight: 700; }
+.bd-equilibre { flex: none; color: #2a8a55; display: grid; place-items: center; }
+.bd-choix-moyen { display: flex; flex-wrap: wrap; gap: 8px; }
+.bd-choix-moyen button { flex: 1 1 40%; }
+.bd-choix-moyen button.on { background: var(--accent); color: var(--on-accent); }
 /* Rembourser (Seb 26/11) : Wero et IBAN de celui à qui je dois, chacun avec Copier. */
 .bd-rembourser { flex: none; display: flex; flex-direction: column; gap: 8px; }
 div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 12px; }

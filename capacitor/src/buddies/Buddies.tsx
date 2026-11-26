@@ -992,7 +992,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
     const lons = t.ligne.map((p) => p[0]), lats = t.ligne.map((p) => p[1]);
     map?.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 70, maxZoom: 15, duration: 600 });
   };
-  const depense = v.depenses.filter((d) => d.sortie === x.id).reduce((n, d) => n + d.montant, 0);
+  const depense = v.depenses.filter((d) => d.sortie === x.id && !d.remb).reduce((n, d) => n + d.montant, 0);
   const hebergements = v.hebergements.filter((h) => h.sortie === x.id);
   const retenu = hebergements.find((h) => h.retenu);
   const auteurs = new Set(photos.map((p) => p.par.id)).size;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { aujourdhui, enregistrerDepense, lire, peutRetirer, retirerDepense, type BuddyCountEtat, type Depense, type Groupe, type Sortie } from './store';
-import { compte, euros, icone, lireEuros } from './count';
+import { annoncerPaiement, aujourdhui, confirmerRecu, enregistrerDepense, lire, peutRetirer, retirerDepense, type BuddyCountEtat, type Depense, type Groupe, type Sortie } from './store';
+import { compte, equilibre, euros, icone, lireEuros } from './count';
 import { BuddyCountIcon, FeuilleNom, Visage } from './Buddies';
 import { PencilIcon, TrashIcon } from '../icones';
 
@@ -23,18 +23,22 @@ export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onN
   groupes: Groupe[]; sorties: Sortie[]; counts: BuddyCountEtat[]; depenses: Depense[]; ici?: Groupe;
   onOuvrir: (x: Sortie, deGroupe: boolean) => void; onNouveau?: () => void; onRetour: () => void; onClose: () => void;
 }) {
-  const total = (id: string) => depenses.filter((d) => d.sortie === id).reduce((n, d) => n + d.montant, 0);
+  const total = (id: string) => depenses.filter((d) => d.sortie === id && !d.remb).reduce((n, d) => n + d.montant, 0);
   const etat = (id: string) => counts.find((c) => c.id === id || c.sortie === id);
   const deGroupe = counts.filter((c) => c.groupe && !c.supprime && groupes.some((g) => g.id === c.groupe))
     .sort((a, b) => b.cree_le.localeCompare(a.cree_le))
     .map((c) => sortieDuCount(c, groupes.find((g) => g.id === c.groupe)!));
   const deSortie = sorties.filter((x) => !etat(x.id)?.supprime)
     .sort((a, b) => b.debut.localeCompare(a.debut));
+  const moi = lire().moi ?? 'moi';
   const ligne = (x: Sortie, g: boolean, sous: string) => {
     const t = total(x.id);
+    const ok = equilibre(compte(x, depenses, moi));
     return <button key={x.id} className="bd-ligne bd-count-ligne" onClick={() => onOuvrir(x, g)}>
       <span className="bd-album-mini"><BuddyCountIcon /></span>
-      <span className="bd-texte"><b>{x.nom}</b><small>{t ? `${euros(t)} à ${x.participants.length}` : 'pas encore de dépense'}{sous}</small></span>
+      <span className="bd-texte"><b>{x.nom}</b><small>{t ? `${euros(t)} à ${x.participants.length}` : 'pas encore de dépense'}{ok ? ' · équilibré' : ''}{sous}</small></span>
+      {/* Équilibré : un signe égal dans un rond, vert (Seb, 26/11, version D). */}
+      {ok && <span className="bd-equilibre" role="img" aria-label="Équilibré"><EgalIcon /></span>}
     </button>;
   };
   return <div className="bd-corps">
@@ -80,8 +84,10 @@ export function BuddyCount({ x, depenses, deGroupe = false, onRenommer, onSuppri
   onSupprimer?: () => void; onDepense: (id?: string) => void; onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
   const [nommer, setNommer] = useState(false);
+  const [payer, setPayer] = useState<{ a: string; montant: number } | null>(null);
   const moi = lire().moi ?? 'moi';
   const ds = depenses.filter((d) => d.sortie === x.id);
+  const annonces = ds.filter((d) => d.remb === 'annonce');
   const c = compte(x, ds, moi);
   const max = Math.max(1, ...Object.values(c.soldes).map((v) => Math.abs(v)));
   const qui = (id: string) => x.participants.find((p) => p.id === id) ?? { id, pseudo: '?', photo: null };
@@ -105,25 +111,76 @@ export function BuddyCount({ x, depenses, deGroupe = false, onRenommer, onSuppri
         <b className={v > 0.004 ? 'plus' : v < -0.004 ? 'moins' : ''}>{v > 0.004 ? '+' : ''}{euros(Math.round(v * 100))}</b>
       </div>;
     })}
-    {c.virements.map((s, i) => <div key={i} className="bd-virement">
-      <Visage b={qui(s.from)} taille={40} /><span>→</span><Visage b={qui(s.to)} taille={40} />
-      <span className="bd-texte"><b>{qui(s.from).pseudo} doit à {qui(s.to).pseudo}</b></span>
-      <b>{euros(Math.round(s.amount * 100))}</b>
-    </div>)}
-    {ds.length > 0 && !c.virements.length && <p className="hint">Tout est équilibré.</p>}
+    {c.virements.map((s, i) => {
+      const annonce = annonces.find((d) => d.paye_par === s.from && d.pour[0] === s.to);
+      return <div key={i} className="bd-paiement">
+        <div className={`bd-virement${annonce ? ' attente' : ''}`}>
+          <Visage b={qui(s.from)} taille={40} /><span>→</span><Visage b={qui(s.to)} taille={40} />
+          <span className="bd-texte">{annonce
+            ? <><b>{s.to === moi ? `${qui(s.from).pseudo} dit t'avoir payé` : `${qui(s.from).pseudo} a payé ${qui(s.to).pseudo}`}</b>
+              {MOYEN[annonce.moyen ?? ''] && <small>{MOYEN[annonce.moyen ?? '']}</small>}
+              {s.to !== moi && <small>🕓 {qui(s.to).pseudo} doit confirmer</small>}</>
+            : <b>{qui(s.from).pseudo} doit à {qui(s.to).pseudo}</b>}</span>
+          <b>{euros(annonce ? annonce.montant : Math.round(s.amount * 100))}</b>
+        </div>
+        {/* « J'ai payé » / « OK, reçu » (Seb, 26/11) : rien ne compte avant la confirmation de celui qui reçoit. */}
+        {!annonce && s.from === moi && <button className="primary" onClick={() => setPayer({ a: s.to, montant: Math.round(s.amount * 100) })}>J'ai payé {qui(s.to).pseudo}</button>}
+        {annonce && s.from === moi && <button className="bd-lien" onClick={() => retirerDepense(annonce.id)}>Annuler</button>}
+        {annonce && s.to === moi && <div className="bd-deux">
+          <button onClick={() => { confirmerRecu(annonce.id, false); onToast(`${qui(s.from).pseudo} est prévenu`); }}>Pas reçu</button>
+          <button className="primary" onClick={() => confirmerRecu(annonce.id, true)}>OK, reçu</button></div>}
+      </div>;
+    })}
+    {equilibre(c) && <p className="hint bd-tout-ok">Tout est équilibré.</p>}
     {/* Ce que je dois : comment rembourser, seulement ce que la personne a renseigné (Seb, 26/11). */}
-    {c.virements.filter((v) => v.from === moi).map((v) => <Rembourser key={v.to} nom={qui(v.to).pseudo}
+    {c.virements.filter((v) => v.from === moi && !annonces.some((d) => d.paye_par === moi && d.pour[0] === v.to)).map((v) => <Rembourser key={v.to} nom={qui(v.to).pseudo}
       moyens={lire().paiements?.[x.id]?.[v.to]} onToast={onToast} />)}
+    {payer && <Payer nom={qui(payer.a).pseudo} montant={payer.montant} onToast={onToast} onFermer={() => setPayer(null)}
+      onPayer={(montant, moyen) => { annoncerPaiement({ sortie: x.id, a: payer.a, montant, moyen }); setPayer(null); onToast(`${qui(payer.a).pseudo} est prévenu`); }} />}
     <h3 className="bd-section">Dépenses</h3>
-    {ds.map((d) => <button key={d.id} className="bd-ligne bd-depense" onClick={() => onDepense(d.id)}>
+    {ds.filter((d) => d.remb === 'recu').map((d) => <div key={d.id} className="bd-ligne bd-depense bd-remb">
+      <Visage b={qui(d.paye_par)} taille={40} />
+      <span className="bd-texte"><b>Remboursement</b><small>{qui(d.paye_par).pseudo} → {qui(d.pour[0]).pseudo}{d.moyen && MOYEN[d.moyen] ? ` · ${MOYEN[d.moyen]}` : ''} · reçu ✓{d.attente ? ' · 🕓' : ''}</small></span>
+      <b>{euros(d.montant)}</b>
+    </div>)}
+    {ds.filter((d) => !d.remb).map((d) => <button key={d.id} className="bd-ligne bd-depense" onClick={() => onDepense(d.id)}>
       <span className="bd-icone">{icone(d.titre)}</span>
       <span className="bd-texte"><b>{d.titre}</b><small>payé par {qui(d.paye_par).pseudo}{d.pour.length < x.participants.length ? ` · pour ${d.pour.length}` : ''}{d.attente ? ' · 🕓' : ''}</small></span>
       <b>{euros(d.montant)}</b>
     </button>)}
-    {!ds.length && <p className="bd-vide">Pas encore de dépense : le gîte, l'essence, les courses… chacun ajoute ce qu'il a payé.</p>}
+    {!ds.some((d) => !d.remb) && <p className="bd-vide">Pas encore de dépense : le gîte, l'essence, les courses… chacun ajoute ce qu'il a payé.</p>}
     <span style={{ flex: 1 }} />
     <div className="bd-plus"><button className="primary" onClick={() => onDepense()}><span className="bd-plus-texte"><b>＋ Dépense</b></span></button></div>
   </div>;
+}
+
+const MOYEN: Record<string, string> = { virement: 'par virement', wero: 'par Wero', especes: 'en espèces', autre: '' };
+
+/** Signe égal dans un rond, au trait : Buddy count équilibré (Seb, 26/11). */
+function EgalIcon() {
+  return <svg width="26" height="26" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+    <circle cx="24" cy="24" r="18" /><path d="M16 20h16M16 28h16" /></svg>;
+}
+
+/** « Comment as-tu payé ? » : le moyen et le montant (déjà rempli, on peut payer une partie), puis « C'est payé ». */
+function Payer({ nom, montant, onPayer, onFermer, onToast }: {
+  nom: string; montant: number; onPayer: (montant: number, moyen: string) => void; onFermer: () => void; onToast: (m: string) => void;
+}) {
+  const [moyen, setMoyen] = useState('virement');
+  const [m, setM] = useState((montant / 100).toFixed(2).replace('.', ',').replace(',00', ''));
+  const valider = () => {
+    const c = lireEuros(m);
+    if (c == null) { onToast('Indique le montant'); return; }
+    try { onPayer(c, moyen); } catch (err) { onToast((err as Error).message); }
+  };
+  return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+    <h3>Comment as-tu payé {nom} ?</h3>
+    <div className="bd-choix-moyen">{([['virement', 'Virement'], ['wero', 'Wero'], ['especes', 'Espèces'], ['autre', 'Autre']] as const).map(([v, t]) =>
+      <button key={v} className={moyen === v ? 'on' : ''} onClick={() => setMoyen(v)}>{t}</button>)}</div>
+    <label className="bd-champ"><small>Montant (€)</small><input inputMode="decimal" value={m} onChange={(ev) => setM(ev.target.value)} /></label>
+    <button className="primary" onClick={valider}>C'est payé</button>
+    <button onClick={onFermer}>Annuler</button>
+  </div></div>;
 }
 
 /** IBAN lisible : par groupes de 4. */

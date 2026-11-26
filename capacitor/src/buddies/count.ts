@@ -10,7 +10,8 @@ export function groupeDe(x: Sortie, depenses: Depense[], moi: string): Group {
   return {
     id: x.id, name: x.nom, emoji: '', me: moi,
     members: x.participants.map((p) => ({ id: p.id, name: p.pseudo })),
-    expenses: depenses.filter((d) => d.sortie === x.id).map((d) => ({ id: d.id, title: d.titre, amount: d.montant / 100, paidBy: d.paye_par, forIds: d.pour, date: d.jour })),
+    // « J'ai payé » pas encore confirmé : ne compte pas dans les équilibres (Seb, 26/11).
+    expenses: depenses.filter((d) => d.sortie === x.id && d.remb !== 'annonce').map((d) => ({ id: d.id, title: d.titre, amount: d.montant / 100, paidBy: d.paye_par, forIds: d.pour, date: d.jour })),
   };
 }
 
@@ -18,9 +19,12 @@ export type Compte = { total: number; chacun: number; soldes: Record<string, num
 /** Total (centimes), part moyenne, solde de chacun (euros, + : on lui doit) et remboursements. */
 export function compte(x: Sortie, depenses: Depense[], moi: string): Compte {
   const g = groupeDe(x, depenses, moi);
-  const total = depenses.filter((d) => d.sortie === x.id).reduce((n, d) => n + d.montant, 0);
+  const total = depenses.filter((d) => d.sortie === x.id && !d.remb).reduce((n, d) => n + d.montant, 0);
   return { total, chacun: x.participants.length ? Math.round(total / x.participants.length) : 0, soldes: balances(g), virements: settlements(g) };
 }
+
+/** Équilibré (Seb, 26/11) : il y a des dépenses et plus personne ne doit rien à personne. */
+export const equilibre = (c: Compte) => c.total > 0 && !c.virements.length;
 
 /** « 106 € », « 12,50 € » (centimes). */
 export function euros(c: number) {

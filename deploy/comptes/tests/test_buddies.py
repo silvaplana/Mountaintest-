@@ -902,3 +902,36 @@ def test_supprimer_un_groupe_reserve_aux_admins(client):
     # Plus rien n'y entre : ni sortie, ni invitation.
     assert sync(client, ops=[nouvelle_sortie(gid)])["refus"]
     assert sync(client, sub="luc", ops=[{"id": "l", "type": "rejoindre", "code": "CodeSecret0123456789"}])["refus"]
+
+
+def test_j_ai_paye_puis_ok_recu(client, monkeypatch):
+    """Seb, 26 novembre : Julie dit avoir payé Seb ; Seb est prévenu ; « OK, reçu » solde la dette, « Pas reçu » l'efface."""
+    import appels
+    sonne = []
+    monkeypatch.setattr(appels, "sonner", lambda S, qui, data, ttl="45s": sonne.append((qui, data)))
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    seb = sync(client, ops=[so])["moi"]
+    sid = so["sortie"]
+    gite = op("depense", depense=str(uuid.uuid4()), sortie=sid, titre="Gîte", montant=34000, paye_par=seb, pour=[seb, julie], jour="2026-11-26")
+    sync(client, ops=[gite])
+    p = op("paye", depense=str(uuid.uuid4()), sortie=sid, a=seb, montant=17000, moyen="virement", jour="2026-11-26")
+    assert sync(client, sub="julie", ops=[p])["refus"] == []
+    assert [str(q) for q in sonne[-1][0]] == [seb] and sonne[-1][1]["texte"] == "dit t'avoir payé 170 € par virement"
+    r = sync(client)
+    x = next(d for d in r["depenses"] if d["id"] == p["depense"])
+    assert (x["remb"], x["moyen"], x["paye_par"], x["pour"]) == ("annonce", "virement", julie, [seb])
+    # Julie ne confirme pas à la place de Seb ; on ne change pas un remboursement comme une dépense.
+    assert sync(client, sub="julie", ops=[op("recu", depense=p["depense"], ok=True)])["refus"]
+    assert sync(client, sub="julie", ops=[op("depense", depense=p["depense"], sortie=sid, titre="x", montant=1, paye_par=julie, pour=[seb])])["refus"]
+    assert sync(client, ops=[op("recu", depense=p["depense"], ok=True)])["refus"] == []
+    assert next(d for d in sync(client)["depenses"] if d["id"] == p["depense"])["remb"] == "recu"
+    assert [str(q) for q in sonne[-1][0]] == [julie] and sonne[-1][1]["texte"] == "a bien reçu tes 170 €"
+    # Un autre « J'ai payé », refusé par Seb : il disparaît et Julie est prévenue.
+    p2 = op("paye", depense=str(uuid.uuid4()), sortie=sid, a=seb, montant=500, moyen="wero")
+    assert sync(client, sub="julie", ops=[p2])["refus"] == []
+    assert sync(client, ops=[op("recu", depense=p2["depense"], ok=False)])["refus"] == []
+    assert p2["depense"] not in sync(client)["ids_depenses"]
+    assert [str(q) for q in sonne[-1][0]] == [julie] and sonne[-1][1]["texte"] == "n'a pas reçu tes 5 €"
+    # On ne se rembourse pas soi-même.
+    assert sync(client, ops=[op("paye", depense=str(uuid.uuid4()), sortie=sid, a=seb, montant=100)])["refus"]

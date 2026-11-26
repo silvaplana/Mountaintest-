@@ -978,3 +978,13 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   (`sortie_id` devient facultatif). Opération `buddy_count {count, groupe, nom}` (créer) ou `{count | sortie, nom?,
   ferme?, supprime?}` ; `depense` accepte `count` à la place de `sortie` ; la synchro rend `counts`.
 
+
+- **« J'ai payé » / « OK, reçu » (Seb, 26 novembre, maquette maquettes/buddy-count-paye/)** : sous « X doit à Y »,
+  X a un bouton « J'ai payé Y » → « Comment as-tu payé ? » (Virement, Wero, Espèces, Autre ; montant pré-rempli,
+  on peut payer une partie) → « C'est payé ». La ligne passe en pointillés « en attente » (X peut « Annuler ») ; rien
+  ne bouge dans les équilibres. Y reçoit une notification et voit « X dit t'avoir payé » avec « Pas reçu » / « OK,
+  reçu » ; X est prévenu de la réponse. Confirmé, le paiement devient une ligne verte « Remboursement · X → Y · moyen ·
+  reçu ✓ » dans les dépenses, comptée dans les équilibres mais pas dans le total. Serveur : opérations `paye`, `recu`
+  (seul Y confirme), colonnes `depenses.remb` (annonce/recu) et `depenses.moyen` ; un remboursement ne se modifie pas.
+- **Équilibré** : un Buddy count avec des dépenses où plus personne ne doit rien porte « · équilibré » et un signe égal
+  dans un rond, vert (version D), au bout de sa ligne dans la liste.

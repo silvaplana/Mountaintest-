@@ -99,6 +99,8 @@ COLONNES_AJOUTEES = [
     ("photos", "video", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("sorties", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
     ("groupes", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
+    ("depenses", "remb", "VARCHAR(10)"),
+    ("depenses", "moyen", "VARCHAR(10)"),
     ("utilisateurs", "super_user", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("utilisateurs", "prenom", "VARCHAR(100) NOT NULL DEFAULT ''"),
     ("utilisateurs", "nom", "VARCHAR(100) NOT NULL DEFAULT ''"),
@@ -383,6 +385,9 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     r = buddies.synchroniser(s, u, corps.ops, corps.depuis)
     # 🔔 Nouveaux messages : une notification aux autres (en arrière-plan, sans clé Firebase : rien).
     for qui, data in buddies.a_prevenir(s, u, s.info.pop("nouveaux_messages", [])):
+        appels.sonner(Sessions, qui, data, ttl="86400s")
+    # 💶 « J'ai payé » / « Pas reçu » : une notification à l'autre (même forme qu'un message).
+    for qui, data in s.info.pop("paiements_a_prevenir", []):
         appels.sonner(Sessions, qui, data, ttl="86400s")
     return r
 
