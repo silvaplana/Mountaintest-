@@ -732,6 +732,16 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-outils { display: flex; gap: 0; flex: none; }
 .bd-outils > button { width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--fg); display: grid; place-items: center; }
 .bd-affiche-outils { position: relative; }
+/* Appui long, comme WhatsApp (Seb, 26/11) : la ligne choisie, et la barre ardoise en haut. */
+.bd-ligne.choisi, .bd-affiche-outils.choisi { background: var(--accent-soft); border-radius: 14px; }
+.bd-affiche-outils.choisi { outline: 3px solid var(--accent); }
+.bd-barre-choix { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 2px;
+  min-height: 64px; padding: 8px; background: var(--accent); color: var(--on-accent); }
+/* Pendant le choix, la barre a son ✕ : le ✕ et la flèche de la colonne s'effacent (comme WhatsApp). */
+.buddies:has(.bd-barre-choix) .bd-col-haut { visibility: hidden; }
+.bd-barre-choix b { font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; margin-left: 4px; }
+.bd-barre-choix > button { flex: none; width: 48px; height: 48px; min-height: 0; padding: 0; border: 0; border-radius: 50%; background: none;
+  color: inherit; display: grid; place-items: center; font-size: 22px; box-shadow: none; }
 .bd-outils.sur-image { position: absolute; top: 6px; right: 6px; }
 .bd-outils.sur-image > button { background: #0006; color: #fff; }
 /* Crayons et poubelles plus discrets (Seb 26/11) : icône 18 px, rond de 38 px sur la photo. */
