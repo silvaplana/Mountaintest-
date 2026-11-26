@@ -157,6 +157,11 @@ hébergement, logement ou « où dormir », suivi ou non d'un lieu (« auberges 
 « Auberges autour de Prapic » ; la toucher pose sur la carte, à environ 10 km du lieu, les hébergements de cette nature :
 refuges.info (refuges, cabanes, gîtes d'étape) et OpenStreetMap (Overpass : hôtels, gîtes, chambres d'hôtes, auberges,
 campings), un même lieu vu deux fois gardé une fois. La pastille Refuges propose « Hébergements autour de <texte> ».
+Web et Bud dans la loupe (Seb, 26/11) : en bas des résultats, « Chercher sur le web » (globe au trait) passe la
+recherche à Bud (recherche web, payante, seulement si on touche) ; un texte qui commence par « Bud », « OK Bud » (ou
+« bad », « budd »… comme dans les conversations) est une question à Bud : plus de catégories, une ligne « Demander à
+Bud » (Entrée, ou tout de suite si c'est dicté), puis sa réponse, les endroits proposés (toucher = y aller) et « Tout
+voir sur la carte » pour ses hébergements. Bud reçoit le centre de la carte. Pas Google : payant et sans coordonnées.
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à

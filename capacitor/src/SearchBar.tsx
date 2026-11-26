@@ -4,6 +4,8 @@ import { localNames, searchNames } from './places/placeNames';
 import { MicIcon, Onde, useDictee } from './buddies/Dictee';
 import { relayPost } from './travel/travel';
 import type { OutingRow, TopoRow } from './ski/skitour';
+import { demander, pourBud, type ReponseBud } from './buddies/bud';
+import type { PlacedLodging } from './Lodging';
 
 /** Un résultat en ligne qui redit un nom déjà trouvé sur le téléphone (même nom, à moins de 300 m). */
 export function mergeResults(local: Place[], online: Place[]): Place[] {
@@ -17,6 +19,12 @@ const ICONES: Record<Categorie, ReactElement> = {
   refuges: <path d="M3 12 L12 4 L21 12 M6 10 V20 H18 V10 M10 20 V15 H14 V20" />,
   lieux: <path d="M12 21 C12 21 5 14 5 9.5 A7 7 0 0 1 19 9.5 C19 14 12 21 12 21 Z M12 7.5 A2 2 0 1 0 12.01 7.5" />,
 };
+/** Globe au trait : « Chercher sur le web ». */
+const Globe = () => <svg className="cat-icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8"
+  strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12 H21 M12 3 C8.5 7 8.5 17 12 21 M12 3 C15.5 7 15.5 17 12 21" /></svg>;
+/** Bulle au trait : « Demander à Bud ». */
+const Bulle = () => <svg className="cat-icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8"
+  strokeLinejoin="round" aria-hidden="true"><path d="M4 5 H20 V16 H10 L5 20 V16 H4 Z" /></svg>;
 const Icone = ({ c }: { c: Categorie }) => <svg className="cat-icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
   strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">{ICONES[c]}</svg>;
 const TITRES: Record<Categorie, string> = { courses: 'Courses skitour', sommets: 'Sommets et nature', refuges: 'Refuges, gîtes, auberges', lieux: 'Villes et lieux' };
@@ -36,25 +44,32 @@ const dateCourte = (s: number) => new Date(s * 1000).toLocaleDateString('fr-FR',
  * OpenStreetMap, les lieux proches du centre de la carte (near) en premier. Courses : topos et sorties skitour (relais).
  * Micro : on dit le nom au lieu de le taper (dictée dans l'appli, comme dans la messagerie).
  */
-export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password, onTopo, onSortie }: {
+export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password, onTopo, onSortie, onLodgings }: {
   onPick: (p: Place) => void; onClose: () => void; near?: { lon: number; lat: number }; onToast: (m: string) => void;
   /** « refuge », « gîte », « auberge », « hébergement »… (+ un lieu) : les poser sur la carte (refuges.info, OpenStreetMap). */
   onRefuges?: (d: { nature: NatureRefuge; lieu: string }) => void;
   /** Mot de passe du relais, pour chercher dans skitour. */
   password?: string; onTopo?: (t: TopoRow) => void; onSortie?: (s: OutingRow) => void;
+  /** Hébergements trouvés par Bud ou sur le web : tous sur la carte. */
+  onLodgings?: (l: PlacedLodging[]) => void;
 }) {
   const [text, setText] = useState('');
   const [results, setResults] = useState<Place[]>([]);
   const [ski, setSki] = useState<{ topos: TopoRow[]; sorties: OutingRow[] }>({ topos: [], sorties: [] });
   const [filtre, setFiltre] = useState<Categorie | 'tout'>('tout');
   const [error, setError] = useState('');
+  // « Chercher sur le web » : la recherche passe à Bud (recherche web), seulement quand on le touche.
+  const [web, setWeb] = useState<{ texte: string; enCours: boolean; r?: ReponseBud } | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const texteActuel = useRef('');
+  texteActuel.current = text.trim();
 
   useEffect(() => { input.current?.focus(); }, []);
 
   useEffect(() => {
     const t = text.trim();
-    if (t.length < 2) { setResults([]); setSki({ topos: [], sorties: [] }); setError(''); return; }
+    setWeb(null);
+    if (t.length < 2 || pourBud(t)) { setResults([]); setSki({ topos: [], sorties: [] }); setError(''); return; }
     const ctrl = new AbortController();
     const localP = localNames().then((names) => searchNames(names, t, near)).catch(() => [] as Place[]);
     void localP.then((local) => { if (!ctrl.signal.aborted) { setResults(local); setError(''); } });
@@ -75,9 +90,23 @@ export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password,
   }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Une phrase dite = le nom cherché : on l'écrit dans le champ et on arrête d'écouter.
-  const dictee = useDictee((t) => { setText(t); if (stopRef.current) void stopRef.current(); }, onToast);
+  // « Bud, … » dit au micro : la question part tout de suite.
+  const dictee = useDictee((t) => { setText(t); if (stopRef.current) void stopRef.current(); if (pourBud(t)) void chercherWeb(t.trim()); }, onToast);
   const stopRef = useRef<(() => Promise<void>) | null>(null);
   stopRef.current = dictee.ecoute ? dictee.basculer : null;
+
+  /** « Chercher sur le web » ou « Bud, … » tapé dans la loupe : la question part à Bud (recherche web, IA). */
+  async function chercherWeb(q = t) {
+    texteActuel.current = q;
+    setWeb({ texte: '', enCours: true });
+    const ici = near ? `On regarde la carte autour de ${near.lat.toFixed(4)}, ${near.lon.toFixed(4)} (latitude, longitude).` : '';
+    try {
+      const r = pourBud(q) ? await demander(q, `Question posée depuis la loupe de la carte. ${ici} Mets les endroits trouvés dans « point » ou « hebergements ».`)
+        : await demander(`Trouve sur le web où se trouve « ${q} » (lieu, sommet, refuge, auberge, hébergement…) `
+        + 'et donne ses coordonnées dans « point » (ou dans « hebergements » pour des hébergements). Réponds en une phrase.', ici);
+      if (texteActuel.current === q) setWeb({ texte: r.texte, enCours: false, r });
+    } catch (e) { if (texteActuel.current === q) setWeb({ texte: (e as Error).message, enCours: false }); }
+  }
 
   // Les lignes de chaque catégorie, dans l'ordre où elles s'affichent.
   const t = text.trim();
@@ -90,18 +119,20 @@ export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password,
   const premiere = ORDRE.map((c) => lignes[c][0]).find(Boolean);
   const montrees = filtre === 'tout' ? ORDRE.filter((c) => lignes[c].length) : [filtre];
   const rien = ORDRE.every((c) => !lignes[c].length);
+  const bud = pourBud(t);
+  const surCarte: PlacedLodging[] = (web?.r?.hebergements ?? []).flatMap((h) => (h.lat != null && h.lon != null ? [{ ...h, lat: h.lat, lon: h.lon }] : []));
 
   return (
     <div className="search">
       <div className="search-row">
-        {dictee.ecoute ? <Onde niveau={dictee.niveau} partiel={dictee.partiel} /> : <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ville, sommet, course, refuge, auberge…"
+        {dictee.ecoute ? <Onde niveau={dictee.niveau} partiel={dictee.partiel} /> : <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ville, sommet, refuge… ou « Bud, … »"
           enterKeyHint="search" autoCorrect="off" autoCapitalize="words"
-          onKeyDown={(e) => { if (e.key === 'Enter' && premiere) premiere.choisir(); if (e.key === 'Escape') onClose(); }} />}
+          onKeyDown={(e) => { if (e.key === 'Enter' && bud) void chercherWeb(); else if (e.key === 'Enter' && premiere) premiere.choisir(); if (e.key === 'Escape') onClose(); }} />}
         <button className={dictee.ecoute ? 'bd-ecoute' : 'micro'} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dire le nom'}
           onClick={() => void dictee.basculer()}>{dictee.ecoute ? '■' : <MicIcon />}</button>
         <button onClick={onClose} aria-label="Fermer la recherche">✕</button>
       </div>
-      {t.length >= 2 && (
+      {t.length >= 2 && !bud && (
         <div className="search-pastilles">
           {(['tout', ...ORDRE] as const).map((c) => (
             <button key={c} className={filtre === c ? 'active' : ''} onClick={() => setFiltre(c)} aria-label={c === 'tout' ? 'Tout' : TITRES[c]}>
@@ -111,7 +142,7 @@ export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password,
       )}
       {t.length >= 2 && (
         <ul className="search-results">
-          {montrees.map((c) => <li key={c} className="search-cat">
+          {!bud && montrees.map((c) => <li key={c} className="search-cat">
             {filtre === 'tout' && <h4><Icone c={c} /> {TITRES[c]}</h4>}
             <ul>
               {(filtre === 'tout' ? lignes[c].slice(0, PAR_CATEGORIE) : lignes[c]).map((l) =>
@@ -121,7 +152,19 @@ export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password,
               {filtre !== 'tout' && !lignes[c].length && <li className="hint">Rien dans cette catégorie</li>}
             </ul>
           </li>)}
-          {filtre === 'tout' && rien && error && <li className="hint">{error}</li>}
+          {!bud && filtre === 'tout' && rien && error && <li className="hint">{error}</li>}
+          {(bud || filtre === 'tout') && t.length >= 3 && <li className="search-cat"><ul>
+            {!web && <li><button className="voir-plus" onClick={() => void chercherWeb()}><span className="web-ligne">{bud ? <><Bulle /> Demander à Bud</> : <><Globe /> Chercher sur le web</>}</span></button></li>}
+            {web?.enCours && <li className="hint">{bud ? 'Bud réfléchit…' : 'Je cherche sur le web…'}</li>}
+            {web && !web.enCours && <>
+              {web.texte && <li className="hint">{web.texte}</li>}
+              {[...(web.r?.point ? [{ nom: web.r.point.nom, type: 'lieu', lat: web.r.point.lat, lon: web.r.point.lon }] : []), ...(web.r?.hebergements ?? [])]
+                .filter((x) => x.lat != null && x.lon != null).map((x, i) =>
+                  <li key={`w${i}`}><button onClick={() => onPick({ label: x.nom, detail: `${x.type} · ${bud ? 'proposé par Bud' : 'trouvé sur le web'}`, lon: x.lon!, lat: x.lat!, zoom: 15 })}>
+                    <b>{x.nom}</b><span>{x.type} · {bud ? 'proposé par Bud' : 'trouvé sur le web'}</span></button></li>)}
+              {onLodgings && surCarte.length > 1 && <li><button className="voir-plus" onClick={() => onLodgings(surCarte)}>Tout voir sur la carte ({surCarte.length})</button></li>}
+            </>}
+          </ul></li>}
         </ul>
       )}
     </div>
