@@ -16,7 +16,7 @@ import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
-import { BandePositions, MaPosition, nombreVisibles, PinIcon, PositionsSurCarte, useReperes } from './Positions';
+import { BandePositions, MaPosition, nombreVisibles, BuddyOndesIcon, basculerPosition, PositionsSurCarte, useReperes } from './Positions';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
@@ -177,12 +177,14 @@ function retourOuFermer(fermer: () => void) {
   if (retour) retour.click(); else fermer();
 }
 
-function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
+function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition, onPositionLong }: {
   onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
-  onAppel?: () => void; onPosition?: () => void;
+  onAppel?: () => void; onPosition?: () => void; onPositionLong?: () => void;
 }) {
   const visible = !!monEpingle(useBuddies());
   const [ouverte, setOuverte] = useState(false);
+  // Appui long sur Ma position : l'écran des buddies visibles et du choix des groupes.
+  const appui = useRef<{ t?: number; long?: boolean }>({});
   // Rangée : ✕ et la flèche en haut, l’un au-dessus de l’autre, et l'écran prend toute la largeur ; ouverte, la colonne
   // glisse et l'écran se resserre à côté d'elle (Seb, 26/11).
   return <div className={`bd-colonne${ouverte ? '' : ' rangee'}`}>
@@ -194,14 +196,20 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     </div>
     <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
     <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
+    {/* Ma position, un interrupteur sous le téléphone (Seb, 26/11) : un appui allume ou éteint, un appui long ouvre l'écran. */}
+    <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible}
+      className={`bd-col-pin${visible ? ' actif' : ''}`}
+      onPointerDown={() => { appui.current.long = false; clearTimeout(appui.current.t);
+        if (onPositionLong) appui.current.t = window.setTimeout(() => { appui.current.long = true; onPositionLong(); }, 550); }}
+      onPointerUp={() => clearTimeout(appui.current.t)} onPointerLeave={() => clearTimeout(appui.current.t)}
+      onContextMenu={(ev) => ev.preventDefault()}
+      onClick={() => { if (appui.current.long) return; (onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position')))(); }}>
+      <BuddyOndesIcon on={visible} /></button>
     <button aria-label="Messagerie" onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>💬</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
     <button aria-label="Album photo" onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>📸</button>
     <button aria-label="Buddy count" onClick={onExpenses}><BuddyCountIcon /></button>
     <button aria-label="Hébergement" onClick={onLodging}><LitMaisonIcon /></button>
-    {/* 📍 Partager ma position avec mes buddies, même hors sortie (Seb, 25/11) ; verte tant qu'ils me voient. */}
-    <button aria-label="Ma position" className={`bd-col-pin${visible ? ' actif' : ''}`}
-      onClick={onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position'))}><PinIcon /></button>
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11). */}
     <button aria-label="Voyage en voiture" onClick={onTravel}>🚗</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
@@ -469,7 +477,15 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
-    onPosition={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
+    onPositionLong={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
+    onPosition={() => {
+      // Un appui : la sortie ouverte, sinon le groupe ouvert ; hors des deux, l'écran pour choisir qui.
+      const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
+      const gr = ici && ici !== meTime?.id ? groupes.find((y) => y.id === ici) : undefined;
+      const nom = gr?.nature === 'duo' ? autreDuDuo(gr, e)?.pseudo ?? gr.nom : gr?.nom;
+      const cible = x ? { cible: { sortie: x.id }, nom: x.nom } : gr ? { cible: { groupe: gr.id }, nom: nom ?? '' } : undefined;
+      void basculerPosition(e, cible, onToast, () => setVue({ ecran: 'position' }));
+    }}
     onMessages={() => {
       // 💬 : la conversation de la sortie ouverte (sur sa carte), sinon celle du groupe ouvert, sinon toutes.
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;

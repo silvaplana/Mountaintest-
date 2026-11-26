@@ -66,9 +66,9 @@ encore les anciens noms (§7.12).
 
 ### 3.3 La colonne d'icônes
 
-- Verticale, à droite, toujours visible **(Seb)** : 📞 appel, 💬 messagerie, 📅 planning (ordre de Seb, 26/11),
-  📸 album, 💶 Buddy count, 🏨 hébergement, 📍 ma position (Seb, 25 novembre : partager sa position
-  même hors sortie, §7.14), 🚗 voyage, 👤 moi.
+- Verticale, à droite, toujours visible **(Seb)** : 📞 appel, ma position (interrupteur sous le téléphone, Seb 26/11 ;
+  partager sa position même hors sortie, §7.14), 💬 messagerie, 📅 planning (ordre de Seb, 26/11), 📸 album,
+  💶 Buddy count, 🏨 hébergement, 🚗 voyage, 👤 moi.
 - **Rétractable** (Seb, 26 novembre 2026) : le ✕ (fermer Buddies) reste toujours en haut de la colonne, dessous
   une flèche ⌄ ; la toucher fait descendre les icônes avec une animation, la flèche se retourne ⌃ et les
   remonte. Rangée à l'ouverture de Buddies. Plus de titre « Buddies » ni de second ✕ en haut des écrans ;
@@ -559,12 +559,13 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Accès** : sur la carte d'une sortie, pendant ses dates, une ligne « 📍 Position des buddies · 2 visibles ·
   tu es visible » dans le bandeau ouvre l'écran 15 à la place du bandeau (« Retour » revient au bandeau). Les visages
   des buddies visibles sont sur la carte dès qu'on l'ouvre. 📍 dans la colonne de Buddies : §7.14.
-- **Écran 15** : en haut « 📍 2 buddies visibles » ; sur la carte, chaque visage avec « toi », « il y a 4 min » ou
-  l'heure (« 10 h 42 ») ; il grise en vieillissant (plus de 20 min, plus d'une heure) et pâlit quand l'épingle est
+- **Écran 15** : en haut « 📍 2 buddies visibles » ; sur la carte, chaque buddy est une tête d'épingle ronde à ses
+  initiales (« MD »), piquée sur son aiguille, avec au-dessus l'heure de sa dernière position (« 10 h 42 », l'heure
+  de prise du téléphone qui émet, envoyée avec la position ; « toi » pour soi) (Seb, 26/11) ; il grise en vieillissant (plus de 20 min, plus d'une heure) et pâlit quand l'épingle est
   relevée. En bas, chaque buddy avec « à 1,2 km de toi · 2 310 m », « plus de réseau ? » (épingle enfoncée, rien
   depuis 20 min) ou « a relevé l'épingle » ; puis l'épingle : « 📍 Mes buddies peuvent me voir » (bouton principal),
-  ou, enfoncée, « Mes buddies me voient · depuis 9 h 10 · s'arrête seul à 22 h » et « Arrêter ».
-- **L'épingle** : enfoncée, elle se relève seule ce soir à 22 h (à minuit si on l'enfonce après 21 h). Une seule à la
+  ou, enfoncée, « Mes buddies me voient · depuis 9 h 10 · s'arrête seul à 19 h » et « Arrêter ».
+- **L'épingle** : enfoncée, elle se relève seule ce soir à 19 h (Seb, 26/11 ; à minuit si on l'enfonce après 18 h). Une seule à la
   fois : l'enfoncer dans une sortie la relève ailleurs. Relevée par soi ou le soir, la dernière position reste
   visible, grisée, jusqu'à 48 h, puis le serveur l'oublie. Pas encore de lieu nommé (« au col ») : l'altitude à la place.
 - **Envoi** : Android, un service (notification « 📍 Mes buddies me voient ») prend une position toutes les 5 minutes,
@@ -775,14 +776,19 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 
 - **Demande de Seb** : « dès qu'on est dans Buddies, il faut dans le menu à droite pouvoir partager pareillement,
   même si on n'est pas dans une sortie ».
-- **Colonne** : 📍 (icône au trait fin, comme le micro) entre 🏨 et 🚗 ; elle est verte tant que mes buddies me voient.
+- **Colonne, un interrupteur (Seb, 26/11)** : juste sous 📞, un buddy au trait ; allumé, le rond est plein ardoise
+  et des ondes battent doucement de chaque côté (animation CSS, presque rien pour la batterie : c'est le GPS qui
+  coûte). Un appui allume : partage avec la sortie ouverte, sinon le groupe ouvert (hors des deux, l'écran
+  ci-dessous s'ouvre pour choisir) ; un appui éteint partout. Un message de 3 secondes : « Ta position est partagée :
+  les buddies de La Ciotat ski club te voient jusqu'à 19 h, s'il y a du réseau. » ou « Ta position n'est plus
+  partagée : plus personne ne te voit. ». Appui long : l'écran « Position ».
 - **Écran « 📍 Position »** : en haut, les buddies visibles de tous mes groupes et sorties, une fois chacun
   (sa position la plus récente), mêmes lignes que l'écran 15 ; un toucher montre la carte avec tous les visages,
   centrée sur lui. Puis « Qui peut me voir ? » : mes groupes, les sorties d'aujourd'hui, puis les buddies de
   mes discussions à deux, chacun avec son visage ; on en touche un ou plusieurs (déjà coché : le groupe ou le
   sortie ouverte, ou le seul qu'on a). Bouton principal « 📍 Mes buddies peuvent me voir ». Enfoncée : « Mes
-  buddies me voient · Les Queyrassiens · depuis 9 h 10 · s'arrête seul à 22 h » et « Arrêter ».
-- **Même mécanique** que §7.7 : toutes les 5 minutes, écran éteint compris, jusqu'à 22 h, sans réseau la dernière
+  buddies me voient · Les Queyrassiens · depuis 9 h 10 · s'arrête seul à 19 h » et « Arrêter ».
+- **Même mécanique** que §7.7 : toutes les 5 minutes, écran éteint compris, jusqu'à 19 h, sans réseau la dernière
   attend. Toujours une seule épingle : l'enfoncer ici relève celle d'une sortie, et inversement ; une même
   position part vers chaque groupe choisi.
 - **Serveur** : table `positions_groupes` (Groupe, buddy, mêmes colonnes que `positions`) ; les opérations
