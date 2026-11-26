@@ -40,6 +40,8 @@ export interface QuickProps {
   forests: boolean; onForests: () => void;
   /** Drone à gauche de 🌲 : zones interdites ou limitées aux drones de loisir (carte DGAC). */
   drones: boolean; onDrones: (on: boolean) => void;
+  /** Calque « Hors ligne » : zones gardées sur le téléphone et toutes les traces (Seb, 26/11). */
+  offline: boolean; onOffline: (on: boolean) => void;
   /** 👥 Buddies (spec/buddies.md §5.1) ; pastille = nombre de groupes qui ont bougé. */
   onBuddies: () => void;
   /** Sortie ouverte sur la carte : pas de ✕ « Quitter l'appli », le ‹ de son bandeau suffit (Seb, 26/11). */
@@ -108,6 +110,15 @@ const DroneIcon = () => (
   </svg>
 );
 
+/** Icône du calque « Hors ligne » : carrés gardés et une trace, comme sur la carte (maquette « B », Seb 26/11). */
+const OfflineLayerIcon = () => (
+  <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="6" y="6" width="36" height="36" rx="3" />
+    <path d="M18 6v36M30 6v36M6 18h36M6 30h36" strokeWidth="1.4" />
+    <path d="M8 40c6-2 6-10 12-12s10 2 14-6 4-10 6-14" strokeWidth="3.2" />
+  </svg>
+);
+
 /** Icône « Calques » : trois strates empilées (maquette « Calques A », Seb 26/11). Ouvre la ligne des calques. */
 const LayersIcon = () => (
   <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
@@ -144,7 +155,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ sansQuitter, geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ sansQuitter, geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -403,7 +414,7 @@ export function QuickButtons({ sansQuitter, geo, onToast, onDraw, onSearch, onBa
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
       <div className="pair calques" ref={reliefRef}>
       {/* Calques (Seb, 26/11) : ouvre ou referme la ligne des calques ; chacun s'allume à part, on peut les mélanger. */}
-      <button aria-label="Calques de la carte" data-help="Calques : pentes, 3D, ombres, forêts, drones, fond de carte" {...lp('layers')}
+      <button aria-label="Calques de la carte" data-help="Calques : pentes, 3D, ombres, forêts, drones, hors ligne, fond de carte" {...lp('layers')}
         onClick={() => { if (!help) setPairOpen(relief ? null : 'relief'); }}><LayersIcon /></button>
       {(relief || help) && <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" {...lp('slopes')} onClick={() => onSlopes(!slopes)}><SlopeIcon /></button>}
       {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}><View3dIcon /></button>}
@@ -414,6 +425,8 @@ export function QuickButtons({ sansQuitter, geo, onToast, onDraw, onSearch, onBa
           onDrones(!drones);
           if (!drones) onToast('Drones : rouge = interdit, orange = hauteur limitée, sans couleur = 120 m max. Appui long : légende');
         }}><DroneIcon /></button>}
+      {(relief || help) && <button className={offline ? 'on' : ''} aria-label="Hors ligne : ce qui est gardé sur le téléphone" data-help="Hors ligne" {...lp('offline')}
+        onClick={() => onOffline(!offline)}><OfflineLayerIcon /></button>}
       {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}
       {(relief || help) && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
       </div>

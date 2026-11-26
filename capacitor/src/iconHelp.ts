@@ -3,7 +3,7 @@
  */
 export type IconKey =
   | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'
-  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi' | 'drones' | 'layers';
+  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi' | 'drones' | 'layers' | 'offline';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
@@ -18,7 +18,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   vibre: { title: 'Vibration hors trace', text: 'Vibre si tu t’éloignes de 50 m de la trace suivie.' },
   doubletap: { title: 'Double tap', text: 'Ouvre le réglage du téléphone : deux coups sur l’écran éteint le rallument.' },
   draw: { title: '✏ Tracer au doigt', text: 'Dessine un parcours : km et dénivelé.' },
-  layers: { title: 'Calques', text: 'Ouvre la ligne des calques : pentes, 3D, ombres, forêts, drones, fond de carte. Chacun s’allume à part, on peut les mélanger.' },
+  layers: { title: 'Calques', text: 'Ouvre la ligne des calques : pentes, 3D, ombres, forêts, drones, hors ligne, fond de carte. Chacun s’allume à part, on peut les mélanger.' },
   slopes: { title: 'Pentes', text: 'Carte IGN des pentes :' },
   view3d: { title: 'Vue 3D', text: 'Incline la carte sur le relief. Aussi : deux doigts vers le haut. Inclinée, elle tourne à deux doigts.' },
   compass: { title: '🧭 À plat', text: 'Remet la carte à plat, nord en haut.' },
@@ -33,6 +33,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   groups: { title: '👥 Buddies', text: 'Mes groupes et mes sorties entre copains.' },
   moi: { title: '👤 Moi', text: 'Mon compte, mon profil. Rond vert : connecté.' },
   drones: { title: 'Drones', text: 'Carte officielle des zones pour drone de loisir :' },
+  offline: { title: 'Hors ligne', text: 'Ce qui marche sans réseau : le reste de la carte est voilé, les traces gardées en vert. En bas, la place prise sur le téléphone.' },
 };
 
 /** Légende de la carte DGAC « Restrictions UAS catégorie Ouverte et aéromodélisme ». */

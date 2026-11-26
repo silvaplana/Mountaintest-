@@ -50,7 +50,8 @@ import { CORRIDOR_M, lineBbox, tilesForBbox, tilesForCorridor, type TileCoord } 
 import { parseGpx, type TrackPoint } from './track/gpx';
 import { SearchBar } from './SearchBar';
 import { clearPlaceNames, savePlaceNames } from './places/placeNames';
-import { coverageGeoJson } from './tiles/coverage';
+import { coverageGeoJson, offlineVeil } from './tiles/coverage';
+import { PhoneSpacePanel } from './offline/PhoneSpacePanel';
 import { clearDroneZones, localDroneZones, saveDroneZones } from './drones/droneZones';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
@@ -129,6 +130,19 @@ export function App() {
   const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [showDrones, setShowDrones] = useState(false);
+  /** Calque « Hors ligne » (Seb, 26/11) : voile sur ce qui n'est pas gardé, traces gardées en vert, place prise en bas. */
+  const [showOffline, setShowOffline] = useState(false);
+  const [veil, setVeil] = useState<ReturnType<typeof offlineVeil> | null>(null);
+  const [offlineTraces, setOfflineTraces] = useState<GeoJSON.FeatureCollection>({ type: 'FeatureCollection', features: [] });
+  const [spaceClosed, setSpaceClosed] = useState(false);
+  const toggleOffline = (on: boolean) => {
+    setShowOffline(on);
+    if (!on) return;
+    setSpaceClosed(false);
+    void refreshStored();
+    void listTraces().then((l) => setOfflineTraces({ type: 'FeatureCollection',
+      features: l.map((t) => ({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: t.line } })) }));
+  };
   /** Carrés déjà gardés sur le téléphone, montrés en vert pendant « Hors ligne » (et son rectangle). */
   const [cover, setCover] = useState<GeoJSON.FeatureCollection | null>(null);
   const [droneZones, setDroneZones] = useState<GeoJSON.FeatureCollection>({ type: 'FeatureCollection', features: [] });
@@ -651,7 +665,9 @@ export function App() {
     const plan = await getTileStore(LAYERS.planign);
     const mnt = await getTileStore(MNT_LAYER);
     setStored({ scan25: scan.count(), planign: plan.count(), scan25Bytes: scan.bytes(), planignBytes: plan.bytes(), mnt: mnt.count(), mntBytes: mnt.bytes() });
-    setCover(coverageGeoJson([...scan.keys(), ...plan.keys()]));
+    const keys = [...scan.keys(), ...plan.keys()];
+    setCover(coverageGeoJson(keys));
+    setVeil(offlineVeil(keys));
   }
 
   /**
@@ -1243,7 +1259,8 @@ export function App() {
     <div className={`app ${nature ? 'nature' : ''}`}>
       {nature && superUser && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} droneZones={droneZones} onDroneZone={setToast}
-        offlineCover={(open && tab === 'horsligne') || (framing && framingFor === 'horsligne') ? cover : null} recorded={recorded} imported={imported}
+        offlineCover={(open && tab === 'horsligne') || (framing && framingFor === 'horsligne') ? cover : null}
+        offlineLayer={showOffline && veil ? { ...veil, traces: offlineTraces } : null} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
         onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
@@ -1351,7 +1368,7 @@ export function App() {
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
         baseLayer={baseLayer} onPickBaseLayer={(m) => { setBaseLayer(m); setToast(`Fond de carte : ${BASE_MODES[m]}`); }}
-        slopes={showSlopes} onSlopes={setShowSlopes} drones={showDrones} onDrones={setShowDrones} shade={showShade} onShade={setShowShade}
+        slopes={showSlopes} onSlopes={setShowSlopes} drones={showDrones} onDrones={setShowDrones} offline={showOffline} onOffline={toggleOffline} shade={showShade} onShade={setShowShade}
         tilted={tilted} onTilt3d={() => map?.easeTo({ pitch: 60, duration: 900 })} onFlat={() => map?.easeTo({ pitch: 0, bearing: 0, duration: 700 })}
         forests={forests.length > 0 || forestsLoading} onForests={() => {
           // 🌲 : forêts de la zone affichée sans ouvrir le menu ; un 2e appui les efface.
@@ -1452,6 +1469,9 @@ export function App() {
       <EcranSonnerie onToast={setToast} />
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       {toast && <div className="toast">{toast}</div>}
+      {showOffline && !spaceClosed && !open && !drawing && !framing && (
+        <PhoneSpacePanel cartes={stored.scan25Bytes + stored.planignBytes + stored.mntBytes} onClose={() => setSpaceClosed(true)} />
+      )}
       {/* Nouvelle version : fenêtre au centre, bien lisible (Seb 25/11), cachée pendant un suivi de trace, une sortie enregistrée ou un survol. */}
       {maj.build && navId == null && !recording && !survol && !filmTrail && (
         <div className="maj-voile">
