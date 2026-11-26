@@ -34,5 +34,7 @@ describe('categorie', () => {
     expect(categorie(p('commune'))).toBe('lieux');
     expect(categorie(p('rue'))).toBe('lieux');
     expect(categorie(p('collège'))).toBe('lieux');
+    expect(categorie(p('auberge, restaurant'))).toBe('refuges');
+    expect(categorie(p('hôtel'))).toBe('refuges');
   });
 });

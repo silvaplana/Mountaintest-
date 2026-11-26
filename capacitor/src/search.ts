@@ -52,13 +52,20 @@ export async function searchPlaces(text: string, signal?: AbortSignal, near?: { 
 /** Natures OpenStreetMap gardées dans la loupe : lieux naturels et lieux isolés, pas les commerces. */
 const PHOTON_KEEP: Record<string, string[] | true> = {
   natural: true, mountain_pass: true, waterway: ['waterfall'], water: true,
-  tourism: ['alpine_hut', 'wilderness_hut', 'viewpoint'], place: ['locality', 'hamlet', 'isolated_dwelling', 'village'],
+  tourism: ['alpine_hut', 'wilderness_hut', 'viewpoint', 'hotel', 'guest_house', 'hostel', 'chalet', 'motel', 'camp_site', 'apartment'],
+  place: ['locality', 'hamlet', 'isolated_dwelling', 'village'],
+  // Une auberge est souvent notée « restaurant » dans OpenStreetMap (Auberge La Jabiore, Seb 26/11) : gardée si son nom le dit.
+  amenity: ['restaurant'],
 };
+/** Restaurants gardés seulement si leur nom dit qu'on peut y dormir. */
+const NOM_HEBERGEMENT = /auberge|refuge|g[iî]te|chalet|h[oô]tel/i;
 const PHOTON_NATURE: Record<string, string> = {
   peak: 'sommet', volcano: 'sommet', saddle: 'col', ridge: 'crête', arete: 'arête', cliff: 'falaise', rock: 'rocher',
   valley: 'vallon', gorge: 'gorge', spring: 'source', cave_entrance: 'grotte', glacier: 'glacier', cape: 'cap',
   bay: 'calanque, baie', beach: 'plage', alpine_hut: 'refuge', wilderness_hut: 'cabane', viewpoint: 'point de vue',
   waterfall: 'cascade', lake: 'lac', locality: 'lieu-dit', hamlet: 'hameau', isolated_dwelling: 'lieu-dit', village: 'village',
+  hotel: 'hôtel', guest_house: 'gîte, chambre d’hôtes', hostel: 'auberge', chalet: 'gîte', motel: 'hôtel', camp_site: 'camping',
+  apartment: 'gîte', restaurant: 'auberge, restaurant',
 };
 interface PhotonFeature { geometry?: { coordinates?: number[] }; properties?: Record<string, string | undefined> }
 
@@ -69,6 +76,7 @@ export function parsePhoton(json: { features?: PhotonFeature[] }): Place[] {
     const c = f.geometry?.coordinates;
     const keep = PHOTON_KEEP[p.osm_key ?? ''];
     if (!p.name || !c || !keep || (keep !== true && !keep.includes(p.osm_value ?? ''))) continue;
+    if (p.osm_key === 'amenity' && !NOM_HEBERGEMENT.test(p.name)) continue;
     const where = p.city ?? p.county ?? p.state;
     const nature = p.osm_key === 'mountain_pass' ? 'col' : PHOTON_NATURE[p.osm_value ?? ''] ?? p.osm_value ?? 'lieu';
     out.push({ label: where ? `${p.name}, ${where}` : p.name, detail: nature, lon: c[0], lat: c[1], zoom: 15 });
@@ -143,7 +151,7 @@ export type Categorie = 'courses' | 'sommets' | 'refuges' | 'lieux';
 /** Catégorie d'un lieu trouvé, d'après sa nature (IGN, OpenStreetMap ou noms gardés sur le téléphone). */
 export function categorie(p: Place): Exclude<Categorie, 'courses'> {
   const d = normalize(p.detail);
-  if (/refuge|cabane|gite|abri|bivouac|chalet d alpage/.test(d)) return 'refuges';
+  if (/refuge|cabane|gite|abri|bivouac|chalet|auberge|hotel|chambre d hotes|camping/.test(d)) return 'refuges';
   if (/sommet|col\b|cret|arete|pic\b|aiguille|glacier|falaise|rocher|dome|pointe|montagne|orograph|massif|vallon|gorge|grotte|cascade|lac\b|source|point de vue/.test(d)) return 'sommets';
   return 'lieux';
 }

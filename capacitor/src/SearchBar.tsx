@@ -19,7 +19,7 @@ const ICONES: Record<Categorie, ReactElement> = {
 };
 const Icone = ({ c }: { c: Categorie }) => <svg className="cat-icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
   strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" aria-hidden="true">{ICONES[c]}</svg>;
-const TITRES: Record<Categorie, string> = { courses: 'Courses skitour', sommets: 'Sommets et nature', refuges: 'Refuges et gîtes', lieux: 'Villes et lieux' };
+const TITRES: Record<Categorie, string> = { courses: 'Courses skitour', sommets: 'Sommets et nature', refuges: 'Refuges, gîtes, auberges', lieux: 'Villes et lieux' };
 const ORDRE: Categorie[] = ['courses', 'sommets', 'refuges', 'lieux'];
 const NOMS_REFUGES: Record<NatureRefuge, string> = { refuge: 'Refuges et cabanes', cabane: 'Cabanes', gite: 'Gîtes d’étape' };
 /** Lignes montrées par catégorie dans « Tout » ; « Voir plus » ouvre la catégorie. */
@@ -94,7 +94,7 @@ export function SearchBar({ onPick, onClose, near, onToast, onRefuges, password,
   return (
     <div className="search">
       <div className="search-row">
-        {dictee.ecoute ? <Onde niveau={dictee.niveau} partiel={dictee.partiel} /> : <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ville, sommet, course, refuge…"
+        {dictee.ecoute ? <Onde niveau={dictee.niveau} partiel={dictee.partiel} /> : <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ville, sommet, course, refuge, auberge…"
           enterKeyHint="search" autoCorrect="off" autoCapitalize="words"
           onKeyDown={(e) => { if (e.key === 'Enter' && premiere) premiere.choisir(); if (e.key === 'Escape') onClose(); }} />}
         <button className={dictee.ecoute ? 'bd-ecoute' : 'micro'} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dire le nom'}
