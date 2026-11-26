@@ -894,3 +894,19 @@ def test_buddy_count_de_sortie_ferme(client):
     assert sync(client, ops=[d])["refus"]
     sync(client, ops=[op("buddy_count", count=c["id"], ferme=False)])
     assert sync(client, ops=[d])["refus"] == []
+
+
+def test_supprimer_un_groupe_reserve_aux_admins(client):
+    """Seb, 26 novembre : un admin supprime un groupe (appui long) ; caché de tous avec ses sorties, rien n'est effacé."""
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    sync(client, ops=[so])
+    sup = {"id": "s", "type": "supprimer_groupe", "groupe": gid}
+    assert sync(client, sub="julie", ops=[sup])["refus"][0]["raison"] == "Réservé aux admins du groupe"
+    r = sync(client, ops=[sup, sup])
+    assert r["refus"] == [] and gid not in r["ids"] and r["ids_sorties"] == []
+    j = sync(client, sub="julie")
+    assert gid not in j["ids"] and j["ids_sorties"] == []
+    # Plus rien n'y entre : ni sortie, ni invitation.
+    assert sync(client, ops=[nouvelle_sortie(gid)])["refus"]
+    assert sync(client, sub="luc", ops=[{"id": "l", "type": "rejoindre", "code": "CodeSecret0123456789"}])["refus"]

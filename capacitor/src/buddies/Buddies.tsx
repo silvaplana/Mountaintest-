@@ -24,7 +24,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   annulerInvitation, appliquer, aujourdhui, autreDuDuo, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  inviterSortie, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
+  inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -425,7 +425,6 @@ export function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
   </div></div>;
 }
 
-/** ✏ et poubelle, au trait, à côté de chaque sortie des listes (Seb, 25 novembre). */
 /** Le lien d'invitation réutilisable (comme le QR code) d'un groupe ou d'une sortie ; créé la première fois. */
 function lienReutilisable(c: { groupe: Groupe } | { sortie: Sortie }): string {
   const l = 'groupe' in c ? c.groupe.invitations : c.sortie.invitations;
@@ -473,6 +472,7 @@ type Choix = { groupe: Groupe } | { sortie: Sortie };
 function useChoix(e: Etat, groupes: Groupe[], onToast: (m: string) => void, supprimer: (x: Sortie) => void) {
   const [choix, setChoix] = useState<Choix | null>(null);
   const [nommer, setNommer] = useState(false);
+  const [confirmer, setConfirmer] = useState<Groupe | null>(null);
   const t = useRef<number | undefined>(undefined);
   const long = useRef(false);
   const arreter = () => clearTimeout(t.current);
@@ -492,11 +492,20 @@ function useChoix(e: Etat, groupes: Groupe[], onToast: (m: string) => void, supp
     <button onClick={() => setNommer(true)} aria-label={`Changer le nom de ${nom}`}><PencilIcon size={22} /></button>
     <button onClick={() => { void partagerChoix(choix, nomGroupe, onToast); setChoix(null); }} aria-label={`Partager ${nom}`}><PartagerIcon /></button>
     {'sortie' in choix && peutSupprimer(choix.sortie, e) && <button onClick={() => { supprimer(choix.sortie); setChoix(null); }} aria-label={`Supprimer ${nom}`}><TrashIcon size={22} /></button>}
+    {'groupe' in choix && estAdmin(choix.groupe, e) && <button onClick={() => { setConfirmer(choix.groupe); setChoix(null); }} aria-label={`Supprimer ${nom}`}><TrashIcon size={22} /></button>}
     {nommer && <FeuilleNom titre={'groupe' in choix ? 'Nom du groupe' : 'Nom de la sortie'} nom={nom} onToast={onToast}
       onEnregistrer={(n) => ('groupe' in choix ? renommerGroupe(choix.groupe.id, n) : renommerSortie(choix.sortie.id, n))}
       onFermer={() => { setNommer(false); setChoix(null); }} />}
   </div>;
-  return { appui, choisi, barre };
+  // Un groupe emporte ses sorties : on demande d'abord (Seb, 26/11).
+  const confirmation = confirmer && <div className="bd-voile" onClick={() => setConfirmer(null)}>
+    <div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+      <h3>Supprimer « {confirmer.nom} » ?</h3>
+      <p>Le groupe et ses sorties disparaissent pour tous ses buddies.</p>
+      <button className="stop" onClick={() => { supprimerGroupe(confirmer.id); onToast(`« ${confirmer.nom} » supprimé`); setConfirmer(null); }}>Supprimer le groupe</button>
+      <button onClick={() => setConfirmer(null)}>Annuler</button>
+    </div></div>;
+  return { appui, choisi, barre: <>{barre}{confirmation}</> };
 }
 
 type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }

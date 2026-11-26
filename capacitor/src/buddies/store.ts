@@ -278,6 +278,8 @@ export function vue(e: Etat): {
       if (k >= 0) sorties[k] = { ...sorties[k], nom: String(op.nom), attente: true };
     } else if (op.type === 'remettre_sortie' && op.copie && !sorties.some((x) => x.id === op.sortie)) {
       sorties.push(op.copie as Sortie);
+    } else if (op.type === 'supprimer_groupe') {
+      for (let i = sorties.length - 1; i >= 0; i--) if (sorties[i].groupe === op.groupe) sorties.splice(i, 1);
     } else if (op.type === 'retirer_sortie' || op.type === 'supprimer_sortie') {
       const i = sorties.findIndex((x) => x.id === op.sortie);
       if (i >= 0) sorties.splice(i, 1);
@@ -429,6 +431,7 @@ export function appliquer(e: Etat): Groupe[] {
         for (const x of gs) x.invitations = x.invitations.filter((i) => i.id !== op.invitation);
         break;
       case 'quitter':
+      case 'supprimer_groupe':
         if (g) gs.splice(gs.indexOf(g), 1);
         break;
       case 'retirer':
@@ -688,6 +691,8 @@ export function renommerGroupe(groupe: string, nom: string) {
 }
 /** 🐻 Bud supprime une sortie (§7.12) : caché de tous ; le serveur refuse si je ne l'ai pas créé ni n'administre la bande. */
 export const supprimerSortie = (sortie: string) => ajouter({ type: 'supprimer_sortie', sortie });
+/** Supprimer un groupe (un admin, Seb 26 novembre) : caché de tous avec ses sorties ; le serveur refuse à un non-admin. */
+export const supprimerGroupe = (groupe: string) => ajouter({ type: 'supprimer_groupe', groupe });
 /** « Annuler » : il revient (la copie le remontre tout de suite, avant la synchro). */
 export const remettreSortie = (copie: Sortie) => ajouter({ type: 'remettre_sortie', sortie: copie.id, copie });
 /** 🐻 Garder ce que Bud a fait (message de Bud → actions), ou le marquer annulé. */

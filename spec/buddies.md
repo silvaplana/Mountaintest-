@@ -242,7 +242,7 @@ sa gauche, on en choisit une.
   **Remplacés le 26 novembre (Seb) par l'appui long, comme WhatsApp** : appuyer longtemps sur un groupe ou une sortie
   (liste des Buddies, affiches d'un groupe) la choisit (fond teinté) et une barre ardoise prend le haut de l'écran :
   ✕ (laisser), son nom, crayon (« Nom du groupe » / « Nom de la sortie »), Partager, et la poubelle pour une sortie
-  (son créateur ou un admin ; « Annuler » 10 s ; pas de poubelle pour un groupe). Un appui normal ouvre toujours.
+  (son créateur ou un admin ; « Annuler » 10 s). Un **groupe** a aussi sa poubelle, pour ses admins seulement (Seb, 26 novembre) : « Supprimer « X » ? Le groupe et ses sorties disparaissent pour tous ses buddies » (Supprimer le groupe, Annuler) ; caché de tous côté serveur (`groupes.supprime_le`), rien n'est effacé, ses liens d'invitation ne marchent plus. Un appui normal ouvre toujours.
   **Partager** passe par la feuille de partage du téléphone (WhatsApp, SMS, mail…) : une sortie envoie son nom, ses
   dates, le lieu, le groupe, le nombre de partants et « Rejoins la sortie sur Mountain Buddies : lien » (qui l'ouvre
   devient partant) ; un groupe envoie son invitation (« X t'invite dans « groupe »… : lien »). Le lien est celui,
