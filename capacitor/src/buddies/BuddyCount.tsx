@@ -26,9 +26,9 @@ export function sortieDuCount(c: BuddyCountEtat, g: Groupe): Sortie {
  * Tous les Buddy counts (Seb, 26/11, §7.20) : ceux de groupe d'abord, puis ceux de sortie ; dans chaque partie, les
  * ouverts en tête. « ＋ Buddy count » dans un groupe en crée un de groupe.
  */
-export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onNouveau, onAnciens, onRetour, onClose }: {
+export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onNouveau, onRetour, onClose }: {
   groupes: Groupe[]; sorties: Sortie[]; counts: BuddyCountEtat[]; depenses: Depense[]; ici?: Groupe;
-  onOuvrir: (x: Sortie, deGroupe: boolean) => void; onNouveau?: () => void; onAnciens: () => void; onRetour: () => void; onClose: () => void;
+  onOuvrir: (x: Sortie, deGroupe: boolean) => void; onNouveau?: () => void; onRetour: () => void; onClose: () => void;
 }) {
   const total = (id: string) => depenses.filter((d) => d.sortie === id).reduce((n, d) => n + d.montant, 0);
   const etat = (id: string) => counts.find((c) => c.id === id || c.sortie === id);
@@ -42,7 +42,8 @@ export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onN
     return <button key={x.id} className={`bd-ligne bd-count-ligne${ferme ? ' ferme' : ''}`} onClick={() => onOuvrir(x, g)}>
       <span className="bd-album-mini"><BuddyCountIcon /></span>
       <span className="bd-texte"><b>{x.nom}</b><small>{t ? `${euros(t)} à ${x.participants.length}` : 'pas encore de dépense'}{sous}</small></span>
-      <Etat ferme={ferme} />
+      {/* Un petit cadenas seul, discret (Seb, 26/11 : « Ouvert » prenait trop de place). */}
+      <span className={`bd-count-cadenas${ferme ? ' ferme' : ''}`} role="img" aria-label={ferme ? 'Fermé' : 'Ouvert'}><Cadenas ouvert={!ferme} size={22} /></span>
     </button>;
   };
   return <div className="bd-corps">
@@ -51,13 +52,13 @@ export function Comptes({ groupes, sorties, counts, depenses, ici, onOuvrir, onN
       <span className="bd-titre"><b>Buddy count</b>{ici && <small>{ici.nom}</small>}</span>
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
-    {deGroupe.length > 0 && <h3 className="bd-section">Buddy counts de groupe</h3>}
-    {deGroupe.map((x) => ligne(x, true, ici ? '' : ` · ${groupes.find((g) => g.id === x.groupe)?.nom ?? ''}`))}
-    {deSortie.length > 0 && <h3 className="bd-section">Buddy counts de sortie</h3>}
-    {deSortie.map((x) => ligne(x, false, ''))}
-    {!deGroupe.length && !deSortie.length && <p className="bd-vide">Chaque sortie a son Buddy count : les dépenses de la sortie, partagées entre vous.</p>}
+    {/* Deux parties, comme ailleurs : Groupe puis Sortie (Seb, 26/11). */}
+    <h3 className="bd-section">Groupe</h3>
+    {deGroupe.length ? deGroupe.map((x) => ligne(x, true, ici ? '' : ` · ${groupes.find((g) => g.id === x.groupe)?.nom ?? ''}`))
+      : <p className="bd-vide">Pas encore de Buddy count de groupe</p>}
+    <h3 className="bd-section">Sortie</h3>
+    {deSortie.length ? deSortie.map((x) => ligne(x, false, '')) : <p className="bd-vide">Pas encore de sortie</p>}
     <span style={{ flex: 1 }} />
-    <button className="bd-grand" onClick={onAnciens}>💰 Mes partages de frais hors sortie</button>
     {onNouveau && <div className="bd-plus"><button className="primary" onClick={onNouveau}><span className="bd-plus-texte"><b>＋ Buddy count</b></span></button></div>}
   </div>;
 }
