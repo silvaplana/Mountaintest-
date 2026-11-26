@@ -372,7 +372,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
       {/* 🔍 de nouveau visible sous ◎, même en colonne réduite (Seb, 25/11). */}
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
-      <button disabled={!native} aria-label="Prendre une photo" data-help="Appareil photo" {...lp('photo')}
+      <button disabled={!native} aria-label="Prendre une photo" data-help="Prendre des photos sans quitter l'application" {...lp('photo')}
         onClick={() => {
           noterPrise();
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
