@@ -603,7 +603,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-corps .xp-head h2 { margin: 0; flex: 1; }
 .bd-corps .xp-head > button { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 22px; background: var(--card); border: 0; }
 /* Colonne des icônes (Seb 26/11) : toujours 68 px de large ; rangée, elle est glissée hors de l'écran et seuls ✕ et la
-   flèche restent visibles, à la même place que sur la carte. Sortie, elle glisse et recouvre l'écran, qui ne bouge pas (Seb 26/11, à l'essai), dans une
+   flèche restent visibles, à la même place que sur la carte. Sortie, elle glisse et l'écran se resserre à côté d'elle, tout reste visible (Seb 26/11, 3e essai), dans une
    seule animation (Seb 26/11 : pas de rectangle blanc qui apparaît d'abord). */
 .bd-colonne { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 10px 0 2px; overflow: visible;
   position: absolute; z-index: 1; right: 0; top: calc(env(safe-area-inset-top) + 10px); bottom: calc(env(safe-area-inset-bottom) + 16px);
@@ -615,11 +615,14 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-colonne.rangee .bd-col-haut { transform: translateX(-68px); }
 .icones-gauche .bd-colonne.rangee { transform: translateX(-68px); }
 .icones-gauche .bd-colonne.rangee .bd-col-haut { transform: translateX(68px); }
-/* L'écran garde sa largeur et sa mise en page ; la colonne passe par-dessus. Le contenu monte tout en haut (Seb 26/11) : seuls les deux premiers blocs
-   laissent la place de ✕ et de la flèche sur le côté. */
-.buddies > .bd-corps { flex: none; width: 100%; box-sizing: border-box; padding-top: 0; }
-.buddies > .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 60px; box-sizing: border-box; }
-.icones-gauche .buddies > .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 0; padding-left: 60px; }
+/* Icônes sorties, l'écran se resserre de la largeur de la colonne (le texte se ré-enroule), dans la même animation.
+   Le contenu monte tout en haut (Seb 26/11) : rangée, seuls les deux premiers blocs laissent la place de ✕ et de la flèche. */
+.buddies > .bd-corps { flex: none; width: 100%; box-sizing: border-box; padding-top: 0; transition: width .35s ease, margin .35s ease; }
+.bd-colonne:not(.rangee) + .bd-corps { width: calc(100% - 68px); margin-right: 68px; }
+.icones-gauche .bd-colonne:not(.rangee) + .bd-corps { margin-right: 0; margin-left: 68px; }
+.buddies > .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { box-sizing: border-box; transition: padding .35s ease; }
+.bd-colonne.rangee + .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 60px; }
+.icones-gauche .bd-colonne.rangee + .bd-corps:not(.bd-corps-conv) > :nth-child(-n+2) { padding-right: 0; padding-left: 60px; }
 .icones-gauche .bd-colonne { right: auto; left: 0; }
 /* Même taille que les icônes de la carte (.quick, 44 px), Seb 26/11. */
 .bd-colonne button { width: 44px; height: 44px; min-height: 0; border-radius: 50%; padding: 0; font-size: 22px; background: var(--card); border: 0; flex: none; }
