@@ -125,12 +125,6 @@ function quand(iso: string) {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-function heure(ms?: number) {
-  if (!ms) return 'pas encore synchronisé';
-  const d = new Date(ms), h = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', ' h ');
-  return d.toDateString() === new Date().toDateString() ? `à jour à ${h}` : `à jour le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${h}`;
-}
-
 function resume(g: Groupe) {
   const n = g.invitations.filter((i) => i.canal !== 'qr').length;
   return `${g.membres.length} ${g.membres.length > 1 ? 'buddies' : 'buddy'}${n ? ` · ${n} invitation${n > 1 ? 's' : ''} envoyée${n > 1 ? 's' : ''}` : ''}`;
@@ -174,7 +168,7 @@ function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: 
 
 /**
  * Colonne d'icônes à droite (spec §3.3). Ce qui n'est pas encore construit le dit simplement.
- * Rétractable (Seb, 26/11) : ✕ toujours en haut, dessous une flèche qui fait descendre les icônes puis les remonte.
+ * Rétractable (Seb, 26/11) : ✕ toujours en haut, dessous une flèche horizontale qui fait sortir les icônes du bord (droit, ou gauche si les icônes sont à gauche) puis les range.
  */
 function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition }: {
   onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
@@ -182,10 +176,14 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
 }) {
   const visible = !!monEpingle(useBuddies());
   const [ouverte, setOuverte] = useState(false);
-  return <div className="bd-colonne">
+  // Rangée : ✕ et la flèche en haut, côte à côte, et l'écran prend toute la largeur ; ouverte, la colonne
+  // pousse l'écran vers l'autre côté (Seb, 26/11).
+  return <div className={`bd-colonne${ouverte ? '' : ' rangee'}`}>
+    <div className="bd-col-haut">
     <button onClick={onClose} aria-label="Fermer">✕</button>
     <button className={`bd-col-fleche${ouverte ? ' ouverte' : ''}`} onClick={() => setOuverte(!ouverte)}
       aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
+    </div>
     <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}`} inert={!ouverte}>
     <button aria-label="Appel" onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>📞</button>
     <button aria-label="Planning" onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>📅</button>
@@ -565,7 +563,8 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
   const suppression = useSuppression();
   const nomGroupe = (x: Sortie) => groupes.find((g) => g.id === x.groupe)?.nom ?? '';
   return <div className="bd-corps">
-    <p className="hint">{enAttente ? `🕓 ${enAttente} changement${enAttente > 1 ? 's' : ''} partira au retour du réseau · ` : ''}{heure(e.synchro)}</p>
+    {/* Pas de « à jour à … » (Seb, 26 novembre) : seulement ce qui attend le réseau. */}
+    {enAttente > 0 && <p className="hint">🕓 {enAttente} changement{enAttente > 1 ? 's' : ''} partira au retour du réseau</p>}
     {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     {haut && <Affiche x={haut} onClick={() => onSortie(haut)} />}
