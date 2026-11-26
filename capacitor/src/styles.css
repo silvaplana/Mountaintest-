@@ -753,6 +753,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 
 /* Planning de saison (spec/buddies.md §5.5, écrans 16 à 19) */
 .bd-icone { font-size: 30px; line-height: 1; }
+/* Dans « ＋ Planning » : à la hauteur du mot, comme « ＋ Groupe » / « ＋ Sortie » (Seb 26/11). */
+.bd-plus .bd-icone { font-size: 17px; width: auto; }
 .bd-remplir { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; text-align: left; border: 0; border-radius: 14px;
   background: #fdf0d5; color: #1d2421; padding: 10px 12px; min-height: 48px; font-size: 16px; }
 .bd-remplir > b { color: var(--accent); white-space: nowrap; }
