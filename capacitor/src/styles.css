@@ -11,11 +11,14 @@
   --card: #f6f8fa;
   --micro-bg: #d0dae3;
   --micro-fg: #16222f;
+  /* Boutons « verre dépoli » (Seb, 26/11) : blanc voilé posé sur le ciel, liseré clair. */
+  --glass: #f6f8fab3;
+  --glass-line: #ffffff;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--fg);
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --on-accent: #141d27; --accent-soft: #263443; --line: #38495b; --card: #1d2834; --micro-bg: #263443; --micro-fg: #f4f7fa; }
+  :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --on-accent: #141d27; --accent-soft: #263443; --line: #38495b; --card: #1d2834; --micro-bg: #263443; --micro-fg: #f4f7fa; --glass: #1d2834cc; --glass-line: #38495b; }
 }
 * { box-sizing: border-box; }
 html, body, #root, .app { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
@@ -43,8 +46,10 @@ button, select, .file, input:not([type=checkbox]) {
   font: inherit; font-size: 15px; color: var(--fg); background: var(--bg);
   border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-height: 42px;
 }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; flex: 1; }
-button.stop { background: var(--danger); border-color: var(--danger); }
+button { background: var(--glass); border-color: var(--glass-line); }
+/* Bouton principal : même verre dépoli, texte ardoise en gras (plus de gros bouton plein, Seb 26/11). Les choix actifs (.on) restent pleins. */
+button.primary { background: var(--glass); border-color: var(--glass-line); color: var(--accent); font-weight: 700; flex: 1; box-shadow: 0 1px 6px #3e536822; }
+button.stop { background: var(--danger); border-color: var(--danger); color: #fff; }
 button:disabled { opacity: 0.5; }
 .file { position: relative; display: inline-flex; align-items: center; }
 .file input { position: absolute; inset: 0; opacity: 0; }
@@ -160,7 +165,7 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .quick > button:not(.arrow), .quick > .pair { margin-right: 6px; }
 .quick button {
   width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%;
-  font-size: 22px; line-height: 1; background: var(--bg); box-shadow: 0 1px 6px #0004;
+  font-size: 22px; line-height: 1; background: var(--card); border: 1px solid var(--glass-line); box-shadow: 0 1px 6px #0004;
 }
 .quick button.toggle { height: 30px; border-radius: 15px; font-size: 16px; }
 /* La flèche, l'icône la plus utilisée (demande de Seb) : plus grosse. */
@@ -541,9 +546,9 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .trace-menu .trail-list button { padding: 10px 4px; }
 .trace-menu .trail-list li { display: flex; align-items: center; }
 .trace-menu .trail-list li > button:first-child { flex: 1; min-width: 0; }
-.trace-menu .trail-list .del.crayon { color: #1d2421; }
+.trace-menu .trail-list .del.crayon { color: var(--fg); }
 .trace-menu .trail-list li.trace-nommer { gap: 6px; padding: 8px 0; }
-.trace-menu .trail-list li.trace-nommer .del { color: #1d2421; font-size: 22px; }
+.trace-menu .trail-list li.trace-nommer .del { color: var(--fg); font-size: 22px; }
 .trace-nommer input { flex: 1; min-width: 0; min-height: 48px; font-size: 17px; padding: 0 10px; border: 2px solid #7b3fe4; border-radius: 10px; }
 .trace-menu .trail-list li.trace-nommer .primary { width: auto; flex: 0 0 56px; min-height: 48px; justify-content: center; font-size: 22px; border-radius: 10px; }
 .trace-menu .trail-list .del { width: auto; flex: 0 0 auto; min-width: 48px; min-height: 48px; padding: 8px 11px; color: #c62828; display: flex; align-items: center; justify-content: center; }
@@ -620,7 +625,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-colonne button { width: 44px; height: 44px; min-height: 0; border-radius: 50%; padding: 0; font-size: 22px; background: var(--card); border: 0; flex: none; }
 /* Pas de panneau derrière (Seb 26/11) : seulement les ronds, avec l'ombre des icônes de la carte pour rester lisibles. */
 .bd-colonne button { box-shadow: 0 1px 6px #0004; }
-.bd-colonne .bd-col-fleche { display: flex; align-items: center; justify-content: center; color: #1d2421; }
+.bd-colonne .bd-col-fleche { display: flex; align-items: center; justify-content: center; color: var(--fg); }
 .bd-colonne .bd-col-fleche { width: 56px; height: 56px; }
 /* ✕ en pastille basse, comme le ✕ de la carte (.quick button.toggle). */
 .bd-colonne .bd-col-haut > button:first-child { height: 30px; border-radius: 15px; font-size: 16px; }
@@ -657,13 +662,13 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-plus { display: flex; gap: 10px; }
 /* Seul (écran d'un groupe) : « ＋ Sortie » garde la taille et la place qu'il a dans la liste, pas toute la largeur (Seb 26/11). */
 .bd-plus > button.primary:only-child { flex: 0 1 calc(50% - 5px); margin-left: auto; }
-.bd-plus button { display: flex; align-items: center; gap: 10px; border-radius: 16px; min-height: 64px; font-size: 22px; text-align: left; }
+.bd-plus button { display: flex; align-items: center; gap: 10px; border-radius: 26px; min-height: 52px; font-size: 22px; text-align: left; }
 .bd-plus-texte { display: flex; flex-direction: column; font-size: 17px; line-height: 1.2; }
 .bd-plus-texte small { font-weight: 400; opacity: .85; font-size: 14px; }
 .bd-faces { display: inline-flex; }
 .bd-faces i { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; margin-right: -9px; background: #3f6fb5; }
 .bd-faces i:nth-child(2) { background: #c9862b; } .bd-faces i:nth-child(3) { background: #8a4fb0; margin-right: 0; }
-.bd-grand { min-height: 56px; font-size: 18px; border-radius: 14px; flex: none !important; }
+.bd-grand { min-height: 52px; font-size: 18px; border-radius: 26px; flex: none !important; }
 .bd-photo { width: 112px; height: 112px; border-radius: 50%; margin: 4px auto; border: 3px dashed var(--line); background: var(--card); font-size: 40px; padding: 0; overflow: hidden; }
 .bd-photo img { width: 100%; height: 100%; object-fit: cover; }
 .bd-nom { text-align: center; font-size: 18px !important; font-weight: 600; min-height: 52px; }
@@ -693,7 +698,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-affiche b { font-size: 22px; } .bd-affiche small { font-size: 15px; opacity: .95; }
 .bd-affiche.petite { min-height: 120px; padding: 10px; border-radius: 14px; }
 .bd-affiche.petite b { font-size: 17px; }
-.bd-pastille { position: absolute; left: 12px; top: 12px; background: #e0592a; color: #fff; border-radius: 12px; padding: 3px 10px; font-size: 15px; font-weight: 700; }
+/* Pastille réduite à un mot en petites capitales blanches (Seb, 26/11). */
+.bd-pastille { position: absolute; left: 14px; top: 12px; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; text-shadow: 0 1px 3px #0009; }
 .bd-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .bd-passees { display: flex; flex-direction: column; gap: 10px; }
 .bd-ligne-outils { display: flex; align-items: center; gap: 0; }
@@ -719,7 +725,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-qui button.oui, .bd-qui button:disabled { opacity: 1; }
 .bd-qui-noms button { width: 104px; }
 .bd-qui-noms small { font-size: 15px; text-align: center; line-height: 1.2; overflow-wrap: anywhere; }
-.bd-colonne .bd-col-pin { display: flex; align-items: center; justify-content: center; color: #1d2421; }
+.bd-colonne .bd-col-pin { display: flex; align-items: center; justify-content: center; color: var(--fg); }
 .bd-colonne .bd-col-pin.actif { background: var(--accent); color: var(--on-accent); }
 .bd-carte-haut { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 72px; display: flex; align-items: center; gap: 8px;
   background: var(--bg); border-radius: 26px; padding: 4px 14px 4px 4px; box-shadow: 0 1px 8px #0003; font-size: 17px; }
@@ -1092,7 +1098,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 }
 .variants button {
   width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; border: 0;
-  font-size: 22px; line-height: 1; background: var(--bg); box-shadow: 0 1px 6px #0004; color: inherit;
+  font-size: 22px; line-height: 1; background: var(--card); box-shadow: 0 1px 6px #0004; color: inherit;
 }
 .variants button.txt { width: auto; border-radius: 22px; font-size: 17px; padding: 0 14px; }
 .variants button.sel { box-shadow: 0 0 0 3px var(--accent), 0 1px 6px #0004; }
