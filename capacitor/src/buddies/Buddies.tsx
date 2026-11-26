@@ -389,12 +389,32 @@ export function Carre({ x, taille = 56 }: { x: Sortie; taille?: number }) {
 }
 
 /** Grande image d'une sortie (le prochain en haut de la liste, les cartes d'un groupe). */
+/** « 1 buddy · 1 invité » sous le nom du groupe (Seb, 26/11 : « Groupe » en trop ; les invitations à part). */
+function nbBuddies(g: Groupe) {
+  const n = g.membres.length, i = g.invitations.filter((x) => x.canal !== 'qr').length;
+  return `${n} ${n > 1 ? 'buddies' : 'buddy'}${i ? ` · ${i} invité${i > 1 ? 's' : ''}` : ''}`;
+}
+
+/** Les initiales des partants, petites et empilées : 3 au plus, puis « +2 » (Seb, 26/11, version B). */
+function Partants({ x }: { x: Sortie }) {
+  const n = x.participants.length;
+  if (!n) return null;
+  return <span className="bd-partants">{x.participants.slice(0, 3).map((b) => <Visage key={b.id} b={b} taille={22} />)}
+    {n > 3 && <i>+{n - 3}</i>}</span>;
+}
+
 function Affiche({ x, petite = false, onClick }: { x: Sortie; petite?: boolean; onClick: () => void }) {
+  // Sortie passée sans photo : une ligne compacte, couleur en bande à gauche, partants sous le titre (Seb, 26/11).
+  if (petite && !x.photo) return <button className="bd-sortie-ligne" onClick={onClick}>
+    <span className="bd-bande" style={{ background: couleur(x.id) }} />
+    <span className="bd-texte"><b>{x.nom}</b>
+      <small>{dateCourte(x.debut)}{x.attente ? ' · 🕓' : ''}<Partants x={x} /></small></span>
+  </button>;
   return <button className={`bd-affiche${petite ? ' petite' : ''}`} onClick={onClick}
     style={{ background: x.photo ? `linear-gradient(#0000 40%, #000a), center/cover url("${x.photo}")` : `linear-gradient(#0000 30%, #0008), ${couleur(x.id)}` }}>
     {!petite && <span className="bd-pastille">{quandSortie(x)}</span>}
     <b>{x.nom}</b>
-    <small>{petite ? dateCourte(x.debut) : `${dates(x)} · ${x.participants.length} partant${x.participants.length > 1 ? 's' : ''}`}{x.attente ? ' · 🕓' : ''}</small>
+    <small>{petite ? dateCourte(x.debut) : `${dates(x)} · ${x.participants.length} partant${x.participants.length > 1 ? 's' : ''}`}{x.attente ? ' · 🕓' : ''}{petite && <Partants x={x} />}</small>
   </button>;
 }
 
@@ -811,7 +831,7 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
     {ch.barre}
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
-      <span className="bd-titre" onClick={() => setNommer(!me)}><b>{me ? 'Seul' : g.nom}</b><small>{me ? 'Mes sorties à moi' : `Groupe · ${g.membres.length} buddies`}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
+      <span className="bd-titre" onClick={() => setNommer(!me)}><b>{me ? 'Seul' : g.nom}</b><small>{me ? 'Mes sorties à moi' : nbBuddies(g)}{g.attente ? ' · 🕓 en attente du réseau' : ''}</small></span>
       {!me && <button className="bd-crayon" onClick={() => setNommer(true)} aria-label={`Changer le nom de ${g.nom}`}><PencilIcon size={18} /></button>}
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
