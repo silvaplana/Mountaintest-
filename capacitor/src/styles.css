@@ -687,6 +687,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .bd-affiche.petite b { font-size: 17px; }
 .bd-pastille { position: absolute; left: 12px; top: 12px; background: #e0592a; color: #fff; border-radius: 12px; padding: 3px 10px; font-size: 15px; font-weight: 700; }
 .bd-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bd-passees { display: flex; flex-direction: column; gap: 10px; }
 .bd-ligne-outils { display: flex; align-items: center; gap: 0; }
 .bd-ligne-outils > .bd-ligne { flex: 1; min-width: 0; }
 .bd-outils { display: flex; gap: 0; flex: none; }
