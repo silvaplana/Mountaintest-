@@ -286,8 +286,9 @@ Pour un refuge ou un gîte qui se réserve en ligne (centrale de réservation du
 Écrins…), mets dans « url » sa page de réservation, celle où l'on voit le calendrier des places, plutôt qu'une simple
 fiche descriptive.
 Cherche les meilleurs prix : compare plusieurs sources (site de l'établissement, Booking, Gîtes de France, Airbnb…)
-et garde pour chacun le prix le plus bas trouvé. Si une liste « sites » est donnée, ne cherche et ne propose QUE des
-hébergements trouvés sur ces sites. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
+et garde pour chacun le prix le plus bas trouvé. Si une liste « sites » est donnée, regarde ces sites en priorité
+(premières recherches ciblées sur eux, par exemple « site:refuges.info » ; refuges.info liste refuges, cabanes et gîtes
+d'étape avec leurs places), puis complète avec le reste du web. Classe la liste du moins cher au plus cher. Termine en appelant l'outil donner_les_hebergements."""
 
 
 OUTIL_BUD = {
@@ -369,6 +370,8 @@ Règles :
   approximatives et mets-les dans « hebergements » : l'appli les pose sur la carte. Dis-le dans le texte.
   Pour un refuge qui se réserve en ligne (CAF/FFCAM, Tour du Queyras…), donne le lien de sa page de réservation (le
   calendrier des places) : tu ne vois pas les places libres, dis de vérifier là.
+  Si on te donne des « sites à regarder en priorité » (ex. refuges.info pour les refuges, cabanes et gîtes d'étape),
+  cherche d'abord sur eux (« site:refuges.info … »), puis ailleurs si besoin.
 - Pour un endroit précis (sommet, parking, col…), mets-le dans « point » : l'appli le montre sur la carte.
 - Si l'appli ne te donne pas l'information (par exemple l'altitude ou la pente d'une trace), dis-le simplement.
 Termine en appelant l'outil repondre."""
@@ -2295,6 +2298,8 @@ class Relais(BaseHTTPRequestHandler):
             d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 60_000)))
             question = " ".join(str(d["question"]).split())[:600]
             contexte = str(d.get("contexte", ""))[:40_000]
+            # Sites cochés dans la recherche d'hébergement : Bud les regarde en priorité.
+            sites = [x for x in (str(y).strip().lower() for y in (d.get("sites") or [])[:10]) if re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", x)]
             if len(question) < 2:
                 raise ValueError
         except (ValueError, KeyError, TypeError):
@@ -2306,7 +2311,7 @@ class Relais(BaseHTTPRequestHandler):
                 return self._json(429, {"erreur": f"Bud a assez parlé pour aujourd'hui ({MAX_PAR_JOUR} demandes)"})
             _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
         try:
-            r, cout, jetons = appeler(CONSIGNE_BUD, f"Aujourd'hui : {jour}\n\n{contexte}\n\nQuestion : {question}", OUTIL_BUD, 4)
+            r, cout, jetons = appeler(CONSIGNE_BUD, f"Aujourd'hui : {jour}\n\n{contexte}\n\n" + (f"Sites à regarder en priorité pour un hébergement : {', '.join(sites)}\n\n" if sites else "") + f"Question : {question}", OUTIL_BUD, 4)
         except anthropic.APIError as e:
             return self._json(502, {"erreur": f"Bud ne répond pas : {getattr(e, 'message', e)}"})
         except Exception as e:  # noqa: BLE001
@@ -2356,7 +2361,7 @@ class Relais(BaseHTTPRequestHandler):
                      "prix_max_nuit": float(d["prix_max"]), "arrivee": str(d.get("arrivee", ""))[:10], "nuits": int(d.get("nuits", 1)),
                      # Distance choisie autour de la ville (5, 10 ou 20 km dans l'appli ; ancienne appli : « tout près »).
                      "rayon_km": int(d.get("rayon_km") or 0),
-                     # Sites cochés dans l'appli : la recherche web ne regarde qu'eux (vide : tout le web).
+                     # Sites cochés dans l'appli : la recherche les regarde en priorité, puis le reste du web.
                      "sites": sorted({str(x).lower().strip().removeprefix("https://").removeprefix("http://").removeprefix("www.").strip("/")
                                       for x in (d.get("sites") or [])[:10]})}
                 if any(not re.fullmatch(r"[a-z0-9-]+(\.[a-z0-9-]+)+", x) for x in v["sites"]):
@@ -2388,7 +2393,7 @@ class Relais(BaseHTTPRequestHandler):
                 return self._json(429, {"erreur": f"Limite de {MAX_PAR_JOUR} demandes par jour atteinte"})
             _ecrire("quota.json", {jour: quota.get(jour, 0) + 1})
         try:
-            r, cout, jetons = appeler(consigne, demande, outil, rech, (v.get("sites") or None) if quoi == "hebergement" else None)
+            r, cout, jetons = appeler(consigne, demande, outil, rech)
         except anthropic.APIError as e:
             return self._json(502, {"erreur": f"Claude : {getattr(e, 'message', e)}"})
         except Exception as e:  # noqa: BLE001 - on renvoie l'erreur à l'appli
