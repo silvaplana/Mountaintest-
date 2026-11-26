@@ -3,30 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mountain Buddies : APK</title>
+<title>Mountain Buddies</title>
 <link rel="icon" href="../logo.svg">
+<script>
+  // Seule l'appli Android s'installe : iPhone, Mac, Windows… ouvrent la version web (Seb, 26/11).
+  if (!/Android/.test(navigator.userAgent)) location.replace('../');
+</script>
+<!-- Page de téléchargement : un seul bouton, aux couleurs de l'appli (comme rejoindre.html). -->
 <style>
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; max-width: 560px; margin-inline: auto; background: #f6f7f4; color: #1d2a1f; }
-  h1 { font-size: 1.4rem; }
-  a.btn { display: block; padding: 16px; margin: 12px 0; border-radius: 12px; background: #2f6b3a; color: #fff; text-decoration: none; font-size: 1.1rem; }
-  a.btn small { display: block; opacity: .8; font-size: .85rem; margin-top: 4px; }
-  a.web { background: #fff; color: #2f6b3a; border: 2px solid #2f6b3a; }
-  ol { padding-left: 1.2rem; line-height: 1.5; }
-  .note { color: #5b665d; font-size: .9rem; }
+  :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --glass: #f6f8fab3; --line: #b3c2cf; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --glass: #1d2834cc; --line: #38495b; } }
+  body { margin: 0; font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 440px; margin: 0 auto; padding: 36px 16px 40px; text-align: center; }
+  .logo { width: 96px; height: 96px; border-radius: 22px; }
+  h1 { font-size: 28px; margin: 12px 0 4px; }
+  p { color: var(--muted); margin: 8px 0; }
+  a.b { display: block; margin: 24px 0 18px; padding: 16px; border-radius: 28px; text-decoration: none; font-weight: 800; font-size: 20px;
+    background: var(--glass); color: var(--accent); border: 1.5px solid var(--line); box-shadow: 0 2px 8px #0002; }
+  a.web { color: var(--accent); }
+  details { text-align: left; color: var(--muted); margin-top: 20px; }
+  summary { cursor: pointer; font-weight: 700; min-height: 48px; display: flex; align-items: center; justify-content: center; }
+  ol { padding-left: 22px; }
+  small { color: var(--muted); }
 </style>
 </head>
 <body>
-<h1><img src="../logo.svg" alt="" width="44" height="44" style="vertical-align:middle;margin-right:8px">Mountain Buddies</h1>
-<p class="note">Version du @DATE@</p>
-<a class="btn" href="mountain-buddies-capacitor.apk" download>Mountain Buddies (React)<small>mountain-buddies-capacitor.apk · environ @CAP@ Mo</small></a>
-<a class="btn web" href="../">Ouvrir la version web (sans installer)</a>
-<h2>Installer un APK</h2>
-<ol>
-  <li>Touche un des boutons verts, puis « Télécharger quand même » si Chrome prévient.</li>
-  <li>Ouvre le fichier téléchargé (notification ou appli Fichiers › Téléchargements).</li>
-  <li>Android demande d'autoriser Chrome à « installer des applis inconnues » : active-le, reviens, puis « Installer ».</li>
-  <li>Si Play Protect affiche un avertissement : « Plus de détails » › « Installer quand même » (l'appli n'est pas signée par le Play Store, c'est normal pour un prototype).</li>
-</ol>
-<p class="note">Les deux applis peuvent être installées en même temps. Pour une nouvelle version, réinstalle par-dessus.</p>
+<main>
+  <img class="logo" src="../logo.svg" alt="">
+  <h1>Mountain Buddies</h1>
+  <p>Les sorties montagne entre copains.</p>
+  <a class="b" href="mountain-buddies-capacitor.apk" download>Télécharger Mountain Buddies</a>
+  <p><a class="web" href="../">ou l'ouvrir sans l'installer</a></p>
+  <details>
+    <summary>Comment l'installer ?</summary>
+    <ol>
+      <li>Touche « Télécharger », puis « Télécharger quand même » si le téléphone prévient.</li>
+      <li>Ouvre le fichier téléchargé (dans les notifications ou dans Fichiers › Téléchargements).</li>
+      <li>Si le téléphone le demande, autorise l'installation, reviens, puis touche « Installer ».</li>
+      <li>Si un avertissement s'affiche : « Plus de détails » › « Installer quand même ».</li>
+    </ol>
+    <p>Ensuite l'appli se met à jour toute seule.</p>
+  </details>
+  <p><small>Version du @DATE@</small></p>
+</main>
 </body>
 </html>
