@@ -46,30 +46,19 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
   };
 
   // Le doigt de l'appui long est encore posé (sur la carte) : on suit ses déplacements sur toute la page.
-  // Sur Android, le navigateur peut reprendre ce doigt pour faire défiler (pointercancel, puis plus aucun
-  // pointermove) : on bloque ce défilement sur la carte et on suit aussi les événements tactiles, qui continuent.
   useEffect(() => {
     if (!tire) return;
     map.dragPan.disable();
-    const zone = map.getCanvasContainer();
-    const avant = zone.style.touchAction;
-    zone.style.touchAction = 'none';
     const move = (e: PointerEvent) => setB(local(e));
-    const touchMove = (e: TouchEvent) => { const t = e.touches[0]; if (t) { e.preventDefault(); setB(local(t)); } };
     const up = () => setTire(false);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    window.addEventListener('touchmove', touchMove, { passive: false });
-    window.addEventListener('touchend', up);
-    window.addEventListener('touchcancel', up);
+    window.addEventListener('pointercancel', up);
     return () => {
       map.dragPan.enable();
-      zone.style.touchAction = avant;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('touchmove', touchMove);
-      window.removeEventListener('touchend', up);
-      window.removeEventListener('touchcancel', up);
+      window.removeEventListener('pointercancel', up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tire, map]);
