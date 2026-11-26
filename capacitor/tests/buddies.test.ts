@@ -117,10 +117,14 @@ describe('Buddies : copie locale et file d’attente', () => {
     expect(nouveauCode()).not.toBe(c);
   });
 
-  it('pastille de 👥 : les groupes qui ont bougé depuis la dernière ouverture', async () => {
+  it('pastille de 👥 : messages des buddies (pas Bud) et paiements, pas un groupe qui a bougé (spec §7.21)', async () => {
     reseau(() => ({ curseur: 'c', moi: 'u-seb', ids: ['me', 'a'], refus: [], groupes: [ME, groupe('a', 'A', new Date().toISOString())] }));
     await synchroniser();
-    expect(nouveautes()).toBe(1);
+    expect(nouveautes()).toBe(0);
+    const m = (id: string, par: string, bud = false) => ({ id, groupe: 'a', par, bud, cree_le: new Date().toISOString() });
+    const e = { ...lire(), messages: [m('1', 'u-luc'), m('2', 'u-luc', true), m('3', 'u-seb')],
+      depenses: [{ id: 'd', remb: 'annonce', pour: ['u-seb'] }] } as unknown as ReturnType<typeof lire>;
+    expect(nouveautes(e)).toBe(2);
   });
 });
 
