@@ -764,6 +764,8 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .bd-colonne .bd-col-pin { display: flex; align-items: center; justify-content: center; color: var(--fg); }
 .bd-colonne .bd-col-voiture.actif { background: var(--accent); color: var(--on-accent); }
 .bd-colonne .bd-col-pin.actif { color: var(--fg); }
+/* Nouvelles icônes : pastilles de couleur, dessin blanc (Seb, 26/11). */
+.bd-colonne .bd-col-icones.pastilles button { background: var(--c); color: #fff; }
 /* Anciennes icônes : la voiture garée porte une petite épingle. */
 .bd-col-auto { position: relative; line-height: 1; }
 .bd-col-auto i { position: absolute; top: -12px; right: -10px; font-style: normal; font-size: 15px; }
