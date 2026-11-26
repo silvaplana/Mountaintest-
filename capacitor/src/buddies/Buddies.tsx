@@ -234,7 +234,7 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     <button aria-label="Planning" data-help="Planning des sorties" {...c('#d2473f')} onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>{ic(CALENDRIER, '📅')}</button>
     <button aria-label="Album photo" data-help="Albums photo" {...c('#e0892b')} onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>{ic(PHOTO, '📸')}</button>
     <button aria-label="Buddy count" data-help="Buddy count : dépenses communes" {...c('#c9862b')} onClick={onExpenses}><BuddyCountIcon /></button>
-    <button aria-label="Hébergement" data-help="Hébergement : où on dort" {...c('#9b5e34')} onClick={onLodging}><LitMaisonIcon /></button>
+    <button aria-label="Hébergement" data-help="Recherche d'hébergement" {...c('#9b5e34')} onClick={onLodging}><LitMaisonIcon /></button>
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11) ; appui long : garer ma
         voiture ici, ou l'enlever (Seb, 26/11). */}
     <button aria-label={garee ? 'Voyage en voiture · appui long : enlever ma voiture' : 'Voyage en voiture · appui long : garer ma voiture ici'}
