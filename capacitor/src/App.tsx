@@ -60,7 +60,7 @@ import { defaultTraceName, deleteTrace, listTraces, readLien, readPins, renameTr
 import { TraceEdit } from './TraceEdit';
 import { PinLayer } from './PinLayer';
 import { SelectBox, type Prise } from './SelectBox';
-import type { Pin } from './trails/edit';
+import { cutSpurs, trimStrayEnds, type Pin } from './trails/edit';
 import { removeTraceFile, shareTrace, writeTraceFile } from './trails/traceShare';
 import { Profile, WayLegend } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
@@ -904,7 +904,7 @@ export function App() {
     let final = line, used = onPaths;
     if (onPaths) {
       setToast('Calcul du chemin sur les sentiers…');
-      try { final = await routeOnPaths(waypoints(line)); setToast(''); }
+      try { final = cutSpurs(trimStrayEnds(await routeOnPaths(waypoints(line)), line), line); setToast(''); }
       catch { used = false; setToast('Chemins introuvables (pas de réseau ?) : la ligne dessinée est gardée telle quelle.'); }
     }
     showMine(final, { onPaths: used });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cutSpurs, moveNode, piecesOf, nearestIndex, replaceSlice, snapToWays, splineNodes, splineNodesEvery, wayRunsOf } from '../src/trails/edit';
+import { cutSpurs, densify, trimStrayEnds, moveNode, piecesOf, nearestIndex, replaceSlice, snapToWays, splineNodes, splineNodesEvery, wayRunsOf } from '../src/trails/edit';
 import { readPins } from '../src/trails/savedTraces';
 import { distanceM } from '../src/gps/adaptive';
 import type { LonLat } from '../src/trails/osmTrails';
@@ -128,5 +128,33 @@ describe('✏ houppette longue, en cul-de-sac (Seb, 25/11)', () => {
     const tracé = [d[0], d[1], m, ...aller, ...aller.slice(0, -1).reverse(), { ...m, lon: m.lon + 0.00003 }, d[3], d[4]];
     const r = cutSpurs(tracé, d);
     expect(r.length).toBe(6);
+  });
+});
+
+describe('recaler sur sentiers : le doigt dépasse le bout du chemin', () => {
+  // Chemin vers l'est jusqu'à un carrefour C, puis une branche « gauche » en cul-de-sac (nord-ouest, ~110 m)
+  // et une branche droite (nord) qui mène à un autre chemin. Le doigt suit la branche gauche et finit 40 m
+  // au-delà de son bout : l'itinéraire va au bout, revient au carrefour et part par la branche droite.
+  const C = { lon: 5.602, lat: 43.2 };
+  const bout = { lon: 5.601, lat: 43.2007 };
+  const dessin = [{ lon: 5.6, lat: 43.2 }, { lon: 5.601, lat: 43.2 }, C, { lon: 5.6015, lat: 43.20035 }, bout, { lon: 5.6006, lat: 43.2009 }];
+  const aller = densify([bout, C], 5);
+  const route = [
+    ...densify([{ lon: 5.6, lat: 43.2 }, C], 5), ...aller.slice(1).reverse().slice(1), ...aller.slice(1),
+    ...densify([C, { lon: 5.602, lat: 43.2015 }, { lon: 5.6008, lat: 43.2015 }], 5).slice(1),
+  ];
+  it('s’arrête au bout du chemin, sans aller-retour', () => {
+    const r = trimStrayEnds(route, dessin);
+    expect(distanceM(r[r.length - 1], bout)).toBeLessThan(6);
+    expect(r[0]).toEqual(route[0]);
+    expect(Math.max(...r.map((p) => p.lat))).toBeLessThan(43.2008);
+  });
+  it('ne touche pas un itinéraire qui suit le dessin', () => {
+    const r = route.slice(0, densify([{ lon: 5.6, lat: 43.2 }, C], 5).length + aller.length - 2);
+    expect(trimStrayEnds(r, dessin)).toHaveLength(r.length);
+  });
+  it('ne coupe pas une boucle qui revient au départ', () => {
+    const boucle = densify([{ lon: 5.6, lat: 43.2 }, { lon: 5.603, lat: 43.2 }, { lon: 5.603, lat: 43.202 }, { lon: 5.6, lat: 43.202 }, { lon: 5.6, lat: 43.2 }], 5);
+    expect(trimStrayEnds(boucle, boucle)).toHaveLength(boucle.length);
   });
 });
