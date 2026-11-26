@@ -435,7 +435,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       </div>
       {/* Activité : toucher ouvre les sorties ⛷ ou les itinéraires ; appui long : ⛷ 🚵 🚴 🚲 🥾 au choix. */}
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
-        className="aide-long" data-help="Choix de l'activité (ski, VTT, randonnée, vélo de route, gravel) : recherche collaborative de topos" {...lpPick('activity')}
+        className="aide-long" data-help="Choix de l'activité (ski, VTT, randonnée, vélo de route, gravel) : recherche collaborative de sorties (traces, topos)" {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
       <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}>👥
         {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
