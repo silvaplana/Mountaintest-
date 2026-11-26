@@ -141,6 +141,7 @@ export function App() {
   const [hiddenTr, setHiddenTr] = useState<Set<number>>(new Set());
   const [savedAll, setSavedAll] = useState<SavedTrace[]>([]);
   const [spaceClosed, setSpaceClosed] = useState(false);
+  const [selSlot, setSelSlot] = useState<HTMLDivElement | null>(null);
   const toggleOffline = (on: boolean) => {
     setShowOffline(on);
     if (!on) return;
@@ -1394,7 +1395,7 @@ export function App() {
       {map && selection && <SelectBox map={map} depart={selection} trails={trails.filter((t) => isMine(t.id))}
         onFin={() => setSelection(null)} onEffacer={effacerPrise}
         offline={showOffline ? { saved: savedAll.filter((t) => !hiddenTr.has(t.id)), owned, squaresBytes, avg: owned.size ? ownedBytes / owned.size : 0,
-          onDeleteTraces: deleteSaved, onDeleteSquares: deleteSquares, onDownload: (sq) => void downloadSquares(sq) } : undefined} />}
+          onDeleteTraces: deleteSaved, onDeleteSquares: deleteSquares, onDownload: (sq) => void downloadSquares(sq), slot: selSlot } : undefined} />}
       {map && <PinLayer map={map} trails={trails.filter((t) => isMine(t.id) && t.pins?.length || t.id === selected?.id)}
         pique={pique && traceMenu && !modifier && !survol} targetId={traceMenu && selected && isMine(selected.id) ? selected.id : null}
         editing={pinEdit} onEditing={setPinEdit} onPins={(id, pins) => changeMine(id, { pins })}
@@ -1558,9 +1559,9 @@ export function App() {
       <EcranSonnerie onToast={setToast} />
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       {toast && <div className="toast">{toast}</div>}
-      {showOffline && !spaceClosed && !open && !drawing && !framing && (
+      {showOffline && (!spaceClosed || selection) && !open && !drawing && !framing && (
         <PhoneSpacePanel cartes={stored.scan25Bytes + stored.planignBytes + stored.mntBytes} squares={owned.size} squaresBytes={ownedBytes}
-          onClose={() => setSpaceClosed(true)} />
+          onClose={() => setSpaceClosed(true)} selecting={!!selection} selSlot={setSelSlot} />
       )}
       {/* Nouvelle version : fenêtre au centre, bien lisible (Seb 25/11), cachée pendant un suivi de trace, une sortie enregistrée ou un survol. */}
       {maj.build && navId == null && !recording && !survol && !filmTrail && (
