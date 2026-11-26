@@ -36,6 +36,12 @@ class Utilisateur(Base):
     photo: Mapped[str | None] = mapped_column(Text)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     vu_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    # Fiche du membre, comme le cœur d'AppBase (spec/buddies.md §7.18) : vue seulement par la personne.
+    prenom: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    nom: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    telephone: Mapped[str | None] = mapped_column(String(50))
+    # Facultatif, pour les remboursements (Buddy count) ; sans espaces, clé vérifiée (comme AppBase).
+    iban: Mapped[str | None] = mapped_column(String(34))
     # Super User (spec/buddies.md §7.17, comme AppBase) : au-dessus de tous les clubs et Groupes. Donné
     # seulement par la commande `python super_user.py <e-mail>` sur le VPS, jamais depuis l'appli.
     super_user: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

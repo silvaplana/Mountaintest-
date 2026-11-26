@@ -16,7 +16,13 @@ export const SCHEMA = 'fr.assomoutain.rando';
 export const REDIRECT = `${SCHEMA}://callback`;
 const CLE = 'compte';
 
-export type Profil = { id: string; email: string | null; pseudo: string; photo: string | null };
+export type Profil = {
+  id: string; email: string | null; pseudo: string; photo: string | null;
+  /** Fiche du membre, comme AppBase (spec §7.18) : vue seulement par moi. Téléphone et IBAN facultatifs. */
+  prenom?: string; nom?: string; telephone?: string | null; iban?: string | null; super_user?: boolean;
+};
+/** Ce qui se change dans la fiche ; une chaîne vide efface le téléphone ou l'IBAN. */
+export type Infos = { prenom?: string; nom?: string; telephone?: string; iban?: string };
 export type Config = { logto: string; ressource: string; appId: string; fournisseurs?: string[] };
 /** Google ou Apple : la page Logto renvoie directement vers eux (direct_sign_in). */
 export type Fournisseur = 'google' | 'apple';
@@ -38,7 +44,7 @@ export type Etat = {
   email?: string | null;
   profil?: Profil;
   /** Changements faits hors ligne, envoyés au retour du réseau. */
-  attente?: { pseudo?: string };
+  attente?: { pseudo?: string } & Infos;
   /** Dernier échange réussi avec le serveur (ms). */
   synchro?: number;
   /** Logto a refusé le jeton : se reconnecter (quand il y aura du réseau). */
@@ -208,9 +214,11 @@ export async function synchroniser(): Promise<Etat> {
   if (!connecte()) return lire();
   const attente = lire().attente;
   let p: Profil;
-  if (attente?.pseudo != null) {
-    p = await api<Profil>('PUT', '/moi', { pseudo: attente.pseudo });
-    const reste = { ...lire().attente }; if (reste.pseudo === attente.pseudo) delete reste.pseudo;
+  if (attente && Object.keys(attente).length) {
+    p = await api<Profil>('PUT', '/moi', attente);
+    // Ce qui a changé pendant l'envoi reste en attente pour la prochaine fois.
+    const reste: Record<string, string | undefined> = { ...lire().attente };
+    for (const [k, v] of Object.entries(attente)) if (reste[k] === v) delete reste[k];
     ecrire({ ...lire(), attente: reste });
   } else {
     p = await api<Profil>('GET', '/moi');
@@ -226,6 +234,42 @@ export async function changerPseudo(pseudo: string): Promise<Etat> {
   const e = lire();
   ecrire({ ...e, profil: e.profil ? { ...e.profil, pseudo: p } : e.profil, attente: { ...e.attente, pseudo: p } });
   try { return await synchroniser(); } catch { return lire(); }
+}
+
+/** IBAN : sans espaces, en majuscules, clé vérifiée (ISO 13616, même règle qu'AppBase). Vide = rien. */
+export function normaliserIban(iban: string): string {
+  const t = iban.replace(/\s+/g, '').toUpperCase();
+  if (!t) return '';
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(t)) throw new Error('Cet IBAN n’a pas la bonne forme (ex. FR76 3000 6000 0112 3456 7890 189).');
+  const chiffres = (t.slice(4) + t.slice(0, 4)).split('').map((c) => parseInt(c, 36)).join('');
+  let reste = 0;
+  for (const c of chiffres) reste = (reste * 10 + Number(c)) % 97;
+  if (reste !== 1) throw new Error('Cet IBAN est incorrect : un caractère est sans doute mal recopié.');
+  return t;
+}
+
+/** Changer ma fiche (prénom, nom, téléphone, IBAN) : tout de suite sur le téléphone, envoyée dès que possible. */
+export async function changerInfos(infos: Infos): Promise<Etat> {
+  const propre: Infos = {};
+  for (const [k, v] of Object.entries(infos) as [keyof Infos, string][]) {
+    propre[k] = k === 'iban' ? normaliserIban(v) : v.replace(/\s+/g, ' ').trim();
+  }
+  const e = lire();
+  const vide = (v?: string) => (v ? v : null);
+  const profil = e.profil && { ...e.profil, ...propre, telephone: 'telephone' in propre ? vide(propre.telephone) : e.profil.telephone,
+    iban: 'iban' in propre ? vide(propre.iban) : e.profil.iban };
+  ecrire({ ...e, profil, attente: { ...e.attente, ...propre } });
+  try { return await synchroniser(); } catch { return lire(); }
+}
+
+/** Nom complet de la fiche (« Sébastien Richard »), sinon le pseudo ; initiales pour la pastille (« SR »). */
+export function nomComplet(e: Etat = lire()) {
+  return [e.profil?.prenom, e.profil?.nom].filter(Boolean).join(' ') || nomAffiche(e);
+}
+export function initiales(e: Etat = lire()) {
+  const p = e.profil;
+  const i = p?.prenom && p?.nom ? p.prenom[0] + p.nom[0] : nomAffiche(e).slice(0, 2);
+  return i.toUpperCase();
 }
 
 /** Se déconnecter : oublie la session (les traces et le reste de l'appli ne bougent pas). */

@@ -144,3 +144,13 @@ describe('compte (connexion Logto, hors ligne)', () => {
     expect(connecte()).toBe(true);
   });
 });
+
+describe('fiche du membre (comme AppBase)', () => {
+  it('IBAN vérifié comme AppBase ; vide = effacé', async () => {
+    const { normaliserIban } = await import('../src/compte/auth');
+    expect(normaliserIban(' fr76 3000 6000 0112 3456 7890 189 ')).toBe('FR7630006000011234567890189');
+    expect(normaliserIban('  ')).toBe('');
+    expect(() => normaliserIban('FR76 3000 6000 0112 3456 7890 188')).toThrow(/incorrect/);
+    expect(() => normaliserIban('1234')).toThrow(/forme/);
+  });
+});

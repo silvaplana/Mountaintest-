@@ -4,8 +4,8 @@ import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
-  changerPseudo, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
-  nomAffiche, retourWeb, retourWebEnAttente, SCHEMA, suivre, synchroniser, type Etat, type Fournisseur,
+  changerInfos, changerPseudo, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
+  initiales, nomAffiche, nomComplet, retourWeb, retourWebEnAttente, SCHEMA, suivre, synchroniser, type Etat, type Fournisseur, type Infos,
 } from './compte/auth';
 
 /** Logos officiels (couleurs imposées par Google et Apple pour leurs boutons). */
@@ -96,6 +96,22 @@ function ChoixMain() {
   );
 }
 
+/** Un champ de la fiche, envoyé quand on le quitte (hors ligne : il attend le réseau). */
+function Champ({ titre, valeur, cle, type = 'text', onToast, ...autres }: {
+  titre: string; valeur: string; cle: keyof Infos; type?: string; onToast: (m: string) => void; placeholder?: string; inputMode?: 'tel' | 'text';
+}) {
+  const [v, setV] = useState(valeur);
+  useEffect(() => { setV(valeur); }, [valeur]);
+  return <label className="field">{titre}
+    <input type={type} value={v} maxLength={cle === 'iban' ? 42 : 100} {...autres}
+      onChange={(ev) => setV(cle === 'iban' ? ev.target.value.toUpperCase() : ev.target.value)}
+      onBlur={() => {
+        if (v.trim() === valeur.trim()) return;
+        changerInfos({ [cle]: v }).catch((err) => { onToast(String((err as Error).message)); setV(valeur); });
+      }} />
+  </label>;
+}
+
 export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m: string) => void }) {
   const e = useCompte();
   const [email, setEmail] = useState(e.email ?? '');
@@ -145,25 +161,35 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
     );
   }
 
-  const attente = e.attente?.pseudo != null;
+  const attente = Object.keys(e.attente ?? {}).length > 0;
+  const p = e.profil;
+  // Profil comme AppBase (Seb, 26 novembre) : pastille, nom, e-mail, rôle, puis les rubriques.
   return (
     <div className="expenses account">
-      <div className="xp-head"><h2>Mon compte</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
-      <div className="acc-avatar">{e.profil?.photo ? <img src={e.profil.photo} alt="" /> : nomAffiche(e).slice(0, 1).toUpperCase()}
+      <div className="xp-head"><h2>Profil</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
+      <div className="acc-avatar acc-grand">{p?.photo ? <img src={p.photo} alt="" /> : initiales(e)}
         <span className={`acc-pastille ${e.aReconnecter ? 'orange' : 'vert'}`} /></div>
+      <p className="acc-nom">{nomComplet(e)}</p>
+      <p className="acc-mail">{p?.email ?? e.email ?? ''}</p>
+      <span className="acc-role">{p?.super_user ? 'Super User' : 'Membre'}</span>
+      <h3 className="acc-rubrique">Mes infos</h3>
+      <Champ titre="Prénom" valeur={p?.prenom ?? ''} cle="prenom" onToast={onToast} />
+      <Champ titre="Nom" valeur={p?.nom ?? ''} cle="nom" onToast={onToast} />
       <label className="field">Pseudo (vu par tes amis)
         <input value={pseudo} maxLength={40} onChange={(ev) => setPseudo(ev.target.value)}
           onBlur={() => { if (pseudo.trim() && pseudo.trim() !== nomAffiche(e)) void changerPseudo(pseudo); }} />
       </label>
-      <label className="field">E-mail
-        <input value={e.profil?.email ?? e.email ?? ''} readOnly className="acc-lecture" />
-      </label>
+      <Champ titre="Téléphone (facultatif)" valeur={p?.telephone ?? ''} cle="telephone" type="tel" inputMode="tel" placeholder="06 12 34 56 78" onToast={onToast} />
+      <h3 className="acc-rubrique">Remboursements</h3>
+      <Champ titre="Mon IBAN (facultatif, pour les remboursements)" valeur={p?.iban ?? ''} cle="iban" placeholder="FR76 …" onToast={onToast} />
+      <p className="hint">Toi seul le vois.</p>
+      <h3 className="acc-rubrique">Paramètres</h3>
       {e.aReconnecter
         ? <div className="acc-bandeau orange"><span>⚠</span><span><b>Session expirée.</b> Tes données restent sur le téléphone ; reconnecte-toi quand tu as du réseau pour les synchroniser.</span></div>
         : !enLigne
-          ? <div className="acc-bandeau orange"><span>📵</span><span><b>Hors ligne, toujours connecté.</b>{attente ? ' Ton pseudo partira au retour du réseau.' : ''}</span></div>
+          ? <div className="acc-bandeau orange"><span>📵</span><span><b>Hors ligne, toujours connecté.</b>{attente ? ' Tes changements partiront au retour du réseau.' : ''}</span></div>
           : attente
-            ? <div className="acc-bandeau orange"><span>🕓</span><span>Ton pseudo attend d'être envoyé.</span></div>
+            ? <div className="acc-bandeau orange"><span>🕓</span><span>Tes changements attendent d'être envoyés.</span></div>
             : null}
       <div className="acc-bandeau vert"><span>✓</span><span>Dernière synchro : {quand(e.synchro)}</span></div>
       {e.aReconnecter && <button className="primary" disabled={occupe} onClick={() => void seConnecter()}>Me reconnecter</button>}
