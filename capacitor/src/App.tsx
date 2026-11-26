@@ -1463,7 +1463,8 @@ export function App() {
 
       {searching ? (
         <SearchBar onToast={setToast} near={map ? { lon: map.getCenter().lng, lat: map.getCenter().lat } : undefined} onClose={() => setSearching(false)}
-          onRefuges={(d) => { setSearching(false); void chercherRefuges(d); }} onPick={(p) => {
+          onRefuges={(d) => { setSearching(false); void chercherRefuges(d); }} password={[IA_MOT_DE_PASSE_INTEGRE, iaPassword].filter(Boolean).join('\n')}
+          onTopo={(t) => { setSearching(false); setTopoSheet(t); }} onSortie={(x) => { setSearching(false); setSkiSheet(x); }} onPick={(p) => {
           setSearching(false);
           setFollow(false);
           // Quitter le suivi de ◎ : MapLibre ne le lâche pas sur un flyTo qui zoome (isZooming), et le GPS

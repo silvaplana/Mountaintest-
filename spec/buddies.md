@@ -142,6 +142,13 @@ Refuges dans la loupe (Seb, 26/11) : un texte qui commence par « refuge », « 
 « refuges vers Chamonix », « gîte à Ceillac ») ajoute en tête une ligne « Refuges et cabanes autour de … » ; la toucher pose
 sur la carte les points refuges.info à environ 10 km du lieu (sinon du centre de la carte), avec la même fiche que les
 hébergements trouvés (Voir le site, Proposer à mes buddies). Relais `/refuges` : API publique refuges.info, gratuite, sans Claude.
+Loupe rangée par catégories (Seb, 26/11 : « c'est fourre-tout ») : les résultats sont groupés, dans cet ordre, en
+Courses skitour (topos et sorties de l'année, skitour d'abord), Sommets et nature, Refuges et gîtes, Villes et lieux,
+3 lignes par catégorie et « Voir plus ». Une rangée de pastilles à icônes au trait (Tout, courses, sommets, refuges,
+lieux, avec le nombre trouvé) montre une seule catégorie ; la pastille Refuges propose aussi « Refuges et cabanes
+autour de <texte> » (refuges.info). Toucher un topo ou une sortie ouvre sa fiche skitour. Relais `/skitour-chercher` :
+topos gardés sur le disque (sans appel à l'API) et sorties des 365 derniers jours dont le nom contient les mots tapés.
+Bud cherche aussi dans skitour d'abord (outil `chercher_skitour` du relais) pour un sommet, une course ou des conditions.
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à
