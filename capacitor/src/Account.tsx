@@ -170,7 +170,8 @@ export function Account({ onClose, onToast }: { onClose: () => void; onToast: (m
     <div className="expenses account">
       <div className="xp-head"><h2>Profil</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
       <div className="acc-avatar acc-grand">{p?.photo ? <img src={p.photo} alt="" /> : initiales(e)}
-        <span className={`acc-pastille ${e.aReconnecter ? 'orange' : 'vert'}`} /></div>
+        {/* Plus de point vert « connecté » : on le sait (Seb, 26/11) ; l'orange reste quand il faut se reconnecter. */}
+        {e.aReconnecter && <span className="acc-pastille orange" />}</div>
       <p className="acc-nom">{nomComplet(e)}</p>
       <p className="acc-mail">{p?.email ?? e.email ?? ''}</p>
       <span className="acc-role">{p?.super_user ? 'Super User' : 'Membre'}</span>
