@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { choisirIcones, choisirMain, iconesAGauche, main, type Main } from './doigt';
+import { choisirIcones, choisirMain, choisirNouvellesIcones, iconesAGauche, main, nouvellesIcones, type Main } from './doigt';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -78,6 +78,7 @@ function ChoixMain() {
   const pose = (v: Main) => { choisirMain(v); setM(v); };
   const [g, setG] = useState(iconesAGauche);
   const icones = (v: boolean) => { choisirIcones(v); setG(v); };
+  const [n, setN] = useState(nouvellesIcones);
   return (
     <div className="acc-main">
       <p className="acc-main-titre">Point décalé du doigt</p>
@@ -92,6 +93,7 @@ function ChoixMain() {
         <button className={g ? 'on' : ''} onClick={() => icones(true)}>À gauche</button>
         <button className={!g ? 'on' : ''} onClick={() => icones(false)}>À droite</button>
       </div>
+      <label className="acc-case"><input type="checkbox" checked={n} onChange={(ev) => { choisirNouvellesIcones(ev.target.checked); setN(ev.target.checked); }} />Nouvelles icônes dans Buddies</label>
     </div>
   );
 }

@@ -762,7 +762,11 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .bd-qui-noms button { width: 104px; }
 .bd-qui-noms small { font-size: 15px; text-align: center; line-height: 1.2; overflow-wrap: anywhere; }
 .bd-colonne .bd-col-pin { display: flex; align-items: center; justify-content: center; color: var(--fg); }
-.bd-colonne .bd-col-pin.actif, .bd-colonne .bd-col-voiture.actif { background: var(--accent); color: var(--on-accent); }
+.bd-colonne .bd-col-voiture.actif { background: var(--accent); color: var(--on-accent); }
+.bd-colonne .bd-col-pin.actif { color: var(--fg); }
+/* Anciennes icônes : la voiture garée porte une petite épingle. */
+.bd-col-auto { position: relative; line-height: 1; }
+.bd-col-auto i { position: absolute; top: -12px; right: -10px; font-style: normal; font-size: 15px; }
 .bd-carte-haut { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 72px; display: flex; align-items: center; gap: 8px;
   background: var(--bg); border-radius: 26px; padding: 4px 14px 4px 16px; box-shadow: 0 1px 8px #0003; font-size: 17px; }
 /* Le premier bouton de la bande (✕ du renommage) garde son bord à 4px. */
