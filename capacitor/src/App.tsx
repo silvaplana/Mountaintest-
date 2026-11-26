@@ -95,6 +95,7 @@ import { BDFORET_ATTRIBUTION, fetchForests, forestZoneTooBig, formatHa, groupByE
 import { computeStats, formatDuration, formatKm } from './track/stats';
 import { useSheet } from './useSheet';
 import { useMiseAJour } from './miseAJour';
+import Accueil from './Accueil';
 
 type Tab = 'sortie' | 'randos' | 'forets' | 'horsligne' | 'mesures' | 'versions' | 'usage';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
@@ -1573,6 +1574,8 @@ export function App() {
           </div>
         </div>
       )}
+      {/* Panneau d'accueil : une seule fois, à la première ouverture (Seb, 26/11). */}
+      <Accueil />
       {arrivees.length > 0 && !maj.build && (
         <div className="maj-voile" onClick={vuArrivees}>
           <div className="maj-fenetre notifs-fenetre" role="dialog" aria-label="Pendant ton absence" onClick={(ev) => ev.stopPropagation()}>

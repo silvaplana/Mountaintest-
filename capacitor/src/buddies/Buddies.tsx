@@ -204,19 +204,25 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     onPointerUp: () => clearTimeout(appui.current.t), onPointerLeave: () => clearTimeout(appui.current.t),
     onContextMenu: (ev: React.MouseEvent) => ev.preventDefault(),
   });
+  // Aide (Seb, 26/11) : appui long sur la flèche, une bulle à côté de chaque icône, comme sur la carte.
+  const [aide, setAide] = useState(false);
   // Rangée : ✕ et la flèche en haut, l’un au-dessus de l’autre, et l'écran prend toute la largeur ; ouverte, la colonne
   // glisse et l'écran se resserre à côté d'elle (Seb, 26/11).
-  return <div className={`bd-colonne${ouverte ? '' : ' rangee'}`}>
+  return <>
+  {aide && <div className="bd-aide-voile" onClick={() => setAide(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
+  <div className={`bd-colonne${ouverte || aide ? '' : ' rangee'}${aide ? ' aide' : ''}`}>
     <div className="bd-col-haut">
     {/* ✕ et flèche toujours en haut à droite, sur tous les écrans (Seb, 26/11). */}
-    <button onClick={() => retourOuFermer(onClose)} aria-label="Fermer">✕</button>
-    <button className={`bd-col-fleche${ouverte ? ' ouverte' : ''}`} onClick={() => setOuverte(!ouverte)}
+    <button onClick={() => retourOuFermer(onClose)} aria-label="Fermer" data-help="Fermer">✕</button>
+    <button className={`bd-col-fleche${ouverte || aide ? ' ouverte' : ''}`} {...appuiLong(() => setAide(true))}
+      data-help={aide ? "Plus ou moins d'icônes" : "Appui : plus ou moins d'icônes · appui long : aide"}
+      onClick={() => { if (appui.current.long) return; if (aide) { setAide(false); return; } setOuverte(!ouverte); }}
       aria-label={ouverte ? 'Ranger les icônes' : 'Montrer les icônes'} aria-expanded={ouverte}><ChevronIcon /></button>
     </div>
-    <div className={`bd-col-icones${ouverte ? ' ouverte' : ''}${neuves ? ' pastilles' : ''}`} inert={!ouverte}>
-    <button aria-label="Appel" {...c('#2e9a5b')} onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>{ic(TEL, '📞')}</button>
+    <div className={`bd-col-icones${ouverte || aide ? ' ouverte' : ''}${neuves ? ' pastilles' : ''}`} inert={!ouverte && !aide}>
+    <button aria-label="Appel" data-help="Appeler mes buddies" {...c('#2e9a5b')} onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>{ic(TEL, '📞')}</button>
     {/* Ma position, un interrupteur sous le téléphone (Seb, 26/11) : un appui allume ou éteint, un appui long ouvre l'écran. */}
-    <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible}
+    <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible} data-help="Ma position · appui long : qui me voit"
       className={`bd-col-pin${visible ? ' actif' : ''}`} {...c('#2f7de1')}
       onPointerDown={() => { appui.current.long = false; clearTimeout(appui.current.t);
         if (onPositionLong) appui.current.t = window.setTimeout(() => { appui.current.long = true; onPositionLong(); }, 550); }}
@@ -224,23 +230,25 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
       onContextMenu={(ev) => ev.preventDefault()}
       onClick={() => { if (appui.current.long) return; (onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position')))(); }}>
       <PositionIcon on={visible} /></button>
-    <button aria-label="Messagerie" {...c('#3a78c9')} onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>{ic(BULLE, '💬')}</button>
-    <button aria-label="Planning" {...c('#d2473f')} onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>{ic(CALENDRIER, '📅')}</button>
-    <button aria-label="Album photo" {...c('#e0892b')} onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>{ic(PHOTO, '📸')}</button>
-    <button aria-label="Buddy count" {...c('#c9862b')} onClick={onExpenses}><BuddyCountIcon /></button>
-    <button aria-label="Hébergement" {...c('#9b5e34')} onClick={onLodging}><LitMaisonIcon /></button>
+    <button aria-label="Messagerie" data-help="Messages" {...c('#3a78c9')} onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>{ic(BULLE, '💬')}</button>
+    <button aria-label="Planning" data-help="Plannings de saison" {...c('#d2473f')} onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>{ic(CALENDRIER, '📅')}</button>
+    <button aria-label="Album photo" data-help="Albums photo" {...c('#e0892b')} onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>{ic(PHOTO, '📸')}</button>
+    <button aria-label="Buddy count" data-help="Buddy count : dépenses communes" {...c('#c9862b')} onClick={onExpenses}><BuddyCountIcon /></button>
+    <button aria-label="Hébergement" data-help="Hébergement : où on dort" {...c('#9b5e34')} onClick={onLodging}><LitMaisonIcon /></button>
     {/* 🚗 : le voyage en voiture (km, coût, péages), venu de la barre de la carte (Seb, 24/11) ; appui long : garer ma
         voiture ici, ou l'enlever (Seb, 26/11). */}
     <button aria-label={garee ? 'Voyage en voiture · appui long : enlever ma voiture' : 'Voyage en voiture · appui long : garer ma voiture ici'}
+      data-help={garee ? 'Voyage · appui long : enlever ma voiture' : 'Voyage · appui long : garer ici'}
       className={garee ? 'bd-col-voiture actif' : undefined} {...c('#c94141')} {...appuiLong(() => void basculerVoiture(onToast))}
       onClick={() => { if (!appui.current.long) onTravel(); }}>{neuves ? <VoitureIcon garee={garee} /> : <span className="bd-col-auto">🚗{garee && <i>📍</i>}</span>}</button>
     {/* 👤 Moi, en dernier : venu de la barre de la carte (Seb, 24/11). */}
-    <button aria-label="Moi : mon compte" {...c('#7a5bc4')} onClick={onAccount}>{ic(MOI, '👤')}</button>
+    <button aria-label="Moi : mon compte" data-help="Mon compte et le support" {...c('#7a5bc4')} onClick={onAccount}>{ic(MOI, '👤')}</button>
     {/* 🔑 Le Super User seul (Seb, 26/11 : « comme je suis modeste, mettons la clé ») : ses demandes de support. */}
-    {onSuperUser && superUser() && <button aria-label="Super User" className="bd-col-cle" onClick={onSuperUser}><CleIcon />
+    {onSuperUser && superUser() && <button aria-label="Super User" data-help="Super User : les demandes de support" className="bd-col-cle" onClick={onSuperUser}><CleIcon />
       {supportNonLus(e) > 0 && <i className="bd-col-n">{supportNonLus(e)}</i>}</button>}
     </div>
-  </div>;
+  </div>
+  </>;
 }
 
 /** 🔑 Clé d'or du Super User (Seb, 26/11). */

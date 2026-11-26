@@ -355,11 +355,11 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         }}>Ouvrir les réglages</button>
       </div>
     </div>}
-    {help && <div className="help-close" onClick={() => setHelp(false)}><p>Touche n'importe où pour fermer l'aide</p></div>}
+    {help && <div className="help-close" onClick={() => setHelp(false)}><p className="help-haut">Touche n'importe où pour fermer l'aide</p></div>}
     <div className={help ? 'quick help' : 'quick'} onContextMenu={(e) => e.preventDefault()}>
       <button className="toggle" aria-label={onFermer ? 'Fermer' : "Quitter l'appli"} data-help={onFermer ? 'Revenir à l’écran d’avant' : "Quitter l'appli"} {...lp('close')}
         onClick={() => { if (onFermer) onFermer(); else if (native) void CapApp.exitApp(); else onToast('Quitter : seulement dans l’appli'); }}>✕</button>
-      <button className="toggle arrow" aria-label={wide ? 'Moins d’icônes' : 'Toutes les icônes'} data-help="Appui : plus ou moins d'icônes · appui long : aide"
+      <button className="toggle arrow" aria-label={wide ? 'Moins d’icônes' : 'Toutes les icônes'} data-help={help ? "Plus ou moins d'icônes" : "Appui : plus ou moins d'icônes · appui long : aide"}
         onPointerDown={() => { press.current.long = false; press.current.timer = setTimeout(() => { press.current.long = true; setHelp(true); }, 550); }}
         onPointerUp={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
@@ -378,7 +378,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
         }}>📷</button>
       <div className="pair" ref={pairRef}>
-      <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche" {...lp('avion')}
+      <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion (et mode poche)" {...lp('avion')}
         onClick={() => {
           if (!pair && !help) { setPairOpen('avion'); return; }
           if (!native) { onToast('Mode avion : seulement dans l’appli'); return; }
@@ -392,7 +392,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
           void PocketMode.set({ on });
           onToast(on ? 'Mode poche activé : téléphone vertical 3 s = écran noir ; à plat ou 2 secousses pour rallumer' : 'Mode poche désactivé');
         }}>👖</button>}
-      {(pair || help) && <button className={`ring ${settingsOpen || junctionWake || offVibrate ? 'on' : 'off'}`} aria-label="Réglages du suivi de trace" data-help="Réglages du suivi · appui : ⑂, vibration, double tap" {...lp('reglages')}
+      {(pair || help) && <button className={`ring ${settingsOpen || junctionWake || offVibrate ? 'on' : 'off'}`} aria-label="Réglages du suivi de trace" data-help="Réglages du suivi de trace" {...lp('reglages')}
         onClick={() => setSettingsOpen(!settingsOpen)}><span className="gear">⚙</span></button>}
       {((pair && settingsOpen) || help) && <button className={`ring ${junctionWake ? 'on' : 'off'}`} aria-label="Écran rallumé avant les carrefours pendant le suivi de trace" data-help="Écran aux carrefours" {...lp('carrefours')}
         onClick={() => {
@@ -415,7 +415,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
       <div className="pair calques" ref={reliefRef}>
       {/* Calques (Seb, 26/11) : ouvre ou referme la ligne des calques ; chacun s'allume à part, on peut les mélanger. */}
-      <button aria-label="Calques de la carte" data-help="Calques : pentes, 3D, ombres, forêts, drones, hors ligne, fond de carte" {...lp('layers')}
+      <button aria-label="Calques de la carte" data-help="Calques de la carte" {...lp('layers')}
         onClick={() => { if (!help) setPairOpen(relief ? null : 'relief'); }}><LayersIcon /></button>
       {(relief || help) && <button className={slopes ? 'on' : ''} aria-label="Pentes" data-help="Pentes" {...lp('slopes')} onClick={() => onSlopes(!slopes)}><SlopeIcon /></button>}
       {(relief || help) && <button className={tilted ? 'on' : ''} aria-label="Vue 3D du relief" data-help="Vue 3D" {...lp('view3d')} onClick={() => (tilted ? onFlat() : onTilt3d())}><View3dIcon /></button>}
@@ -435,10 +435,10 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
         data-help={`${ACTIVITY_LABEL[activity]} · appui long : changer`} {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
-      <button aria-label="Buddies" data-help="Buddies (voyage, hébergement, partage des frais, mon profil dedans)" {...lp('groups')} onClick={onBuddies}>👥
+      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}>👥
         {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       <div className="pair" ref={meteoRef}>
-      <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo sur la carte · appui : montre aussi la météo montagne · appui long : appli Météo-France"
+      <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo · appui long : Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
         onPointerUp={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
         onPointerLeave={() => { if (wx.current.timer) clearTimeout(wx.current.timer); }}
