@@ -55,6 +55,7 @@ const STYLES: Record<Style, { i: string; nom: string; dit: string }> = {
   cote: { i: '🎞', nom: 'De côté', dit: 'Travelling de côté : le relief de profil, la trace passe devant.' },
   alpi: { i: '🧗', nom: 'Alpiniste', dit: 'On monte, pause panoramique au sommet, puis on redescend vite.' },
   cine: { i: '🎬', nom: 'Ciné', dit: 'Monté tout seul : bas dans les vallées, haut aux crêtes, arrêts sur les beaux points de vue, grand recul à la fin.' },
+  reperes: { i: '🎯', nom: 'Repères', dit: 'Le regard sur le prochain repère de ta trace (virage, col, sommet), un plan posé sur le passage raide, un tour à l\'arrivée.' },
 };
 /** Couches de la trace cachées quand « trace » n'est pas coché. */
 const COUCHES_TRACE = ['trails-casing', 'trails', 'trail-sel-halo', 'trail-sel-casing', 'trail-sel', 'way-types-casing', 'way-types', 'way-gr'];
@@ -162,13 +163,13 @@ export function Survol({ map, trail, sortie, sorties, reduit, onFilm, onOuvrir, 
     setAvance('Lecture du relief…');
     const relief: Relief | null = await chargerRelief(zone, ctl.signal, r.style === 'alpi').catch(() => null);
     if (ctl.signal.aborted) { ecran(); arret.current = null; setEtape('reglages'); return; }
-    if (!relief && (r.style === 'alpi' || r.style === 'cine')) onToast('Relief indisponible ici : film en suivi');
+    if (!relief && (r.style === 'alpi' || r.style === 'cine' || r.style === 'reperes')) onToast('Relief indisponible ici : film en suivi');
     // On choisit une vitesse, pas une durée (Seb, 25/11) : le film dure ce que demande la trace, plus l'intro.
     const corps = dureeFilm(line, r.vitesse, { style: r.style, sens: r.sens, relief });
     const tIntro = r.plongee === 'nuages' ? PLONGEE_NUAGES_S : r.plongee === 'simple' ? T_PLONGEE : T_INTRO;
     const duree = corps.corps + tIntro, debut = tIntro / duree;
     const track = trajectoire(line, r.hauteur, { center: c0, zoom: ens?.zoom ?? 13 }, Math.max(IMAGES, Math.min(3000, Math.round(duree * 20))), r.plongee !== 'non',
-      { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight, debut, temps: corps.temps });
+      { style: r.style, descente: r.descente, sens: r.sens, relief, nuages: r.plongee === 'nuages', hauteurPx: map.getContainer().clientHeight, debut, temps: corps.temps, secondes: corps.corps });
     // 📷 Les photos cochées : leur image, et le moment où le film passe à leur endroit.
     const tirages: { image: HTMLImageElement; moment: number }[] = [];
     for (const p of photos.filter((x) => !sans.has(x.id))) {
@@ -640,6 +641,9 @@ function sousRelief(map: MlMap, marge: number): boolean {
 function poser(map: MlMap, c: Cam) {
   const marge = c.garde ?? 25, pas = marge < 10 ? 0.5 : 3;
   let r = Math.max(0, redresse - (marge < 10 ? 0.1 : 0.4));
+  // 🎯 Téléobjectif : champ de vision de la caméra (la carte du film est détruite après, rien à remettre).
+  const fov = c.fov ?? 36.87;
+  if (Math.abs(map.getVerticalFieldOfView() - fov) > 0.01) map.setVerticalFieldOfView(fov);
   for (let i = 0; i < 40; i++) {
     map.jumpTo({ center: [c.lon, c.lat], zoom: c.zoom, pitch: Math.max(0, c.pitch - r), bearing: c.bearing, ...(c.elevation != null ? { elevation: c.elevation } : {}) });
     if (c.pitch - r <= 0 || !sousRelief(map, marge)) break;

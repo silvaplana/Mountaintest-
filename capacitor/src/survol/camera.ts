@@ -2,6 +2,8 @@
 // Le film : vue d'ensemble, plongée vers le départ, suivi de la trace, petit quart de tour à l'arrivée.
 // Demande de Seb (25/11) : caméra lente et lissée, cap et inclinaison sans à-coups, jamais de roulis.
 
+import { filmReperes, passageRaide, T_POSE, T_TOUR } from './reperes';
+
 export interface LonLat { lon: number; lat: number }
 export type Hauteur = 'bas' | 'moyen' | 'haut';
 
@@ -34,7 +36,9 @@ export interface Cam { lon: number; lat: number; zoom: number; pitch: number; be
   /** 🧗 Altitude (m) du point visé, imposée à MapLibre : la caméra est exactement là où on l'a calculée. */
   elevation?: number;
   /** 🧗 Marge (m) au-dessus du sol garantie par le calcul : le garde-fou du tournage ne demande pas plus. */
-  garde?: number }
+  garde?: number;
+  /** 🎯 Champ de vision vertical (°) ; absent = celui de MapLibre (36,87°). coupe : image qui suit une coupe franche. */
+  fov?: number; coupe?: boolean }
 
 /** Parts du film : vue d'ensemble → départ, puis suivi, puis tour de l'arrivée. */
 export const DEBUT = 0.15, FIN = 0.85;
@@ -114,7 +118,7 @@ function flou(v: number[], sigma: number): number[] {
 }
 
 /** 🎬 Styles de prise de vue (maquette validée par Seb le 25/11). */
-export type Style = 'suivi' | 'cote' | 'alpi' | 'cine';
+export type Style = 'suivi' | 'cote' | 'alpi' | 'cine' | 'reperes';
 export type Descente = 'gopro' | 'large';
 /** 🧗 Ce que le film raconte : l'aller ('montee', du début à la fin de la trace), le retour ('descente', de la fin au
  * début) ou l'aller-retour ('deux'). Les noms datent d'avant (réglages gardés sur le téléphone). */
@@ -128,7 +132,9 @@ export interface Options { style?: Style; descente?: Descente; sens?: Sens; reli
   /** Part du film prise par l'intro, et pour 🧗 les moments (0 → 1 du survol) où finissent montée, sommet et descente : voir dureeFilm. */
   debut?: number; temps?: [number, number, number];
   /** Hauteur de la carte à l'écran (px) : donne la distance de la caméra, pour ne jamais passer sous le relief. */
-  hauteurPx?: number }
+  hauteurPx?: number;
+  /** 🎯 Durée (s) du corps du film (dureeFilm), pour régler les flous et la vitesse. */
+  secondes?: number }
 
 /** Inclinaison de la caméra GoPro de la descente (au ras de la pente). */
 export const PITCH_GOPRO = 76;
@@ -234,6 +240,12 @@ export const SURVOL_MIN = 12, SURVOL_MAX = 240;
  */
 export function dureeFilm(line: LonLat[], kmh: number, o: Options = {}): { corps: number; temps?: [number, number, number] } {
   const v = kmh / 3.6;
+  if (o.style === 'reperes' && o.relief) {
+    // 🎯 Le suivi à la vitesse choisie, plus le temps du plan posé (passage raide) et du tour à l'arrivée.
+    const c = chemin(line), alt = (x: number, y: number) => o.relief!.alt(c.pr.depuis({ x, y })) ?? 0;
+    const suivi = Math.max(SURVOL_MIN, Math.min(SURVOL_MAX, c.total / v)) + (passageRaide(c, alt) ? T_POSE : 0), T = suivi + T_TOUR;
+    return { corps: Math.round(T), temps: [suivi / T, 1.01, 2] };
+  }
   if (o.style !== 'alpi' || !o.relief) return { corps: Math.round(Math.max(SURVOL_MIN, Math.min(SURVOL_MAX, chemin(line).total / v + T_FINAL))) };
   const c = chemin(dansLeSens(line, o.sens)), s = sommetTrace(c, o.relief, o.sens);
   o = { ...o, sens: s.mode };
@@ -252,10 +264,10 @@ export function dureeFilm(line: LonLat[], kmh: number, o: Options = {}): { corps
  * zoom et position passent dans un flou gaussien large. La caméra ne fait jamais de roulis (MapLibre n'en a pas).
  * Styles : 🎥 suivi (derrière), 🎞 de côté, 🧗 alpiniste/skieur (montée, pause au sommet, descente GoPro ou large),
  * 🎬 ciné (bas aux vallées, haut aux crêtes, regard vers les sommets et les points de vue, grand recul à la fin).
- * Sans relief, alpiniste et ciné font un suivi.
+ * 🎯 repères : voir reperes.ts. Sans relief, alpiniste, ciné et repères font un suivi.
  */
 export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center: LonLat; zoom: number }, n = IMAGES, plongee: boolean | number = false, o: Options = {}): Cam[] {
-  const style: Style = (o.style === 'alpi' || o.style === 'cine') && !o.relief ? 'suivi' : o.style ?? 'suivi';
+  const style: Style = (o.style === 'alpi' || o.style === 'cine' || o.style === 'reperes') && !o.relief ? 'suivi' : o.style ?? 'suivi';
   const c = chemin(style === 'alpi' ? dansLeSens(line, o.sens) : line);
   const h = HAUTEURS[hauteur];
   // plongee : true (part par défaut) ou la part du film prise par l'intro (partPlongee).
@@ -500,6 +512,20 @@ export function trajectoire(line: LonLat[], hauteur: Hauteur, ensemble: { center
     return out;
   };
   if (style === 'alpi' && som && o.relief) return filmAlpi();
+  if (style === 'reperes') {
+    // 🎯 Le corps vient de reperes.ts ; l'intro (plongée ou vue d'ensemble) arrive sur sa première image.
+    const i0 = Math.ceil(debut * n - 1e-9), secondes = o.secondes ?? (n - i0) / 13;
+    const corps = filmReperes(line, hauteur, o.relief!, n - i0, o.temps?.[0] ?? 0.85, secondes, o.hauteurPx ?? 800), c0 = corps[0];
+    const p0 = c.pr.vers(c0), depart: Brut = { ...p0, zoom: c0.zoom, pitch: c0.pitch, bearing: c0.bearing, d: 0, s: 0 }, out: Cam[] = [];
+    for (let i = 0; i < i0; i++) {
+      const t = i / n, b = intro(t, depart), ll = c.pr.depuis(b), u = t / debut;
+      out.push({ lon: ll.lon, lat: ll.lat, zoom: b.zoom, pitch: b.pitch, bearing: b.bearing, d: 0, point: c0.point, fov: lerp(36.87, c0.fov!, doux(u)),
+        elevation: plongee ? c0.elevation : lerp(o.relief!.alt(ll) ?? c0.elevation!, c0.elevation!, doux(u)), garde: lerp(25, c0.garde!, u * u) });
+    }
+    out.push(...corps);
+    for (let i = 1; i < out.length; i++) out[i].bearing = out[i - 1].bearing + ecartAngle(out[i - 1].bearing, out[i].bearing);
+    return out;
+  }
   const brut: Brut[] = [];
   const depart = corps(0);
   for (let i = 0; i <= n; i++) {
@@ -602,10 +628,13 @@ function degager(centres: LonLat[], zoom: number[], pitch: number[], cap: number
 export function cameraA(track: Cam[], t: number): Cam {
   const n = track.length - 1, f = Math.max(0, Math.min(1, t)) * n, i = Math.min(n - 1, Math.floor(f)), u = f - i;
   const a = track[i], b = track[i + 1];
+  // Coupe franche (🎯 plan posé) : pas d'image à mi-chemin entre deux plans.
+  if (b.coupe || a.coupe) return u < 0.5 ? a : b;
   return { lon: lerp(a.lon, b.lon, u), lat: lerp(a.lat, b.lat, u), zoom: lerp(a.zoom, b.zoom, u), pitch: lerp(a.pitch, b.pitch, u),
     bearing: lerp(a.bearing, b.bearing, u), d: lerp(a.d, b.d, u),
     elevation: a.elevation != null && b.elevation != null ? lerp(a.elevation, b.elevation, u) : undefined,
     garde: a.garde != null && b.garde != null ? lerp(a.garde, b.garde, u) : undefined,
+    fov: a.fov != null && b.fov != null ? lerp(a.fov, b.fov, u) : undefined,
     point: { lon: lerp(a.point.lon, b.point.lon, u), lat: lerp(a.point.lat, b.point.lat, u) }, sommet: u < 0.5 ? a.sommet : b.sommet };
 }
 
