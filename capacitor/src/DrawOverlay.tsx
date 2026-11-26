@@ -117,9 +117,11 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
     <div ref={el} className="frame-overlay">
       {/* Bandeau tout en bas de l'écran (demande de Seb) : le haut de la carte reste libre pour dessiner. */}
       <div className="frame-banner draw-banner" onPointerDown={(e) => e.stopPropagation()}>
-        <span className="draw-title">✏ Appui long puis glisse pour tracer · très long : sélection</span>
-        {/* Une croix en haut à droite pour fermer, pas de bouton « Annuler » (demande de Seb). */}
-        <button className="draw-close" onClick={onCancel} aria-label="Fermer le menu">✕</button>
+        {/* Une croix toujours en haut à droite pour fermer, même si le titre passe sur deux lignes (Seb, 26/11). */}
+        <div className="draw-head">
+          <span className="draw-title">✏ Appui long puis glisse pour tracer · très long : sélection</span>
+          <button className="draw-close" onClick={onCancel} aria-label="Fermer le menu">✕</button>
+        </div>
         <label className="paths"><input type="checkbox" checked={onPaths} onChange={(e) => setOnPaths(e.target.checked)} /> recaler sur sentiers</label>
         {/* ▶ Commencer, ou ⏸ Pause / ▶ Reprendre et ⏹ Terminer : une ligne à eux sous « recaler sur sentiers » (demande de Seb). */}
         <div className="draw-actions">
