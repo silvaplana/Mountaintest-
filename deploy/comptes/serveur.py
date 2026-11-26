@@ -506,6 +506,24 @@ def lire_fichier(fid: str, j: dict = Depends(jeton_requis), s: Session = Depends
 
 # ---------------------------------------------------------------- 📞 appels (bloc 10)
 
+class AmiAInviter(BaseModel):
+    nom: str = Field("", max_length=80)
+    email: str = Field(min_length=3, max_length=320)
+
+
+@app.post("/inviter-appli")
+def inviter_appli(a: AmiAInviter, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """Profil › Inviter un ami : un mail pour installer Mountain Buddies, sans groupe (Seb, 26/11)."""
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", a.email.strip()):
+        raise HTTPException(409, "Adresse e-mail invalide")
+    u = utilisateur(s, j)
+    try:
+        mails.appli(a.email.strip(), a.nom.strip(), buddies.personne(u)["pseudo"], repondre_a=u.email)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(409, "Le mail n'est pas parti, réessaie plus tard") from e
+    return {"ok": True}
+
+
 class UnAppareil(BaseModel):
     jeton: str = Field(min_length=20, max_length=400)
     plateforme: str = Field("android", max_length=20)

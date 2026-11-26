@@ -16,6 +16,7 @@ from email.utils import formataddr
 from html import escape
 
 log = logging.getLogger(__name__)
+LIEN_APPLI = os.environ.get("LIEN_APPLI", "https://silvaplana.cloud/mountaintest/apk/")
 LIEN_INVITATION = os.environ.get("LIEN_INVITATION", "https://silvaplana.cloud/mountaintest/rejoindre.html?c=")
 
 
@@ -61,8 +62,13 @@ def invitation(a: str, prenom: str, par: str, groupe: str, code: str, sortie: bo
         "ignore-le simplement." + (" Pour lui répondre, réponds à ce mail." if repondre_a else ""),
     ]
     texte = "\n\n".join([*paragraphes, f"{bouton} :\n{lien}", *fin]) + "\n"
+    envoyer(a, f"{par} t'invite dans « {groupe} » sur Mountain Buddies", texte, _html(paragraphes, bouton, lien, fin),
+            repondre_a=repondre_a)
+
+
+def _html(paragraphes: list[str], bouton: str, lien: str, fin: list[str]) -> str:
     p = '<p style="margin:0 0 16px">{}</p>'
-    html = (
+    return (
         '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#16222f;max-width:520px">'
         '<p style="margin:0 0 18px;font-weight:bold;font-size:18px">Mountain Buddies</p>'
         + "".join(p.format(escape(x)) for x in paragraphes)
@@ -71,7 +77,21 @@ def invitation(a: str, prenom: str, par: str, groupe: str, code: str, sortie: bo
         + "".join(f'<p style="margin:0 0 8px;font-size:13px;color:#5b6b7b">{escape(x)}</p>' for x in fin)
         + "</div>"
     )
-    envoyer(a, f"{par} t'invite dans « {groupe} » sur Mountain Buddies", texte, html, repondre_a=repondre_a)
+
+
+def appli(a: str, prenom: str, par: str, repondre_a: str | None = None) -> None:
+    """Inviter un ami à installer Mountain Buddies, depuis le profil (Seb, 26/11), sans groupe."""
+    paragraphes = [
+        f"Salut {prenom}," if prenom else "Salut,",
+        f"{par} t'invite à installer Mountain Buddies, l'appli pour préparer et vivre nos sorties montagne "
+        "ensemble : traces, photos, dépenses communes, positions, messages et bien plus encore.",
+        "Ouvre ce lien sur ton téléphone pour la télécharger.",
+    ]
+    bouton = "Télécharger Mountain Buddies"
+    fin = [f"Tu reçois ce mail parce que {par} a donné ton adresse dans Mountain Buddies. Si tu ne le connais pas, "
+           "ignore-le simplement." + (" Pour lui répondre, réponds à ce mail." if repondre_a else "")]
+    texte = "\n\n".join([*paragraphes, f"{bouton} :\n{LIEN_APPLI}", *fin]) + "\n"
+    envoyer(a, f"{par} t'invite sur Mountain Buddies", texte, _html(paragraphes, bouton, LIEN_APPLI, fin), repondre_a=repondre_a)
 
 
 def en_arriere_plan(tache) -> None:

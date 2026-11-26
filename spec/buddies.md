@@ -1059,3 +1059,6 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   cliquables), valable 30 jours. On dit « groupe », jamais « bande » (Seb).
 - Colonne `invitations.mail` : « envoye », « erreur », vide tant que pas envoyé. Sous l'invitation : « 🕓 mail en
   attente de réseau », « ✉️ mail envoyé », ou « ⚠ mail non parti · Renvoyer » (opération `renvoyer_mail`).
+- Profil › « Inviter un ami » (Seb, 26/11) : prénom et adresse, sans groupe ; le serveur (`POST /inviter-appli`)
+  envoie tout de suite un mail avec le lien de la page de téléchargement (…/mountaintest/apk/, qui envoie les
+  iPhone vers la version web). Demande le réseau (bouton grisé sinon), « Le mail n'est pas parti » en cas d'échec.

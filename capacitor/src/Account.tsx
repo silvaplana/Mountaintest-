@@ -5,7 +5,7 @@ import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
-  changerInfos, changerPseudo, changerWero, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
+  api, changerInfos, changerPseudo, changerWero, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
   initiales, nomAffiche, nomComplet, retourWeb, retourWebEnAttente, SCHEMA, suivre, synchroniser, type Etat, type Fournisseur, type Infos,
 } from './compte/auth';
 
@@ -117,6 +117,36 @@ function Champ({ titre, valeur, cle, type = 'text', onToast, ...autres }: {
   </label>;
 }
 
+/** Profil › Inviter un ami : prénom et adresse, le serveur envoie le mail avec le lien de téléchargement. */
+function InviterAmi({ enLigne, onToast }: { enLigne: boolean; onToast: (m: string) => void }) {
+  const [form, setForm] = useState<{ nom: string; email: string } | null>(null);
+  const [occupe, setOccupe] = useState(false);
+  const envoyer = async () => {
+    if (!form) return;
+    setOccupe(true);
+    try {
+      await api('POST', '/inviter-appli', { nom: form.nom.trim(), email: form.email.trim() });
+      onToast(`Invitation envoyée à ${form.nom.trim() || form.email.trim()}`);
+      setForm(null);
+    } catch (err) { onToast(err instanceof HorsLigne ? 'Pas de réseau' : String((err as Error).message)); }
+    finally { setOccupe(false); }
+  };
+  return <>
+    <h3 className="acc-rubrique">Inviter</h3>
+    <button className="acc-support" disabled={!enLigne} onClick={() => setForm({ nom: '', email: '' })}><span className="acc-support-rond">✉️</span>
+      <span><b>Inviter un ami</b><small>{enLigne ? 'il reçoit un mail pour installer Mountain Buddies' : 'pas de réseau'}</small></span><span aria-hidden="true">›</span></button>
+    {form && <div className="bd-voile" onClick={() => setForm(null)}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+      <h3>Inviter un ami</h3>
+      <label className="field">Son prénom<input value={form.nom} onChange={(ev) => setForm({ ...form, nom: ev.target.value })} placeholder="Paul" /></label>
+      <label className="field">Son adresse e-mail<input type="email" inputMode="email" value={form.email}
+        onChange={(ev) => setForm({ ...form, email: ev.target.value })} placeholder="paul@exemple.fr" /></label>
+      <p className="hint">Mountain Buddies lui envoie un mail avec le lien pour installer l'appli.</p>
+      <button className="primary" disabled={occupe || !form.email.trim()} onClick={() => void envoyer()}>Envoyer l’invitation</button>
+      <button onClick={() => setForm(null)}>Annuler</button>
+    </div></div>}
+  </>;
+}
+
 export function Account({ onClose, onToast, onSupport }: { onClose: () => void; onToast: (m: string) => void; onSupport?: () => void }) {
   const e = useCompte();
   const [email, setEmail] = useState(e.email ?? '');
@@ -211,6 +241,8 @@ export function Account({ onClose, onToast, onSupport }: { onClose: () => void; 
       <span style={{ flex: 1 }} />
       <button className="acc-deco" onClick={() => { if (confirm('Se déconnecter ? Tes traces restent sur le téléphone.')) { void deconnecter(); onToast('Déconnecté'); } }}>Se déconnecter</button>
       <p className="hint acc-centre">Se déconnecter garde tes traces sur le téléphone.</p>
+      {/* Inviter un ami à installer l'appli, sans groupe (Seb, 26/11) : mail envoyé par le serveur (Brevo). */}
+      {connecte() && <InviterAmi enLigne={enLigne} onToast={onToast} />}
       {/* Écrire au support (Seb, 26/11) : une discussion à deux avec le Super User, tout en bas du profil (Seb, 26/11). */}
       {onSupport && !p?.super_user && <>
         <h3 className="acc-rubrique">Aide</h3>

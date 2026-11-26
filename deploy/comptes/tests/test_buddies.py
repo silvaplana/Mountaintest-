@@ -985,3 +985,15 @@ def test_invitation_par_sms_sans_mail(client, monkeypatch):
     op = nouveau_groupe()
     r = sync(client, ops=[op, invitation(op["groupe"])])
     assert par_nom(r, "Ski du dimanche")["invitations"][0]["mail"] is None
+
+
+def test_inviter_un_ami_a_installer_l_appli(client, monkeypatch):
+    """Profil › Inviter un ami (Seb, 26/11) : un mail avec le lien de téléchargement, sans groupe."""
+    import mails
+    envoyes = []
+    monkeypatch.setattr(mails, "envoyer", lambda a, sujet, texte, html, **k: envoyes.append((a, sujet, texte)))
+    r = client.post("/inviter-appli", headers=entete(), json={"nom": "Paul", "email": "paul@exemple.fr"})
+    assert r.status_code == 200, r.text
+    (a, sujet, texte), = envoyes
+    assert a == "paul@exemple.fr" and "Salut Paul" in texte and "/mountaintest/apk/" in texte and "bien plus encore" in texte
+    assert client.post("/inviter-appli", headers=entete(), json={"email": "pas-une-adresse"}).status_code == 409
