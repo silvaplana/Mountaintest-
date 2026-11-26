@@ -121,3 +121,17 @@ export async function searchPlacesWide(text: string, signal?: AbortSignal, near?
   if (got.every((g) => g.status === 'rejected')) throw (got[0] as PromiseRejectedResult).reason;
   return mergePlaces(got.map((g) => (g.status === 'fulfilled' ? g.value : [])));
 }
+
+// ——— Loupe 🔍 « refuge », « gîte », « cabane » (+ un lieu) : refuges.info sur la carte (Seb, 26/11) ———
+
+export type NatureRefuge = 'refuge' | 'cabane' | 'gite';
+
+/** « refuges vers Chamonix » → { nature: 'refuge', lieu: 'Chamonix' } ; « refuge » seul → lieu vide (autour de la carte). */
+export function demandeRefuges(text: string): { nature: NatureRefuge; lieu: string } | null {
+  const m = /^\s*(refuges?|cabanes?|g[iî]tes?(?: d['’]étapes?)?)\b(.*)$/i.exec(text);
+  if (!m) return null;
+  const mot = normalize(m[1]);
+  const nature: NatureRefuge = mot.startsWith('cabane') ? 'cabane' : mot.startsWith('gite') ? 'gite' : 'refuge';
+  const lieu = m[2].replace(/^[\s:,]*(?:(?:autour|pr[eè]s)\s+(?:de|du|des|d['’])|vers|à|a|au|aux|dans\s+(?:le|la|les)|de\s+la|du|des|de|d['’])?\s*/i, '').trim();
+  return { nature, lieu };
+}

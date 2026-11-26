@@ -138,6 +138,10 @@ Depuis le 25/11 après-midi (Seb, « Le Dôme des Écrins » ne sortait pas) : e
 seulement (avec les mots qui comptent, sans « le », « des »…), OpenStreetMap (Photon, lieux naturels seulement) puis IGN
 tout (communes, adresses) : sommets et lieux naturels avant les adresses, jusqu'à 30 résultats dans une liste qui défile.
 🎤 à côté du champ : on dit le nom (dictée dans l'appli, comme la messagerie).
+Refuges dans la loupe (Seb, 26/11) : un texte qui commence par « refuge », « cabane » ou « gîte » (avec ou sans lieu :
+« refuges vers Chamonix », « gîte à Ceillac ») ajoute en tête une ligne « Refuges et cabanes autour de … » ; la toucher pose
+sur la carte les points refuges.info à environ 10 km du lieu (sinon du centre de la carte), avec la même fiche que les
+hébergements trouvés (Voir le site, Proposer à mes buddies). Relais `/refuges` : API publique refuges.info, gratuite, sans Claude.
 ⛰ déplie 🌗 🌲 🗺 : toutes les options de vue de la carte au même endroit.
 🚗 🏨 💶 ne sont plus sur la carte : ils sont dans la colonne d'icônes de Buddies (🚗 ajouté sous 🏨, puis 👤 Moi en dernier).
 Appui long sur un bouton à variantes (activité ⛷ 🚵 🚴 🚲 🥾, fond de carte) : elles s'ouvrent à

@@ -832,6 +832,36 @@ def _geotrek_json(url: str, timeout: int = 20):
         return json.loads(r.read())
 
 
+# ——— refuges.info (loupe 🔍 « refuge », « gîte », « cabane ») : API publique gratuite, sans clé ———
+
+REFUGES_NATURES = {"refuge": ("refuge", "cabane"), "cabane": ("cabane",), "gite": ("gîte", "gite")}
+
+
+def _refuge(f: dict, garder: tuple) -> dict | None:
+    """Un point refuges.info (GeoJSON, detail=complet) → hébergement de l'appli ; None si ce n'est pas la nature voulue."""
+    p, c = f.get("properties") or {}, (f.get("geometry") or {}).get("coordinates") or []
+    t = p.get("type")
+    nature = str((t.get("valeur") if isinstance(t, dict) else t) or "")
+    if len(c) < 2 or not p.get("nom") or not any(g in nature.lower() for g in garder):
+        return None
+    alt = (p.get("coord") or {}).get("alt") if isinstance(p.get("coord"), dict) else None
+    pl = p.get("places")
+    places = pl.get("valeur") if isinstance(pl, dict) else pl
+    infos = [f"{int(alt)} m" if isinstance(alt, (int, float)) and alt else "", f"{places} places" if places not in (None, "", 0, "0") else ""]
+    lien = str(p.get("lien") or (f"https://www.refuges.info/point/{p['id']}" if p.get("id") else ""))
+    return {"nom": str(p["nom"]), "type": nature, "prix_nuit": None, "adresse": " · ".join(x for x in infos if x),
+            "url": lien, "resume": "Fiche refuges.info", "lon": float(c[0]), "lat": float(c[1])}
+
+
+def refuges_info(o: float, s: float, e: float, n: float, nature: str) -> list:
+    """Refuges, cabanes ou gîtes d'étape dans le rectangle, d'après refuges.info (100 au plus)."""
+    q = urllib.parse.urlencode({"bbox": f"{o:.4f},{s:.4f},{e:.4f},{n:.4f}", "type_points": "all", "format": "geojson",
+                                "detail": "complet", "nb_points": 500})
+    j = _geotrek_json(f"https://www.refuges.info/api/bbox?{q}")
+    garder = REFUGES_NATURES[nature]
+    return [x for x in (_refuge(f, garder) for f in (j.get("features") or [])) if x][:100]
+
+
 def _geotrek_essai(api: str) -> bool:
     try:
         j = _geotrek_json(f"{api}/trek/?page_size=1&fields=id", timeout=10)
@@ -1985,7 +2015,7 @@ class Relais(BaseHTTPRequestHandler):
 
     def do_GET(self):
         # Page d'état : modèle et cumul des coûts (aucune donnée sensible).
-        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "photos-choix", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace", "geotrek-liste", "geotrek-trace"], "geotrek": GEOTREK_ETAT, "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
+        self._json(200, {"ok": True, "modele": MODELE, "routes": ["randos", "bud", "voiture", "voyage", "invitation", "hebergement", "facture", "photos-choix", "skitour", "skitour-liste", "skitour-sortie", "skitour-massifs", "skitour-photo", "skitour-tout", "skitour-details", "skitour-topo", "skitour-topos", "visugpx-liste", "visugpx-trace", "geotrek-liste", "geotrek-trace", "refuges"], "geotrek": GEOTREK_ETAT, "skitour": bool(SKITOUR_CLE), "visugpx": bool(VISUGPX_CLE), "visugpx_champs": sorted(VISUGPX_CHAMPS), **appels_visugpx(), "skitour_champs": sorted(CHAMPS_VUS), "skitour_depart": sorted(CHAMPS_DEPART), "mail": MAIL_ACTIF, **cumuls(), **detail_couts(), **appels_skitour(), "skitour_topo_brut": TOPO_BRUT})
 
     def _visugpx(self, liste: bool):
         if not VISUGPX_CLE:
@@ -2032,9 +2062,24 @@ class Relais(BaseHTTPRequestHandler):
         except Exception as ex:  # noqa: BLE001
             return self._json(502, {"erreur": str(ex)})
 
+    def _refuges(self):
+        """Loupe 🔍 : refuges.info dans un rectangle (gratuit, pas de Claude)."""
+        try:
+            d = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", 0)), 2_000)) or b"{}")
+            o, s_, e, n = (float(d[k]) for k in ("o", "s", "e", "n"))
+            nature = str(d.get("nature", "refuge"))
+            if nature not in REFUGES_NATURES or not (-180 <= o < e <= 180 and -90 <= s_ < n <= 90 and e - o <= 1 and n - s_ <= 1):
+                raise ValueError("demande invalide")
+        except (ValueError, KeyError, TypeError) as ex:
+            return self._json(400, {"erreur": str(ex) or "demande invalide"})
+        try:
+            return self._json(200, {"hebergements": refuges_info(o, s_, e, n, nature)})
+        except Exception as ex:  # noqa: BLE001
+            return self._json(502, {"erreur": f"refuges.info ne répond pas : {ex}"})
+
     def do_POST(self):
         chemin = self.path.rstrip("/")
-        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/photos-choix", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace", "/geotrek-liste", "/geotrek-trace")):
+        if not chemin.endswith(("/randos", "/bud", "/voiture", "/voyage", "/invitation", "/hebergement", "/facture", "/photos-choix", "/skitour", "/skitour-liste", "/skitour-sortie", "/skitour-massifs", "/skitour-photo", "/skitour-tout", "/skitour-details", "/skitour-topo", "/skitour-topos", "/visugpx-liste", "/visugpx-trace", "/geotrek-liste", "/geotrek-trace", "/refuges")):
             return self._json(404, {"erreur": "inconnu"})
         if not MOT_DE_PASSE or not hmac.compare_digest(self.headers.get("X-Mot-De-Passe", ""), MOT_DE_PASSE):
             return self._json(401, {"erreur": "Mot de passe IA incorrect"})
@@ -2042,6 +2087,8 @@ class Relais(BaseHTTPRequestHandler):
             return self._invitation()
         if chemin.endswith("/facture"):
             return self._facture()
+        if chemin.endswith("/refuges"):
+            return self._refuges()
         if chemin.endswith("/photos-choix"):
             return self._photos_choix()
         if chemin.endswith("/skitour"):
