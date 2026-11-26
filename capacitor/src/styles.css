@@ -171,6 +171,10 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .dt-bubble .dt-open { display: block; margin: 10px 0 0 auto; padding: 8px 14px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; font-size: 15px; }
 .quick .pair { display: flex; flex-direction: row-reverse; gap: 8px; align-items: center; }
 .quick.help .pair { flex-direction: column; align-items: flex-end; }
+/* Ligne des calques : si elle ne tient pas dans l'écran, elle passe sur 2 lignes, la 2e commence sous la pente
+   (Seb, 26/11). Calques reste en bout de ligne ; la hauteur reste celle d'un bouton pour ne pas pousser la colonne. */
+.quick:not(.help) .pair.calques { position: relative; flex-wrap: wrap; align-content: flex-start; height: 44px; padding-right: 52px; }
+.quick:not(.help) .pair.calques > button:first-child { position: absolute; right: 0; top: 0; }
 .toast {
   position: absolute; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 70px); z-index: 8;
   background: #1d2421e6; color: #fff; border-radius: 10px; padding: 10px 12px; font-size: 14px; text-align: center;
@@ -1090,6 +1094,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 @media (max-height: 720px) {
   .quick { gap: 5px; }
   .quick button:not(.toggle) { width: 40px; height: 40px; font-size: 20px; }
+  .quick:not(.help) .pair.calques { height: 40px; padding-right: 48px; }
   .quick > button:not(.arrow), .quick > .pair { margin-right: 8px; }
 }
 /* « 🔍 Rechercher ici » (façon Komoot) : en haut au centre, flou ; grisé dans la zone déjà cherchée. */
@@ -1282,6 +1287,8 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .icones-gauche .quick { right: auto; left: 10px; align-items: flex-start; }
 .icones-gauche .quick .pair { flex-direction: row; }
 .icones-gauche .quick.help .pair { align-items: flex-start; }
+.icones-gauche .quick:not(.help) .pair.calques { padding-right: 0; padding-left: 52px; }
+.icones-gauche .quick:not(.help) .pair.calques > button:first-child { right: auto; left: 0; }
 .icones-gauche .quick.help button::before { right: auto; left: 52px; }
 .icones-gauche .quick > button:not(.arrow), .icones-gauche .quick > .pair { margin-right: 0; margin-left: 6px; }
 .icones-gauche .layers, .icones-gauche .scale-bar { left: auto; right: 10px; }
