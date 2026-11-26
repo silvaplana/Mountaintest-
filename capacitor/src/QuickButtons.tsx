@@ -398,7 +398,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
       </div>
       <button disabled={!onDraw} aria-label="Tracer un parcours au doigt" data-help="Tracer au doigt" {...lp('draw')} onClick={onDraw}>✏
         {traceState !== 'none' && <span className={`pencil-badge ${traceState}`} aria-label={traceState === 'run' ? 'Trace en cours' : 'Trace en pause'}>{traceState === 'run' ? '▶' : '⏸'}</span>}</button>
-      <div className="pair" ref={reliefRef}>
+      <div className="pair calques" ref={reliefRef}>
       {/* Calques (Seb, 26/11) : ouvre ou referme la ligne des calques ; chacun s'allume à part, on peut les mélanger. */}
       <button aria-label="Calques de la carte" data-help="Calques : pentes, 3D, ombres, forêts, drones, fond de carte" {...lp('layers')}
         onClick={() => { if (!help) setPairOpen(relief ? null : 'relief'); }}><LayersIcon /></button>
