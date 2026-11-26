@@ -351,6 +351,8 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         onPointerLeave={() => { if (press.current.timer) clearTimeout(press.current.timer); }}
         onContextMenu={(e) => e.preventDefault()}
         onClick={() => { if (press.current.long) { press.current.long = false; return; } if (help) { setHelp(false); return; } toggleWide(); }}>{wide ? '◂' : '▸'}</button>
+      {/* Rangée : seuls ✕ et la flèche ; la flèche fait glisser toutes les autres icônes d'un bloc (Seb, 26/11). */}
+      <div className={`quick-reste${all ? ' ouverte' : ''}`} inert={!all}>
       {(tilted || help) && <button aria-label="Remettre la carte à plat, nord en haut" data-help="À plat, nord en haut" {...lp('compass')} onClick={onFlat}>🧭</button>}
       <button className={locating ? 'on' : ''} aria-label="Me localiser" data-help="Me localiser" {...lp('locate')}
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
@@ -361,7 +363,6 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
           noterPrise();
           Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
         }}>📷</button>
-      {all && <>
       <div className="pair" ref={pairRef}>
       <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion · appui : montre aussi le mode poche" {...lp('avion')}
         onClick={() => {
@@ -434,7 +435,7 @@ export function QuickButtons({ geo, onToast, onDraw, onSearch, onBaseLayer, base
         }}>🌦</button>
       {(meteo || help) && <button aria-label="Météo montagne" data-help="Météo montagne" {...lp('weatherMountain')} onClick={() => openWeather(true)}>🏔</button>}
       </div>
-      </>}
+      </div>
     </div>
     </>
   );
