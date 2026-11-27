@@ -96,6 +96,8 @@
       // réagissait pas dans Samsung Internet (Seb, 27/11). Sans l'appli, rien ne s'ouvre : d'où l'étape 1 au-dessus.
       $('invitBouton').href = 'fr.assomoutain.rando://rejoindre?c=' + c + pl;
       $('invitAndroid').hidden = false;
+      // Le téléchargement est déjà dans la carte (étape 1) : pas de second « Télécharger pour Android » plus bas (Seb, 27/11).
+      document.addEventListener('DOMContentLoaded', () => { for (const x of document.querySelectorAll('header.hero .boutons, header.hero .petit')) x.style.display = 'none'; });
     } else {
       // iPhone, ordinateur : la version web garde l'invitation jusqu'à la connexion.
       $('invitBouton').href = 'app/?rejoindre=' + c + (planning ? '&planning=' + encodeURIComponent(planning) : '');
