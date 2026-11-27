@@ -32,7 +32,7 @@ export function PositionsSurCarte({ map, x }: { map: MlMap | null; x: Sortie }) 
 }
 
 function VisagesSurCarte({ map, rs }: { map: MlMap | null; rs: Repere[] }) {
-  const cle = rs.map((r) => `${r.b.id}${r.p.lat}${r.p.lon}${etiquette(r)}${r.actif}`).join();
+  const cle = rs.map((r) => `${r.b.id}${r.b.pseudo}${r.p.lat}${r.p.lon}${etiquette(r)}${r.actif}`).join();
   useEffect(() => {
     if (!map || !rs.length) return;
     const ms = rs.map((r) => {
@@ -45,7 +45,8 @@ function VisagesSurCarte({ map, rs }: { map: MlMap | null; rs: Repere[] }) {
       t.textContent = initiales(r.b.pseudo);
       const b = document.createElement('b');
       b.className = r.moi ? 'moi' : r.actif ? '' : 'vieux';
-      b.textContent = r.moi ? 'toi' : heureCourte(r.p.prise_le);
+      // Le pseudo en entier avec l'heure (Seb, 27/11 : « S » seul, trop petit et pas parlant).
+      b.textContent = r.moi ? 'toi' : `${r.b.pseudo} · ${heureCourte(r.p.prise_le)}`;
       el.append(t, document.createElement('i'), b);
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([r.p.lon, r.p.lat]).addTo(map);
     });
