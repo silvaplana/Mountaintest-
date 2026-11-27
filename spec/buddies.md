@@ -708,7 +708,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   « Tu montres ta carte » : les autres suivent ma vue (centre, zoom, orientation, inclinaison, 4 fois par seconde
   au plus) et mon fond de carte (SCAN 25, Plan IGN… s'ils y ont droit). Mes traces affichées partent aussi, allégées
   (500 points en tout), et arrivent chez eux en invitées « nom (de Julie) », sans aller dans Mes traces. Chez eux :
-  barre verte « Julie te montre sa carte » et, dessous, l'encart « Ta carte suit Julie · Stop » (Seb : qu'on sache bien que la carte est guidée). Pas
+  barre verte « Julie te montre sa carte » et, dessous, l’encart « (badge de Julie) Ta carte suit Julie · Stop » (Seb : qu'on sache bien que la carte est guidée). Pas
   d'acceptation au départ ; c'est chacun qui arrête de suivre avec Stop (Seb, 27 novembre). Quand on arrête (ou que Julie
   arrête, ou fin d'appel), si des traces sont arrivées : « Garder les traces de Julie ? » avec leurs noms, Non merci /
   Garder (toutes rangées dans Mes traces). La même icône est en haut d'une conversation de groupe (Seb, 27 novembre) : en appel, elle allume ma

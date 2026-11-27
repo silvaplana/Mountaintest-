@@ -5,6 +5,8 @@ import type { Trail } from '../trails/osmTrails';
 import { saveTrace } from '../trails/savedTraces';
 import { envoyerCarte, reprendreMaCarte, suivreCartes } from './appel';
 import { useAppel } from './Appel';
+import { useBuddies, Visage } from './Buddies';
+import { appliquer } from './store';
 import { tracesAEnvoyer, tracesInvitees, type TraceEnvoyee } from './carteSuivie';
 
 const FONDS: string[] = ['auto', 'scan25', 'planign'];
@@ -18,6 +20,7 @@ export function CarteSuivie({ map, fond, onFond, mes, onInvitees, onToast }: {
   onInvitees: (t: Trail[]) => void; onToast: (m: string) => void;
 }) {
   const e = useAppel();
+  const bs = useBuddies();
   const jeMontre = !!e?.jeMontre;
   const suit = e?.suit ?? null;
   const [recues, setRecues] = useState<TraceEnvoyee[]>([]);
@@ -93,8 +96,11 @@ export function CarteSuivie({ map, fond, onFond, mes, onInvitees, onToast }: {
     </div>;
   }
   if (!suit) return null;
+  // Le badge de celui qui guide ma carte (sa photo, sinon son initiale).
+  const lui = appliquer(bs).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null };
   return <div className="cs-bandeau">
     <div className="cs-ligne">
+      <Visage b={lui} taille={40} />
       <span className="cs-nom">Ta carte suit <b>{suit.pseudo}</b></span>
       <button className="cs-stop" onClick={reprendreMaCarte}>Stop</button>
     </div>
