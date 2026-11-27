@@ -1267,3 +1267,13 @@ le groupe (« Bienvenue dans … », ou après la connexion). Le bouton ② « R
 🔗 Lien d'application (Seb, 27/11) : sur Android, le lien d'invitation `…/api/i?c=` ouvre directement l'appli quand elle
 est installée (intent-filter `autoVerify`, fichier `deploy/vitrine/.well-known/assetlinks.json` avec l'empreinte de la clé
 des APK). Sans l'appli, ou si Android n'a pas pu vérifier, le lien ouvre la page comme avant.
+
+### 7.30 Mes dispos : voir les autres, une seule case (Seb, 27 novembre 2026)
+
+Maquette : `maquettes/mes-dispos-autres/` (validée par Seb) ; captures `captures/mes-dispos-autres/`.
+
+- À côté de chaque date, les réponses déjà données par les autres buddies du groupe : une pastille avec l'initiale
+  (couleur du buddy) et ✓ (vert), ? (jaune) ou ✗ (rouge), 💬 s'il a laissé un mot. Pas de pastille = pas encore répondu.
+  Un nouveau venu voit ainsi tout de suite ce qui a été dit.
+- Une seule grande case par date (au lieu de trois boutons) : un toucher = ✓, deux = ?, trois = ✗, quatre = vide
+  (même ordre que la grille du planning). L'appui long garde le petit mot.

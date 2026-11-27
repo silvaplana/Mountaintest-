@@ -966,7 +966,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       : vue.ecran === 'planning' && pl ? <UnPlanning p={pl} g={groupes.find((x) => x.id === pl.groupe)} sorties={sorties} onToast={onToast} onClose={onClose}
         onSortie={ouvrir} onRemplir={() => setVue({ ecran: 'dispos', id: pl.id, groupe: vue.groupe, conv: vue.conv })}
         onRetour={() => (vue.conv ? setVue({ ecran: 'conv', id: vue.conv }) : retourPlannings(vue.groupe))} />
-      : vue.ecran === 'dispos' && pl ? <MesDispos p={pl} onClose={onClose} onRetour={() => setVue({ ecran: 'planning', id: pl.id, groupe: vue.groupe, conv: vue.conv })} />
+      : vue.ecran === 'dispos' && pl ? <MesDispos p={pl} g={groupes.find((x) => x.id === pl.groupe)} onClose={onClose} onRetour={() => setVue({ ecran: 'planning', id: pl.id, groupe: vue.groupe, conv: vue.conv })} />
       : vue.ecran === 'nouveau' ? <Nouveau onToast={onToast} onFini={(id) => setVue({ ecran: 'groupe', id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
       : vue.ecran === 'sortie' && vue.groupe !== SEUL && !groupes.some((x) => x.id === vue.groupe)
         ? <ChoixGroupe groupes={groupes.filter((x) => x.nature === 'bande')} onChoix={(id) => setVue({ ecran: 'sortie', groupe: id })}
