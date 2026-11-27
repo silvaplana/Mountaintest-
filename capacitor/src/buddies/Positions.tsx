@@ -233,7 +233,8 @@ export function useEpingle() {
 export async function basculerVoiture(onToast: (m: string) => void) {
   if (maVoiture()) { enleverVoiture(); onToast("Ta voiture n'est plus sur la carte."); return; }
   try {
-    garerVoiture(await maPosition());
+    const { lon, lat } = await maPosition();
+    garerVoiture({ lon, lat });
     onToast('Ta voiture est garée ici. Tes buddies la voient aussi, jusqu\'à minuit.');
   } catch { onToast('Position introuvable : autorise la localisation et réessaie'); }
 }

@@ -21,7 +21,7 @@ import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Heb
 import type { Lodging } from '../Lodging';
 import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosition, basculerVoiture, ciblesIci, PositionsSurCarte, useReperes } from './Positions';
 import { Utilisateurs } from './Utilisateurs';
-import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
+import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre, type PointCarte } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, montrerMaCarte, proposerMaCarte, reprendreMaCarte, siCarteAbsente, type Dest, type Sonnerie } from './appel';
 import { useAppel } from './Appel';
@@ -756,7 +756,7 @@ export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'do
 
 /** Ce qu'on montre sur la carte : une sortie (sa conversation ouverte si `parler`), des traces, un point d'un message,
  * ou les buddies visibles (📍 de la colonne) centrés sur l'un d'eux (`positions` = son identifiant). */
-export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string;
+export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: PointCarte; positions?: string;
   /** Messagerie descendue sur la carte (Seb, 27/11) : elle reste ouverte et cache ces pixels du bas ; on montre au-dessus. */
   cache?: number };
 
