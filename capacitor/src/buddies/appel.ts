@@ -75,8 +75,12 @@ function bip(freqs: number[], d: number, volume = 0.25) {
   });
 }
 /** Tonalité de retour d'appel à la française : 440 Hz, 1,5 s toutes les 5 s. */
+export function tonaliteDoitSonner(jappelle: boolean, e: EtatAppel | null) {
+  return jappelle && !!e && !e.muette && (e.phase === 'connexion' || e.phase === 'appel') && !e.voix.length;
+}
 function tonaliteSelon(e: EtatAppel | null) {
-  const faut = jAppelle && !!e && (e.phase === 'connexion' || e.phase === 'appel');
+  // Dès que quelqu'un est là, plus de tonalité (Seb, 27/11 : elle continuait parfois après le décroché).
+  const faut = tonaliteDoitSonner(jAppelle, e);
   if (faut && !tonalite) { bip([440], 1.5, 0.15); tonalite = setInterval(() => bip([440], 1.5, 0.15), 5000); }
   if (!faut && tonalite) { clearInterval(tonalite); tonalite = undefined; }
 }
@@ -145,6 +149,7 @@ export const refuser = () => { if (etat?.phase === 'sonne') changer(null); };
 export async function decrocher() {
   const e = etat;
   if (!e || e.phase !== 'sonne') return;
+  jAppelle = false; // je réponds : pas de tonalité chez moi
   changer({ ...e, phase: 'connexion' });
   try {
     const r = await api<Reponse>('POST', `/appels/${e.id}/rejoindre`);
@@ -157,6 +162,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
   salle = room;
   const voix = () => [...room.remoteParticipants.values()].map((p) => ({ id: p.identity, pseudo: p.name || '?' }));
   let pret = false; // celui qui rejoint ne se fait pas annoncer ceux déjà là
+  const annonces = new Set<string>(); // ceux dont l'arrivée a déjà été annoncée dans cet appel
   const maj = () => {
     if (!etat || salle !== room) return;
     const v = voix();
@@ -166,12 +172,21 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     const arrives = v.filter((x) => !avant.has(x.id)), partis = etat.voix.filter((x) => !apres.has(x.id));
     let annonce = etat.annonce;
     if (arrives.length) arrivees.forEach((f) => f());
-    if (muette || (!pret && !jAppelle)) { /* rien à annoncer */ } else if (arrives.length) {
+    // Un buddy dont la connexion saute (PC, réseau faible) repart et revient sans cesse : « tou-dou, tou-dou… » en boucle
+    // (Seb, 27/11). On n'annonce une arrivée qu'une fois, et un départ seulement s'il dure 5 s.
+    const nouveaux = arrives.filter((x) => !annonces.has(x.id));
+    arrives.forEach((x) => annonces.add(x.id));
+    if (muette || (!pret && !jAppelle)) { /* rien à annoncer */ } else if (nouveaux.length) {
       bip([660, 880], 0.15); navigator.vibrate?.(200);
-      annonce = { texte: `${arrives.map((x) => x.pseudo).join(' et ')} ${arrives.length > 1 ? 'ont' : 'a'} décroché`, jusqua: Date.now() + 4000 };
+      annonce = { texte: `${nouveaux.map((x) => x.pseudo).join(' et ')} ${nouveaux.length > 1 ? 'ont' : 'a'} décroché`, jusqua: Date.now() + 4000 };
     } else if (partis.length) {
-      bip([660, 440], 0.15);
-      annonce = { texte: `${partis.map((x) => x.pseudo).join(' et ')} ${partis.length > 1 ? 'ont' : 'a'} raccroché`, jusqua: Date.now() + 4000 };
+      setTimeout(() => {
+        const vraiment = partis.filter((x) => !voix().some((y) => y.id === x.id) && annonces.has(x.id));
+        if (!vraiment.length || !etat || salle !== room) return;
+        vraiment.forEach((x) => annonces.delete(x.id));
+        bip([660, 440], 0.15);
+        changer({ ...etat, annonce: { texte: `${vraiment.map((x) => x.pseudo).join(' et ')} ${vraiment.length > 1 ? 'ont' : 'a'} raccroché`, jusqua: Date.now() + 4000 } });
+      }, 5000);
     }
     const montre = etat.jeMontre || (montrerDesQue && ensemble);
     if (montre) montrerDesQue = false;
@@ -241,7 +256,7 @@ function fini() {
 
 export async function raccrocher() {
   const room = salle;
-  if (!room) { changer(null); return; }
+  if (!room) { jAppelle = false; changer(null); return; } // raccroché avant la salle : la prochaine sonnerie reçue n'aura pas la tonalité
   fini(); // salle oubliée d'abord : la déconnexion qui suit ne refait pas fini()
   await room.disconnect().catch(() => undefined);
 }
