@@ -1232,3 +1232,7 @@ Lien touché par quelqu'un qui est déjà dans le groupe (Seb, 27/11) : l'appli 
 « Sébastien, tu es déjà dans « groupe » » (après la synchro, réinstallation comprise). Sinon « Bienvenue dans « groupe » »,
 ou « Demande envoyée » pour un lien « un admin accepte ». La page web ne peut pas le savoir avant la connexion : elle
 garde son bouton.
+Page d'invitation sur Android (Seb, 27/11) : deux étapes dans l'ordre, 1 « Télécharger l'appli » (le bouton est dans le
+bandeau), 2 « Rejoindre le groupe », qui ouvre l'appli par `fr.assomoutain.rando://rejoindre` (l'`intent://` avec retour
+au navigateur ne réagissait pas dans Samsung Internet). Une page web ne peut pas savoir de façon sûre si l'appli est
+installée : d'où les deux étapes.

@@ -67,18 +67,21 @@
     .invit-sous { color: var(--muted); font-size: 17px; }
     .invit .b { width: 100%; justify-content: center; margin-top: 14px; border-width: 2.5px; border-color: var(--accent); }
     .invit .b svg { width: 26px; height: 26px; margin-right: 10px; flex: none; }
-    .invit ol { margin: 12px 0 0; padding-left: 22px; color: var(--muted); font-size: 17px; }
+    .invit-etape { display: flex; gap: 10px; align-items: center; margin: 16px 0 0; color: var(--muted); font-size: 17px; }
+    .invit-num { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent); font-weight: 800; display: grid; place-items: center; flex: none; }
+    .invit #invitAndroid .b { border-width: 1.5px; border-color: var(--line); }
   </style>
   <div class="invit" id="invit">
     <div class="invit-haut">
       <div class="invit-rond" id="invitPhoto"><svg width="34" height="34" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 40 18 18l8 12 6-8 12 18z"/></svg></div>
       <div><div class="invit-titre" id="invitTitre">Tu es invité dans un groupe</div><div class="invit-sous" id="invitSous">Sur Mountain Buddies</div></div>
     </div>
+    <div id="invitAndroid" hidden>
+      <p class="invit-etape"><span class="invit-num">1</span>Pas encore l'appli sur ton téléphone ? Télécharge-la ici et installe-la.</p>
+      <a class="b" href="api/telecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>Télécharger l'appli</a>
+      <p class="invit-etape"><span class="invit-num">2</span>Appli installée (ou déjà là) ? Reviens ici et touche :</p>
+    </div>
     <a class="b" id="invitBouton" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-4 3-6.5 6.5-6.5s6.5 2.5 6.5 6.5"/><path d="M19 8v6M16 11h6"/></svg><span id="invitTexte">Rejoindre le groupe</span></a>
-    <ol id="invitAndroid" hidden>
-      <li>Pas encore l'appli ? Télécharge-la avec le bouton plus bas et installe-la.</li>
-      <li>Reviens ici et touche « <span id="invitRappel">Rejoindre le groupe</span> ».</li>
-    </ol>
     <p class="invit-sous" id="invitWeb" hidden>L'appli s'ouvre dans ton navigateur : connecte-toi et tu entres. Sur iPhone, tu pourras ensuite la mettre sur ton écran d'accueil.</p>
   </div>
   <script>
@@ -89,18 +92,16 @@
     $('invit').classList.add('ouvert');
     const c = encodeURIComponent(code), pl = planning ? '&p=' + encodeURIComponent(planning) : '';
     if (/android/i.test(navigator.userAgent)) {
-      // L'appli installée : l'APK des copains d'abord ; sans elle, Chrome revient ici avec play=1 et le bouton
-      // essaie la version du Play Store (comme l'ancienne page rejoindre.html).
-      const id = q.get('play') ? 'cloud.silvaplana.mountainbuddies' : 'fr.assomoutain.rando';
-      const retour = location.origin + location.pathname + '?c=' + c + pl + (q.get('play') ? '' : '&play=1');
-      $('invitBouton').href = 'intent://rejoindre?c=' + c + pl + '#Intent;scheme=' + id + ';package=' + id + ';S.browser_fallback_url=' + encodeURIComponent(retour) + ';end';
+      // L'appli des copains (APK), par son adresse fr.assomoutain.rando:// : l'intent:// avec retour au navigateur ne
+      // réagissait pas dans Samsung Internet (Seb, 27/11). Sans l'appli, rien ne s'ouvre : d'où l'étape 1 au-dessus.
+      $('invitBouton').href = 'fr.assomoutain.rando://rejoindre?c=' + c + pl;
       $('invitAndroid').hidden = false;
     } else {
       // iPhone, ordinateur : la version web garde l'invitation jusqu'à la connexion.
       $('invitBouton').href = 'app/?rejoindre=' + c + (planning ? '&planning=' + encodeURIComponent(planning) : '');
       $('invitWeb').hidden = false;
     }
-    const texte = (t) => { $('invitTexte').textContent = t; $('invitRappel').textContent = t; };
+    const texte = (t) => { $('invitTexte').textContent = t; };
     let essais = 0;
     const lire = () => fetch('api/invitations/' + c).then((r) => r.ok ? r.json() : Promise.reject(r.status)).then((a) => {
       if (planning) { $('invitTitre').textContent = 'Un planning à remplir'; $('invitSous').textContent = a.par + ' te demande tes dispos dans « ' + a.groupe + ' ».'; texte('Donner mes dispos'); }
