@@ -889,6 +889,10 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   que les épingles des traces, Seb 27/11 : pas de rond aux initiales), avec l'étiquette « pseudo · heure », comme
   les voitures, sans passer par la liste. Étiquettes au même endroit (épingles, voitures) : empilées vers le haut,
   au-dessus des icônes. Synchro toutes les 2 minutes, appli ouverte, pour recevoir positions et voitures garées.
+- **Push silencieux** (Seb, 27/11) : garer ou enlever sa voiture, allumer ou éteindre sa position envoie aux membres
+  de mes groupes un message Firebase `type: synchro`, sans rien afficher ; appli à l'écran, elle se synchronise
+  tout de suite. Pas pour chaque position (toutes les 5 min). La synchro de 2 minutes reste en filet (et pour
+  l'iPhone, sans push).
 
 ### 7.15 👥 Associer une trace à une sortie (Seb, 25 novembre 2026)
 

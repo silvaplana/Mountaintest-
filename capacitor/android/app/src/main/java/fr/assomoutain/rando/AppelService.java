@@ -38,6 +38,13 @@ public class AppelService extends FirebaseMessagingService {
             arreter(this, d.get("appel"));
             return;
         }
+        if ("synchro".equals(type)) {
+            // 🚗📍 Push silencieux (Seb, 27/11) : un buddy a garé sa voiture ou partagé sa position. Appli à l'écran :
+            // elle se synchronise ; sinon rien (elle le fera en revenant au premier plan).
+            Ecouteur e = ecouteur;
+            if (premierPlan && e != null) e.message("");
+            return;
+        }
         if ("message".equals(type)) {
             // Appli à l'écran : elle va chercher le message (la pastille, la conversation ouverte) ; sinon une notification.
             Ecouteur e = ecouteur;
