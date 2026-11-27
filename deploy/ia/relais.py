@@ -480,7 +480,7 @@ def choisir_photos(photos: list, combien: int):
 SKITOUR_CLE = os.environ.get("SKITOUR_CLE", "")
 
 
-# Champs vus dans les sorties de l'API (affichés par GET /mountaintest-ia/ : la doc de l'API n'est pas à jour).
+# Champs vus dans les sorties de l'API (affichés par GET /ia/ : la doc de l'API n'est pas à jour).
 CHAMPS_VUS: set = set()
 
 
@@ -597,7 +597,7 @@ def _completer(lignes: list, maxi: int = 60) -> list:
     return out
 
 
-CHAMPS_DEPART: set = set()  # champs vus dans le « depart » de l'API (affichés par GET /mountaintest-ia/)
+CHAMPS_DEPART: set = set()  # champs vus dans le « depart » de l'API (affichés par GET /ia/)
 
 
 def _parking(x) -> dict | None:
@@ -662,7 +662,7 @@ def _avec_parkings(lignes: list, maxi: int = 30) -> list:
 VISUGPX_CLE = os.environ.get("VISUGPX_CLE", "")
 VISUGPX_API = "https://www.visugpx.com/api"
 QUOTA_VISUGPX = 1000
-# Champs vus dans les réponses (affichés par GET /mountaintest-ia/ : la forme exacte n'est pas documentée).
+# Champs vus dans les réponses (affichés par GET /ia/ : la forme exacte n'est pas documentée).
 VISUGPX_CHAMPS: set = set()
 _VGPX_APPELS = "visugpx-appels.json"
 
@@ -816,7 +816,7 @@ def visugpx_trace(vid: str) -> list:
 # Portails tirés de la liste officielle : https://github.com/GeotrekCE/Geotrek-website/wiki/Liste-des-Geotrek-connus
 # Chaque portail (site Geotrek-rando) s'appuie sur un serveur Geotrek-admin dont l'adresse n'est pas publiée :
 # le relais la trouve (page du portail, puis adresses habituelles), la vérifie et la garde 7 jours.
-# GET /mountaintest-ia/ montre « geotrek » : l'API trouvée (ou non) pour chaque portail.
+# GET /ia/ montre « geotrek » : l'API trouvée (ou non) pour chaque portail.
 # Une adresse peut être imposée dans ia.env : GEOTREK_API_<ID>=https://…/api/v2 (ex. GEOTREK_API_VANOISE).
 # Cadre [ouest, sud, est, nord] approximatif : on n'interroge que les portails proches de l'écran.
 GEOTREK_PORTAILS = [
@@ -1062,7 +1062,7 @@ def geotrek_trace(gid: str) -> list:
 
 
 def _geotrek_decouverte():
-    """Au démarrage : chercher les API de tous les portails (montrées par GET /mountaintest-ia/)."""
+    """Au démarrage : chercher les API de tous les portails (montrées par GET /ia/)."""
     with ThreadPoolExecutor(max_workers=6) as ex:
         list(ex.map(lambda p: geotrek_api(p), GEOTREK_PORTAILS))
 
@@ -1398,7 +1398,7 @@ def _position_page(url: str):
     return pos
 
 
-TOPO_BRUT: dict = {}  # forme réelle des champs départ / sommets de l'API (affichée sur GET /mountaintest-ia/, pour vérifier)
+TOPO_BRUT: dict = {}  # forme réelle des champs départ / sommets de l'API (affichée sur GET /ia/, pour vérifier)
 
 
 def fiche_topo(id_: int) -> dict:
