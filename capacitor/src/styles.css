@@ -1567,7 +1567,7 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .bd-pswp-film { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 40px; color: #fff; }
 .bd-pswp-film video { max-width: 100%; max-height: 100%; }
 /* Les photos à la suite, en pleine largeur, comme dans WhatsApp (Album.tsx, Defile). */
-.bd-defile { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; font-size: 17px; }
+.bd-defile-ecran { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; font-size: 17px; }
 .bd-defile-haut { flex: none; display: flex; align-items: center; gap: 10px; padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px; box-shadow: 0 1px 4px #0002; z-index: 1; }
 .bd-defile-haut button { width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0; font-size: 26px; background: var(--card); }
 .bd-defile-haut .bd-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
