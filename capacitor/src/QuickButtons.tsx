@@ -14,6 +14,7 @@ const PocketMode = registerPlugin<{
 }>('PocketMode');
 /** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : ouvre l'application Appareil photo. */
 import { Photo } from './buddies/photoPrise';
+import { IconeSuisCarte } from './buddies/IconeSuisCarte';
 /** Plugin natif (shared/Weather.java) : ouvre l'appli Météo-France, ou sa page Météo montagne. */
 const Weather = registerPlugin<{ open(o: { mountain: boolean }): Promise<void> }>('Weather');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
@@ -29,6 +30,8 @@ export interface QuickProps {
   onToast: (msg: string) => void;
   onDraw?: () => void;
   onSearch: () => void;
+  /** 🗺 Partager ma carte, sous la loupe (Seb, 27/11) ; verte pendant le partage. */
+  onCarte?: () => void; carteOn?: boolean;
   /** 🗺 : appui = fond suivant ; appui long = choisir le fond. */
   onBaseLayer: () => void;
   /** Fonds de carte permis (version Play : Plan IGN seul, sauf SCAN 25 débloqué). */
@@ -173,7 +176,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseLayer, fonds, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onCarte, carteOn, onBaseLayer, fonds, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -389,6 +392,8 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
       {/* 🔍 de nouveau visible sous ◎, même en colonne réduite (Seb, 25/11). */}
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
+      {onCarte && <button className={`qb-carte${carteOn ? ' on' : ''}`} aria-label={carteOn ? 'Arrêter de partager ma carte' : 'Partager ma carte'} data-help="Partager ma carte"
+        {...lp('carte')} onClick={onCarte}><IconeSuisCarte /></button>}
       <button disabled={!native} aria-label="Prendre une photo" data-help="Prendre des photos sans quitter l'application" {...lp('photo')}
         onClick={() => { Photo.open().catch((e) => onToast(String((e as Error).message ?? e))); }}>📷</button>
       <div className="pair" ref={pairRef}>

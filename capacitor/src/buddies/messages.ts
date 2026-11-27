@@ -21,7 +21,8 @@ export type Bulle =
 export function fil(d: Dest, messages: MessageBuddy[], traces: TraceBuddy[], hebergements: Hebergement[]): Bulle[] {
   const ici = (x: { groupe?: string | null; sortie?: string | null }) => (d.sortie ? x.sortie === d.sortie : !x.sortie && x.groupe === d.groupe);
   const l: Bulle[] = [
-    ...messages.filter(ici).map((m) => ({ genre: 'message' as const, quand: m.cree_le, m })),
+    // 🗺 Le partage de carte ne passe plus par le fil (Seb, 27/11) : ses messages techniques n'y paraissent pas.
+    ...messages.filter((m) => ici(m) && m.nature !== 'carte' && m.nature !== 'carte_fin').map((m) => ({ genre: 'message' as const, quand: m.cree_le, m })),
     ...traces.filter(ici).map((t) => ({ genre: 'trace' as const, quand: t.cree_le, t })),
     ...(d.sortie ? hebergements.filter((h) => h.sortie === d.sortie).map((h) => ({ genre: 'hebergement' as const, quand: h.cree_le ?? h.modifie_le, h })) : []),
   ];
