@@ -9,6 +9,7 @@ import {
   type EtatAppel, type Sonnerie,
 } from './appel';
 import { appliquer, vue } from './store';
+import { IconeSuisCarte } from './IconeSuisCarte';
 
 /**
  * 📞 Appels (spec/buddies.md §5.7) : l'écran 10 (un buddy m'appelle), la barre d'appel en haut de la carte
@@ -103,8 +104,7 @@ export function BarreAppel() {
       {e.phase === 'en_ligne' && !e.jeMontre && !e.suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
     {e.phase === 'en_ligne' && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
       className={e.jeMontre ? 'allume' : ''} onClick={() => montrerMaCarte(!e.jeMontre)}>
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" /><path d="M9 4v14M15 6v14" /></svg></button>}
+      <IconeSuisCarte /></button>}
     <button aria-label={e.muet ? 'Remettre le micro' : 'Couper le micro'} className={e.muet ? 'muet' : ''} onClick={() => void couperMicro(!e.muet)}>{e.muet ? '🔇' : '🎙'}</button>
     <button className="ap-rouge" aria-label="Raccrocher" onClick={() => void raccrocher()}>✕</button>
   </div>;

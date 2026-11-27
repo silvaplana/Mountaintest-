@@ -24,6 +24,7 @@ import { Utilisateurs } from './Utilisateurs';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, montrerMaCarteA, type Dest, type Sonnerie } from './appel';
+import { IconeSuisCarte } from './IconeSuisCarte';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
@@ -822,8 +823,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
               onToast(enAppel ? 'Tes buddies suivent ta carte' : 'Appel… ta carte s\'affichera chez eux quand ils décrochent');
               void montrerMaCarteA({ groupe: gc.id }, nomDiscussion(gc, e)).catch((err: Error) => onToast(err.message || 'Appel impossible'));
               onClose();
-            }}><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" /><path d="M9 4v14M15 6v14" /></svg></button>}
+            }}><IconeSuisCarte /></button>}
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
             onPlanning={(id, remplir) => setVue({ ecran: remplir ? 'dispos' : 'planning', id, groupe: gc.id, conv: gc.id })}
