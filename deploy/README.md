@@ -6,8 +6,8 @@ et **…/app/apk/** (l'APK à installer). Mêmes fichiers aussi sur l'ancienne a
 ```
 push sur main ─▶ GitHub Actions : tests, build web, APK Capacitor
                      └─▶ branche « site » (web + apk/), écrasée à chaque fois
-VPS, toutes les 5 min : ~/mountaintest/maj.sh récupère la branche « site » dans ~/mountaintest/www
-gateway (~/gateway/Caddyfile) : /mountaintest/* ─▶ conteneur mountaintest-web (caddy:2-alpine, fichiers de www)
+VPS, toutes les 5 min : ~/mountainbuddies/maj.sh récupère la branche « site » dans ~/mountainbuddies/www
+gateway (~/gateway/Caddyfile) : /mountaintest/* ─▶ conteneur mb-web (caddy:2-alpine, fichiers de www)
 ```
 
 Différence avec contretemps : ici c'est le VPS qui va chercher (dépôt privé, clé
@@ -28,27 +28,36 @@ L'ancienne adresse silvaplana.cloud/mountaintest/ reste en place : les APK déj�
 leurs mises à jour, et les liens d'invitation déjà envoyés y mènent. L'API reste sur silvaplana.cloud.
 
 Mise en place, une fois : créer chez Hostinger un enregistrement DNS A `mountainbuddies` vers l'IP du VPS,
-puis sur le VPS : `bash ~/mountaintest/www/installer-mountainbuddies.sh`. Le script vérifie le DNS,
+puis sur le VPS : `bash ~/mountainbuddies/www/installer-mountainbuddies.sh`. Le script vérifie le DNS,
 ajoute le site au gateway (sauvegarde `~/gateway/Caddyfile.avant-mountainbuddies`, retour arrière si refus)
 et autorise la connexion web à la nouvelle adresse dans Logto.
+
+## Renommage mountaintest → mountainbuddies (27/11)
+
+`bash ~/mountaintest/www/renommer-vps.sh`, une fois : le dossier devient `~/mountainbuddies` (lien `~/mountaintest`
+gardé), les conteneurs `mb-web` et `mb-ia`, et le gateway ajoute `https://mountainbuddies.silvaplana.cloud/api/` et `/ia/`
+(sauvegarde `~/gateway/Caddyfile.avant-renommage`). L'ancienne page et les anciennes invitations sous
+`silvaplana.cloud/mountaintest/` renvoient vers la nouvelle adresse ; `/mountaintest/apk/`, `/mountaintest-api/` et
+`/mountaintest-ia/` restent servis pour les applis déjà installées. L'identifiant de l'API dans Logto
+(`https://silvaplana.cloud/mountaintest-api`) ne change pas : c'est une étiquette, la changer déconnecterait tout le monde.
 
 ## Installation (une seule fois, sur le VPS)
 
 1. Ouvrir un terminal sur le VPS (Hostinger hPanel › VPS › Terminal du navigateur, ou une appli SSH).
 2. Coller le contenu de `deploy/installer-vps.sh` puis Entrée. Il :
-   crée la clé, la tâche cron, le conteneur `mountaintest-web`, ajoute la route au gateway
+   crée la clé, la tâche cron, le conteneur `mb-web`, ajoute la route au gateway
    (sauvegarde `~/gateway/Caddyfile.avant-mountaintest`, vérification, retour arrière si refus),
    puis affiche une ligne `ssh-ed25519 ...`.
 3. Sur GitHub : dépôt › Settings › Deploy keys › Add deploy key, titre `VPS`,
    coller la ligne, **sans** cocher « Allow write access », Add key.
-4. Moins de 5 minutes après, le site répond. Pour forcer : `~/mountaintest/maj.sh`.
+4. Moins de 5 minutes après, le site répond. Pour forcer : `~/mountainbuddies/maj.sh`.
 
 ## Tout retirer
 
 ```bash
-crontab -l | grep -v mountaintest/maj.sh | crontab -
-docker rm -f mountaintest-web
+crontab -l | grep -v mountainbuddies/maj.sh | crontab -
+docker rm -f mb-web
 cat ~/gateway/Caddyfile.avant-mountaintest > ~/gateway/Caddyfile && (cd ~/gateway && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile)
-rm -rf ~/mountaintest
+rm -rf ~/mountainbuddies
 ```
 puis supprimer la deploy key sur GitHub.

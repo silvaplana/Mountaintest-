@@ -3,7 +3,7 @@
 # Sert https://silvaplana.cloud/mountaintest/ (site web + page des APK).
 # Relançable sans risque.
 set -euo pipefail
-M="$HOME/mountaintest"
+M="$HOME/mountainbuddies"
 mkdir -p "$M/www"
 
 # 1. Clé en lecture seule pour récupérer la branche « site » du dépôt privé.
@@ -13,28 +13,28 @@ mkdir -p "$M/www"
 # 2. Mise à jour toutes les 5 minutes.
 cat > "$M/maj.sh" <<'MAJ'
 #!/bin/sh
-cd "$HOME/mountaintest" || exit 1
-export GIT_SSH_COMMAND="ssh -i $HOME/mountaintest/cle -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+cd "$HOME/mountainbuddies" || exit 1
+export GIT_SSH_COMMAND="ssh -i $HOME/mountainbuddies/cle -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
 git --git-dir=site.git fetch -q --depth 1 git@github.com:silvaplana/Mountaintest-.git +site:refs/heads/site || exit 1
 git --git-dir=site.git --work-tree=www checkout -q -f site
 MAJ
 chmod +x "$M/maj.sh"
-(crontab -l 2>/dev/null | grep -v 'mountaintest/maj.sh'; echo "*/5 * * * * $M/maj.sh >/dev/null 2>&1") | crontab -
+(crontab -l 2>/dev/null | grep -v 'mountain[a-z]*/maj.sh'; echo "*/5 * * * * $M/maj.sh >/dev/null 2>&1") | crontab -
 
 # 3. Petit serveur de fichiers sur le réseau « web » (comme les autres applis).
-if ! docker ps -a --format '{{.Names}}' | grep -qx mountaintest-web; then
-  docker run -d --name mountaintest-web --network web --restart unless-stopped \
+if ! docker ps -a --format '{{.Names}}' | grep -qx mb-web; then
+  docker run -d --name mb-web --network web --restart unless-stopped \
     -v "$M/www:/usr/share/caddy:ro" caddy:2-alpine >/dev/null
 fi
 
 # 4. Route /mountaintest/ dans le gateway (sauvegarde, vérification, retour arrière si erreur).
 G="$HOME/gateway/Caddyfile"
-if ! grep -q 'mountaintest-web' "$G"; then
+if ! grep -q 'mb-web' "$G"; then
   cp "$G" "$G.avant-mountaintest"
   awk '!fait && /redir \/contretemps \/contretemps\// {
          print "\tredir /mountaintest /mountaintest/ 308"
          print "\thandle_path /mountaintest/* {"
-         print "\t\treverse_proxy mountaintest-web:80"
+         print "\t\treverse_proxy mb-web:80"
          print "\t}"
          print ""
          fait=1 }

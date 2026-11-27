@@ -3,9 +3,9 @@
 #   https://appels.silvaplana.cloud   LiveKit : le son des appels (WebRTC)
 #   le serveur des comptes donne les jetons d'entrée et fait sonner les téléphones (Firebase)
 # Prérequis : les comptes installés (installer-comptes.sh), l'entrée DNS « appels » vers l'IP du VPS et, pour que
-# ça sonne appli fermée, la clé Firebase copiée dans ~/mountaintest/firebase-cle.json.
+# ça sonne appli fermée, la clé Firebase copiée dans ~/mountainbuddies/firebase-cle.json.
 set -euo pipefail
-M="$HOME/mountaintest"
+M="$HOME/mountainbuddies"
 DOMAINE="${DOMAINE_APPELS:-appels.silvaplana.cloud}"
 LIVEKIT_IMAGE="livekit/livekit-server:v1.8.4"
 PY_IMAGE="python:3.12-slim"
@@ -92,7 +92,7 @@ sleep 40
 echo
 OK=1
 curl -fsS "https://$DOMAINE/" >/dev/null || { OK=0; echo "LiveKit ne répond pas sur https://$DOMAINE (docker logs mb-livekit)"; }
-curl -fsS https://silvaplana.cloud/mountaintest-api/ >/dev/null || { OK=0; echo "Le serveur ne répond pas (docker logs mb-api)"; }
+curl -fsS https://mountainbuddies.silvaplana.cloud/api/ >/dev/null || { OK=0; echo "Le serveur ne répond pas (docker logs mb-api)"; }
 [ "$SONNERIE" = 1 ] || echo "Pas de clé Firebase dans $M/firebase-cle.json : les appels marchent, mais ne sonnent que l'appli ouverte."
 if [ "$OK" = 1 ]; then
   echo "=== Appels en ligne : https://$DOMAINE ==="

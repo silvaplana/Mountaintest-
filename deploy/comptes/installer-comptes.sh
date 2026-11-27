@@ -5,7 +5,7 @@
 #   http://localhost:3002 (tunnel SSH)       console d'admin de Logto, jamais ouverte sur Internet
 # Prérequis : le site installé (deploy/installer-vps.sh) et l'entrée DNS « auth » vers l'IP du VPS.
 set -euo pipefail
-M="$HOME/mountaintest"
+M="$HOME/mountainbuddies"
 DOMAINE_AUTH="${DOMAINE_AUTH:-auth.silvaplana.cloud}"
 LOGTO_IMAGE="svhd/logto:1.46.0"
 PG_IMAGE="postgres:17-alpine"
@@ -101,13 +101,13 @@ docker run -d --name mb-api --network web --restart unless-stopped --env-file "$
 # 7. Redémarrer le serveur quand une nouvelle version arrive avec le site (vérifié toutes les 5 min).
 cat > "$M/maj-comptes.sh" <<'MAJ'
 #!/bin/sh
-M="$HOME/mountaintest"
+M="$HOME/mountainbuddies"
 h=$(cat "$M"/www/comptes/*.py "$M/www/comptes/requirements.txt" 2>/dev/null | sha1sum | cut -c1-40)
 [ -n "$h" ] && [ "$h" != "$(cat "$M/comptes-data/version" 2>/dev/null)" ] && docker restart mb-api >/dev/null && echo "$h" > "$M/comptes-data/version"
 MAJ
 chmod +x "$M/maj-comptes.sh"
 cat "$M"/www/comptes/*.py "$M/www/comptes/requirements.txt" | sha1sum | cut -c1-40 > "$M/comptes-data/version"
-(crontab -l 2>/dev/null | grep -v 'mountaintest/maj-comptes.sh'; echo "*/5 * * * * $M/maj-comptes.sh >/dev/null 2>&1") | crontab -
+(crontab -l 2>/dev/null | grep -v 'mountain[a-z]*/maj-comptes.sh'; echo "*/5 * * * * $M/maj-comptes.sh >/dev/null 2>&1") | crontab -
 
 # 8. Gateway Caddy : /mountaintest-api/ et le site auth.silvaplana.cloud (sauvegarde, vérification, retour arrière).
 G="$HOME/gateway/Caddyfile"
@@ -143,5 +143,5 @@ sleep 40
 echo
 OK=1
 curl -fsS "https://$DOMAINE_AUTH/oidc/.well-known/openid-configuration" >/dev/null || { OK=0; echo "Logto ne répond pas sur https://$DOMAINE_AUTH (docker logs mb-logto)"; }
-curl -fsS https://silvaplana.cloud/mountaintest-api/config | grep -q capacitor || { OK=0; echo "Le serveur ne répond pas (docker logs mb-api)"; }
-[ "$OK" = 1 ] && echo "=== Comptes en ligne : https://$DOMAINE_AUTH et https://silvaplana.cloud/mountaintest-api/ ==="
+curl -fsS https://mountainbuddies.silvaplana.cloud/api/config | grep -q capacitor || { OK=0; echo "Le serveur ne répond pas (docker logs mb-api)"; }
+[ "$OK" = 1 ] && echo "=== Comptes en ligne : https://$DOMAINE_AUTH et https://mountainbuddies.silvaplana.cloud/api/ ==="
