@@ -107,13 +107,13 @@ export function BarreAppel() {
   }
   const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
   const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte'
-    : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';
+    : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : `Appel pour ${e.nom}…`; // Seb, 27/11 : « Appel pour La Ciotat ski club… », pas « Ça sonne… »
   // 🗺 Une seule personne montre sa carte : chez les autres, l'icône carte devient son badge (un appui : on arrête de suivre).
   const suit = e.suit;
   const guide = suit ? appliquer(b).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null } : null;
   return <div className={`ap-barre${annonce || e.jeMontre || suit ? ' ap-annonce' : ''}`}>
     <span className="ap-icone">📞</span>
-    <span className="bd-texte"><b>{titre}</b><small>{e.phase === 'en_ligne' ? enLigne(e) : e.nom}</small>
+    <span className="bd-texte"><b>{titre}</b><small>{e.phase === 'en_ligne' ? enLigne(e) : e.phase === 'connexion' ? 'Connexion…' : 'Personne n\'a encore décroché'}</small>
       {e.phase === 'en_ligne' && !e.jeMontre && !suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
     {e.phase === 'en_ligne' && guide && <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${guide.pseudo}`} onClick={reprendreMaCarte}>
       <Visage b={guide} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>}

@@ -700,7 +700,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 24** : la carte reste à l'écran, barre verte en haut « En ligne · 3:12 / Julie parle… · Luc », 🎙/🔇 et
   ✕ raccrocher. Celui qui appelle et que personne ne rejoint raccroche seul au bout d'une minute.
 - **Ce que l'appelant entend** (Seb, 27 novembre) : tant que personne n'a décroché, la tonalité de retour d'appel à la
-  française (440 Hz, 1,5 s toutes les 5 s) et la barre « Ça sonne… ». Quand quelqu'un décroche : deux bips montants,
+  française (440 Hz, 1,5 s toutes les 5 s) et la barre « Appel pour <groupe>… » (Seb, 27/11 ; « Personne n'a encore décroché » dessous). Quand quelqu'un décroche : deux bips montants,
   une vibration et la barre passe au vert « Julie a décroché » 4 s ; quand quelqu'un raccroche : deux bips
   descendants et « Luc a raccroché ». Celui qui rejoint un appel déjà en cours ne se fait pas annoncer ceux déjà là.
 - **🗺 Suis ma carte** (Seb, 27 novembre, maquette `maquettes/partage-carte-appel/`, option A choisie ; ni vidéo de
@@ -726,7 +726,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   dans <groupe> », et la bulle de départ n'offre plus Suivre. En appel aussi (Seb, 27/11), ceux qui sont en ligne reçoivent
   « Seb a partagé sa carte dans <groupe> » quand j'allume ma carte, et « … a arrêté de partager sa carte » quand je
   l'éteins ou raccroche (`POST /appels/{id}/carte`, notification seule, rien dans le fil). L'icône carte est dans la
-  barre dès « Ça sonne… » (Seb, 27/11) : touchée avant qu'ils décrochent, elle s'allume et ma carte part dès que
+  barre dès « Appel pour <groupe>… » (Seb, 27/11) : touchée avant qu'ils décrochent, elle s'allume et ma carte part dès que
   quelqu'un décroche (un 2e appui annule). Chez les autres, la bulle dit « Seb partage sa carte » avec
   Non merci / Suivre (la demande vaut 4 h). Suivre : la conversation descend et la carte suit celle de Seb, comme
   en appel (vue, fond, traces, calques, trait, profil) ; on continue de s'écrire, on ne se parle pas. L'icône du haut

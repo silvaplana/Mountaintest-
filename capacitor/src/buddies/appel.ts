@@ -26,7 +26,7 @@ export type EtatAppel = {
   suit?: Voix | null;
   /** 🗺 Carte montrée depuis la messagerie : salle muette (pas de voix), `carte` = le message « carte » du fil. */
   muette?: boolean; carte?: string;
-  /** Ma carte s'allumera dès que quelqu'un décroche (touchée pendant « Ça sonne… »). */
+  /** Ma carte s'allumera dès que quelqu'un décroche (touchée pendant « Appel pour… »). */
   carteDesQue?: boolean;
 };
 
@@ -197,6 +197,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     changer({ id: r.id, nom, dest: { groupe: r.groupe ?? undefined, sortie: r.sortie ?? undefined }, phase: 'en_ligne', voix: [], parle: [], muet: true,
       muette: true, carte: muette.carte, jeMontre: muette.montre });
     await room.connect(r.url, r.jeton);
+    if (salle !== room) { void room.disconnect().catch(() => undefined); return; }
     maj();
     pret = true;
     // Je suis une carte et personne ne la montre (plus) : on quitte au bout de 8 s.
@@ -208,7 +209,10 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
   }
   changer({ id: r.id, nom, dest: { groupe: r.groupe ?? undefined, sortie: r.sortie ?? undefined }, phase: 'appel', voix: [], parle: [], muet: false });
   await room.connect(r.url, r.jeton);
+  // Raccroché pendant la connexion (« Appel pour… », Seb 27/11) : surtout ne pas allumer le micro après coup.
+  if (salle !== room) { void room.disconnect().catch(() => undefined); return; }
   await room.localParticipant.setMicrophoneEnabled(true);
+  if (salle !== room) { void room.disconnect().catch(() => undefined); return; }
   void room.startAudio().catch(() => undefined);
   void api('POST', `/appels/${r.id}/presence`, { en_ligne: true }).catch(() => undefined);
   maj();
@@ -252,7 +256,7 @@ export async function couperMicro(muet: boolean) {
  * 🗺 Depuis la messagerie : en appel, j'allume ma carte ; sinon j'appelle la bande et ma carte s'allume dès que
  * quelqu'un décroche (« Suis ma carte » passe par l'appel).
  */
-/** 🗺 Pendant « Ça sonne… » (Seb, 27/11) : ma carte s'allumera chez eux dès qu'ils décrochent ; un 2e appui annule. */
+/** 🗺 Pendant « Appel pour… » (Seb, 27/11) : ma carte s'allumera chez eux dès qu'ils décrochent ; un 2e appui annule. */
 export function montrerMaCarteDesQue() {
   if (!etat || etat.phase === 'en_ligne' || etat.muette) return;
   montrerDesQue = !montrerDesQue;
