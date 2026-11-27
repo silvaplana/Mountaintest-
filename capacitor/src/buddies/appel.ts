@@ -44,6 +44,8 @@ const arrivees = new Set<() => void>();
 const sons: HTMLMediaElement[] = [];
 /** J'ai lancé l'appel : j'entends la tonalité tant que personne n'a décroché. */
 let jAppelle = false;
+/** 🗺 Lancé depuis la messagerie : je montre ma carte dès que quelqu'un décroche. */
+let montrerDesQue = false;
 let audio: AudioContext | null = null;
 let tonalite: ReturnType<typeof setInterval> | undefined;
 
@@ -147,7 +149,9 @@ async function entrer(r: Reponse, nom: string) {
       bip([660, 440], 0.15);
       annonce = { texte: `${partis.map((x) => x.pseudo).join(' et ')} ${partis.length > 1 ? 'ont' : 'a'} raccroché`, jusqua: Date.now() + 4000 };
     }
-    changer({ ...etat, voix: v, annonce, suit: etat.suit && apres.has(etat.suit.id) ? etat.suit : null, phase: ensemble ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
+    const montre = etat.jeMontre || (montrerDesQue && ensemble);
+    if (montre) montrerDesQue = false;
+    changer({ ...etat, voix: v, annonce, jeMontre: montre, suit: etat.suit && apres.has(etat.suit.id) ? etat.suit : null, phase: ensemble ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
       debut: etat.debut ?? (ensemble ? Date.now() : undefined) });
   };
   room.on(RoomEvent.ParticipantConnected, maj).on(RoomEvent.ParticipantDisconnected, maj)
@@ -180,6 +184,7 @@ function fini() {
   sons.splice(0).forEach((el) => el.remove());
   salle = null;
   jAppelle = false;
+  montrerDesQue = false;
   ignore = null;
   changer(null);
   if (id) void api('POST', `/appels/${id}/presence`, { en_ligne: false }).catch(() => undefined);
@@ -196,6 +201,16 @@ export async function couperMicro(muet: boolean) {
   if (!salle || !etat) return;
   await salle.localParticipant.setMicrophoneEnabled(!muet);
   changer({ ...etat, muet });
+}
+
+/**
+ * 🗺 Depuis la messagerie : en appel, j'allume ma carte ; sinon j'appelle la bande et ma carte s'allume dès que
+ * quelqu'un décroche (« Suis ma carte » passe par l'appel).
+ */
+export async function montrerMaCarteA(dest: Dest, nom: string) {
+  if (etat) { if (etat.phase === 'en_ligne') montrerMaCarte(true); else montrerDesQue = true; return; }
+  await appeler(dest, nom);
+  if (etat) montrerDesQue = true;
 }
 
 /** 🗺 J'allume ou j'éteins « Suis ma carte ». */

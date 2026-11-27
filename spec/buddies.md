@@ -711,7 +711,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   barre verte « Julie te montre sa carte » et, dessous, « Tu suis la carte de Julie · Reprendre ma carte ». Pas
   d'acceptation au départ ; c'est chacun qui arrête de suivre (Seb, 27 novembre). Quand on arrête (ou que Julie
   arrête, ou fin d'appel), si des traces sont arrivées : « Garder les traces de Julie ? » avec leurs noms, Non merci /
-  Garder (toutes rangées dans Mes traces). Une seule personne montre à la fois : si Luc
+  Garder (toutes rangées dans Mes traces). La même icône est en haut d'une conversation de groupe (Seb, 27 novembre) : en appel, elle allume ma
+  carte ; sinon elle appelle la bande et ma carte s'allume dès que quelqu'un décroche (le suivi passe par l'appel). Une seule personne montre à la fois : si Luc
   allume la sienne, celle de Julie s'éteint. Un buddy qui arrive en cours reçoit tout de suite la vue et les traces.
   Les tuiles ne voyagent pas : chacun charge la même zone (un appel demande du réseau). Messages de données LiveKit
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).
