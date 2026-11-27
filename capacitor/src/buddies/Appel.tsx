@@ -94,8 +94,9 @@ export function BarreAppel() {
     return () => clearInterval(t);
   }, [e]);
   if (!e || e.phase === 'sonne' || (e.phase === 'connexion' && e.de)) return null;
-  const titre = e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';
-  return <div className="ap-barre">
+  const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
+  const titre = annonce ? annonce : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';
+  return <div className={`ap-barre${annonce ? ' ap-annonce' : ''}`}>
     <span className="ap-icone">📞</span>
     <span className="bd-texte"><b>{titre}</b><small>{e.phase === 'en_ligne' ? enLigne(e) : e.nom}</small>
       {e.phase === 'en_ligne' && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>

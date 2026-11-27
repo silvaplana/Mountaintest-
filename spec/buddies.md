@@ -699,6 +699,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   si l'appelant raccroche.
 - **Écran 24** : la carte reste à l'écran, barre verte en haut « En ligne · 3:12 / Julie parle… · Luc », 🎙/🔇 et
   ✕ raccrocher. Celui qui appelle et que personne ne rejoint raccroche seul au bout d'une minute.
+- **Ce que l'appelant entend** (Seb, 27 novembre) : tant que personne n'a décroché, la tonalité de retour d'appel à la
+  française (440 Hz, 1,5 s toutes les 5 s) et la barre « Ça sonne… ». Quand quelqu'un décroche : deux bips montants,
+  une vibration et la barre passe au vert « Julie a décroché » 4 s ; quand quelqu'un raccroche : deux bips
+  descendants et « Luc a raccroché ». Celui qui rejoint un appel déjà en cours ne se fait pas annoncer ceux déjà là.
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
