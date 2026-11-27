@@ -15,7 +15,7 @@ try {
     if (/LIDAR|HD|PLAN/i.test(id + titre)) liste.push(`${id} | ${fmt} | ${titre}`);
     if (id === 'IGNF_PLAN-IGN-HD' || id === 'PLANIGN.LIDAR.TERRAIN') {
       fs.writeFileSync(`out/capacites-${id}.xml`, bloc.slice(0, 6000));
-      const style = (bloc.match(/<Style[^>]*>\s*<ows:Identifier>([^<]+)/) || [])[1] || 'normal';
+      const style = (bloc.match(/<Style[^>]*>[\s\S]*?<ows:Identifier>([^<]+)/) || [])[1] || 'normal';
       const tms = (bloc.match(/<TileMatrixSet>([^<]+)/) || [])[1] || 'PM';
       hdListe.push({ nom: id === 'IGNF_PLAN-IGN-HD' ? 'hd' : 'lidar', id, fmt, style, tms });
     }
@@ -26,6 +26,14 @@ fs.writeFileSync('out/couches-ign.txt', liste.join('\n') + `\nCHOISIES: ${JSON.s
 const navigateur = await chromium.launch();
 const page = await navigateur.newPage({ viewport: { width: 400, height: 620 }, deviceScaleFactor: 2 });
 page.on('console', (m) => console.log('[page]', m.text()));
+page.on('response', (r) => { if (r.status() >= 400) console.log('[erreur]', r.status(), r.url().slice(0, 200)); });
+// Une tuile brute de chaque couche, pour voir ce que renvoie le serveur.
+for (const h of hdListe) for (const [z, x, y] of [[15, 16970, 11794], [16, 33940, 23588]]) {
+  const u = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${h.id}&STYLE=${h.style}&TILEMATRIXSET=${h.tms}&TILEMATRIX=${z}&TILEROW=${y}&TILECOL=${x}&FORMAT=${h.fmt}`;
+  const r = await fetch(u); const b = Buffer.from(await r.arrayBuffer());
+  console.log('[tuile]', h.nom, z, r.status, r.headers.get('content-type'), b.length, r.status >= 400 ? b.toString().slice(0, 300) : '');
+  fs.writeFileSync(`out/tuile-${h.nom}-z${z}.${h.fmt.includes('png') ? 'png' : 'jpg'}`, b);
+}
 // 2e passage : seulement les couches LiDAR / HD (les autres captures sont déjà faites).
 for (const zone of ['ailefroide', 'laciotat']) for (const z of [13, 15, 16]) for (const h of hdListe) {
   const c = h.nom;
