@@ -17,4 +17,4 @@ MGP_PLANIFICATION_SCOT2023_TRAME-VERTE-BLEUE | image/jpeg | Métropole du Grand 
 MGP_PLANIFICATION_SCOT2023_TRANSPORT | image/jpeg | Métropole du Grand Paris - Planification - SCOT2023 - Transport
 ORTHOIMAGERY.ORTHOPHOTOS.LOW_RES.CRS84 | image/jpeg | Planet Observer
 PLANIGN.LIDAR.TERRAIN | image/png | Plan IGN Lidar Terrain
-CHOISIES: [{"nom":"hd","id":"IGNF_PLAN-IGN-HD","fmt":"image/jpeg","style":"normal","tms":"PM_6_18"},{"nom":"lidar","id":"PLANIGN.LIDAR.TERRAIN","fmt":"image/png","style":"normal","tms":"PM_6_18"}]
+CHOISIES: [{"nom":"hd","id":"IGNF_PLAN-IGN-HD","fmt":"image/jpeg","style":"PLAN-IGN-HD","tms":"PM_6_18"},{"nom":"lidar","id":"PLANIGN.LIDAR.TERRAIN","fmt":"image/png","style":"normal","tms":"PM_6_18"}]
