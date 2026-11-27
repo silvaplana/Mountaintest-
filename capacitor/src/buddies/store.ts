@@ -197,12 +197,16 @@ export function suivre(f: (e: Etat) => void) { abonnes.add(f); return () => { ab
 
 // Déconnexion : on oublie les Buddies de ce compte. Connexion : on envoie ce qui attendait (un lien d'invitation ouvert avant).
 let etaitConnecte = connecte();
-suivreCompte((c) => {
+const surCompte = (c: { refresh?: string }) => {
   const maintenant = !!c.refresh;
-  if (!maintenant && (lire().serveur.length || lire().attente.length)) ecrire(vide());
+  // Seulement une vraie déconnexion : le début d'une connexion (pkce) ne doit pas effacer l'invitation en attente.
+  if (!maintenant && etaitConnecte && (lire().serveur.length || lire().attente.length)) ecrire(vide());
   if (maintenant && !etaitConnecte) setTimeout(() => void synchroniser().catch(() => undefined), 0);
   etaitConnecte = maintenant;
-});
+};
+suivreCompte(surCompte);
+/** Pour les tests (le compte oublie ses abonnés à chaque test). */
+export function _ecouterCompte() { etaitConnecte = connecte(); suivreCompte(surCompte); }
 
 // ------------------------------------------------------------------ outils
 

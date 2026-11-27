@@ -375,6 +375,23 @@ public class BuddiesPlugin extends Plugin {
     @PluginMethod
     /** Le texte du presse-papiers : l'invitation copiée par la page web avant le téléchargement (spec §7.29). */
     public void pressePapiers(PluginCall call) {
+        // Android 10+ ne donne le presse-papiers qu'à l'appli au premier plan, fenêtre active : au premier lancement,
+        // une demande d'autorisation (position, notifications) peut avoir le focus. On attend qu'il revienne.
+        getActivity().runOnUiThread(() -> {
+            android.view.View v = getActivity().getWindow().getDecorView();
+            if (v.hasWindowFocus()) { lirePressePapiers(call); return; }
+            v.getViewTreeObserver().addOnWindowFocusChangeListener(new android.view.ViewTreeObserver.OnWindowFocusChangeListener() {
+                @Override
+                public void onWindowFocusChanged(boolean focus) {
+                    if (!focus) return;
+                    v.getViewTreeObserver().removeOnWindowFocusChangeListener(this);
+                    lirePressePapiers(call);
+                }
+            });
+        });
+    }
+
+    private void lirePressePapiers(PluginCall call) {
         JSObject r = new JSObject();
         try {
             android.content.ClipboardManager cm = (android.content.ClipboardManager) getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
