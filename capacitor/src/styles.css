@@ -1729,3 +1729,8 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .bd-mc-choix { display: flex; gap: 8px; margin-top: 8px; }
 .bd-mc-choix button { flex: 1; min-height: 48px; border-radius: 12px; font-size: 17px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
 .bd-mc-choix .bd-mc-oui { background: #2e8b57; border-color: #2e8b57; color: #fff; font-weight: 600; }
+
+/* Ma position partagée avec mes buddies (Seb 27/11, maquette A) : des ondes de chaque côté de mon point bleu, à la
+   place de la pulsation. */
+.position-partagee .maplibregl-user-location-dot::before { animation: none; border-radius: 0; background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120' fill='none' stroke='%231d72d9' stroke-linecap='round'><path stroke-width='7' d='M38 38a31 31 0 0 0 0 44M82 38a31 31 0 0 1 0 44'/><path stroke-width='6' opacity='.6' d='M24 24a50 50 0 0 0 0 72M96 24a50 50 0 0 1 0 72'/></svg>") center / contain no-repeat;
+  width: 60px; height: 60px; left: -22.5px; top: -22.5px; opacity: 1; transform: none; }

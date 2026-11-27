@@ -25,7 +25,7 @@ import { PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddie
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
 import { montrer } from './buddies/appel';
-import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
+import { appliquer as groupesBuddies, lire as lireBuddies, mesEpingles, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
 import { appareilLisible } from './buddies/appareil';
 import { nomLien, noterOuvert } from './buddies/recents';
@@ -257,6 +257,13 @@ export function App() {
   /** Panneau de partage d'une trace (écran 22). */
   const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void; hebergement?: Lodging } | null>(null);
   const buddiesEtat = useBuddies();
+  // Ma position partagée (Seb, 27/11, maquette A de maquettes/position-partagee) : des ondes autour de mon point bleu.
+  useEffect(() => {
+    const voir = () => document.body.classList.toggle('position-partagee', mesEpingles(buddiesEtat).length > 0);
+    voir();
+    const t = setInterval(voir, 60_000);
+    return () => clearInterval(t);
+  }, [buddiesEtat]);
   // Fonds de carte permis : tous, sauf dans la version Play sans SCAN 25 débloqué (spec/play-store.md).
   const fonds = fondsPermis(!!buddiesEtat.scan25);
   useEffect(() => { if (!fonds.includes(baseLayer)) setBaseLayer('planign'); }, [fonds, baseLayer]);

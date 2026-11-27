@@ -1202,6 +1202,8 @@ Maquette : `maquettes/planning-messagerie/` (validée par Seb) ; captures `captu
 
 Dans Buddies, un appui sur l'icône de ma position qui l'allume ferme Buddies et centre la carte sur moi (le message
 « Ta position est partagée… » reste affiché). L'éteindre ne change pas d'écran.
+Tant que ma position est partagée, mon point bleu sur la carte a des ondes de chaque côté à la place de la pulsation
+(maquette A de `maquettes/position-partagee/`, Seb 27/11).
 
 ### 7.29 Inviter par la page principale, deux liens de groupe (Seb, 27 novembre 2026)
 
