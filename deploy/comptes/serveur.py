@@ -466,6 +466,9 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     # 💶 Paiements, traces et photos partagées (buddies.prevenir) : même forme qu'un message.
     for qui, data in s.info.pop("a_prevenir", []):
         appels.sonner(Sessions, qui, data, ttl="86400s")
+    # 🚗📍 Voiture garée ou enlevée, position allumée ou éteinte : push silencieux, les buddies se synchronisent.
+    if s.info.pop("secouer", False):
+        appels.sonner(Sessions, buddies.copains(s, u), {"type": "synchro"}, ttl="600s")
     # ✉ Invitations par mail : envoyées par Brevo après l'enregistrement (en arrière-plan).
     if mails_ := s.info.pop("mails", []):
         mails.en_arriere_plan(lambda: buddies.envoyer_mails(Sessions, mails_))

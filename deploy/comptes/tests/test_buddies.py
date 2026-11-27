@@ -841,6 +841,25 @@ def test_iban_et_wero_seulement_pour_qui_doit(client):
     assert sync(client)["paiements"] == {}
 
 
+def test_push_silencieux_voiture_et_position(client, monkeypatch):
+    """Seb, 27/11 : garer, enlever la voiture, allumer ou éteindre sa position = push « synchro » aux membres de mes
+    groupes ; une position toutes les 5 min ou une voiture renvoyée, rien."""
+    import appels
+    envois = []
+    monkeypatch.setattr(appels, "sonner", lambda _S, qui, data, ttl="45s": envois.append((sorted(map(str, qui)), data)))
+    gid, julie = bande_avec_julie(client)
+    sync(client)
+    envois.clear()
+    v = op("voiture", garee=True, lat=44.61, lon=6.71, garee_le=T0, jusqu=T0 + 3600_000)
+    sync(client, ops=[v])
+    sync(client, ops=[v])  # renvoyée : rien
+    sync(client, ops=[op("voiture", garee=False, quand=T0 + 60_000)])
+    sync(client, ops=[op("epingle", groupe=gid, enfoncee=True, quand=T0, jusqu=T0 + 3600_000)])
+    sync(client, ops=[op("position", groupe=gid, lat=44.6, lon=6.7, prise_le=T0 + 60_000)])  # rien
+    sync(client, ops=[op("epingle", groupe=gid, enfoncee=False, quand=T0 + 120_000)])
+    assert envois == [([julie], {"type": "synchro"})] * 4
+
+
 def test_voiture_garee_vue_par_les_buddies(client):
     gid, julie = bande_avec_julie(client)
     seb = sync(client)["moi"]

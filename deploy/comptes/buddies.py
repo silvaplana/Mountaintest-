@@ -909,6 +909,18 @@ def ma_position(s: Session, u: Utilisateur, op: dict) -> tuple[Any, Any]:
     return s.get(Position, (so.id, u.id)), lambda **k: Position(sortie_id=so.id, utilisateur_id=u.id, **k)
 
 
+def secouer(s: Session) -> None:
+    """Un état visible des buddies a changé (voiture garée ou enlevée, position allumée ou éteinte) : après la
+    réponse, un push silencieux les fait se synchroniser tout de suite (Seb, 27/11 ; serveur.py)."""
+    s.info["secouer"] = True
+
+
+def copains(s: Session, u: Utilisateur) -> list[uuid.UUID]:
+    """Les membres de mes groupes (moi exclu) : ceux qui voient ma voiture et ma position."""
+    mes = select(Membre.groupe_id).join(Groupe, Groupe.id == Membre.groupe_id).where(Membre.utilisateur_id == u.id, Groupe.supprime_le.is_(None))
+    return list(set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id.in_(mes), Membre.utilisateur_id != u.id))))
+
+
 def epingle(s: Session, u: Utilisateur, op: dict) -> None:
     """Position des buddies (§5.9) : enfoncer l'épingle (« mes buddies me voient » jusqu'à ce soir) ou la relever."""
     p, nouvelle = ma_position(s, u, op)
@@ -921,8 +933,10 @@ def epingle(s: Session, u: Utilisateur, op: dict) -> None:
             s.add(nouvelle(depuis=t, jusqu=jusqu))
         else:
             p.depuis, p.jusqu, p.modifie_le = t, jusqu, maintenant()
+        secouer(s)
     elif p is not None and p.jusqu > t:
         p.jusqu, p.modifie_le = t, maintenant()
+        secouer(s)
 
 
 def position(s: Session, u: Utilisateur, op: dict) -> None:
@@ -947,6 +961,7 @@ def voiture(s: Session, u: Utilisateur, op: dict) -> None:
         t = ms(op["quand"])
         if v is not None and v.garee_le <= t < v.jusqu:
             v.jusqu, v.modifie_le = t, maintenant()
+            secouer(s)
         return
     t = ms(op["garee_le"])
     if v is not None and v.garee_le >= t:
@@ -961,6 +976,7 @@ def voiture(s: Session, u: Utilisateur, op: dict) -> None:
         s.add(Voiture(utilisateur_id=u.id, lat=round(lat, 6), lon=round(lon, 6), garee_le=t, jusqu=jusqu))
     else:
         v.lat, v.lon, v.garee_le, v.jusqu, v.modifie_le = round(lat, 6), round(lon, 6), t, jusqu, maintenant()
+    secouer(s)
 
 
 def proposer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
