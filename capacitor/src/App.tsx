@@ -16,7 +16,7 @@ import { QuickButtons } from './QuickButtons';
 import { ScaleBar } from './map/ScaleBar';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
-import { Account, ecouterCompte } from './Account';
+import { Account, ecouterCompte, suppressionDemandee } from './Account';
 import { appliquerIcones } from './doigt';
 import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
@@ -230,7 +230,7 @@ export function App() {
   const [expenses, setExpenses] = useState(false);
   /** 👥 Mon compte (connexion Logto, marche hors ligne une fois connecté). */
   // Tant qu'on n'est pas connecté, l'écran de connexion s'ouvre au lancement (« Plus tard » le ferme) : demande de Seb.
-  const [account, setAccount] = useState(() => !connecte());
+  const [account, setAccount] = useState(() => !connecte() || suppressionDemandee());
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);
   /** ‹ depuis la carte d'une sortie : on revient sur son groupe. */

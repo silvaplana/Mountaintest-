@@ -548,3 +548,34 @@ function exifDeTest(): ArrayBuffer {
   const app1 = [0x45, 0x78, 0x69, 0x66, 0, 0, ...t];
   return new Uint8Array([0xff, 0xd8, 0xff, 0xe1, (app1.length + 2) >> 8, (app1.length + 2) & 255, ...app1, 0xff, 0xd9]).buffer;
 }
+
+// ------------------------------------------------------------------ 🚩 signaler, 🚫 bloquer, supprimer mon compte (Play Store)
+import { bloquer, debloquer, estBloque, oublierTout, signaler, traiterSignalement } from '../src/buddies/store';
+
+describe('Play Store : bloquer, signaler, oublier', () => {
+  it('bloquer se voit tout de suite et part au serveur, débloquer aussi', () => {
+    bloquer({ id: 'u-paul', pseudo: 'Paul', photo: null });
+    bloquer({ id: 'u-paul', pseudo: 'Paul', photo: null });
+    expect(estBloque('u-paul')).toBe(true);
+    expect(lire().bloques).toHaveLength(1);
+    debloquer('u-paul');
+    expect(estBloque('u-paul')).toBe(false);
+    expect(lire().attente.map((o) => o.type)).toEqual(['bloquer', 'bloquer', 'debloquer']);
+  });
+
+  it('un signalement garde le motif et un mot court ; le Super User le traite', () => {
+    signaler({ message: 'm1', motif: 'insulte', mot: `  ${'x'.repeat(400)} ` });
+    const o = lire().attente[0];
+    expect(o).toMatchObject({ type: 'signaler', message: 'm1', motif: 'insulte' });
+    expect(String(o.mot)).toHaveLength(300);
+    traiterSignalement('s1', 'efface');
+    expect(lire().attente[1]).toMatchObject({ type: 'traiter_signalement', signalement: 's1', suite: 'efface' });
+  });
+
+  it('après « Supprimer mon compte », le téléphone oublie tout', () => {
+    bloquer({ id: 'u-paul', pseudo: 'Paul', photo: null });
+    oublierTout();
+    expect(lire().attente).toEqual([]);
+    expect(lire().bloques).toBeUndefined();
+  });
+});

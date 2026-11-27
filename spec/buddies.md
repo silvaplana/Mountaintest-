@@ -1062,3 +1062,26 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - Profil › « Inviter un ami » (Seb, 26/11) : prénom et adresse, sans groupe ; le serveur (`POST /inviter-appli`)
   envoie tout de suite un mail avec le lien de la page de téléchargement (…/mountaintest/apk/, qui envoie les
   iPhone vers la version web). Demande le réseau (bouton grisé sinon), « Le mail n'est pas parti » en cas d'échec.
+
+### 7.24 Play Store : supprimer mon compte, signaler, bloquer (Seb, 27 novembre 2026)
+
+Exigés par Google pour une appli avec comptes et messagerie (maquettes maquettes/play-store-compte-signaler/,
+validées par Seb le 27/11).
+
+- **Supprimer mon compte** : Profil, sous « Se déconnecter ». Un écran dit ce qui est effacé (profil, photo, e-mail,
+  photos partagées, positions, voiture, dispos, place dans les groupes et sorties), ce qui reste pour les buddies
+  (messages signés « Ancien buddy », dépenses des Buddy counts) et ce qui reste sur le téléphone (traces, cartes).
+  Bouton rouge, puis déconnexion. Serveur : `DELETE /moi` anonymise la fiche (`utilisateurs.supprime_le`,
+  `logto_id = "supprime:<id>"`) et supprime l'utilisateur chez Logto ; se reconnecter donne un compte neuf.
+  Sur le web (pour qui n'a plus l'appli) : page `compte.html`, qui ouvre la version web sur `?compte=supprimer`.
+- **Signaler** : appui long sur le message d'un autre (ou de Bud) › drapeau ; ou un membre dans la liste des membres
+  d'un groupe. Un motif (insultant, choquant, pub ou arnaque, autre), un mot facultatif, « Bloquer X aussi » coché
+  d'office. Opération `signaler`, table `signalements` (extrait du message et lieu gardés). Les Super Users sont
+  prévenus ; ils traitent dans l'espace 🔑 › Signalements : Ignorer, Effacer le message, Retirer X du groupe
+  (opération `traiter_signalement`).
+- **Bloquer** : depuis Signaler ou la liste des membres ; Profil › Personnes bloquées pour débloquer. Table
+  `blocages`. La personne bloquée reste dans les groupes, n'est pas prévenue ; ses messages se replient
+  (« Message d'une personne bloquée · Afficher »), elle ne voit plus ma position ni ma voiture, et ses messages ne
+  me notifient plus.
+- **Pages publiques** (`capacitor/public/`) : `conditions.html` et `confidentialite.html` (liens dans Profil › Mon
+  compte), à compléter par Seb (responsable et contact).
