@@ -1058,6 +1058,17 @@ def test_page_du_lien_pour_whatsapp(client):
     assert 'og:title" content="Mountain Buddies"' in client.get("/i?c=inconnu").text
 
 
+def test_page_du_lien_de_planning(client):
+    """Seb, 27/11 : un lien de planning n'affiche pas « t'invite dans » ni le grand logo."""
+    op = nouveau_groupe()
+    pl = nouveau_planning(op["groupe"])
+    sync(client, ops=[op, pl, invitation(op["groupe"], canal="qr", nom="")])
+    h = client.get(f"/i?c=CodeSecret0123456789&p={pl['planning']}").text
+    assert f'og:title" content="Planning « {pl["nom"]} » · Ski du dimanche"' in h
+    assert "invite" not in h and "img/logo.png" not in h
+    assert f"&amp;p={pl['planning']}" in h
+
+
 def test_notifications_arrivee_et_demande(client, monkeypatch):
     """Seb, 27/11 : on est prévenu quand quelqu'un rejoint le groupe ; les admins, d'une demande ; le demandeur, de l'accord."""
     import appels

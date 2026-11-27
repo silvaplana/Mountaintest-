@@ -1693,8 +1693,8 @@ def vue_position(x: Position | PositionGroupe) -> dict[str, Any]:
             "lon": x.lon, "lat": x.lat, "alt": x.alt, "prise_le": x.prise_le}
 
 
-def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:
-    """Pour la page du lien (sans connexion) : seulement le nom du groupe et qui invite."""
+def apercu_invitation(s: Session, code: str, planning: str = "") -> dict[str, Any] | None:
+    """Pour la page du lien (sans connexion) : seulement le nom du groupe et qui invite (et le planning partagé)."""
     inv = s.scalar(select(Invitation).where(Invitation.code == code))
     if inv is None or inv.groupe_id is None or date(iso(inv.expire_le)) < maintenant():
         return None
@@ -1705,7 +1705,14 @@ def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:
         so = s.get(Sortie, inv.sortie_id)
         return {"groupe": so.nom, "sortie": True, "par": personne(par)["pseudo"], "photo": so.photo}
     n = len(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id)).all())
-    return {"groupe": g.nom, "par": personne(par)["pseudo"], "photo": g.photo, "approbation": inv.approbation, "membres": n}
+    a = {"groupe": g.nom, "par": personne(par)["pseudo"], "photo": g.photo, "approbation": inv.approbation, "membres": n}
+    try:
+        pl = s.get(Planning, uuid.UUID(planning)) if planning else None
+    except ValueError:
+        pl = None
+    if pl is not None and pl.groupe_id == g.id:
+        a["planning"] = pl.nom
+    return a
 
 
 def appels_en_cours(s: Session, gids: list, sids: list) -> list[dict[str, Any]]:

@@ -748,17 +748,22 @@ def lien_invitation(c: str = "", p: str = "", s: Session = Depends(db)):
     """Le lien d'invitation (Seb, 27/11, §7.29). WhatsApp, SMS… lisent ici le titre et l'image de l'aperçu
     (« Seb t'invite dans … ») ; le navigateur part aussitôt sur la page principale, qui montre l'invitation."""
     code = c
-    a = buddies.apercu_invitation(s, code)
+    a = buddies.apercu_invitation(s, code, p)
     titre = "Mountain Buddies"
-    if a:
+    texte = "La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies."
+    image = f"""<meta property="og:image" content="{SITE}/img/logo.png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512">"""
+    if a and a.get("planning"):
+        # Un planning partagé n'est pas une invitation : pas de « t'invite », pas de grand logo (Seb, 27/11).
+        titre = f"Planning « {a['planning']} » · {a['groupe']}"
+        texte, image = f"{a['par']} te propose ses dates : dis quand tu es dispo.", ""
+    elif a:
         titre = f"{a['par']} t'invite {'à' if a.get('sortie') else 'dans'} « {a['groupe']} »"
     cible = f"{SITE}/?c={quote(code)}" + (f"&p={quote(p)}" if p else "")
-    t, c = escape(titre), escape(cible)
-    texte = "La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies."
+    t, c, texte = escape(titre), escape(cible), escape(texte)
     return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{t}</title>
 <meta property="og:title" content="{t}"><meta property="og:description" content="{texte}">
-<meta property="og:image" content="{SITE}/img/logo.png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512">
+{image}
 <meta property="og:url" content="{c}"><meta property="og:type" content="website"><meta property="og:site_name" content="Mountain Buddies">
 <meta http-equiv="refresh" content="0;url={c}"></head>
 <body><script>location.replace({json.dumps(cible)})</script><a href="{c}">{t}</a></body></html>"""
