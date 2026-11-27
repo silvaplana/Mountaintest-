@@ -60,8 +60,9 @@
   <div class="boutons">
     <a class="b" id="bAndroid" href="https://mountainbuddies.silvaplana.cloud/api/telecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11a7 7 0 0 1 14 0v7H5z"/><path d="M8 4.5 9.5 6.5M16 4.5 14.5 6.5"/><circle cx="9.5" cy="9.5" r=".6" fill="currentColor"/><circle cx="14.5" cy="9.5" r=".6" fill="currentColor"/><path d="M5 13h14"/></svg>Télécharger pour Android</a>
     <button class="b" id="bIphone" onclick="ouvrir()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 5h3"/><path d="M11 18.5h2"/></svg>Installer sur iPhone</button>
-    <a class="b" id="bWeb" href="app/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>Ouvrir dans le navigateur</a>
+    <a class="b" id="bWeb" href="app/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>Ouvrir dans le navigateur*</a>
   </div>
+  <p class="petit" id="noteWeb">* Pour l'instant, l'appli est faite pour le téléphone : sur ordinateur, l'affichage peut ne pas être terrible.</p>
   <p class="petit">Gratuit · <a href="#" style="color:inherit" onclick="tous();return false">Autre appareil ?</a></p>
 </header>
 
@@ -112,7 +113,8 @@
   const bon = iphone ? 'bIphone' : android ? 'bAndroid' : 'bWeb';
   for (const id of ['bAndroid','bIphone','bWeb']) if (id !== bon) document.getElementById(id).style.display = 'none';
   document.getElementById(bon).classList.add('principal');
-  function tous() { for (const id of ['bAndroid','bIphone','bWeb']) document.getElementById(id).style.display = ''; }
+  if (bon !== 'bWeb') document.getElementById('noteWeb').style.display = 'none';
+  function tous() { for (const id of ['bAndroid','bIphone','bWeb','noteWeb']) document.getElementById(id).style.display = ''; }
   function ouvrir() { document.getElementById('voile').classList.add('ouvert'); }
   function fermer() { document.getElementById('voile').classList.remove('ouvert'); }
 </script>
