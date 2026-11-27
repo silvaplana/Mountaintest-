@@ -930,6 +930,15 @@ def copains(s: Session, u: Utilisateur) -> list[uuid.UUID]:
     return list(set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id.in_(mes), Membre.utilisateur_id != u.id))))
 
 
+def concernes(s: Session, u: Utilisateur) -> set[uuid.UUID]:
+    """Ceux qu'un changement de ma part peut toucher : les membres de mes groupes, les participants de mes sorties,
+    et moi (mes autres appareils). Pour le flux d'événements (evenements.py)."""
+    mes = select(Membre.groupe_id).join(Groupe, Groupe.id == Membre.groupe_id).where(Membre.utilisateur_id == u.id, Groupe.supprime_le.is_(None))
+    qui = set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id.in_(mes))))
+    sorties = select(Participant.sortie_id).where(Participant.utilisateur_id == u.id)
+    return qui | set(s.scalars(select(Participant.utilisateur_id).where(Participant.sortie_id.in_(sorties)))) | {u.id}
+
+
 def epingle(s: Session, u: Utilisateur, op: dict) -> None:
     """Position des buddies (§5.9) : enfoncer l'épingle (« mes buddies me voient » jusqu'à ce soir) ou la relever."""
     p, nouvelle = ma_position(s, u, op)

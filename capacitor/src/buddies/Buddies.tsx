@@ -1,3 +1,4 @@
+import { ouvrirFluxEvenements } from './evenements';
 import { useEffect, useId, useRef, useState } from 'react';
 import { nouvellesIcones } from '../doigt';
 import type { Map as MlMap } from 'maplibre-gl';
@@ -148,9 +149,12 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning
   }
   const visible = () => { if (document.visibilityState === 'visible') sync(); };
   sync();
+  // Un événement du serveur à chaque changement chez un buddy (comme la messagerie d'AppBase) : synchro tout de suite.
+  const fermerFlux = ouvrirFluxEvenements(sync);
   window.addEventListener('online', sync);
   document.addEventListener('visibilitychange', visible);
   return () => {
+    fermerFlux();
     window.removeEventListener('online', sync); document.removeEventListener('visibilitychange', visible);
     subs.forEach((s) => void s.then((x) => x.remove()));
   };

@@ -34,6 +34,7 @@ Routes (préfixe /api, ou l ancien /mountaintest-api, retiré par le gateway Cad
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import os
@@ -51,7 +52,7 @@ from typing import Any
 
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, func, inspect, select, text
@@ -59,6 +60,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import appels
 import buddies
+from evenements import Evenements
 import droits
 import mails
 from modeles import Base, Groupe, Journal, MaTrace, Membre, Telechargement, Usage, Utilisateur, maintenant
@@ -86,6 +88,7 @@ async def cycle(_app: FastAPI):
     Base.metadata.create_all(moteur)  # crée les tables manquantes (pas encore de migrations)
     ajouter_colonnes()
     roles_de_groupe()
+    flux.demarrer(asyncio.get_running_loop())
     yield
 
 
@@ -420,6 +423,7 @@ def changer_moi(ch: Changement, j: dict = Depends(jeton_requis), s: Session = De
         u.wero_numero = re.sub(r"\s+", " ", ch.wero_numero).strip() or None
     buddies.profil_change(s, u)
     s.commit()
+    secouer(s, u)
     return profil(u)
 
 
@@ -450,6 +454,56 @@ def supprimer_moi(j: dict = Depends(jeton_requis), s: Session = Depends(db)):
 class Synchro(BaseModel):
     ops: list[dict[str, Any]] = Field(default_factory=list, max_length=500)
     depuis: str | None = None
+    # L'appareil qui envoie : son propre événement ne lui revient pas (il vient de se synchroniser).
+    appareil: str | None = Field(None, max_length=64)
+
+
+# ---------------------------------------------------------------- flux d'événements (SSE, comme AppBase)
+
+flux = Evenements()
+# Entre deux vrais événements, un commentaire SSE (ligne « : », ignorée par EventSource) toutes les 20 s : sans ça,
+# un proxy (Caddy) ou le réseau mobile coupe une connexion muette, et le téléphone ne le voit qu'au prochain essai.
+DELAI_PING_SECONDES = 20
+
+
+def secouer(s: Session, u: Utilisateur, qui: set | None = None, sauf: str | None = None) -> None:
+    """« Un événement pour tout » (Seb, 27/11) : quelque chose a changé pour ces comptes (par défaut tous ceux que
+    mes changements touchent, mes autres appareils compris) ; leurs appareils à l'écran se synchronisent tout de
+    suite. L'événement ne porte pas la donnée : elle arrive par la synchro, comme toujours."""
+    for x in qui if qui is not None else buddies.concernes(s, u):
+        flux.publier(x, {"type": "synchro", "sauf": sauf})
+
+
+def jeton_du_flux(jeton: str = "") -> dict[str, Any]:
+    """EventSource n'envoie pas d'en-tête : le jeton voyage dans l'adresse (comme AppBase)."""
+    return verifier(jeton)
+
+
+@app.get("/buddies/evenements")
+def evenements(j: dict = Depends(jeton_du_flux)):
+    """Le flux d'un appareil connecté : un événement à chaque changement qui concerne ce compte."""
+    # Une session courte, refermée avant le flux : il vit des heures, il ne doit pas garder une connexion à la base.
+    with Sessions() as s:
+        qui = utilisateur(s, j).id
+    return StreamingResponse(generateur_evenements(qui), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+async def generateur_evenements(qui: uuid.UUID):
+    queue = flux.abonner(qui)
+    try:
+        # Un premier commentaire tout de suite : certains proxies attendent le premier octet pour ouvrir (onopen).
+        yield ": connecte\n\n"
+        while True:
+            try:
+                evenement = await asyncio.wait_for(queue.get(), timeout=DELAI_PING_SECONDES)
+            except asyncio.TimeoutError:
+                yield ": ping\n\n"
+                continue
+            yield f"data: {json.dumps(evenement)}\n\n"
+    finally:
+        # Le client a fermé : sans ce désabonnement, une file morte resterait pour toujours.
+        flux.desabonner(qui, queue)
 
 
 @app.post("/buddies/sync")
@@ -459,7 +513,11 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     except ValueError as e:
         raise HTTPException(422, "depuis : date ISO attendue") from e
     u = utilisateur(s, j)
+    avant = buddies.concernes(s, u) if corps.ops else set()
     r = buddies.synchroniser(s, u, corps.ops, corps.depuis)
+    # Événement à tous ceux que ces opérations touchent : ceux d'avant aussi (un buddy retiré, un groupe quitté).
+    if len(r["refus"]) < len(corps.ops):
+        secouer(s, u, avant | buddies.concernes(s, u), corps.appareil)
     # 🔔 Nouveaux messages : une notification aux autres (en arrière-plan, sans clé Firebase : rien).
     for qui, data in buddies.a_prevenir(s, u, s.info.pop("nouveaux_messages", [])):
         appels.sonner(Sessions, qui, data, ttl="86400s")
@@ -483,9 +541,11 @@ class Ecrit(BaseModel):
 def buddies_ecrit(corps: Ecrit, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
     """« écrit… » : je tape dans cette conversation (les autres le voient à leur prochaine synchro, 12 s au plus)."""
     try:
-        buddies.ecrit(s, utilisateur(s, j), corps.cle)
+        u = utilisateur(s, j)
+        buddies.ecrit(s, u, corps.cle)
     except (buddies.Refus, ValueError) as e:
         raise HTTPException(404, "Conversation inconnue") from e
+    secouer(s, u)
     return {"ok": True}
 
 
@@ -520,6 +580,7 @@ async def envoyer_photo(pid: str, taille: str, req: Request, j: dict = Depends(j
         p.envoyee = True
         p.modifie_le = maintenant()
         s.commit()
+        secouer(s, utilisateur(s, j))
     return {"ok": True}
 
 
@@ -570,6 +631,7 @@ async def envoyer_fichier(fid: str, req: Request, j: dict = Depends(jeton_requis
         for m in s.scalars(select(buddies.MessageBuddy).where(buddies.MessageBuddy.fichier_id == f.id)):
             m.modifie_le = maintenant()
         s.commit()
+        secouer(s, u)
     return {"ok": True}
 
 
@@ -634,7 +696,9 @@ def appareil(a: UnAppareil, j: dict = Depends(jeton_requis), s: Session = Depend
 @app.post("/appels")
 def appeler(d: Destination, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
     u = utilisateur(s, j)
-    return refus(lambda: appels.appeler(s, Sessions, u, d.groupe, d.sortie))
+    r = refus(lambda: appels.appeler(s, Sessions, u, d.groupe, d.sortie))
+    secouer(s, u)
+    return r
 
 
 @app.post("/appels/{aid}/rejoindre")
@@ -664,7 +728,9 @@ def carte_appel(aid: str, c: CarteAppel, j: dict = Depends(jeton_requis), s: Ses
 @app.post("/appels/{aid}/presence")
 def presence_appel(aid: str, p: Presence, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
     u = utilisateur(s, j)
-    return refus(lambda: appels.presence(s, Sessions, u, aid, p.en_ligne))
+    r = refus(lambda: appels.presence(s, Sessions, u, aid, p.en_ligne))
+    secouer(s, u)
+    return r
 
 
 class Ouverture(BaseModel):

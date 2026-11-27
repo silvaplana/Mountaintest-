@@ -956,6 +956,8 @@ function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[])
   return { liste: ids.map((id) => parId.get(id)).filter((x): x is T => !!x), manque: ids.some((id) => !parId.has(id)) };
 }
 let enCours: Promise<string[]> | null = null;
+/** Cet appareil, le temps de cette ouverture de l'appli : le serveur ne lui renvoie pas l'événement de ses propres envois. */
+export const APPAREIL = uuid();
 let suivante: Promise<string[]> | null = null;
 /** Un envoi : 200 opérations et 300 000 caractères au plus (le serveur en refuse plus de 500 d'un coup). */
 const MAX_OPS = 200, MAX_TAILLE = 300_000;
@@ -995,7 +997,7 @@ export function synchroniser(): Promise<string[]> {
      for (let tour = 0, encore = true; encore && tour < 50; tour++) {
       const avant = lire();
       const ops = lot(avant.attente);
-      const r = await api<Reponse>('POST', '/buddies/sync', { ops: ops.map(({ t: _t, ...o }) => o), depuis: avant.curseur ?? null });
+      const r = await api<Reponse>('POST', '/buddies/sync', { ops: ops.map(({ t: _t, ...o }) => o), depuis: avant.curseur ?? null, appareil: APPAREIL });
       const e = lire();
       const g = fusion(e.serveur, r.groupes, r.ids);
       const so = fusion(e.sorties ?? [], r.sorties ?? [], r.ids_sorties ?? []);
