@@ -95,8 +95,8 @@ export function CarteSuivie({ map, fond, onFond, mes, onInvitees, onToast }: {
   if (!suit) return null;
   return <div className="cs-bandeau">
     <div className="cs-ligne">
-      <span className="cs-nom">Tu suis la carte de {suit.pseudo}</span>
-      <button className="cs-reprendre" onClick={reprendreMaCarte}>Reprendre ma carte</button>
+      <span className="cs-nom">Ta carte suit <b>{suit.pseudo}</b></span>
+      <button className="cs-stop" onClick={reprendreMaCarte}>Stop</button>
     </div>
   </div>;
 }
