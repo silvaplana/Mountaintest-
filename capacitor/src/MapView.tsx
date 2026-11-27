@@ -2,7 +2,7 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { useEffect, useRef, useState } from 'react';
-import { AUTO_PLAN_UNTIL, AUTO_SCAN_FROM, DISPLAY_MAX_ZOOM, LA_CIOTAT_CENTER, LAYERS, type BaseMode } from './config';
+import { AUTO_PLAN_UNTIL, AUTO_SCAN_FROM, DISPLAY_MAX_ZOOM, LA_CIOTAT_CENTER, LAYERS, PLAY, type BaseMode } from './config';
 import { bench, metrics } from './metrics';
 import { toLineString, type TrackPoint } from './track/gpx';
 import { bboxPolygon, trailEndsGeoJson, trailsGeoJson, type Trail } from './trails/osmTrails';
@@ -339,8 +339,8 @@ export function MapView(props: MapViewProps) {
     const m = map.current;
     if (!m || !ready) return;
     const auto = props.baseLayer === 'auto';
-    m.setLayoutProperty('scan25', 'visibility', props.baseLayer !== 'planign' ? 'visible' : 'none');
-    m.setLayoutProperty('planign', 'visibility', props.baseLayer !== 'scan25' ? 'visible' : 'none');
+    m.setLayoutProperty('scan25', 'visibility', !PLAY && props.baseLayer !== 'planign' ? 'visible' : 'none');
+    m.setLayoutProperty('planign', 'visibility', PLAY || props.baseLayer !== 'scan25' ? 'visible' : 'none');
     // Auto : le Plan IGN n'est plus demandé au-delà du zoom 13, le SCAN 25 pas en dessous du zoom 12.
     m.setLayerZoomRange('planign', 0, auto ? AUTO_PLAN_UNTIL : 24);
     m.setLayerZoomRange('scan25', auto ? AUTO_SCAN_FROM : 0, 24);

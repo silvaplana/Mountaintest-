@@ -48,7 +48,13 @@
   const code = new URLSearchParams(location.search).get('c') || '';
   // Android : l'appli installée. Ordinateur, iPhone : la version web, qui garde l'invitation jusqu'à la connexion (Seb, 26/11).
   if (/android/i.test(navigator.userAgent)) {
-    document.getElementById('ouvrir').href = 'fr.assomoutain.rando://rejoindre?c=' + encodeURIComponent(code);
+    // Deux applis possibles : la version du Play Store d'abord ; si elle n'est pas installée, Chrome revient sur
+    // cette page avec apk=1 et le bouton ouvre l'APK des copains.
+    const c = encodeURIComponent(code);
+    const apk = new URLSearchParams(location.search).get('apk');
+    const retour = location.origin + location.pathname + '?c=' + c + '&apk=1';
+    document.getElementById('ouvrir').href = apk ? 'fr.assomoutain.rando://rejoindre?c=' + c
+      : 'intent://rejoindre?c=' + c + '#Intent;scheme=cloud.silvaplana.mountainbuddies;package=cloud.silvaplana.mountainbuddies;S.browser_fallback_url=' + encodeURIComponent(retour) + ';end';
   } else {
     document.getElementById('ouvrir').href = './?rejoindre=' + encodeURIComponent(code);
     document.getElementById('android').hidden = true;
