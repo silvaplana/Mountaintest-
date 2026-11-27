@@ -1052,16 +1052,26 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
   const e = lire();
   const admin = estAdmin(g, e);
   const principal = estAdminPrincipal(g, e);
-  // Un admin retire un membre ; un admin, seul l'admin principal le retire ; l'admin principal, personne.
-  const retirable = (b: Buddy) => b.role === 'admin_principal' ? false : b.role === 'admin' ? principal : admin;
+  // Un admin (ou le Super User) retire un membre ; un admin, seul l'admin principal (ou le Super User) le retire ;
+  // l'admin principal, personne.
+  const retirable = (b: Buddy) => b.role === 'admin_principal' ? false : superUser() || (b.role === 'admin' ? principal : admin);
   const [choisi, setChoisi] = useState<Buddy | null>(null);
+  const [aRetirer, setARetirer] = useState<Buddy | null>(null);
+  // Appui long sur un buddy, comme WhatsApp (Seb, 27/11) : même menu qu'un appui normal.
+  const t = useRef<number | undefined>(undefined);
+  const arreter = () => clearTimeout(t.current);
+  const appuiLong = (b: Buddy) => ({
+    onPointerDown: () => { arreter(); t.current = window.setTimeout(() => { setChoisi(b); navigator.vibrate?.(20); }, 550); },
+    onPointerUp: arreter, onPointerLeave: arreter, onPointerCancel: arreter,
+    onContextMenu: (ev: React.MouseEvent) => ev.preventDefault(),
+  });
   const [aSignaler, setASignaler] = useState<Buddy | null>(null);
   const moi = (b: Buddy) => b.id === e.moi || b.id === 'moi';
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
     <h3>Inviter mes copains</h3>
     <Inviter nomGroupe={g.nom} qrExistant={qr} onToast={onToast} onInvite={(i) => { inviter(g.id, i); if (i.canal !== 'qr') onToast(`Invitation envoyée à ${i.nom}`); }} />
     <h3>Dans le groupe</h3>
-    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m)} onClick={() => setChoisi(m)}>
+    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m)} onClick={() => setChoisi(m)} {...appuiLong(m)}>
       <Visage b={m} /><span className="bd-texte"><b>{m.pseudo}{moi(m) ? ' (toi)' : ''}</b>{m.role === 'admin_principal' ? <small>admin principal</small> : m.role === 'admin' && <small>admin</small>}</span>
     </button>)}
     {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <div key={i.id} className="bd-ligne petite bd-invite">
@@ -1075,7 +1085,7 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
       {principal && choisi.role === 'admin' && <button onClick={() => { retirerAdmin(g.id, choisi.id); setChoisi(null); }}>N'est plus admin</button>}
       {principal && <button onClick={() => { transmettre(g.id, choisi.id); setChoisi(null); onToast(`${choisi.pseudo} devient admin principal`); }}>
         Lui passer mon rôle d'admin principal</button>}
-      {retirable(choisi) && <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer du groupe</button>}
+      {retirable(choisi) && <button className="danger" onClick={() => { setARetirer(choisi); setChoisi(null); }}>Retirer du groupe</button>}
       {/* 🚩🚫 Pour tout le monde (Play Store) : signaler ou bloquer un buddy sans passer par un message. */}
       <button onClick={() => { setASignaler(choisi); setChoisi(null); }}><FlagIcon size={20} /> Signaler {choisi.pseudo}</button>
       {estBloque(choisi.id, e)
@@ -1088,6 +1098,12 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
         : superUser() && <button onClick={() => { donnerScan25(choisi.id, true); void synchroniser().catch(() => undefined); setChoisi(null); onToast(`${choisi.pseudo} a le SCAN 25`); }}>Donner le SCAN 25</button>}
       <button onClick={() => setChoisi(null)}>Annuler</button>
     </div>}
+    {aRetirer && <div className="bd-voile" onClick={() => setARetirer(null)}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+      <h3>Retirer {aRetirer.pseudo} du groupe ?</h3>
+      <p>{aRetirer.pseudo} ne verra plus « {g.nom} » ni ses sorties.</p>
+      <button className="stop" onClick={() => { retirer(g.id, aRetirer.id); onToast(`${aRetirer.pseudo} est retiré du groupe`); setARetirer(null); }}>Retirer du groupe</button>
+      <button onClick={() => setARetirer(null)}>Annuler</button>
+    </div></div>}
     {aSignaler && <Signaler buddy={aSignaler} onFermer={() => setASignaler(null)} onFait={(t) => { setASignaler(null); onToast(t); }} />}
     <button className="acc-deco" onClick={() => {
       if (!confirm(`Quitter « ${g.nom} » ?`)) return;
