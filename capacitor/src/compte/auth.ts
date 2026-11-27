@@ -11,8 +11,11 @@
  *   demande de se reconnecter, et le profil local reste affiché.
  */
 
+import { PLAY } from '../config';
+
 export const API_URL = 'https://silvaplana.cloud/mountaintest-api';
-export const SCHEMA = 'fr.assomoutain.rando';
+/** Identifiant Android : l'APK des copains, ou la version du Play Store (deux applis distinctes). */
+export const SCHEMA = PLAY ? 'cloud.silvaplana.mountainbuddies' : 'fr.assomoutain.rando';
 export const REDIRECT = `${SCHEMA}://callback`;
 const CLE = 'compte';
 

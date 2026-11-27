@@ -53,6 +53,9 @@ class Utilisateur(Base):
     # le Super User la voit pour tout le monde.
     telephone_octets: Mapped[int | None] = mapped_column(BigInteger)
     telephone_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Compte supprimé par son propriétaire (Play Store) : la fiche reste pour que les messages et les dépenses
+    # gardent un auteur, mais vidée de tout ce qui identifie la personne (pseudo « Ancien buddy »).
+    supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Organisation(Base):
@@ -499,3 +502,33 @@ class Appel(Base):
     en_ligne: Mapped[str] = mapped_column(Text, default="[]", nullable=False)  # identifiants JSON
     debut: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Blocage(Base):
+    """🚫 Bloquer un buddy (Play Store) : je ne vois plus ses messages (repliés), il ne voit plus ma position ni ma
+    voiture. Il n'est pas prévenu et reste dans les groupes."""
+
+    __tablename__ = "blocages"
+
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    bloque_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+
+
+class Signalement(Base):
+    """🚩 Un message (ou une personne) signalé au Super User (Play Store). `extrait` garde le texte du message tel
+    qu'il était, même s'il est ensuite modifié ou supprimé. `cible_id` vide : une réponse de Bud.
+    `suite` : ignore, efface (message supprimé) ou retire (la personne quitte le groupe)."""
+
+    __tablename__ = "signalements"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), nullable=False)
+    cible_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"))
+    message_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("messages_buddies.id", ondelete="SET NULL"))
+    motif: Mapped[str] = mapped_column(String(12), nullable=False)
+    mot: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    extrait: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    lieu: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    suite: Mapped[str | None] = mapped_column(String(8))
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)

@@ -60,7 +60,7 @@ Prérequis Android : Android Studio récent (SDK 36), JDK 21, téléphone Androi
 ## Mesurer (même protocole que le prototype Kotlin)
 
 Conditions : même téléphone, luminosité 50 %, batterie entre 90 et 40 %, aucune autre appli,
-build **release** (`./gradlew assembleRelease` ou Android Studio → Build → Generate APK).
+build **release** (`./gradlew assembleApkRelease`, ou `bundlePlayRelease` pour le Play Store ou Android Studio → Build → Generate APK).
 
 | Mesure | Comment |
 |---|---|

@@ -14,9 +14,10 @@ import { adresse, estImage, estVideo, ouvrir, preparer, taille } from './fichier
 import {
   appliquer, autreDuDuo, contacts, DELAI_MODIFIER, presence, envoyerMessage, estAdmin, lire, marquerLu, modifierMessage, noterActionsBud, nonLus, proposerHebergement, reagir, retirerMessage, signalerEcrit, statut,
   synchroniser, transferer, voter, vue, type Buddy, type FichierMessage, type Groupe, type Hebergement, type Lecture, type MessageBuddy, type Sortie, type TraceBuddy,
-  nomDiscussion,
+  nomDiscussion, estBloque,
 } from './store';
 import { TrashIcon } from '../icones';
+import { FlagIcon, Signaler } from './Moderation';
 
 /**
  * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par groupe et par sortie.
@@ -81,6 +82,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const [menu, setMenu] = useState(false);
   const [sondage, setSondage] = useState(false);
   const [transfert, setTransfert] = useState<MessageBuddy[] | null>(null);
+  const [aSignaler, setASignaler] = useState<MessageBuddy | null>(null);
   const k = cle(dest);
   const dictee = useDictee((t) => setTexte((x) => `${x}${x && !x.endsWith(' ') ? ' ' : ''}${t}`), onToast);
   const nom = (id: string) => membres.find((b) => b.id === id)?.pseudo ?? '?';
@@ -201,6 +203,8 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
       {aTransferer.length > 0 && <button onClick={() => { setTransfert(aTransferer); setSelection([]); }}>↪️<small>Transférer</small></button>}
       {peutModifier && <button onClick={() => { setReponse(null); setEdition(seul); setTexte(seul!.texte); setSelection([]); requestAnimationFrame(() => saisie.current?.focus()); }}>✏️<small>Modifier</small></button>}
       {peutSupprimer && <button onClick={supprimer}><TrashIcon size={26} /><small>Supprimer</small></button>}
+      {seul && !seul.supprime && (seul.bud || (seul.par !== moi && seul.par !== 'moi')) && <button onClick={() => { setASignaler(seul); setSelection([]); }}>
+        <FlagIcon size={26} /><small>Signaler</small></button>}
     </div>}
     <div className="bd-fil">
       {!bulles.length && <p className="bd-vide">Pas encore de message. Écris, dicte avec le micro, ou joins une photo, un fichier, ta position ou un sondage avec 📎.</p>}
@@ -230,6 +234,8 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
       <button onClick={() => { setMenu(false); setSondage(true); }}><span>📊</span>Sondage</button>
     </div>}
     {sondage && <NouveauSondage onFermer={() => setSondage(false)} onEnvoyer={(x) => { envoyerMessage(dest, { nature: 'sondage', sondage: x }); setSondage(false); void synchroniser().catch(() => undefined); }} />}
+    {aSignaler && <Signaler message={aSignaler.id} buddy={aSignaler.bud ? undefined : membres.find((x) => x.id === aSignaler.par) ?? { id: aSignaler.par, pseudo: nom(aSignaler.par), photo: null }}
+      onFermer={() => setASignaler(null)} onFait={(t) => { setASignaler(null); montrer(t); }} />}
     {transfert && <Transferer ms={transfert} ici={k} onFermer={() => setTransfert(null)} onFait={(n) => { setTransfert(null); montrer(n > 1 ? `Envoyé à ${n} conversations` : 'Envoyé'); }} />}
     {emojis && <div className="bd-emojis">{EMOJIS.map((x) => <button key={x} onClick={() => insererEmoji(x)}>{x}</button>)}</div>}
     <div className="bd-saisie">
@@ -320,6 +326,7 @@ function Texte({ t }: { t: string }) {
 
 function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto }: Actions & { b: Bulle; c: Contexte }) {
   const { moi, nom } = c;
+  const [voir, setVoir] = useState(false);
   if (b.genre === 'trace') {
     const t = b.t;
     return <button className="bd-bulle-carte" onClick={() => onTrace(t)}>
@@ -348,6 +355,9 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto }: Actions & 
   const transfere = m.transfere && <small className="bd-transfere">↪️ Transféré</small>;
   const qui = !mien && !m.bud && <b className="bd-qui-ecrit" style={{ color: couleur(m.par) }}>{nom(m.par)}</b>;
   if (supprime) return <div id={`m-${m.id}`} className={`bd-bulle supprime${mien ? ' mien' : ''}`}>{qui}<i>🚫 Ce message a été supprimé</i>{heure}</div>;
+  // 🚫 Quelqu'un que j'ai bloqué : son message est replié, on peut le rouvrir.
+  if (!mien && !m.bud && !voir && estBloque(m.par)) return <div id={`m-${m.id}`} className="bd-bulle md-masque">
+    <i>Message d'une personne bloquée</i> · <button className="bd-lien" onClick={() => setVoir(true)}>Afficher</button></div>;
   let corps: React.ReactNode;
   if (m.bud && m.nature === 'point') {
     // 🐻 Bud montre un endroit : il s'ouvre sur la carte.
