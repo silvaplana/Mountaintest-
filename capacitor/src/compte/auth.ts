@@ -122,7 +122,10 @@ export async function debutConnexion(config: Config, email?: string, fournisseur
   ecrire({ ...lire(), config, pkce: { verifier, state, redirect } });
   const q = new URLSearchParams({
     client_id: config.appId, redirect_uri: redirect, response_type: 'code', state,
-    scope: 'openid offline_access profile email', resource: config.ressource, prompt: 'consent',
+    scope: 'openid offline_access profile email', resource: config.ressource,
+    // « login » : toujours redemander le compte, même si la page de connexion se souvient d'une session
+    // (sinon, après « Se déconnecter », elle reconnectait l'ancien compte sans rien demander).
+    prompt: 'login consent',
     code_challenge: await defi(verifier), code_challenge_method: 'S256', ui_locales: 'fr',
   });
   if (email) q.set('login_hint', email);
