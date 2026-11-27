@@ -70,7 +70,7 @@ import { Profile, WayLegend } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
 import { drawnTrail, isMine, nextMine, bikeHours, lineLengthM, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import { parseTraceFile } from './trails/traceFile';
-import { onTraceFileOpened, pickTraceFiles } from './trails/pickFile';
+import { onTraceFileOpened, pickTraceFiles, pickTraceFolder } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, lineKey, nextJunctionM, prefetchWays, wayRunsFor } from './trails/junctions';
@@ -1091,6 +1091,18 @@ export function App() {
     }
   }
 
+  /** 📁 Reprendre tout le dossier Téléchargements/Mountain Buddies d'un coup (Seb, 27/11). */
+  async function openTraceFolder() {
+    setDrawing(false); setTraceList(null);
+    try {
+      const files = await pickTraceFolder();
+      if (files.length) await loadTraceFiles(files);
+      else setToast('Aucune trace dans ce dossier');
+    } catch (e) {
+      setToast(`Dossier illisible : ${(e as Error).message}`);
+    }
+  }
+
   /**
    * Fichiers de trace (choisis ici, ou ouverts depuis une autre appli) : rangés dans 📂 Mes traces (Seb, 27/11).
    * Un seul : affiché sur la carte. Plusieurs : la liste Mes traces s'ouvre.
@@ -1464,7 +1476,7 @@ export function App() {
           vtt={vtt} ways={activity !== 'ski'} wayTypes={wayTypesOn} onWayTypes={setWayTypesOn} runs={selRuns} />
       )}
       {traceList && !drawing && (
-        <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()}
+        <TraceList traces={traceList} onPick={loadTrace} onClose={() => setTraceList(null)} onFile={() => void openTraceFile()} onFolder={() => void openTraceFolder()}
           onShare={(t) => setPartage({ nom: t.name, ligne: t.line, ailleurs: () => void shareTrace(t).catch((e) => setToast(`Partage impossible : ${(e as Error).message}`)) })}
           onRename={(t, name) => {
             // Le fichier GPX porte le nom de la trace : on enlève l'ancien et on écrit le nouveau.

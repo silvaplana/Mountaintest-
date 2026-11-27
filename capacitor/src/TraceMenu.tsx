@@ -6,6 +6,7 @@ import { bikeHours, walkingHours } from './trails/route';
 import type { WayRun } from './trails/wayTypes';
 import { traceLengthM, type SavedTrace } from './trails/savedTraces';
 import { TRACE_FOLDER } from './trails/traceShare';
+import { canPickFolder } from './trails/pickFile';
 import { formatKm } from './track/stats';
 import { CameraIcon } from './Survol';
 import { PinIcon } from './PinLayer';
@@ -109,7 +110,7 @@ export function TraceMenu({ trail, onFilm, onEdit, lien, onAssocier, pique, onPi
 }
 
 /** 📂 Charger des traces : 📥 un fichier du téléphone, ou une de Mes traces (toucher pour l'afficher, 🗑 pour l'effacer). */
-export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose, onFile }: {
+export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose, onFile, onFolder }: {
   traces: SavedTrace[]; onPick: (t: SavedTrace) => void; onDelete: (t: SavedTrace) => void; onClose: () => void;
   /** ✏ Renommer la trace (Seb, 25/11). */
   onRename: (t: SavedTrace, name: string) => void;
@@ -117,6 +118,8 @@ export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose
   onShare: (t: SavedTrace) => void;
   /** 📥 Ouvrir un ou plusieurs fichiers GPX, KML ou GeoJSON du téléphone (rangés dans Mes traces). */
   onFile: () => void;
+  /** 📁 Reprendre tout le dossier Mountain Buddies (Android). */
+  onFolder: () => void;
 }) {
   const [showFolder, setShowFolder] = useState(false);
   /** Trace dont on change le nom, et le nom en cours de frappe. */
@@ -136,6 +139,7 @@ export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose
         <button className="close" onClick={onClose} aria-label="Fermer la liste des traces">✕</button>
       </div></div>
       <div className="row"><button onClick={onFile}>📥 Ouvrir des fichiers (GPX, KML, GeoJSON)</button></div>
+      {canPickFolder() && <div className="row"><button onClick={onFolder}>📁 Reprendre tout le dossier Mountain Buddies</button></div>}
       {/* Appui long sur « Mes traces » : le dossier des fichiers GPX (demande de Seb : pas affiché en permanence). */}
       <b className="list-title" onContextMenu={(e) => e.preventDefault()}
         onPointerDown={() => { if (press.current) clearTimeout(press.current); press.current = setTimeout(() => setShowFolder((v) => !v), 550); }}
