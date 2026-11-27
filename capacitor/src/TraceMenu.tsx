@@ -139,13 +139,14 @@ export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose
         <button className="close" onClick={onClose} aria-label="Fermer la liste des traces">✕</button>
       </div></div>
       <div className="row"><button onClick={onFile}>📥 Ouvrir des fichiers (GPX, KML, GeoJSON)</button></div>
-      {canPickFolder() && <div className="row"><button onClick={onFolder}>📁 Reprendre tout le dossier Mountain Buddies</button></div>}
       {/* Appui long sur « Mes traces » : le dossier des fichiers GPX (demande de Seb : pas affiché en permanence). */}
       <b className="list-title" onContextMenu={(e) => e.preventDefault()}
         onPointerDown={() => { if (press.current) clearTimeout(press.current); press.current = setTimeout(() => setShowFolder((v) => !v), 550); }}
         onPointerUp={() => { if (press.current) clearTimeout(press.current); }}
         onPointerLeave={() => { if (press.current) clearTimeout(press.current); }}>Mes traces</b>
       {showFolder && <p className="hint">📁 Fichiers GPX dans {TRACE_FOLDER} (appli Fichiers du téléphone)</p>}
+      {/* Reprendre tout le dossier : caché derrière le même appui long (Seb, 27/11 : bouton jugé laid, rarement utile). */}
+      {showFolder && canPickFolder() && <div className="row"><button onClick={onFolder}>📁 Reprendre tout le dossier</button></div>}
       {!traces.length && <p className="hint">Aucune trace enregistrée. Dessine une trace, touche-la puis « Sauvegarder ».</p>}
       <ul className="trail-list">
         {traces.map((t) => (
