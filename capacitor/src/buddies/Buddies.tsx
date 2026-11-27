@@ -80,7 +80,11 @@ export const Natif = registerPlugin<{
   effacerNotif(o: { cle: string }): Promise<void>;
   addListener(e: 'ouvrirConversation', f: (c: ConversationNotif) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'message', f: (x: { cle: string }) => void): Promise<{ remove: () => Promise<void> }>;
+  /** 🗺 Carte partagée reçue appli à l'écran (AppelService.java) : la proposer dans l'appli. */
+  addListener(e: 'carte', f: (p: PropositionCarte) => void): Promise<{ remove: () => Promise<void> }>;
 }>('Buddies');
+/** Une carte partagée : `type` carte (messagerie, `message` à suivre) ou carte_appel (pendant l'appel `appel`). */
+export type PropositionCarte = { type: string; titre?: string; ligne?: string; de?: string; nom?: string; cle?: string; message?: string; appel?: string; groupe?: string; sortie?: string };
 export type PositionNative = { lat: number; lon: number; alt?: number; t: number };
 
 export function useBuddies(): Etat {

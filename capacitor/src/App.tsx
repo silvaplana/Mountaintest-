@@ -22,14 +22,14 @@ import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/a
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
 import { BuddiesVisiblesSurCarte, PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
-import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
+import { BarreAppel, DoigtsSurCarte, EcranSonnerie, PropositionCarteAppli, useAppel, useSonnerie } from './buddies/Appel';
 import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
 import { montrer, suivreUneCarte } from './buddies/appel';
 import { appliquer as groupesBuddies, lire as lireBuddies, mesEpingles, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
 import { appareilLisible } from './buddies/appareil';
 import { nomLien, noterOuvert } from './buddies/recents';
-import { useNotifMessages, useNotifsAExpliquer } from './buddies/notifs';
+import { useNotifMessages, useNotifsAExpliquer, type ConversationNotif } from './buddies/notifs';
 import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
 import { LodgingsOnMap } from './LodgingMap';
 import { chercherHebergements } from './refuges';
@@ -475,7 +475,7 @@ export function App() {
   // 📞 Appel : la sonnerie (écran 10) et, une fois en ligne, la carte à l'écran avec la barre d'appel (écran 24).
   useSonnerie(setToast);
   // 🔔 Toucher la notification d'un message : sa conversation s'ouvre (celle d'une sortie, sur sa carte).
-  useNotifMessages((c) => {
+  const ouvrirConversation = (c: ConversationNotif) => {
     const v = vueBuddies(lireBuddies());
     const x = c.sortie ? v.sorties.find((y) => y.id === c.sortie) : undefined;
     if (x) montrerBuddies({ sortie: x, traces: v.traces.filter((t) => t.sortie === x.id), parler: true });
@@ -485,7 +485,8 @@ export function App() {
       const nom = x?.nom ?? groupesBuddies(lireBuddies()).find((g) => g.id === c.groupe)?.nom ?? '';
       void suivreUneCarte(c.carte, x ? { sortie: x.id } : { groupe: c.groupe }, nom).catch((err: Error) => setToast(err.message || 'Impossible de suivre sa carte'));
     }
-  });
+  };
+  useNotifMessages(ouvrirConversation);
   // 🔔 Ouverture après des notifications : une fenêtre dit ce qui est arrivé (Seb, 26/11).
   const [arrivees, vuArrivees] = useNotifsAExpliquer();
   const appel = useAppel();
@@ -1627,6 +1628,7 @@ export function App() {
         onRoutes={(r, i) => { setTravelRoutes(r); setTravelSel(i); }}
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       <DoigtsSurCarte map={map} onToast={setToast} />
+      <PropositionCarteAppli onSuivre={ouvrirConversation} onToast={setToast} />
       <BarreAppel />
       <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={trails} onInvitees={setInvitees} onToast={setToast}
         calques={{ pente: showSlopes, ombres: showShade, drones: showDrones, meteo: showWeather }}

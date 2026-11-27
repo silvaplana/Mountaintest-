@@ -50,6 +50,9 @@ public class BuddiesPlugin extends Plugin {
                 o.put("appel", appel);
                 notifyListeners("finAppel", o);
             }
+            @Override public void carte(org.json.JSONObject p) {
+                try { notifyListeners("carte", JSObject.fromJSONObject(p)); } catch (Exception ignored) { }
+            }
             @Override public void message(String cle) {
                 JSObject o = new JSObject();
                 o.put("cle", cle);

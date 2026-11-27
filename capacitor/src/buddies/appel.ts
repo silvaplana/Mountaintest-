@@ -52,7 +52,9 @@ let etat: EtatAppel | null = null;
 let salle: Room | null = null;
 let minuteur: ReturnType<typeof setTimeout> | undefined;
 const abonnes = new Set<(e: EtatAppel | null) => void>();
-const doigts = new Set<(p: { lon: number; lat: number; qui: string; moi?: boolean }) => void>();
+/** 📍 Le repère d'un buddy (`pos` null : enlevé ; `id` '*' : tous enlevés, fin de l'appel). */
+export type Doigt = { id: string; qui: string; pos: [number, number] | null; moi?: boolean };
+const doigts = new Set<(d: Doigt) => void>();
 const cartes = new Set<(m: MsgCarte, de: Voix) => void>();
 const arrivees = new Set<() => void>();
 const sons: HTMLMediaElement[] = [];
@@ -89,8 +91,8 @@ function tonaliteSelon(e: EtatAppel | null) {
 
 export const appelEnCours = () => etat;
 export function suivreAppel(f: (e: EtatAppel | null) => void) { abonnes.add(f); return () => { abonnes.delete(f); }; }
-/** 👉 Montrer du doigt : un point touché par un autre pendant l'appel. */
-export function suivreDoigts(f: (p: { lon: number; lat: number; qui: string; moi?: boolean }) => void) { doigts.add(f); return () => { doigts.delete(f); }; }
+/** 📍 Montrer du doigt : les repères posés, déplacés ou enlevés (les miens et ceux des autres). */
+export function suivreDoigts(f: (d: Doigt) => void) { doigts.add(f); return () => { doigts.delete(f); }; }
 /** 🗺 Les messages « Suis ma carte » reçus, et l'arrivée d'un buddy (pour lui renvoyer ma carte). */
 export function suivreCartes(f: (m: MsgCarte, de: Voix) => void, arrive: () => void) {
   cartes.add(f); arrivees.add(arrive);
@@ -173,7 +175,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     const avant = new Set(etat.voix.map((x) => x.id)), apres = new Set(v.map((x) => x.id));
     const arrives = v.filter((x) => !avant.has(x.id)), partis = etat.voix.filter((x) => !apres.has(x.id));
     let annonce = etat.annonce;
-    if (arrives.length) arrivees.forEach((f) => f());
+    if (arrives.length) { arrivees.forEach((f) => f()); if (monDoigt) envoyerDoigt(true); } // il voit mon repère
     // Un buddy dont la connexion saute (PC, réseau faible) repart et revient sans cesse : « tou-dou, tou-dou… » en boucle
     // (Seb, 27/11). On n'annonce une arrivée qu'une fois, et un départ seulement s'il dure 5 s.
     const nouveaux = arrives.filter((x) => !annonces.has(x.id));
@@ -198,14 +200,16 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     changer({ ...etat, voix: v, annonce, jeMontre: montre, suit, phase: ensemble || muette ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
       debut: etat.debut ?? (ensemble ? Date.now() : undefined) });
   };
-  room.on(RoomEvent.ParticipantConnected, maj).on(RoomEvent.ParticipantDisconnected, maj)
+  room.on(RoomEvent.ParticipantConnected, maj)
+    // Parti : son repère s'en va avec lui.
+    .on(RoomEvent.ParticipantDisconnected, (p?: Participant) => { if (p) { doigtsRecus.delete(p.identity); doigts.forEach((f) => f({ id: p.identity, qui: '', pos: null })); } maj(); })
     .on(RoomEvent.ActiveSpeakersChanged, (ps: Participant[]) => { if (etat && salle === room) changer({ ...etat, parle: ps.map((p) => p.identity) }); })
     .on(RoomEvent.TrackSubscribed, (t: RemoteTrack) => { if (t.kind === Track.Kind.Audio) { const el = t.attach(); el.style.display = 'none'; document.body.appendChild(el); sons.push(el); } })
     .on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack) => { t.detach().forEach((el) => el.remove()); })
     .on(RoomEvent.DataReceived, (data: Uint8Array, p?: Participant) => {
       try {
-        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] } & Partial<Record<'carte' | 'traces' | 'carteFin' | 'trait' | 'profil', unknown>>;
-        if (m.doigt) doigts.forEach((f) => f({ lon: m.doigt![0], lat: m.doigt![1], qui: p?.name || '?' }));
+        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] | null; dn?: number } & Partial<Record<'carte' | 'traces' | 'carteFin' | 'trait' | 'profil', unknown>>;
+        if (p && 'doigt' in m) recevoirDoigt(m.doigt ?? null, m.dn ?? 0, { id: p.identity, pseudo: p.name || '?' });
         if (p && (m.carte || m.traces || m.carteFin || m.trait || 'profil' in m)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
       } catch { /* message inconnu : ignoré */ }
     })
@@ -254,6 +258,7 @@ function fini() {
   ignore = null;
   enAttente.clear(); enRoute.clear();
   epoque = epoqueVue = numero = suitEpoque = 0; finies.clear(); recus.clear();
+  monDoigt = null; doigtsRecus.clear(); doigts.forEach((f) => f({ id: '*', qui: '', pos: null }));
   changer(null);
   if (id) void api('POST', `/appels/${id}/presence`, { en_ligne: false }).catch(() => undefined);
 }
@@ -427,11 +432,41 @@ function recevoirCarte(m: MsgCarte, de: Voix) {
   if (ignore !== de.id) cartes.forEach((f) => f(m, de));
 }
 
-/** 👉 Montrer du doigt un endroit de la carte aux autres. */
-export function montrer(lon: number, lat: number) {
+/**
+ * 📍 Montrer du doigt (Seb, 27/11) : chacun a UN repère, une épingle fine dont la pointe est l'endroit exact. Un appui
+ * sur la carte le pose ou le déplace ; appui long dessus puis glisser le déplace, les autres le voient bouger ; un
+ * appui bref dessus montre ✕ pour l'enlever. C'est un état écrasable : chaque message porte toute la position et un
+ * numéro croissant `dn` ; celui qui reçoit jette un numéro dépassé (le glissé part en « rapide », sans ordre garanti,
+ * la position lâchée en « sûr »). Il repart vers qui arrive, et tout s'efface à la fin de l'appel.
+ */
+let monDoigt: [number, number] | null = null, doigtN = 0;
+const doigtsRecus = new Map<string, number>();
+function envoyerDoigt(sur: boolean) {
+  if (!salle) return;
+  doigtN = Math.max(Date.now(), doigtN + 1);
+  void salle.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ doigt: monDoigt, dn: doigtN })), { reliable: sur }).catch(() => undefined);
+}
+function recevoirDoigt(pos: [number, number] | null, dn: number, de: Voix) {
+  if (dn) {
+    if (dn <= (doigtsRecus.get(de.id) ?? 0)) return; // plus vieux que le dernier reçu
+    doigtsRecus.set(de.id, dn);
+  }
+  doigts.forEach((f) => f({ id: de.id, qui: de.pseudo, pos }));
+}
+/** Pour les tests : un repère arrive d'un buddy. */
+export function _recevoirDoigt(pos: [number, number] | null, dn: number, de: Voix) { recevoirDoigt(pos, dn, de); }
+/** Poser ou déplacer mon repère ; `lache` : position finale (envoi sûr), sinon en plein glissé (envoi rapide). */
+export function montrer(lon: number, lat: number, lache = true) {
   if (!salle || etat?.phase !== 'en_ligne') return false;
-  const d = new TextEncoder().encode(JSON.stringify({ doigt: [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5] }));
-  void salle.localParticipant.publishData(d, { reliable: true });
-  doigts.forEach((f) => f({ lon, lat, qui: salle!.localParticipant.name || 'Moi', moi: true }));
+  monDoigt = [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5];
+  envoyerDoigt(lache);
+  doigts.forEach((f) => f({ id: String(salle!.localParticipant.identity), qui: salle!.localParticipant.name || 'Moi', pos: monDoigt, moi: true }));
   return true;
+}
+/** ✕ sur mon repère : il disparaît chez tout le monde. */
+export function effacerDoigt() {
+  if (!salle || !monDoigt) return;
+  monDoigt = null;
+  envoyerDoigt(true);
+  doigts.forEach((f) => f({ id: String(salle!.localParticipant.identity), qui: '', pos: null, moi: true }));
 }
