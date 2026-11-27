@@ -496,7 +496,7 @@ def test_depense_refusee(client):
         assert sync(client, ops=[mauvaise])["refus"], mauvaise
 
 
-T0 = 1_797_000_000_000  # un matin pendant la sortie (ms)
+T0 = 1_795_000_000_000  # un matin pendant la sortie (ms) ; dans le passé : le serveur ramène à maintenant une heure future
 
 
 def test_position_des_buddies_avec_l_epingle(client):
@@ -1109,3 +1109,66 @@ def test_notifications_arrivee_et_demande(client, monkeypatch):
     sonne.clear()
     sync(client, ops=[{"id": "a", "type": "accepter_demande", "groupe": op["groupe"], "buddy": luc, "oui": True}])
     assert sonne == [([luc], "t'a fait entrer dans le groupe")]
+
+
+# ---------------------------------------------------------------- cas limites de la synchro (audit du 27/11)
+
+def test_epingle_rejouee_en_retard_n_ecrase_pas_la_plus_recente(client):
+    """Deux téléphones du même compte : la file du premier (enfoncer puis relever, à T0) arrive après que le second a
+    enfoncé l'épingle à T0 + 1 h. L'épingle la plus récente reste enfoncée."""
+    gid, _ = bande_avec_julie(client)
+    recente = op("epingle", groupe=gid, enfoncee=True, quand=T0 + 3600_000, jusqu=T0 + 8 * 3600_000)
+    sync(client, ops=[recente])
+    r = sync(client, ops=[op("epingle", groupe=gid, enfoncee=True, quand=T0, jusqu=T0 + 4 * 3600_000),
+                          op("epingle", groupe=gid, enfoncee=False, quand=T0 + 60_000)])
+    p, = r["positions"]
+    assert r["refus"] == [] and (p["depuis"], p["jusqu"]) == (T0 + 3600_000, T0 + 8 * 3600_000)
+    # La relever après : ça marche toujours.
+    p, = sync(client, ops=[op("epingle", groupe=gid, enfoncee=False, quand=T0 + 2 * 3600_000)])["positions"]
+    assert p["jusqu"] == T0 + 2 * 3600_000
+
+
+def test_heure_future_ramenee_a_maintenant(client):
+    """Téléphone en avance : la voiture garée « dans 10 minutes » serait invisible chez les buddies, et un autre
+    appareil à l'heure ne pourrait pas l'enlever."""
+    import time
+    bande_avec_julie(client)
+    futur = int(time.time() * 1000) + 600_000
+    v, = sync(client, ops=[op("voiture", garee=True, lat=44.61, lon=6.71, garee_le=futur, jusqu=futur + 3600_000)])["voitures"]
+    assert v["garee_le"] <= int(time.time() * 1000)
+    v, = sync(client, ops=[op("voiture", garee=False, quand=int(time.time() * 1000))])["voitures"]
+    assert v["jusqu"] <= int(time.time() * 1000)
+
+
+def test_valeur_refusee_par_la_base_ne_bloque_pas_la_file(client, monkeypatch):
+    """Une opération que la base refuse (nombre démesuré, caractère nul : DataError sous PostgreSQL) revient dans
+    `refus`, le téléphone l'oublie ; avant : erreur 500, la même file renvoyée sans fin et plus rien ne partait."""
+    import buddies
+    from sqlalchemy.exc import DataError
+
+    def refusee(s, u, o):
+        raise DataError("insert", {}, Exception("integer out of range"))
+    monkeypatch.setitem(buddies.OPERATIONS, "position", refusee)
+    gid, _ = bande_avec_julie(client)
+    mauvaise = op("position", groupe=gid, lat=44.6, lon=6.7, alt=1e30, prise_le=T0 + 60_000)
+    g = nouveau_groupe("Après")
+    r = sync(client, ops=[mauvaise, g])
+    assert [x["id"] for x in r["refus"]] == [mauvaise["id"]] and g["groupe"] in r["ids"]
+
+
+def test_meme_envoi_arrive_deux_fois_en_meme_temps(client, monkeypatch):
+    """Réponse trop lente, le téléphone renvoie : les deux envois créent la même ligne, le second se heurte à
+    l'unicité. Rejouée, l'opération trouve la ligne : ni erreur 500 ni refus."""
+    import buddies
+    from sqlalchemy.exc import IntegrityError
+    vraie, fois = buddies.OPERATIONS["creer_groupe"], []
+
+    def en_double(s, u, o):
+        vraie(s, u, o)
+        fois.append(1)
+        if len(fois) == 1:
+            raise IntegrityError("insert", {}, Exception("duplicate key"))
+    monkeypatch.setitem(buddies.OPERATIONS, "creer_groupe", en_double)
+    g = nouveau_groupe()
+    r = sync(client, ops=[g])
+    assert r["refus"] == [] and g["groupe"] in r["ids"] and len(fois) == 2

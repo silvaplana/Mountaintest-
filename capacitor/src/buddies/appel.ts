@@ -34,14 +34,16 @@ export type EtatAppel = {
 export type Calques = { pente: boolean; ombres: boolean; drones: boolean; meteo: boolean };
 
 /** Ce qui passe entre les téléphones pour « Suis ma carte » (spec/buddies.md §7.10). */
-export type MsgCarte =
+export type MsgCarte = (
   | { carte: { c: [number, number]; z: number; b: number; p: number; fond: string; cq?: Calques } }
   | { traces: { id: number; nom: string; couleur: string; ligne: [number, number][] }[] }
   /** Le trait que je dessine, en direct ([] : fini). */
   | { trait: [number, number][] }
   /** La trace dont j'ai ouvert le profil (null : fermé). */
   | { profil: { id: number; nom: string; couleur: string; ligne: [number, number][] } | null }
-  | { carteFin: true };
+  | { carteFin: true }
+  /** Posés à l'envoi : `s`, l'époque de cette carte (une par « j'allume ») ; `n`, le numéro du message dans l'époque. */
+) & { s?: number; n?: number };
 
 /** Sans réponse au bout d'une minute, l'appel s'arrête seul. */
 export const ATTENTE_MS = 60_000;
@@ -251,6 +253,7 @@ function fini() {
   montrerDesQue = false;
   ignore = null;
   enAttente.clear(); enRoute.clear();
+  epoque = epoqueVue = numero = suitEpoque = 0; finies.clear(); recus.clear();
   changer(null);
   if (id) void api('POST', `/appels/${id}/presence`, { en_ligne: false }).catch(() => undefined);
 }
@@ -324,6 +327,18 @@ export function montrerMaCarte(on: boolean) {
  */
 const enAttente = new Map<string, MsgCarte>();
 const enRoute = new Map<string, number>();
+/**
+ * Ordre des messages de carte. Le canal « rapide » ne garde pas l'ordre, et il est distinct du canal « sûr » : une
+ * vue pouvait arriver après la fin de la carte (le buddy se remettait à suivre quelqu'un qui ne montre plus rien,
+ * pour toujours), ou une vieille vue après une neuve. Chaque « j'allume » ouvre une époque `s`, plus grande que
+ * toutes celles vues dans l'appel (horloge de Lamport : l'heure du téléphone ne sert que de point de départ) ;
+ * chaque message y porte un numéro `n`. Celui qui reçoit jette ce qui est d'une époque finie ou d'un numéro dépassé.
+ * Deux buddies qui allument en même temps : la plus grande époque garde la main, l'autre s'éteint (avant, chacun
+ * s'éteignait en recevant l'autre, et plus personne ne montrait). Un message sans `s` (ancienne version) passe comme avant.
+ */
+let epoque = 0, epoqueVue = 0, numero = 0, suitEpoque = 0;
+const finies = new Map<string, number>();
+const recus = new Map<string, { s: number; n: number }>();
 const natureCarte = (m: MsgCarte) => Object.keys(m)[0];
 function publier(m: MsgCarte, reliable: boolean) {
   if (!salle) return Promise.resolve();
@@ -345,13 +360,19 @@ function pousser(k: string) {
 export function envoyerCarte(m: MsgCarte) {
   if (!salle || etat?.phase !== 'en_ligne') return;
   const k = natureCarte(m);
+  // Ma carte est éteinte : un mouvement de carte encore en route (l'écran se met à jour un instant après) ne part plus.
+  if (k !== 'carteFin' && !etat.jeMontre) return;
+  if (k !== 'carteFin' && !epoque) epoque = Math.max(Date.now(), epoqueVue + 1);
+  m = { ...m, s: epoque, n: ++numero };
   if (k === 'carte') { void publier(m, false); return; }
-  if (k === 'carteFin') enAttente.clear(); // rien de vieux ne doit arriver après la fin
+  if (k === 'carteFin') { enAttente.clear(); epoque = 0; } // rien de vieux ne doit arriver après la fin
   enAttente.set(k, m);
   pousser(k);
 }
 /** Pour les tests : vider la file. */
-export function _viderFileCarte() { enAttente.clear(); enRoute.clear(); }
+export function _viderFileCarte() { enAttente.clear(); enRoute.clear(); epoque = epoqueVue = numero = suitEpoque = 0; finies.clear(); recus.clear(); }
+/** Pour les tests : un message de carte arrive d'un buddy. */
+export function _recevoirCarte(m: MsgCarte, de: Voix) { recevoirCarte(m, de); }
 /** « Reprendre ma carte » : je ne suis plus personne (jusqu'à ce qu'un buddy rallume sa carte). */
 let ignore: string | null = null;
 export function reprendreMaCarte() {
@@ -362,13 +383,29 @@ export function reprendreMaCarte() {
 }
 function recevoirCarte(m: MsgCarte, de: Voix) {
   if (!etat) return;
+  const s = m.s ?? 0, n = m.n ?? 0;
+  epoqueVue = Math.max(epoqueVue, s);
   if ('carteFin' in m) {
+    if (s && s < (etat.suit?.id === de.id ? suitEpoque : 0)) return; // la fin d'une carte d'avant : il a rallumé depuis
+    if (s) finies.set(de.id, Math.max(s, finies.get(de.id) ?? 0));
     if (ignore === de.id) ignore = null;
     if (etat.suit?.id === de.id) changer({ ...etat, suit: null });
     if (etat.muette && !etat.jeMontre && !etat.suit) { void raccrocher(); return; }
-  } else if (ignore !== de.id) {
-    // Un autre montre sa carte : la mienne s'éteint, une seule à la fois.
-    if (etat.suit?.id !== de.id || etat.jeMontre) changer({ ...etat, suit: de, jeMontre: false });
+  } else {
+    if (s && s <= (finies.get(de.id) ?? 0)) return; // en retard : cette carte est finie
+    const k = `${de.id} ${natureCarte(m)}`, d = recus.get(k);
+    if (s && n && d && d.s === s && n <= d.n) return; // doublon, ou plus vieux que le dernier reçu
+    if (s && n) recus.set(k, { s, n });
+    // J'ai allumé après lui : je garde la main, c'est lui qui s'éteindra en recevant la mienne.
+    const moi = String(salle?.localParticipant.identity ?? '');
+    if (etat.jeMontre && s && epoque && (s < epoque || (s === epoque && de.id < moi))) return;
+    // Je suis déjà une carte allumée après la sienne : la sienne s'éteint.
+    if (s && etat.suit && etat.suit.id !== de.id && s < suitEpoque) return;
+    if (ignore !== de.id) {
+      // Un autre montre sa carte : la mienne s'éteint, une seule à la fois.
+      if (etat.suit?.id !== de.id || etat.jeMontre) { epoque = 0; changer({ ...etat, suit: de, jeMontre: false }); }
+      suitEpoque = s;
+    }
   }
   if (ignore !== de.id) cartes.forEach((f) => f(m, de));
 }

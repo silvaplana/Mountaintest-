@@ -590,3 +590,63 @@ describe('Play Store : bloquer, signaler, oublier', () => {
     expect(lire().bloques).toBeUndefined();
   });
 });
+
+// Audit des cas limites de la synchro (27/11).
+describe('synchro : cas limites', () => {
+  const vide = { curseur: '2026-11-27T12:00:00+00:00', moi: 'u-seb', ids: [], groupes: [], refus: [], ids_sorties: [], sorties: [], ids_traces: [], traces: [],
+    ids_plannings: [], plannings: [], ids_photos: [], photos: [], ids_depenses: [], depenses: [] };
+
+  it('une file de plus de 500 opérations part en plusieurs envois, dans l’ordre (avant : refusée en bloc, pour toujours)', async () => {
+    reseau(() => 'coupure');
+    for (let i = 0; i < 450; i++) mettreEtoile(`p${i}`, true);
+    await synchroniser().catch(() => undefined);
+    await new Promise((r) => setTimeout(r, 20)); // les envois lancés par chaque action sont retombés
+    expect(lire().attente.length).toBe(450);
+    appels = [];
+    reseau((a) => (a.corps.ops.length > 500 ? 'coupure' : vide));
+    await synchroniser();
+    expect(appels.map((a) => a.corps.ops.length)).toEqual([200, 200, 50]);
+    expect(appels.flatMap((a) => a.corps.ops).map((o) => (o as unknown as { photo: string }).photo)).toEqual(Array.from({ length: 450 }, (_, i) => `p${i}`));
+    expect(lire().attente).toEqual([]);
+  });
+
+  it('demandée pendant qu’une autre est en route (événement du serveur) : une autre repart juste derrière', async () => {
+    let lacher: (() => void) | undefined;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      appels.push({ url, corps: JSON.parse(String(init?.body ?? '{}')) });
+      if (appels.length === 1) await new Promise<void>((ok) => { lacher = ok; });
+      return new Response(JSON.stringify(vide), { status: 200 });
+    }));
+    const a = synchroniser();
+    await vi.waitFor(() => expect(lacher).toBeDefined());
+    const b = synchroniser(), c = synchroniser(); // deux événements pendant l'envoi : une seule synchro de plus
+    expect(c).toBe(b);
+    lacher!();
+    await Promise.all([a, b]);
+    expect(appels.length).toBe(2);
+  });
+
+  it('un objet manque (groupe tout juste rejoint) : le contenu est redemandé tout de suite, pas 2 minutes après', async () => {
+    reseau(() => vide);
+    await synchroniser();
+    appels = [];
+    const x: Sortie = { id: 's1', groupe: 'g1', nom: 'Ailefroide', photo: null, debut: '2026-12-05', fin: '2026-12-06', lieu: '', modifie_le: '2026-11-01T10:00:00+00:00', participants: [], invitations: [] };
+    reseau((a) => (a.corps.depuis ? { ...vide, ids_sorties: ['s1'] } : { ...vide, ids_sorties: ['s1'], sorties: [x] }));
+    await synchroniser();
+    expect(appels.map((a) => a.corps.depuis)).toEqual(['2026-11-27T12:00:00+00:00', null]);
+    expect(lire().sorties.map((s) => s.nom)).toEqual(['Ailefroide']);
+  });
+
+  it('la file survit quand la copie locale ne tient plus dans le stockage', () => {
+    reseau(() => 'coupure');
+    const ecrit = Storage.prototype.setItem;
+    const espion = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === 'buddies') throw new DOMException('plein', 'QuotaExceededError');
+      ecrit.call(this, k, v);
+    });
+    envoyerMessage({ groupe: 'g1' }, { texte: 'Écrit hors ligne' });
+    espion.mockRestore();
+    _reinitialiser(); // l'appli est fermée puis rouverte
+    expect(lire().attente.map((o) => o.texte)).toEqual(['Écrit hors ligne']);
+  });
+});
