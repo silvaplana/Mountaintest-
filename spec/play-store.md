@@ -17,5 +17,7 @@ Deux applis Android sortent du même code (`capacitor/android/app/build.gradle`,
 - Signature : la clé des APK sert de clé d'envoi ; Google signe ensuite l'appli lui-même (Play App Signing).
 - Exigences déjà faites : supprimer mon compte (appli + `compte.html`), signaler, bloquer, conditions et
   confidentialité (spec/buddies.md §7.24).
-- Reste : sélecteur de photos Android, fiche (textes, captures, icône 512, bannière 1024×500), formulaire
+- 📷 (Seb, 27/11) : ouvre seulement l'appareil photo, les photos restent dans la galerie ; plus de lecture de la
+  galerie au retour (permission READ_MEDIA_IMAGES retirée, refusée par le Play Store). On les dépose après la sortie.
+- Reste : fiche (textes, captures, icône 512, bannière 1024×500), formulaire
   « Sécurité des données », déclaration de la position en premier plan (vidéo), 12 testeurs pendant 14 jours.
