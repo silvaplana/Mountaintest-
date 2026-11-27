@@ -1085,6 +1085,11 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   - Ouverture = lancement de l'appli, ou retour à l'écran après 30 min ailleurs, connecté (`POST /ouverture
     {plateforme, version}`, table `usages` : une ligne par personne et par jour). Compté à partir du 27/11.
   - `GET /super/utilisateurs` : Super User seul (403 sinon), comptes supprimés exclus.
+  - **Journal** (Seb, 27/11), sous la liste et dans la fiche d'une personne, le plus récent en haut : « Toto a créé
+    son compte », « s'est connecté (Android) », « a ouvert l'appli », « a rejoint « groupe » », « s'est déconnecté ».
+    Rien d'anonyme (pas de « un visiteur a téléchargé » : on ne sait pas qui), rien pour le Super User lui-même.
+    Table `journal`, gardée 90 jours, 500 lignes renvoyées. Connexion et déconnexion : `POST /ouverture` avec
+    `evenement` (la déconnexion attend 2 s au plus la réponse avant d'oublier le jeton).
 
 ### Accueil et aide (Seb, 26/11)
 
