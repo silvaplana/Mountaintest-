@@ -672,7 +672,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   groupe (« Col Girardin · Julie · 14 km · voir sur la carte ») et les hébergements proposés (« Gîte Les Baladins ·
   Seb · 60 € / nuit »). On les retrouve donc plus tard dans la conversation.
 - **Envoyer d'un geste** : 📍 envoie ma position du moment (« Nico est ici · voir sur la carte » : un toucher centre
-  la carte sur le point) ; 📷 (dans une sortie) dépose les photos dans l'album et les envoie aussi en message ;
+  la carte sur le point, montré par une épingle piquée au sol, aux initiales, comme les positions des buddies ; Seb
+  27/11 : l'ancienne bulle semblait glisser quand on bougeait la carte). La précision du téléphone voyage avec le
+  message (texte « ±3000 m ») : au-delà de 100 m, la bulle dit « à 3 km près » et la carte montre un cercle en
+  pointillés ; au-delà de 500 m, celui qui envoie est prévenu (un ordinateur se repère par le réseau) ; 📷 (dans une sortie) dépose les photos dans l'album et les envoie aussi en message ;
   🎤 dicte le texte dans le champ (on relit avant d'envoyer). Appui long (ou toucher) sur un de mes messages :
   « Retirer ce message ».
 - **💬 de la colonne** : dans une sortie, sa conversation ; dans un groupe, la sienne (dans le panneau) ;

@@ -1176,7 +1176,7 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .bd-onde-texte { font-size: 17px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .bd-onde-texte i { color: var(--muted); }
 .bd-nonlu { background: var(--accent); color: var(--on-accent); border-radius: 12px; min-width: 24px; padding: 2px 8px; font-size: 14px; font-weight: 700; text-align: center; }
-.bd-point-carte { background: #fff; color: #1d2421; border-radius: 14px 14px 14px 2px; padding: 6px 10px; font-size: 15px; font-weight: 700; box-shadow: 0 2px 6px #0005; white-space: nowrap; }
+.bd-point-carte b { font-size: 15px; }
 
 /* 📞 Appels (spec/buddies.md §5.7) : sonnerie plein écran (écran 10), barre d'appel sur la carte (écran 24), 👉 montrer du doigt */
 .ap-sonne { position: absolute; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
