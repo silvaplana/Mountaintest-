@@ -874,6 +874,22 @@ def test_voiture_garee_vue_par_les_buddies(client):
     assert w["jusqu"] == T0 + 60_000
 
 
+def test_ma_voiture_marque_modele_silhouette_couleur(client):
+    """Seb, 27/11 : chacun sa voiture sur la carte. Marque et modèle, silhouette et couleur du profil partent avec la
+    voiture garée chez les buddies ; vide = effacé (la voiture rouge d'avant)."""
+    gid, julie = bande_avec_julie(client)
+    r = client.put("/moi", headers=entete(sub="seb"), json={"voiture_modele": " Dacia  Duster ", "voiture_forme": "suv", "voiture_couleur": "bleu"})
+    assert r.status_code == 200 and (r.json()["voiture_modele"], r.json()["voiture_forme"], r.json()["voiture_couleur"]) == ("Dacia Duster", "suv", "bleu")
+    assert client.put("/moi", headers=entete(sub="seb"), json={"voiture_forme": "fusee"}).status_code == 422
+    assert client.put("/moi", headers=entete(sub="seb"), json={"voiture_couleur": "#ff0000"}).status_code == 422
+    sync(client, ops=[op("voiture", garee=True, lat=44.61, lon=6.71, garee_le=T0, jusqu=T0 + 3600_000)])
+    w, = sync(client, sub="julie")["voitures"]
+    assert (w["modele"], w["forme"], w["couleur"]) == ("Dacia Duster", "suv", "bleu")
+    client.put("/moi", headers=entete(sub="seb"), json={"voiture_modele": "", "voiture_forme": "", "voiture_couleur": ""})
+    w, = sync(client, sub="julie")["voitures"]
+    assert (w["modele"], w["forme"], w["couleur"]) == (None, None, None)
+
+
 def test_buddy_count_de_groupe_ferme_et_supprime(client):
     gid, julie = bande_avec_julie(client)
     seb = sync(client)["moi"]

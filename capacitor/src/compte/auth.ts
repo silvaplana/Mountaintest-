@@ -26,7 +26,10 @@ export type Profil = {
   prenom?: string; nom?: string; telephone?: string | null; iban?: string | null; super_user?: boolean;
   /** Wero (Seb 26/11) : la case, et le numéro (ou mail) s'il diffère du portable. */
   wero?: boolean; wero_numero?: string | null;
+  /** 🚗 Ma voiture (Seb, 27/11) : marque et modèle, silhouette et couleur, vus par mes buddies sur la carte. */
+  voiture_modele?: string | null; voiture_forme?: string | null; voiture_couleur?: string | null;
 };
+export type MaVoitureInfos = { voiture_modele: string; voiture_forme: string; voiture_couleur: string };
 /** Ce qui se change dans la fiche ; une chaîne vide efface le téléphone ou l'IBAN. */
 export type Infos = { prenom?: string; nom?: string; telephone?: string; iban?: string; wero_numero?: string };
 export type Config = { logto: string; ressource: string; appId: string; fournisseurs?: string[] };
@@ -50,7 +53,7 @@ export type Etat = {
   email?: string | null;
   profil?: Profil;
   /** Changements faits hors ligne, envoyés au retour du réseau. */
-  attente?: { pseudo?: string; wero?: boolean } & Infos;
+  attente?: { pseudo?: string; wero?: boolean } & Infos & Partial<MaVoitureInfos>;
   /** Dernier échange réussi avec le serveur (ms). */
   synchro?: number;
   /** Logto a refusé le jeton : se reconnecter (quand il y aura du réseau). */
@@ -299,6 +302,15 @@ export async function changerInfos(infos: Infos): Promise<Etat> {
 export async function changerWero(oui: boolean): Promise<Etat> {
   const e = lire();
   ecrire({ ...e, profil: e.profil && { ...e.profil, wero: oui }, attente: { ...e.attente, wero: oui } });
+  try { return await synchroniser(); } catch { return lire(); }
+}
+
+/** 🚗 Ma voiture : tout de suite sur le téléphone, envoyée dès que possible. Vide = la voiture rouge d'avant. */
+export async function changerVoiture(v: MaVoitureInfos): Promise<Etat> {
+  const propre = { ...v, voiture_modele: v.voiture_modele.replace(/\s+/g, ' ').trim().slice(0, 60) };
+  const e = lire();
+  const profil = e.profil && { ...e.profil, voiture_modele: propre.voiture_modele || null, voiture_forme: propre.voiture_forme || null, voiture_couleur: propre.voiture_couleur || null };
+  ecrire({ ...e, profil, attente: { ...e.attente, ...propre } });
   try { return await synchroniser(); } catch { return lire(); }
 }
 

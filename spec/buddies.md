@@ -1051,6 +1051,15 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Serveur** : table `voitures` (une par buddy : lat, lon, `garee_le`, `jusqu` en ms) ; opération `voiture`
   `{garee: true, lat, lon, garee_le, jusqu}` ou `{garee: false, quand}` ; la synchro rend `voitures` (la mienne et
   celles des membres de mes groupes, oubliées après 48 h).
+- **Chacun sa voiture** (Seb, 27 novembre, maquettes/voiture-modele/, style A) : Profil › « Ma voiture » ouvre une
+  feuille : marque et modèle (texte libre, la liste propose les modèles connus avec leur silhouette), la silhouette
+  (citadine, berline, break, SUV, van, camping-car, pick-up, cabriolet), proposée d'après le modèle et modifiable, et
+  la couleur (8 au choix). Sur la carte, la voiture garée prend cette silhouette et cette couleur, contour blanc,
+  badge des initiales et heure comme avant ; un appui montre « Julie · garée à 9 h 05 » et « Dacia Duster bleue ».
+  Sans silhouette choisie : la voiture rouge d'avant. Pas de photo ni d'IA : les silhouettes sont dessinées dans
+  l'appli (`buddies/voitureDessin.ts`, avec la table modèle → silhouette), tout marche hors ligne.
+  Serveur : colonnes `utilisateurs.voiture_modele`, `voiture_forme`, `voiture_couleur` (PUT /moi, vide = effacé) ;
+  chaque voiture de la synchro porte `modele`, `forme`, `couleur` de son propriétaire.
 
 ### 7.20 Buddy counts de groupe et de sortie (Seb, 26 novembre 2026)
 

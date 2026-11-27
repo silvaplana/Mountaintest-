@@ -3,10 +3,11 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
-import { initialesDe } from '../compte/auth';
+import { initialesDe, lire as lireCompte } from '../compte/auth';
 import { epingleSurCarte, rangerEtiquettes } from '../PinLayer';
 import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
+import { COULEURS, dessinVoiture, FORMES, NOMS_COULEURS, type Couleur, type Forme } from './voitureDessin';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
   aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, moiBuddy, monEpingle, positions, releverEpingle, synchroniser, voitures, vue,
@@ -249,29 +250,49 @@ export async function basculerVoiture(onToast: (m: string) => void) {
   } catch { onToast('Position introuvable : autorise la localisation et réessaie'); }
 }
 
-/** Les voitures garées sur la carte : une tête d'épingle avec la voiture, et qui l'a garée à quelle heure. */
+/** Les voitures garées sur la carte : chacun sa voiture (silhouette et couleur du profil), badge des initiales, heure
+ * au-dessus ; un appui montre à qui elle est, la marque et le modèle (Seb, 27/11, maquette voiture-modele, style A). */
 export function VoituresSurCarte({ map }: { map: MlMap | null }) {
   const e = useBuddies();
   const moi = e.moi ?? 'moi';
   const gens = new Map([...appliquer(e).flatMap((g) => g.membres), ...vue(e).sorties.flatMap((x) => x.participants)].map((b) => [b.id, b.pseudo]));
-  const vs = voitures(e);
-  const cle = vs.map((v) => `${v.qui}${v.lat}${v.lon}${v.garee_le}`).join();
+  // Ma voiture : celle de mon profil sur ce téléphone, sans attendre le serveur.
+  const p = lireCompte().profil;
+  const vs = voitures(e).map((v) => v.qui === moi && p ? { ...v, modele: p.voiture_modele, forme: p.voiture_forme, couleur: p.voiture_couleur } : v);
+  const cle = vs.map((v) => `${v.qui}${v.lat}${v.lon}${v.garee_le}${v.modele}${v.forme}${v.couleur}`).join();
   useEffect(() => {
     if (!map || !vs.length) return;
     const ms = vs.map((v) => {
-      // La petite voiture rouge posée sur la carte, badge aux initiales, heure au-dessus (Seb, 27/11, version A).
       const el = document.createElement('div');
       el.className = 'bd-voiture-carte';
       const h = document.createElement('b');
       h.textContent = heureCourte(v.garee_le);
       const auto = document.createElement('span');
       auto.className = 'bd-auto';
-      auto.textContent = '🚗';
+      const forme = FORMES.includes(v.forme as Forme) ? v.forme as Forme : null;
+      const couleur = (v.couleur && v.couleur in COULEURS ? v.couleur : 'rouge') as Couleur;
+      // Sans silhouette choisie : la voiture rouge d'avant.
+      if (forme) { auto.classList.add('dessin'); auto.innerHTML = dessinVoiture(forme, couleur, 96); } else auto.textContent = '🚗';
       const badge = document.createElement('i');
       if (v.qui === moi) badge.className = 'moi';
-      badge.textContent = initiales(gens.get(v.qui) ?? (v.qui === moi ? moiBuddy(e).pseudo : '?'));
+      const pseudo = gens.get(v.qui) ?? (v.qui === moi ? moiBuddy(e).pseudo : '?');
+      badge.textContent = initiales(pseudo);
       auto.append(badge);
-      el.append(h, auto);
+      // Un appui : « Julie · garée à 9 h 05 » et « Dacia Duster bleue », quelques secondes.
+      const info = document.createElement('em');
+      const qui = document.createElement('strong');
+      qui.textContent = `${v.qui === moi ? 'Ma voiture' : pseudo} · garée à ${heureCourte(v.garee_le)}`;
+      info.append(qui);
+      const quoi = [v.modele, forme && v.couleur ? NOMS_COULEURS[couleur] : ''].filter(Boolean).join(' ');
+      if (quoi) info.append(document.createElement('br'), quoi);
+      let minuterie = 0;
+      auto.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        el.classList.toggle('ouvert');
+        clearTimeout(minuterie);
+        minuterie = window.setTimeout(() => el.classList.remove('ouvert'), 5000);
+      });
+      el.append(info, h, auto);
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([v.lon, v.lat]).addTo(map);
     });
     rangerEtiquettes(map);
