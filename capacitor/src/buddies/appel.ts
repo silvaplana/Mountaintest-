@@ -25,10 +25,17 @@ export type EtatAppel = {
   suit?: Voix | null;
 };
 
+/** Les calques de la carte, les mêmes chez ceux qui suivent. */
+export type Calques = { pente: boolean; ombres: boolean; drones: boolean; meteo: boolean };
+
 /** Ce qui passe entre les téléphones pour « Suis ma carte » (spec/buddies.md §7.10). */
 export type MsgCarte =
-  | { carte: { c: [number, number]; z: number; b: number; p: number; fond: string } }
+  | { carte: { c: [number, number]; z: number; b: number; p: number; fond: string; cq?: Calques } }
   | { traces: { id: number; nom: string; couleur: string; ligne: [number, number][] }[] }
+  /** Le trait que je dessine, en direct ([] : fini). */
+  | { trait: [number, number][] }
+  /** La trace dont j'ai ouvert le profil (null : fermé). */
+  | { profil: { id: number; nom: string; couleur: string; ligne: [number, number][] } | null }
   | { carteFin: true };
 
 /** Sans réponse au bout d'une minute, l'appel s'arrête seul. */
@@ -160,9 +167,9 @@ async function entrer(r: Reponse, nom: string) {
     .on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack) => { t.detach().forEach((el) => el.remove()); })
     .on(RoomEvent.DataReceived, (data: Uint8Array, p?: Participant) => {
       try {
-        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] } & Partial<Record<'carte' | 'traces' | 'carteFin', unknown>>;
+        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] } & Partial<Record<'carte' | 'traces' | 'carteFin' | 'trait' | 'profil', unknown>>;
         if (m.doigt) doigts.forEach((f) => f({ lon: m.doigt![0], lat: m.doigt![1], qui: p?.name || '?' }));
-        if (p && (m.carte || m.traces || m.carteFin)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
+        if (p && (m.carte || m.traces || m.carteFin || m.trait || 'profil' in m)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
       } catch { /* message inconnu : ignoré */ }
     })
     .on(RoomEvent.Disconnected, () => { if (salle === room) fini(); });

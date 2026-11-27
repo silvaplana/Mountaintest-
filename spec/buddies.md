@@ -712,7 +712,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   d'acceptation au départ ; c'est chacun qui arrête de suivre avec Stop (Seb, 27 novembre). Quand on arrête (ou que Julie
   arrête, ou fin d'appel), si des traces sont arrivées : « Garder les traces de Julie ? » avec leurs noms, Non merci /
   Garder (toutes rangées dans Mes traces). La même icône est en haut d'une conversation de groupe (Seb, 27 novembre) : en appel, elle allume ma
-  carte ; sinon elle appelle la bande et ma carte s'allume dès que quelqu'un décroche (le suivi passe par l'appel). Une seule personne montre à la fois : si Luc
+  carte ; sinon elle appelle la bande et ma carte s'allume dès que quelqu'un décroche (le suivi passe par l'appel).
+  Ce qui suit aussi (Seb, 27 novembre) : les calques pentes, ombres, drones et météo (mêmes cases chez eux) ; le
+  trait que je dessine au doigt, en direct (4 fois par seconde, orange) ; le profil de la trace que j'ouvre (le
+  même profil s'ouvre chez eux, et se ferme quand je le ferme). Les forêts ne suivent pas (recherche à la demande). Une seule personne montre à la fois : si Luc
   allume la sienne, celle de Julie s'éteint. Un buddy qui arrive en cours reçoit tout de suite la vue et les traces.
   Les tuiles ne voyagent pas : chacun charge la même zone (un appel demande du réseau). Messages de données LiveKit
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).

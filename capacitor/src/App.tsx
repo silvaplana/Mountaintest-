@@ -23,7 +23,7 @@ import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type 
 import { PointSurCarte } from './buddies/Messages';
 import { PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
-import { CarteSuivie } from './buddies/CarteSuivie';
+import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
 import { montrer } from './buddies/appel';
 import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
@@ -1430,7 +1430,7 @@ export function App() {
         onSkiOpen={(i) => { setSkiSel(i); const o = skiOutings[i]; if (o) setSkiSheet(rowOf(o)); }}
         onForestClick={(f) => setToast(`🌲 ${f.essence}${f.type && f.type !== f.essence ? ` · ${f.type}` : ''} · ${formatHa(f.ha)}`)} />
       {map && <ScaleBar map={map} top={10} />}
-      {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths} onSelect={setSelection}
+      {drawing && map && <DrawOverlay map={map} onPaths={onPaths} setOnPaths={setOnPaths} onSelect={setSelection} onTrait={envoyerTrait}
         onDone={(l) => void drawDone(l)} onCancel={() => setDrawing(false)} onLoad={() => void openTraceList()} onStart={() => void startFree()}
         rec={freeRec ? { paused: navPaused,
           onPause: () => { setNavPaused(true); void pauseRecording(); setDrawing(false); },
@@ -1615,7 +1615,10 @@ export function App() {
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       <DoigtsSurCarte map={map} onToast={setToast} />
       <BarreAppel />
-      <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={mesAffichees} onInvitees={setInvitees} onToast={setToast} />
+      <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={mesAffichees} onInvitees={setInvitees} onToast={setToast}
+        calques={{ pente: showSlopes, ombres: showShade, drones: showDrones, meteo: showWeather }}
+        onCalques={(c) => { setShowSlopes(c.pente); setShowShade(c.ombres); setShowDrones(c.drones); setShowWeather(c.meteo); }}
+        profil={selected} onProfil={(t) => void selectTrail(t)} />
       <EcranSonnerie onToast={setToast} />
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       <Restauration cache={account || accueilOuvert} />
