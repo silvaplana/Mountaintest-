@@ -17,14 +17,8 @@ const SRV_PARTS: { key: 'photos' | 'fichiers' | 'donnees'; label: string; color:
   { key: 'donnees', label: 'Mes traces et messages', color: '#9fb1c2' },
 ];
 
-/**
- * squares : tuiles gardées ; squaresBytes : leur poids, pour la moyenne.
- * selSlot : pendant un rectangle de sélection, ses lignes remplacent le contenu de ce panneau (Seb, 26/11 : un seul écran).
- */
-export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose, selecting, selSlot }: {
-  cartes: number; squares: number; squaresBytes: number; onClose: () => void;
-  selecting?: boolean; selSlot?: (el: HTMLDivElement | null) => void;
-}) {
+/** squares : tuiles téléchargées ; squaresBytes : leur poids, pour la moyenne. */
+export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose }: { cartes: number; squares: number; squaresBytes: number; onClose: () => void }) {
   const [space, setSpace] = useState<PhoneSpace | null>(null);
   const sheet = useSheet('placeTelephone', { defaut: 0, masque: false });
   const [srv, setSrv] = useState<ServerSpace | null>(null);
@@ -36,12 +30,12 @@ export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose, select
   return (
     <div className={`travel phone-space${sheet.classe}`}>
       <div {...sheet.prise}><div className="handle" />
-        {!selecting && <div className="travel-head"><span><b>{space ? formatBytes(space.total) : '…'}</b> sur le téléphone</span>
-          <span className="head-btns"><button onClick={onClose} aria-label="Fermer">✕</button></span></div>}
+        <div className="travel-head"><span><b>{space ? formatBytes(space.total) : '…'}</b> sur le téléphone</span>
+          <span className="head-btns"><button onClick={onClose} aria-label="Fermer">✕</button></span></div>
       </div>
-      {selecting && <div ref={selSlot} className="phone-space-sel" />}
-      {/* Pendant le rectangle, on ne voit que ses lignes : le reste s'efface (Seb, 26/11 : que ça ne grandisse pas trop). */}
-      {!selecting && sheet.cran > 0 && space && <>
+      {/* Toujours visible, même panneau réduit (Seb, 26/11) : comment choisir les tuiles. */}
+      <p className="phone-space-free">Appui long sur la carte, puis étire le rectangle : il prend les tuiles et les traces à supprimer ou à télécharger.</p>
+      {sheet.cran > 0 && space && <>
         <div className="phone-space-bar">
           {PARTS.map((p) => space[p.key] > 0 && (
             <div key={p.key} style={{ flexGrow: Math.max(space[p.key], space.total * 0.02), background: p.color }} />
@@ -56,7 +50,6 @@ export function PhoneSpacePanel({ cartes, squares, squaresBytes, onClose, select
         <p className="phone-space-tiles"><b>{squares} tuile{squares > 1 ? 's' : ''} téléchargée{squares > 1 ? 's' : ''}</b>
           {squares > 0 && <> · <b>≈ {formatBytes(squaresBytes / squares)}</b> par tuile en moyenne</>}</p>
         <p className="phone-space-legend"><span className="leg vert" /> SCAN 25 (tout) <span className="leg bleu" /> Plan IGN seul</p>
-        <p className="phone-space-free">Appui long sur la carte : le rectangle prend des tuiles et des traces, pour les supprimer ou télécharger les tuiles.</p>
         {space.libre != null && <p className="phone-space-free">Encore {formatBytes(space.libre)} libres sur le téléphone.</p>}
         {/* Sur le serveur (Seb, 26/11) : chacun voit la sienne ; le Super User voit celle de tout le monde. */}
         {srv && <>

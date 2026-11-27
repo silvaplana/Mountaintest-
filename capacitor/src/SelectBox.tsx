@@ -1,6 +1,5 @@
 import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
-import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useRef, useState } from 'react';
 import { TrashIcon } from './icones';
 import type { Trail } from './trails/osmTrails';
 import type { SavedTrace } from './trails/savedTraces';
@@ -17,8 +16,6 @@ export interface OfflineSel {
   onDeleteTraces: (ids: number[]) => () => void;
   onDeleteSquares: (sq: string[]) => () => void;
   onDownload: (sq: string[]) => void;
-  /** Le panneau du bas (place sur le téléphone) : les lignes de la sélection s'y mettent, au lieu d'un second écran. */
-  slot?: HTMLElement | null;
 }
 
 const boxPoly = ([w, s, e, n]: number[]) => [[[w, n], [e, n], [e, s], [w, s], [w, n]]];
@@ -49,30 +46,19 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
   };
 
   // Le doigt de l'appui long est encore posé (sur la carte) : on suit ses déplacements sur toute la page.
-  // Sur Android, le navigateur peut reprendre ce doigt pour faire défiler (pointercancel, puis plus aucun
-  // pointermove) : on bloque ce défilement sur la carte et on suit aussi les événements tactiles, qui continuent.
   useEffect(() => {
     if (!tire) return;
     map.dragPan.disable();
-    const zone = map.getCanvasContainer();
-    const avant = zone.style.touchAction;
-    zone.style.touchAction = 'none';
     const move = (e: PointerEvent) => setB(local(e));
-    const touchMove = (e: TouchEvent) => { const t = e.touches[0]; if (t) { e.preventDefault(); setB(local(t)); } };
     const up = () => setTire(false);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    window.addEventListener('touchmove', touchMove, { passive: false });
-    window.addEventListener('touchend', up);
-    window.addEventListener('touchcancel', up);
+    window.addEventListener('pointercancel', up);
     return () => {
       map.dragPan.enable();
-      zone.style.touchAction = avant;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('touchmove', touchMove);
-      window.removeEventListener('touchend', up);
-      window.removeEventListener('touchcancel', up);
+      window.removeEventListener('pointercancel', up);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tire, map]);
@@ -136,11 +122,8 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
     return () => clearTimeout(t);
   }, [annuler]);
 
-  // Calque Hors ligne : tout va dans le panneau du bas s'il est là (Seb, 26/11).
-  const dansPanneau = (x: ReactElement) => offline?.slot ? createPortal(x, offline.slot) : x;
-
-  if (annuler) return dansPanneau(
-    <div className={offline?.slot ? 'sel-ligne sel-annuler' : 'sel-barre'}>
+  if (annuler) return (
+    <div className={offline ? 'sel-barre sel-haut' : 'sel-barre'}>
       <span>Effacé</span>
       <button className="primary" onClick={() => { annuler(); onFin(); }}>↶ Annuler</button>
     </div>
@@ -153,8 +136,9 @@ export function SelectBox({ map, depart, trails, onFin, onEffacer, offline }: {
         onPointerMove={(e) => { if (e.buttons || e.pointerType === 'touch') setB(local(e)); }}>
         <div className="sel-rect" style={{ left: x0, top: y0, width: x1 - x0, height: y1 - y0 }} />
       </div>
-      {offline ? dansPanneau(
-        <div className={offline.slot ? 'sel-dans-panneau' : 'travel sel-panneau'}>
+      {/* Calque Hors ligne : petit encart en haut de l'écran, pour ne pas gêner le panneau du bas (Seb, 26/11). */}
+      {offline ? (
+        <div className="sel-panneau sel-haut">
           <div className="travel-head"><b>{sel ? 'Sélection' : 'Étire le rectangle'}</b>
             <span className="head-btns"><button onClick={onFin} aria-label="Fermer la sélection">✕</button></span></div>
           {sel && sel.traces.length > 0 && <div className="sel-ligne">

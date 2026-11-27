@@ -520,7 +520,7 @@ ul.ski-text { padding-left: 18px; white-space: normal; }
 .draw-banner .draw-head { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 100%; }
 .draw-banner .draw-title { flex: 1 1 auto; font-weight: 600; }
 /* Le rectangle de sélection remplace le bandeau de tracé tant qu'il est ouvert (un seul panneau en bas). */
-body:has(.sel-barre, .sel-panneau, .phone-space-sel) .draw-banner { display: none; }
+body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .draw-banner .draw-close { flex: 0 0 auto; border: 0; background: none; font-size: 20px; padding: 2px 8px; color: var(--muted); min-height: 0; min-width: 48px; }
 .draw-banner .draw-row { display: flex; gap: 8px; align-items: center; flex: 1 1 100%; }
 .draw-banner .draw-row label.paths { flex: 1 1 auto; }
@@ -1532,7 +1532,6 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 
 /* Calque « Hors ligne » : place prise sur le téléphone, panneau remontable du bas (Seb, 26/11). */
 .phone-space { font-size: 17px; gap: 6px; }
-.phone-space:has(.phone-space-sel) { z-index: 7; }
 .phone-space .travel-head > span:first-child { color: var(--muted); font-size: 18px; }
 .phone-space .travel-head b { color: var(--fg); }
 .phone-space-bar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; flex: none; }
@@ -1594,9 +1593,10 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .bd-aide-voile p, .help-close p.help-haut { position: absolute; left: 12px; right: auto; bottom: auto; top: calc(env(safe-area-inset-top) + 12px);
   max-width: 130px; margin: 0; background: #1d2421; color: #fff; border-radius: 10px; padding: 8px 10px; font-size: 13px; text-align: left; }
 .icones-gauche .bd-aide-voile p, .icones-gauche .help-close p.help-haut { left: auto; right: 12px; }
-.phone-space-sel { display: flex; flex-direction: column; flex: none; }
-.sel-dans-panneau .travel-head { margin-bottom: 4px; }
-.sel-annuler > span { flex: 1; }
+/* Encart de la sélection du calque Hors ligne : en haut, sous la barre d'état (Seb, 26/11). */
+.sel-panneau.sel-haut { position: absolute; z-index: 7; left: 8px; right: 8px; top: calc(env(safe-area-inset-top) + 8px);
+  background: var(--bg, #fff); border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,.25); padding: 4px 12px; display: flex; flex-direction: column; }
+.sel-barre.sel-haut { top: calc(env(safe-area-inset-top) + 8px); bottom: auto; }
 .bd-etat.bd-erreur { color: var(--danger); display: flex; align-items: center; }
 .bd-etat.bd-erreur .bd-lien { color: var(--danger); font-size: 15px; }
 
