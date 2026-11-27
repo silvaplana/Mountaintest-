@@ -26,6 +26,7 @@ import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from
 import { montrer } from './buddies/appel';
 import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
+import { appareilLisible } from './buddies/appareil';
 import { nomLien, noterOuvert } from './buddies/recents';
 import { useNotifMessages, useNotifsAExpliquer } from './buddies/notifs';
 import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
@@ -326,10 +327,12 @@ export function App() {
   // Un message peut demander moins de temps (« Buddy count de groupe créé » : 2 s, Seb 26/11).
   // Écrire au support (Seb, 26/11) : la discussion à deux avec le Super User, avec la version et le téléphone joints.
   const ecrireAuSupport = async () => {
-    const appli = await CapApp.getInfo().then((i) => `version ${i.version} (${i.build})`).catch(() => 'version web');
-    const tel = await Device.getInfo().then((d) => `${d.manufacturer} ${d.model} · ${d.operatingSystem} ${d.osVersion}`).catch(() => '');
+    // Une ligne lisible (Seb, 27/11) : « Ordinateur Windows · version web », « Android 14 · Samsung SM-S911B · version 1.2.3 ».
+    const version = await CapApp.getInfo().then((i) => i.version).catch(() => undefined);
+    const infos = await Device.getInfo().then((d) => appareilLisible({ version, plateforme: d.platform, fabricant: d.manufacturer,
+      modele: d.model, os: d.operatingSystem, osVersion: d.osVersion })).catch(() => (version ? `version ${version}` : 'version web'));
     try {
-      const id = await ouvrirSupport([appli, tel].filter(Boolean).join(' · '));
+      const id = await ouvrirSupport(infos);
       setAccount(false); setBuddiesDepart({ ecran: 'conv', id }); setBuddies(true);
     } catch (err) { setToast((err as Error).message); }
   };
