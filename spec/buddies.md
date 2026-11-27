@@ -1184,3 +1184,8 @@ Maquette : `maquettes/planning-messagerie/` (validée par Seb) ; captures `captu
   y entre d'abord (comme une invitation). Sans l'appli (ordinateur, iPhone), la version web (`?rejoindre=…&planning=…`).
 - Serveur : message de nature `planning`, colonne `messages_buddies.planning_id` (planning du groupe de la conversation,
   sinon refusé) ; son texte = nom du planning (notification « 📅 Planning : … »). On ne transfère pas une carte de planning.
+
+### 7.26 Allumer ma position ramène sur la carte (Seb, 27 novembre 2026)
+
+Dans Buddies, un appui sur l'icône de ma position qui l'allume ferme Buddies et centre la carte sur moi (le message
+« Ta position est partagée… » reste affiché). L'éteindre ne change pas d'écran.

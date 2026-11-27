@@ -106,12 +106,14 @@ export function ciblesIci(e: Etat, groupes: Groupe[], sorties: Sortie[], sortie?
 }
 
 /** Le bouton de la colonne, un interrupteur (Seb, 26/11) : allumée, on l'éteint partout ; éteinte, on partage (ciblesIci). */
-export async function basculerPosition(e: Etat, ici: { cibles: CiblePosition[]; nom: string }, onToast: (m: string) => void) {
-  if (mesEpingles(e).length) { releverEpingle(); onToast(MESSAGE_ARRET); return; }
-  if (!ici.cibles.length) { onToast("Crée d'abord un groupe avec tes copains"); return; }
-  if (!(await autoriser(onToast))) return;
+/** Allume ou éteint ma position ; vrai si elle vient d'être allumée. */
+export async function basculerPosition(e: Etat, ici: { cibles: CiblePosition[]; nom: string }, onToast: (m: string) => void): Promise<boolean> {
+  if (mesEpingles(e).length) { releverEpingle(); onToast(MESSAGE_ARRET); return false; }
+  if (!ici.cibles.length) { onToast("Crée d'abord un groupe avec tes copains"); return false; }
+  if (!(await autoriser(onToast))) return false;
   enfoncerEpingle(ici.cibles);
   onToast(messagePartage(ici.nom));
+  return true;
 }
 
 async function autoriser(onToast: (m: string) => void) {
