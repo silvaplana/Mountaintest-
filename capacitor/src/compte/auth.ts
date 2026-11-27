@@ -100,8 +100,15 @@ export function claims(jwt: string): Record<string, unknown> {
 
 // ------------------------------------------------------------------ réseau
 
-async function requete(url: string, init?: RequestInit): Promise<Response> {
-  try { return await fetch(url, init); } catch { throw new HorsLigne(); }
+/**
+ * Une requête sans réponse est abandonnée (HorsLigne) au bout de `ms` : sans délai, une seule requête muette (réseau
+ * qui change, serveur qui ne répond pas) bloquait la synchro jusqu'à relancer l'appli (Seb, 27/11 : voiture garée
+ * jamais partie, impossible à enlever).
+ */
+async function requete(url: string, init?: RequestInit, ms = 30_000): Promise<Response> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms);
+  try { return await fetch(url, { ...init, signal: c.signal }); } catch { throw new HorsLigne(); } finally { clearTimeout(t); }
 }
 
 /** Adresse Logto et identifiant de l'appli, donnés par le serveur (gardés pour la suite). */
@@ -212,7 +219,7 @@ export async function apiFichier(methode: 'GET' | 'PUT', chemin: string, corps?:
   const r = await requete(`${API_URL}${chemin}`, {
     method: methode, body: corps,
     headers: { Authorization: `Bearer ${t}`, ...(corps ? { 'Content-Type': corps.type || 'image/jpeg' } : {}) },
-  });
+  }, 5 * 60_000); // une photo ou une vidéo, en 4G : plus long
   if (r.status === 401) { ecrire({ ...lire(), access: undefined }); throw new Refuse('Jeton refusé'); }
   if (!r.ok) throw new Error(`Serveur : erreur ${r.status}`);
   return await r.blob();

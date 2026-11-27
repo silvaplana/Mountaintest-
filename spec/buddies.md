@@ -425,6 +425,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   envoie ses opérations en attente et reçoit les groupes changés depuis la fois d'avant.
   Une opération refusée (droits, lien expiré) est montrée puis oubliée. Synchro à l'ouverture de
   l'appli, au retour du réseau, après chaque action et chaque minute quand Buddies est ouvert.
+  Toute requête sans réponse est abandonnée au bout de 30 s (5 min pour un fichier) et les photos et fichiers
+  partent à côté de la synchro : avant, une requête muette bloquait tout jusqu'à relancer l'appli (Seb, 27/11 :
+  voiture garée jamais partie, impossible à enlever).
 
 ### 7.2 Bloc 2 : ce qui est construit (23 novembre 2026)
 
