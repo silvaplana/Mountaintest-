@@ -19,6 +19,7 @@ import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
 import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosition, basculerVoiture, ciblesIci, PositionsSurCarte, useReperes } from './Positions';
+import { Utilisateurs } from './Utilisateurs';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
@@ -280,7 +281,7 @@ function CleIcon() {
 const supportNonLus = (e: Etat) => { const v = vueSorties(e); return demandesSupport(e).reduce((n, g) => n + nonLus(e, g.id, v.messages), 0)
   + (e.signalements ?? []).filter((x) => !x.suite).length; };
 
-/** Espace du Super User (Seb, 26/11) : les demandes de support ; plus tard la place serveur, les comptes… */
+/** Espace du Super User (Seb, 26/11) : onglet Support (demandes, signalements) et onglet Utilisateurs (27/11). */
 function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir: (id: string) => void; onRetour: () => void; onClose: () => void }) {
   const v = vueSorties(e);
   const l = demandesSupport(e).map((g) => {
@@ -288,8 +289,15 @@ function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir
     return { g, dernier: f.at(-1), n: nonLus(e, g.id, v.messages) };
   }).sort((a, b) => (b.dernier?.cree_le ?? b.g.modifie_le).localeCompare(a.dernier?.cree_le ?? a.g.modifie_le));
   const moi = e.moi ?? 'moi';
+  const [onglet, setOnglet] = useState<'support' | 'utilisateurs'>('support');
   return <div className="bd-corps">
     <div className="xp-head"><button onClick={onRetour} aria-label="Retour">‹</button><h2>Super User</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
+    {/* Deux onglets (Seb, 27/11) : Support, et Utilisateurs (téléchargements, comptes, usage de chacun). */}
+    <div className="su-onglets" role="tablist">
+      <button role="tab" aria-selected={onglet === 'support'} className={onglet === 'support' ? 'on' : ''} onClick={() => setOnglet('support')}>Support</button>
+      <button role="tab" aria-selected={onglet === 'utilisateurs'} className={onglet === 'utilisateurs' ? 'on' : ''} onClick={() => setOnglet('utilisateurs')}>Utilisateurs</button>
+    </div>
+    {onglet === 'utilisateurs' ? <Utilisateurs /> : <>
     <h3 className="bd-section">Support</h3>
     {l.length ? l.map(({ g, dernier, n }) => {
       const qui = autreDuDuo(g, e);
@@ -302,8 +310,7 @@ function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir
     }) : <p className="bd-vide">Pas encore de demande</p>}
     <h3 className="bd-section">Signalements</h3>
     <Signalements e={e} />
-    <h3 className="bd-section">Plus tard</h3>
-    <p className="hint">La place sur le serveur de chacun, les comptes, les chiffres d'usage…</p>
+    </>}
   </div>;
 }
 

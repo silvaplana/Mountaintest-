@@ -1031,6 +1031,17 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Serveur** : opération `support {groupe, infos}` ; groupe de nature `support`, identifiant uuid5 « support:<id> »,
   membres = la personne + les Super Users. Refusée tant qu'aucun Super User n'existe (« Le support n'est pas encore
   ouvert »).
+- **Onglet Utilisateurs** (Seb, 27/11) : l'espace Super User a deux onglets, « Support » (demandes et signalements)
+  et « Utilisateurs ». En haut, deux cases : téléchargements de l'APK (total, cette semaine) et comptes (total, venus
+  cette semaine). Puis un compte par ligne, le dernier venu en tête : pseudo, dernière venue, Android / Play Store /
+  navigateur, jours d'utilisation. Toucher une ligne : mail, inscription, dernière fois, jours, ouvertures, version,
+  groupes, barres des ouvertures des 30 derniers jours.
+  - Un téléchargement est anonyme : le bouton « Télécharger » de la page publique (et de /app/apk/) passe par
+    `GET /telecharger`, qui ajoute 1 au jour (table `telechargements`) puis renvoie vers l'APK. Un compte naît à la
+    première connexion.
+  - Ouverture = lancement de l'appli, ou retour à l'écran après 30 min ailleurs, connecté (`POST /ouverture
+    {plateforme, version}`, table `usages` : une ligne par personne et par jour). Compté à partir du 27/11.
+  - `GET /super/utilisateurs` : Super User seul (403 sinon), comptes supprimés exclus.
 
 ### Accueil et aide (Seb, 26/11)
 

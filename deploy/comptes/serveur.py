@@ -17,6 +17,9 @@ Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
   PUT  /moi      changer mon pseudo / ma photo
   POST /buddies/sync          Buddies : envoyer ce que le téléphone a fait, recevoir les nouveautés (buddies.py)
   POST /buddies/ecrit         « écrit… » dans une conversation (gardé 12 s en mémoire)
+  POST /ouverture            l'appli vient d'être ouverte (jours et ouvertures, plateforme, version)
+  GET  /telecharger           compte un téléchargement puis renvoie vers l'APK (page publique)
+  GET  /super/utilisateurs    Super User : téléchargements, comptes et leur usage
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
   PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
   GET  /buddies/photos/{id}/{petite|grande}   la lire (participants de la sortie)
@@ -38,12 +41,12 @@ import uuid
 import urllib.parse
 import urllib.request
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, func, inspect, select, text
@@ -53,7 +56,7 @@ import appels
 import buddies
 import droits
 import mails
-from modeles import Base, Groupe, Membre, Utilisateur, maintenant
+from modeles import Base, Groupe, Membre, Telechargement, Usage, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
 LOGTO_INTERNE = os.environ.get("LOGTO_INTERNE", LOGTO).rstrip("/")
@@ -116,6 +119,8 @@ COLONNES_AJOUTEES = [
     ("utilisateurs", "telephone_octets", "BIGINT"),
     ("utilisateurs", "telephone_le", "TIMESTAMP WITH TIME ZONE"),
     ("utilisateurs", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
+    ("utilisateurs", "plateforme", "VARCHAR(10)"),
+    ("utilisateurs", "version", "VARCHAR(20)"),
 ]
 
 
@@ -593,6 +598,63 @@ def rejoindre_appel(aid: str, j: dict = Depends(jeton_requis), s: Session = Depe
 def presence_appel(aid: str, p: Presence, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
     u = utilisateur(s, j)
     return refus(lambda: appels.presence(s, Sessions, u, aid, p.en_ligne))
+
+
+class Ouverture(BaseModel):
+    plateforme: str = Field("web", pattern="^(apk|play|web)$")
+    version: str | None = Field(None, max_length=20)
+
+
+@app.post("/ouverture")
+def ouverture(o: Ouverture, u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """L'appli vient d'être ouverte (ou rouverte après un long moment) : +1 ouverture aujourd'hui."""
+    u = s.merge(u)
+    u.plateforme, u.version = o.plateforme, o.version
+    jour = maintenant().date()
+    us = s.get(Usage, (u.id, jour)) or s.merge(Usage(utilisateur_id=u.id, jour=jour, ouvertures=0))
+    us.ouvertures += 1
+    s.commit()
+    return {"ok": True}
+
+
+LIEN_APK = os.environ.get("LIEN_APK", "https://mountainbuddies.silvaplana.cloud/app/apk/mountain-buddies-capacitor.apk")
+
+
+@app.get("/telecharger")
+def telecharger(s: Session = Depends(db)):
+    """Bouton « Télécharger » de la page publique : +1 aujourd'hui, puis le fichier APK."""
+    jour = maintenant().date()
+    t = s.get(Telechargement, jour) or s.merge(Telechargement(jour=jour, nombre=0))
+    t.nombre += 1
+    s.commit()
+    return RedirectResponse(LIEN_APK, status_code=302)
+
+
+@app.get("/super/utilisateurs")
+def super_utilisateurs(u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """Onglet Utilisateurs du Super User (Seb, 27/11) : téléchargements, puis chaque compte avec son usage."""
+    if not droits.est_super_user(u):
+        raise HTTPException(403, "Réservé au Super User")
+    semaine = maintenant().date() - timedelta(days=6)
+    mois = maintenant().date() - timedelta(days=29)
+    tel = {"total": int(s.scalar(select(func.coalesce(func.sum(Telechargement.nombre), 0)))),
+           "semaine": int(s.scalar(select(func.coalesce(func.sum(Telechargement.nombre), 0)).where(Telechargement.jour >= semaine)))}
+    usages: dict[uuid.UUID, list[Usage]] = {}
+    for x in s.scalars(select(Usage).order_by(Usage.jour)):
+        usages.setdefault(x.utilisateur_id, []).append(x)
+    groupes: dict[uuid.UUID, list[str]] = {}
+    for uid, nom in s.execute(select(Membre.utilisateur_id, Groupe.nom).join(Groupe, Groupe.id == Membre.groupe_id)
+                              .where(Groupe.nature == "bande", Groupe.supprime_le.is_(None), Groupe.nom != "")):
+        groupes.setdefault(uid, []).append(nom)
+    comptes = []
+    for x in s.scalars(select(Utilisateur).where(Utilisateur.supprime_le.is_(None)).order_by(Utilisateur.vu_le.desc())):
+        l = usages.get(x.id, [])
+        comptes.append({"id": str(x.id), "pseudo": x.pseudo or (x.email or "").split("@")[0], "email": x.email, "photo": x.photo,
+                        "cree_le": iso(x.cree_le), "vu_le": iso(x.vu_le), "plateforme": x.plateforme, "version": x.version,
+                        "jours": len(l), "ouvertures": sum(y.ouvertures for y in l), "groupes": sorted(groupes.get(x.id, [])),
+                        "par_jour": {y.jour.isoformat(): y.ouvertures for y in l if y.jour >= mois}})
+    return {"telechargements": tel, "comptes": comptes,
+            "semaine": sum(1 for c in comptes if c["vu_le"] and c["vu_le"][:10] >= semaine.isoformat())}
 
 
 @app.get("/invitations/{code}")
