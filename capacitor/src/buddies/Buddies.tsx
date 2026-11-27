@@ -96,7 +96,7 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: () => voi
     onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
   };
   const subs: Promise<{ remove: () => Promise<void> }>[] = [];
-  // Version web (ordinateur, iPhone) : rejoindre.html renvoie sur …/mountaintest/?rejoindre=CODE.
+  // Version web (ordinateur, iPhone) : rejoindre.html renvoie sur …/app/?rejoindre=CODE.
   const web = new URLSearchParams(window.location.search).get('rejoindre');
   if (!Capacitor.isNativePlatform() && web) {
     const u = new URL(window.location.href);

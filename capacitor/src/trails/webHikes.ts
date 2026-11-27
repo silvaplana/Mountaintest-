@@ -2,7 +2,7 @@
 // qui garde la clé API et renvoie un point de départ et un lien par rando. Même appel côté Kotlin (WebHikes.kt).
 import type { Bbox } from '../config';
 
-export const RELAIS_URL = 'https://silvaplana.cloud/mountaintest-ia/randos';
+export const RELAIS_URL = 'https://mountainbuddies.silvaplana.cloud/ia/randos';
 
 /** Mot de passe du relais intégré à l'APK par la CI (secret IA_MOT_DE_PASSE), vide pour le site web public. */
 export const IA_MOT_DE_PASSE_INTEGRE: string = (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_IA_MOT_DE_PASSE ?? '';

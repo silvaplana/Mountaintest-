@@ -10,7 +10,7 @@ Qui fait quoi :
 Hors ligne : l'appli ne dépend jamais de ce serveur pour s'ouvrir ; elle garde son profil sur le
 téléphone et rejoue ici ce qu'elle a fait sans réseau (identifiants UUID choisis par le téléphone).
 
-Routes (préfixe /mountaintest-api retiré par le gateway Caddy) :
+Routes (préfixe /api, ou l ancien /mountaintest-api, retiré par le gateway Caddy) :
   GET  /         état du serveur
   GET  /config   adresse de Logto et identifiants des applis (lu au moment de se connecter)
   GET  /moi      mon profil (créé à la première visite, e-mail repris de Logto)
