@@ -8,7 +8,7 @@ import type { LonLat } from '../trails/osmTrails';
 import { useAppel } from './Appel';
 import { tracesAEnvoyer, tracesAMontrer, tracesInvitees, type TraceEnvoyee } from './carteSuivie';
 import { isMine } from '../trails/route';
-import { noter } from './journal';
+import { noterDetail } from './journal';
 
 const FONDS: string[] = ['auto', 'scan25', 'planign'];
 /** Identifiants des traces invitées à part : le trait en direct et la trace du profil. */
@@ -108,7 +108,7 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
       } else if ('traces' in m) {
         // Le rattrapage renvoie les mêmes traces toutes les 4 s : ne tout redessiner que si elles ont changé.
         const k = JSON.stringify(m.traces);
-        if (k !== tracesRecuesCle.current) { tracesRecuesCle.current = k; setRecues(m.traces); noter('traces reçues changées', m.traces.length, `${m.traces.reduce((a, t) => a + t.ligne.length, 0)} pts`); }
+        if (k !== tracesRecuesCle.current) { tracesRecuesCle.current = k; setRecues(m.traces); noterDetail('traces reçues changées', m.traces.length, `${m.traces.reduce((a, t) => a + t.ligne.length, 0)} pts`); }
       }
       else if ('trait' in m) setTrait(m.trait);
       else if ('profil' in m) {

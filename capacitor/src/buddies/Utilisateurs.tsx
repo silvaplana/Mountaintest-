@@ -86,8 +86,17 @@ function JetonJournaux() {
   const [copie, setCopie] = useState(false);
   const voir = () => { void api<{ jeton: string }>('GET', '/super/jeton-journaux').then((r) => setJ(r.jeton)).catch(() => setJ('')); };
   const copier = () => { void navigator.clipboard?.writeText(j).then(() => setCopie(true)).catch(() => undefined); };
+  // Mode diagnostic (Seb, 27/11 : « qu'il s'active seulement si on le demande ») : une heure, pour tous les téléphones.
+  const [jusqua, setJusqua] = useState(0);
+  useEffect(() => { api<{ diagnostic_jusqua: number }>('GET', '/journaux/mode').then((r) => setJusqua(r.diagnostic_jusqua)).catch(() => undefined); }, []);
+  const allume = jusqua * 1000 > Date.now();
+  const basculer = () => { void api<{ diagnostic_jusqua: number }>('POST', '/journaux/mode', { on: !allume }).then((r) => setJusqua(r.diagnostic_jusqua)).catch(() => undefined); };
   return <>
     <h3 className="bd-section">Journaux pour Claude</h3>
+    <button className="bd-ligne" onClick={basculer}><span className="bd-texte">
+      <b>{allume ? 'Arrêter le mode diagnostic' : 'Allumer le mode diagnostic (1 h)'}</b>
+      <small>{allume ? `Allumé jusqu'à ${new Date(jusqua * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} : chaque téléphone note tout et l'envoie`
+        : 'Chaque téléphone note tout pendant une heure et l\'envoie au serveur'}</small></span></button>
     {!j ? <button className="bd-ligne" onClick={voir}><span className="bd-texte"><b>Voir le jeton des journaux</b>
       <small>Pour que Claude lise lui-même les journaux de diagnostic</small></span></button>
       : <div className="su-jeton"><code>{j}</code><button className="bd-bouton" onClick={copier}>{copie ? 'Copié' : 'Copier'}</button></div>}

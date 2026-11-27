@@ -881,6 +881,39 @@ def lire_journaux(x_journal_jeton: str = Header(""), n: int = 6, qui: str = ""):
     return "\n".join(morceaux)[-3_000_000:] or "(aucun journal)"
 
 
+# Mode diagnostic (Seb, 27/11 : « que le journal s'active seulement si on le demande ») : le Super User l'allume pour
+# une heure, pour tous les téléphones ; ils écrivent alors le journal détaillé et l'envoient ici.
+FICHIER_DIAGNOSTIC = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "journaux-diagnostic")
+
+
+def diagnostic_jusqua() -> float:
+    try:
+        with open(FICHIER_DIAGNOSTIC, encoding="utf-8") as f:
+            t = float(f.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+    return t if t > time.time() else 0
+
+
+@app.get("/journaux/mode")
+def mode_journal(u: Utilisateur = Depends(moi_requis)):
+    return {"diagnostic_jusqua": diagnostic_jusqua()}
+
+
+class ModeJournal(BaseModel):
+    on: bool
+
+
+@app.post("/journaux/mode")
+def changer_mode_journal(m: ModeJournal, u: Utilisateur = Depends(moi_requis)):
+    if not droits.est_super_user(u):
+        raise HTTPException(403, "Réservé au Super User")
+    os.makedirs(os.path.dirname(FICHIER_DIAGNOSTIC), exist_ok=True)
+    with open(FICHIER_DIAGNOSTIC, "w", encoding="utf-8") as f:
+        f.write(str(time.time() + 3600 if m.on else 0))
+    return {"diagnostic_jusqua": diagnostic_jusqua()}
+
+
 @app.get("/super/jeton-journaux")
 def super_jeton_journaux(u: Utilisateur = Depends(moi_requis)):
     if not droits.est_super_user(u):

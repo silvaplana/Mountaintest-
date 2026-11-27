@@ -4,7 +4,7 @@
  * Même rôle côté Kotlin (Appel.kt).
  */
 import { Room, RoomEvent, Track, type Participant, type RemoteTrack } from 'livekit-client';
-import { envoyerAuServeur, noter } from './journal';
+import { enDiagnostic, envoyerAuServeur, noter, noterDetail, verifierDiagnostic } from './journal';
 import { api } from '../compte/auth';
 import { envoyerMessage, synchroniser } from './store';
 
@@ -213,7 +213,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
       try {
         const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] | null; dn?: number } & Partial<Record<'carte' | 'traces' | 'carteFin' | 'trait' | 'profil', unknown>>;
         const k = natureDe(m);
-        if (k !== 'carte' || ((m as { n?: number }).n ?? 0) % 4 === 0) noter('←', k, `${data.length}o`, p?.name, `n${(m as { n?: number }).n ?? ''}`);
+        if (k !== 'carte' || ((m as { n?: number }).n ?? 0) % 4 === 0) noterDetail('←', k, `${data.length}o`, p?.name, `n${(m as { n?: number }).n ?? ''}`);
         if (p && 'doigt' in m) recevoirDoigt(m.doigt ?? null, m.dn ?? 0, { id: p.identity, pseudo: p.name || '?' });
         if (p && (m.carte || m.traces || m.carteFin || m.trait || 'profil' in m)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
       } catch { /* message inconnu : ignoré */ }
@@ -221,7 +221,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     .on(RoomEvent.Disconnected, (r?: unknown) => { noter('salle déconnectée', String(r ?? '')); if (salle === room) fini(); })
     .on(RoomEvent.Reconnecting, () => noter('⚠ reconnexion…'))
     .on(RoomEvent.Reconnected, () => noter('reconnecté'))
-    .on(RoomEvent.ConnectionQualityChanged, (q: unknown, p?: Participant) => noter('qualité', String(q), p?.name));
+    .on(RoomEvent.ConnectionQualityChanged, (q: unknown, p?: Participant) => noterDetail('qualité', String(q), p?.name));
   noter(muette ? (muette.montre ? 'salle carte : je montre' : 'salle carte : je suis') : 'salle appel', r.id);
   surveiller(room);
   if (muette) {
@@ -254,7 +254,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
 }
 
 /**
- * 📓 Toutes les 15 s tant qu'on est dans une salle : par où passe le son (UDP direct, ou TCP / relais quand les ports
+ * 📓 Mode diagnostic seulement, toutes les 15 s tant qu'on est dans une salle : par où passe le son (UDP direct, ou TCP / relais quand les ports
  * UDP sont fermés : ça rame), l'aller-retour, et pour la voix reçue les paquets perdus et la gigue.
  */
 function surveiller(room: Room) {
@@ -262,8 +262,14 @@ function surveiller(room: Room) {
     const m = (room as unknown as { engine?: { pcManager?: Record<'publisher' | 'subscriber', { _pc?: RTCPeerConnection } | undefined> } }).engine?.pcManager;
     return [m?.subscriber?._pc, m?.publisher?._pc].filter((x): x is RTCPeerConnection => !!x);
   };
+  void verifierDiagnostic().catch(() => undefined);
+  let tour = 0;
   const t = setInterval(() => {
     if (salle !== room) { clearInterval(t); return; }
+    // Chaque minute : le mode diagnostic a-t-il été allumé (ou éteint) ? Toutes les 2 min : le journal part.
+    if (++tour % 4 === 0) void verifierDiagnostic().catch(() => undefined);
+    if (tour % 8 === 0) void envoyerAuServeur('en cours de salle').catch(() => undefined);
+    if (!enDiagnostic()) return;
     for (const pc of pcs()) void pc.getStats().then((r) => {
       const par = new Map<string, Record<string, unknown>>();
       r.forEach((v: Record<string, unknown>) => par.set(v.id as string, v));
@@ -409,7 +415,7 @@ function publier(m: MsgCarte, reliable: boolean) {
   // 📓 La vue part 4 fois par seconde : une ligne sur 4 suffit.
   const bavard = k === 'carte' && (m.n ?? 0) % 4 !== 0;
   return salle.localParticipant.publishData(d, { reliable })
-    .then(() => { if (!bavard) noter('→', k, reliable ? 'sûr' : 'rapide', `${d.length}o`, `n${m.n ?? ''}`, `${Date.now() - t}ms`); })
+    .then(() => { if (!bavard) noterDetail('→', k, reliable ? 'sûr' : 'rapide', `${d.length}o`, `n${m.n ?? ''}`, `${Date.now() - t}ms`); })
     .catch((err: Error) => noter('→ ÉCHEC', k, `${d.length}o`, err?.message));
 }
 function pousser(k: string) {
@@ -463,7 +469,7 @@ function recevoirCarte(m: MsgCarte, de: Voix) {
   } else {
     if (s && s <= (finies.get(de.id) ?? 0)) { noter('jeté (carte finie)', natureCarte(m), de.pseudo); return; } // en retard : cette carte est finie
     const k = `${de.id} ${natureCarte(m)}`, d = recus.get(k);
-    if (s && n && d && d.s === s && n <= d.n) { if (natureCarte(m) !== 'carte') noter('jeté (vieux)', natureCarte(m), `n${n}≤${d.n}`); return; } // doublon, ou plus vieux que le dernier reçu
+    if (s && n && d && d.s === s && n <= d.n) { if (natureCarte(m) !== 'carte') noterDetail('jeté (vieux)', natureCarte(m), `n${n}≤${d.n}`); return; } // doublon, ou plus vieux que le dernier reçu
     if (s && n) recus.set(k, { s, n });
     // J'ai allumé après lui : je garde la main, c'est lui qui s'éteindra en recevant la mienne.
     const moi = String(salle?.localParticipant.identity ?? '');
