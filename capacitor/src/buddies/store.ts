@@ -973,7 +973,8 @@ export function statut(m: MessageBuddy, autres: string[], lectures: Lecture[]): 
 /** Messages des autres arrivés depuis ma dernière lecture de cette conversation. */
 export function nonLus(e: Etat, cle: string, messages: MessageBuddy[]): number {
   const moi = e.moi ?? 'moi', lu = e.lus?.[cle] ?? 0;
-  return messages.filter((m) => (m.groupe === cle || m.sortie === cle) && m.par !== moi && new Date(m.cree_le).getTime() > lu).length;
+  // Le partage de carte n'est plus dans le fil (Seb, 27/11) : il ne compte pas comme un message à lire.
+  return messages.filter((m) => (m.groupe === cle || m.sortie === cle) && m.par !== moi && m.nature !== 'carte' && m.nature !== 'carte_fin' && new Date(m.cree_le).getTime() > lu).length;
 }
 export const mettreCoeur = (hebergement: string, coeur: boolean) => ajouter({ type: 'coeur', hebergement, coeur });
 export const retenirHebergement = (hebergement: string, retenu: boolean) => ajouter({ type: 'retenir_hebergement', hebergement, retenu });

@@ -120,7 +120,6 @@
             </intent-filter>
         </service>
         <receiver android:name=".AppelService$Refus" android:exported="false" />
-        <receiver android:name=".CarteNotif$Non" android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

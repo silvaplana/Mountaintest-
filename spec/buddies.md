@@ -787,16 +787,21 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Ce qui part chez ceux qui suivent** (Seb, 27 novembre : « tout ce qui est dans mon écran ») : toutes mes traces
   affichées, puis les autres traces (randos…) qui passent dans l'écran, 15 au plus, allégées à 500 points en tout
   (30 au moins par trace). Le contenu part, pas seulement l'identifiant : l'autre ne les a pas.
-- **🔔 Notification d'une carte partagée** (Seb, 27 novembre, maquette `maquettes/notif-carte/`) : où qu'ils
-  soient, appli fermée comprise, les autres reçoivent une notification avec deux boutons. Depuis la messagerie :
-  « 🗺 <groupe> · Seb partage sa carte », **Non merci** / **Suivre** ; Suivre ouvre l'appli sur la carte de Seb,
-  la conversation en dessous (valable 4 h). Pendant un appel, ceux du groupe qui ne sont pas dans l'appel :
-  « 📞 <groupe> · Seb partage sa carte pendant l'appel », **Non merci** / **Rejoindre** ; Rejoindre décroche, la
-  carte suit toute seule (valable 10 min). Ceux déjà dans l'appel gardent la simple ligne « Seb a partagé sa
-  carte ». Technique : push Firebase `carte` (message) et `carte_appel` (appel), canal Android « Cartes ».
-- **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
-  allume l'endroit chez les autres : un doigt au trait dont le bout touche l'endroit, sous « Julie montre » (même
-  texte chez celui qui montre, Seb 27/11), 10 s ; chez les autres, la carte s'y centre.
+- **🗺 Partager ma carte : une icône sous la loupe** (Seb, 27 novembre ; remplace l'icône de la barre d'appel et du
+  haut de la messagerie, et le « Suivre » du fil). Le partage est indépendant de l'appel et des messages. Un appui :
+  « Partager ma carte avec qui ? » (groupes et sorties, puis buddies ; derniers choisis d'abord ; même feuille que
+  « Appeler qui ? »). En appel, il partage directement avec l'appel (ou dès qu'ils décrochent). Verte pendant le
+  partage ; un appui arrête. Chez les autres, une seule proposition : une fenêtre dans l'appli, par-dessus l'écran en
+  cours, sans rien fermer, « Sébastien partage sa carte » **Non merci** / **Suivre** (la carte suivie s'affiche) ;
+  pendant un appel, ceux qui n'y sont pas ont **Rejoindre**. Appli fermée : une notification simple qui ouvre l'appli
+  sur cette fenêtre. Technique inchangée : message `carte` (caché du fil et des non-lus), salle muette, push `carte`
+  et `carte_appel`.
+- **Montrer du doigt** (Seb, 27 novembre) : pendant l'appel ou la carte partagée, un appui long sur la carte pose MON
+  repère : une épingle fine, de ma couleur, dont la pointe est l'endroit exact, sous « ✋ Sébastien montre » (même
+  texte chez tous). Un seul repère par buddy : un nouvel appui long le déplace. Appui long sur mon repère puis glisser : il
+  bouge, et les autres le voient bouger en direct. Appui bref dessus : une ✕ pour l'enlever. Chez les autres, la carte
+  se centre sur un nouveau repère. Tout s'efface quand on quitte l'appel. Technique : état écrasable par buddy
+  (`{doigt, dn}`, numéro croissant ; glissé en « rapide », position lâchée en « sûr »), renvoyé à qui arrive.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
   « Appel en cours ».
 - **Serveur** : tables `appareils` (jeton Firebase de chaque téléphone) et `appels` (Groupe ou sortie, qui

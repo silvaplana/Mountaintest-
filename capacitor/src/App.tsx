@@ -22,14 +22,17 @@ import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/a
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
 import { BuddiesVisiblesSurCarte, PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
-import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
+import { BarreAppel, DoigtsSurCarte, EcranSonnerie, PropositionCarteAppli, useAppel, useSonnerie } from './buddies/Appel';
 import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
-import { montrer, suivreUneCarte } from './buddies/appel';
+import { appelEnCours, montrer, montrerMaCarte, montrerMaCarteDesQue, raccrocher, reprendreMaCarte, suivreUneCarte } from './buddies/appel';
+import { AppelerQui } from './buddies/AppelerQui';
+import { partagerMaCarteAvec } from './buddies/Buddies';
+import { IconeSuisCarte } from './buddies/IconeSuisCarte';
 import { appliquer as groupesBuddies, lire as lireBuddies, mesEpingles, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
 import { appareilLisible } from './buddies/appareil';
 import { nomLien, noterOuvert } from './buddies/recents';
-import { useNotifMessages, useNotifsAExpliquer } from './buddies/notifs';
+import { useNotifMessages, useNotifsAExpliquer, type ConversationNotif } from './buddies/notifs';
 import { LodgingPanel, type Lodging, type PlacedLodging } from './Lodging';
 import { LodgingsOnMap } from './LodgingMap';
 import { chercherHebergements } from './refuges';
@@ -475,7 +478,7 @@ export function App() {
   // 📞 Appel : la sonnerie (écran 10) et, une fois en ligne, la carte à l'écran avec la barre d'appel (écran 24).
   useSonnerie(setToast);
   // 🔔 Toucher la notification d'un message : sa conversation s'ouvre (celle d'une sortie, sur sa carte).
-  useNotifMessages((c) => {
+  const ouvrirConversation = (c: ConversationNotif) => {
     const v = vueBuddies(lireBuddies());
     const x = c.sortie ? v.sorties.find((y) => y.id === c.sortie) : undefined;
     if (x) montrerBuddies({ sortie: x, traces: v.traces.filter((t) => t.sortie === x.id), parler: true });
@@ -485,10 +488,25 @@ export function App() {
       const nom = x?.nom ?? groupesBuddies(lireBuddies()).find((g) => g.id === c.groupe)?.nom ?? '';
       void suivreUneCarte(c.carte, x ? { sortie: x.id } : { groupe: c.groupe }, nom).catch((err: Error) => setToast(err.message || 'Impossible de suivre sa carte'));
     }
-  });
+  };
+  useNotifMessages(ouvrirConversation);
   // 🔔 Ouverture après des notifications : une fenêtre dit ce qui est arrivé (Seb, 26/11).
   const [arrivees, vuArrivees] = useNotifsAExpliquer();
   const appel = useAppel();
+  /**
+   * 🗺 Partager ma carte (Seb, 27/11) : l'icône sous la loupe. Verte = je partage, un appui arrête. En appel, elle
+   * partage avec l'appel ; sinon « Partager ma carte avec qui ? » (groupes, sorties, buddies ; derniers choisis d'abord).
+   */
+  const [partageQui, setPartageQui] = useState(false);
+  const partagerCarte = () => {
+    const a = appelEnCours();
+    if (a?.jeMontre) { montrerMaCarte(false); setToast('Tu ne partages plus ta carte'); return; }
+    if (a?.suit) { reprendreMaCarte(); return; }
+    if (a && !a.muette && a.phase === 'en_ligne') { montrerMaCarte(true); setToast('Tes buddies suivent ta carte'); return; }
+    if (a && !a.muette) { if (!a.carteDesQue) montrerMaCarteDesQue(); setToast('Ta carte sera partagée dès qu’ils décrochent'); return; }
+    if (a?.muette) void raccrocher(); // j'attendais une carte qui ne vient pas
+    setPartageQui(true);
+  };
   // Une carte montrée depuis la messagerie (salle muette) n'est pas un appel : la messagerie reste là (Seb, 27/11).
   const enAppel = !!appel && appel.phase !== 'sonne' && !appel.muette;
   useEffect(() => { if (enAppel) setBuddies(false); }, [enAppel]);
@@ -1520,6 +1538,7 @@ export function App() {
       )}
       {!framing && !drawing && <QuickButtons onFermer={carteSortie && !buddies ? retourSortie : undefined} geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
         onSearch={() => { setNature(false); setSearching(true); }}
+        onCarte={partagerCarte} carteOn={!!appel?.jeMontre}
         onBaseLayer={() => {
           // Fond de carte : Carte auto → SCAN 25 → Plan IGN → …
           const next = fonds[(fonds.indexOf(baseLayer) + 1) % fonds.length];
@@ -1627,6 +1646,9 @@ export function App() {
         onRoutes={(r, i) => { setTravelRoutes(r); setTravelSel(i); }}
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       <DoigtsSurCarte map={map} onToast={setToast} />
+      <PropositionCarteAppli onToast={setToast} />
+      {partageQui && <AppelerQui titre="Partager ma carte avec qui ?" verbe="Partager ma carte avec" memoire="cartes-recentes" icone={<IconeSuisCarte />}
+        choix={(dest, nom) => partagerMaCarteAvec(dest, nom, setToast)} onClose={() => setPartageQui(false)} onToast={setToast} />}
       <BarreAppel />
       <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={trails} onInvitees={setInvitees} onToast={setToast}
         calques={{ pente: showSlopes, ombres: showShade, drones: showDrones, meteo: showWeather }}

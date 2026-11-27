@@ -28,7 +28,7 @@ public class AppelService extends FirebaseMessagingService {
     static volatile Ecouteur ecouteur;
     static volatile boolean premierPlan;
 
-    interface Ecouteur { void appel(JSONObject sonnerie); void fin(String appel); void message(String cle); }
+    interface Ecouteur { void appel(JSONObject sonnerie); void fin(String appel); void message(String cle); void carte(JSONObject proposition); }
 
     @Override
     public void onMessageReceived(RemoteMessage m) {
@@ -52,10 +52,13 @@ public class AppelService extends FirebaseMessagingService {
             return;
         }
         if ("carte".equals(type) || "carte_appel".equals(type)) {
-            // 🗺 Carte partagée : la notification, même appli ouverte (Seb, 27/11 : « tout de suite, où qu'ils soient »).
-            CarteNotif.montrer(this, d);
+            // 🗺 Carte partagée, tout de suite (Seb, 27/11). Appli fermée : une notification qui ouvre la même fenêtre.
+            // Appli à l'écran : rien ne se ferme, l'appli montre la même proposition par-dessus l'écran en cours.
             Ecouteur e = ecouteur;
-            if ("carte".equals(type) && premierPlan && e != null) e.message(d.get("cle"));
+            if (premierPlan && e != null) {
+                e.carte(new JSONObject(d));
+                if ("carte".equals(type)) e.message(d.get("cle"));
+            } else CarteNotif.montrer(this, d);
             return;
         }
         if (!"appel".equals(type)) return;
