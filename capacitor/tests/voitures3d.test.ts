@@ -1,6 +1,7 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { FORMES } from '../src/buddies/voitureDessin';
-import { blocs, polygones } from '../src/buddies/voitures3d';
+import { blocs, polygones, voitures3d } from '../src/buddies/voitures3d';
 
 describe('Voitures garées en 3D (Seb, 27/11)', () => {
   it('a une maquette pour chaque silhouette, à la couleur choisie', () => {
@@ -37,5 +38,27 @@ describe('Voitures garées en 3D (Seb, 27/11)', () => {
       // Haut du bloc en altitude absolue = celui de la voiture à plat.
       expect(f.properties!.h + z).toBeCloseTo(plat[i].properties!.h, 6);
     });
+  });
+});
+
+describe('Voitures 3D sur une vraie carte (Seb, 27/11 : la voiture noire disparaissait)', () => {
+  it('pose le calque même pendant que des tuiles chargent', () => {
+    // Sur le téléphone, isStyleLoaded() reste faux tant qu'une tuile (fond, relief) arrive : le calque n'était jamais créé.
+    const sources = new Map<string, unknown>(), calques: string[] = [];
+    const ecoute = new Map<string, () => void>();
+    const map = {
+      isStyleLoaded: () => false,
+      getSource: (id: string) => sources.get(id),
+      addSource: (id: string, s: unknown) => { sources.set(id, { ...(s as object), setData: () => {} }); },
+      getLayer: (id: string) => calques.includes(id),
+      addLayer: (l: { id: string }) => { calques.push(l.id); },
+      removeLayer: () => {}, removeSource: () => {},
+      on: (e: string, f: () => void) => { ecoute.set(e, f); }, off: () => {},
+      getTerrain: () => ({}), getCenter: () => ({ lat: 45, lng: 6 }), getZoom: () => 16, getBearing: () => 0,
+      queryTerrainElevation: () => 100, getContainer: () => document.createElement('div'),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    voitures3d(map as any, [{ qui: 'moi', lon: 6, lat: 45, forme: 'berline', couleur: 'noir' }]);
+    expect(calques).toContain('voitures3d');
   });
 });

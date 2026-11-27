@@ -94,15 +94,20 @@ export function voitures3d(map: MlMap, vs: Voiture3d[]): () => void {
     if (attente) return;
     attente = requestAnimationFrame(() => {
       attente = 0;
+      poser();
       const s = map.getSource(SRC) as GeoJSONSource | undefined;
       if (s) s.setData(en3d() ? donnees() : { type: 'FeatureCollection', features: [] });
       // En 3D, le dessin à plat s'efface : il ne reste que le badge, l'heure et la zone à toucher (styles.css).
       map.getContainer().classList.toggle('voitures-3d', en3d());
     });
   };
+  // Pas de isStyleLoaded() ici : sur une vraie carte il reste faux tant qu'une tuile arrive (fond, relief), et le
+  // calque n'était jamais posé (Seb, 27/11 : la voiture disparaissait en 3D). On essaie, et on réessaie plus tard.
   const poser = () => {
-    if (map.getSource(SRC) || !map.isStyleLoaded()) return;
-    map.addSource(SRC, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    if (map.getSource(SRC)) return;
+    try {
+      map.addSource(SRC, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    } catch { return; } // style en cours de chargement : au prochain styledata
     map.addLayer({
       id: SRC, type: 'fill-extrusion', source: SRC,
       paint: { 'fill-extrusion-color': ['get', 'c'], 'fill-extrusion-base': ['get', 'b'], 'fill-extrusion-height': ['get', 'h'], 'fill-extrusion-opacity': 1 },
@@ -115,7 +120,7 @@ export function voitures3d(map: MlMap, vs: Voiture3d[]): () => void {
   };
   // Le style peut se recharger (changement de fond) : on se repose dessus.
   const surStyle = () => { poser(); maj(); };
-  if (map.isStyleLoaded()) poser();
+  poser();
   map.on('styledata', surStyle);
   map.on('terrain', maj);
   map.on('zoom', maj);
