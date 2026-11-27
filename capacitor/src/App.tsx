@@ -489,7 +489,8 @@ export function App() {
   // 🔔 Ouverture après des notifications : une fenêtre dit ce qui est arrivé (Seb, 26/11).
   const [arrivees, vuArrivees] = useNotifsAExpliquer();
   const appel = useAppel();
-  const enAppel = !!appel && appel.phase !== 'sonne';
+  // Une carte montrée depuis la messagerie (salle muette) n'est pas un appel : la messagerie reste là (Seb, 27/11).
+  const enAppel = !!appel && appel.phase !== 'sonne' && !appel.muette;
   useEffect(() => { if (enAppel) setBuddies(false); }, [enAppel]);
   // 📍 Épingle enfoncée dans une sortie : la position part toutes les 5 minutes (spec/buddies.md §5.9).
   useEpingle();
