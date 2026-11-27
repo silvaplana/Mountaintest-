@@ -7,6 +7,7 @@ import { initialesDe, lire as lireCompte } from '../compte/auth';
 import { epingleSurCarte, rangerEtiquettes } from '../PinLayer';
 import { couleur, Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
+import { voitures3d } from './voitures3d';
 import { COULEURS, dessinVoiture, FORMES, NOMS_COULEURS, type Couleur, type Forme } from './voitureDessin';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
@@ -302,7 +303,8 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([v.lon, v.lat]).addTo(map);
     });
     rangerEtiquettes(map);
-    return () => ms.forEach((m) => m.remove());
+    const fin3d = voitures3d(map, vs);
+    return () => { ms.forEach((m) => m.remove()); fin3d(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, cle]);
   return null;

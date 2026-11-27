@@ -1095,6 +1095,11 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   l'appli (`buddies/voitureDessin.ts`, avec la table modèle → silhouette), tout marche hors ligne.
   Serveur : colonnes `utilisateurs.voiture_modele`, `voiture_forme`, `voiture_couleur` (PUT /moi, vide = effacé) ;
   chaque voiture de la synchro porte `modele`, `forme`, `couleur` de son propriétaire.
+- **Voitures en 3D** (Seb, 27 novembre) : carte inclinée (relief allumé), chaque voiture garée devient une petite
+  maquette posée sur le relief à sa position, de la silhouette et de la couleur du profil (citadine rouge si rien
+  n'est choisi). Huit maquettes stylisées faites de blocs (roues, caisse, vitres, toit) extrudés par la carte
+  (`buddies/voitures3d.ts`) : rien à télécharger, hors ligne. Toujours vue de profil, l'avant à droite comme en 2D,
+  à taille fixe à l'écran (~90 px). Le dessin à plat s'efface ; initiales, heure et appui pour le détail restent.
 
 ### 7.20 Buddy counts de groupe et de sortie (Seb, 26 novembre 2026)
 
