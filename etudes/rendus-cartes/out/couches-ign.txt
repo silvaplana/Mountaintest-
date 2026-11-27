@@ -1,0 +1,20 @@
+GEOGRAPHICALGRIDSYSTEMS.MAPS.BDUNI.J1 | image/png | Plan IGN J+1
+GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2 | image/png | Plan IGN
+GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2.L93 | image/jpeg | Plan IGN v2 Lambert93
+GEOGRAPHICALGRIDSYSTEMS.TERRIER_V1 | image/png | Plan Terrier V1 (XVIIIe siècle)
+GEOGRAPHICALGRIDSYSTEMS.TERRIER_V2 | image/png | Plan Terrier V2 (XVIIIe siècle)
+IGNF_LIDAR-HD_CLASS | image/png | Carte de classe &quot;pretty&quot;
+IGNF_LIDAR-HD_MNH_ELEVATION.ELEVATIONGRIDCOVERAGE.SHADOW | image/png | MNH issu de LiDAR HD
+IGNF_LIDAR-HD_MNS_ELEVATION.ELEVATIONGRIDCOVERAGE.SHADOW | image/png | Relief du sursol HD (MNS LiDAR HD)
+IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.SHADOW | image/png | Relief du terrain HD (MNT LiDAR HD)
+IGNF_PLAN-IGN-HD | image/jpeg | Plan IGN HD
+INPE | image/png | Inventaire national des plans d&apos;eau
+MGP_PLANIFICATION_SCOT2023_ENERGIE | image/jpeg | Métropole du Grand Paris - Planification - SCOT2023 - Énergie
+MGP_PLANIFICATION_SCOT2023_PAYSAGE | image/jpeg | Métropole du Grand Paris - Planification - SCOT2023 - Paysage
+MGP_PLANIFICATION_SCOT2023_PROJET | image/jpeg | Métropole du Grand Paris - Planification - SCOT2023 - Projet
+MGP_PLANIFICATION_SCOT2023_RISQUE | image/jpeg | Métropole du Grand Paris - Planification - SCOT2023 - Risque
+MGP_PLANIFICATION_SCOT2023_TRAME-VERTE-BLEUE | image/jpeg | Métropole du Grand Paris - Planification - SCOT2023 - Trame verte et bleue
+MGP_PLANIFICATION_SCOT2023_TRANSPORT | image/jpeg | Métropole du Grand Paris - Planification - SCOT2023 - Transport
+ORTHOIMAGERY.ORTHOPHOTOS.LOW_RES.CRS84 | image/jpeg | Planet Observer
+PLANIGN.LIDAR.TERRAIN | image/png | Plan IGN Lidar Terrain
+CHOISIE: {"id":"IGNF_PLAN-IGN-HD","fmt":"image/jpeg"}
