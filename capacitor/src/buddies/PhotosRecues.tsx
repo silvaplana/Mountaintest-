@@ -1,13 +1,10 @@
 // 📸 Photos qui arrivent dans l'appli sans passer par « Déposer » (Seb, 25/11) :
-// - « partagées » depuis WhatsApp, la galerie… (PhotosRecuesPlugin.java) : on demande dans quel album les ranger ;
-// - prises avec l'appareil photo ouvert par 📷 (photoPrise.ts) : au retour dans l'appli, elles vont seules dans
-//   l'album de la sortie du jour (bandeau « Annuler »), ou on demande lequel s'il y en a plusieurs ou aucun.
-//   Une photo sans lieu reçoit la position du téléphone.
+// « partagées » depuis WhatsApp, la galerie… (PhotosRecuesPlugin.java) : on demande dans quel album les ranger.
+// (Les photos prises avec 📷 ne sont plus rangées seules au retour, Seb 27/11 : elles restent dans la galerie.)
+// Une photo sans lieu reçoit la position du téléphone.
 import { useEffect, useRef, useState } from 'react';
-import { App as CapApp } from '@capacitor/app';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { deposer } from './Album';
-import { photosPrises } from './photoPrise';
 import { aujourdhui, lire, retirerPhoto, type Sortie } from './store';
 
 const Recues = registerPlugin<{ addListener(e: 'recues', cb: (r: { chemins: string[] }) => void): Promise<{ remove: () => void }> }>('PhotosRecues');
@@ -44,17 +41,7 @@ export function PhotosRecues({ ici, onToast, onAlbum }: { ici: Ici; onToast: (m:
   useEffect(() => {
     if (Capacitor.getPlatform() !== 'android') return;
     const h = Recues.addListener('recues', (r) => { if (r.chemins?.length) setLot({ chemins: r.chemins, prises: false }); });
-    // Retour de l'appareil photo : les photos prises depuis l'appui sur 📷.
-    const a = CapApp.addListener('appStateChange', ({ isActive }) => {
-      if (!isActive) return;
-      void photosPrises().then((chemins) => {
-        if (!chemins.length) return;
-        const j = aujourdhui(), duJour = lire().sorties.filter((x) => x.debut <= j && j <= x.fin);
-        const l = { chemins, prises: true };
-        if (duJour.length === 1) void rangerRef.current(duJour[0], l); else setLot(l);
-      });
-    });
-    return () => { void h.then((x) => x.remove()); void a.then((x) => x.remove()); };
+    return () => { void h.then((x) => x.remove()); };
   }, []);
   // Le bandeau « Annuler » reste 8 secondes.
   useEffect(() => { if (!fait) return; const t = window.setTimeout(() => setFait(null), 8000); return () => window.clearTimeout(t); }, [fait]);

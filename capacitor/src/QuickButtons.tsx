@@ -13,7 +13,7 @@ const PocketMode = registerPlugin<{
   addListener(e: 'pocket', f: (r: { black: boolean }) => void): Promise<{ remove: () => Promise<void> }>;
 }>('PocketMode');
 /** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : ouvre l'application Appareil photo. */
-import { noterPrise, Photo } from './buddies/photoPrise';
+import { Photo } from './buddies/photoPrise';
 /** Plugin natif (shared/Weather.java) : ouvre l'appli Météo-France, ou sa page Météo montagne. */
 const Weather = registerPlugin<{ open(o: { mountain: boolean }): Promise<void> }>('Weather');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
@@ -388,10 +388,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       {/* 🔍 de nouveau visible sous ◎, même en colonne réduite (Seb, 25/11). */}
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
       <button disabled={!native} aria-label="Prendre une photo" data-help="Prendre des photos sans quitter l'application" {...lp('photo')}
-        onClick={() => {
-          noterPrise();
-          Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
-        }}>📷</button>
+        onClick={() => { Photo.open().catch((e) => onToast(String((e as Error).message ?? e))); }}>📷</button>
       <div className="pair" ref={pairRef}>
       <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion (et mode poche)" {...lp('avion')}
         onClick={() => {
