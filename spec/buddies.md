@@ -931,7 +931,8 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   les voitures, sans passer par la liste. Rien ne se superpose (Seb, 27/11) : épingles et voitures au même endroit
   s'écartent juste autour de leur endroit (cercles de plus en plus grands), reliées à leur vrai point par un fin trait
   terminé par un rond, sans couvrir mon point bleu, à chaque image du zoom ; la voiture a une aiguille dont le rond
-  touche l'endroit exact, et plus d'heure au-dessus (l'appui la montre), et leurs étiquettes s'empilent vers le haut, au-dessus des
+  touche l'endroit exact, et plus d'heure au-dessus (l'appui la montre) ; sa taille suit le zoom (×√2 par cran,
+  80 px au zoom 16, entre 34 et 120 px ; badge lisible), pareil en 3D (`longueurVoiturePx`), et leurs étiquettes s'empilent vers le haut, au-dessus des
   icônes ; refait à chaque zoom. Synchro toutes les 2 minutes, appli ouverte, pour recevoir positions et voitures garées.
 - **Push silencieux** (Seb, 27/11) : garer ou enlever sa voiture, allumer ou éteindre sa position envoie aux membres
   de mes groupes un message Firebase `type: synchro`, sans rien afficher ; appli à l'écran, elle se synchronise
