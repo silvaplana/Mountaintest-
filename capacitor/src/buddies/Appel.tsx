@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { api, connecte } from '../compte/auth';
 import { Natif, useBuddies, Visage } from './Buddies';
 import {
-  appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, refuser, sonner, suivreAppel, suivreDoigts,
+  appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, reprendreMaCarte, refuser, sonner, suivreAppel, suivreDoigts,
   type EtatAppel, type Sonnerie,
 } from './appel';
 import { appliquer, vue } from './store';
@@ -88,6 +88,7 @@ export function EcranSonnerie({ onToast }: { onToast: (m: string) => void }) {
 /** Écran 24 : la barre d'appel en haut, la carte reste à l'écran. */
 export function BarreAppel() {
   const e = useAppel();
+  const b = useBuddies();
   const [, tic] = useState(0);
   useEffect(() => {
     if (!e || e.phase === 'sonne') return;
@@ -96,13 +97,18 @@ export function BarreAppel() {
   }, [e]);
   if (!e || e.phase === 'sonne' || (e.phase === 'connexion' && e.de)) return null;
   const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
-  const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte' : e.suit ? `${e.suit.pseudo} te montre sa carte`
+  const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte'
     : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';
-  return <div className={`ap-barre${annonce || e.jeMontre || e.suit ? ' ap-annonce' : ''}`}>
+  // 🗺 Une seule personne montre sa carte : chez les autres, l'icône carte devient son badge (un appui : on arrête de suivre).
+  const suit = e.suit;
+  const guide = suit ? appliquer(b).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null } : null;
+  return <div className={`ap-barre${annonce || e.jeMontre || suit ? ' ap-annonce' : ''}`}>
     <span className="ap-icone">📞</span>
     <span className="bd-texte"><b>{titre}</b><small>{e.phase === 'en_ligne' ? enLigne(e) : e.nom}</small>
-      {e.phase === 'en_ligne' && !e.jeMontre && !e.suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
-    {e.phase === 'en_ligne' && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
+      {e.phase === 'en_ligne' && !e.jeMontre && !suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
+    {e.phase === 'en_ligne' && guide && <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${guide.pseudo}`} onClick={reprendreMaCarte}>
+      <Visage b={guide} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>}
+    {e.phase === 'en_ligne' && !guide && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
       className={e.jeMontre ? 'allume' : ''} onClick={() => montrerMaCarte(!e.jeMontre)}>
       <IconeSuisCarte /></button>}
     <button aria-label={e.muet ? 'Remettre le micro' : 'Couper le micro'} className={e.muet ? 'muet' : ''} onClick={() => void couperMicro(!e.muet)}>{e.muet ? '🔇' : '🎙'}</button>
