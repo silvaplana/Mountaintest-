@@ -1582,7 +1582,7 @@ export function App() {
       {buddies && <Buddies key={JSON.stringify(buddiesDepart ?? '')} onToast={toastDuree} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
-        onCarte={montrerBuddies} />}
+        onCarte={montrerBuddies} onMaPosition={() => { setBuddies(false); setBuddiesDepart(undefined); gpsOn(); }} />}
       {pointBuddy && (!buddies || !!pointBuddy.cache) && <PointSurCarte map={map} p={pointBuddy} />}
       <VoituresSurCarte map={map} />
       {positionsBuddy && !buddies && <PositionsBuddiesSurCarte key={positionsBuddy} map={map} centre={positionsBuddy} />}

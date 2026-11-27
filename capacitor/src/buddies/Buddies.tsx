@@ -666,7 +666,9 @@ export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boo
   /** Messagerie descendue sur la carte (Seb, 27/11) : elle reste ouverte et cache ces pixels du bas ; on montre au-dessus. */
   cache?: number };
 
-export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, depart }: {
+export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, onMaPosition, depart }: {
+  /** Ma position vient d'être allumée : retour sur la carte, centrée sur moi (Seb, 27/11). */
+  onMaPosition: () => void;
   onClose: () => void; onToast: (m: string, ms?: number) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
   /** Ouvrir une sortie sur la carte (écran 4), ou une trace partagée dans un groupe. */
   onCarte: (x: CarteBuddies) => void;
@@ -750,7 +752,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onSuperUser={() => setVue({ ecran: 'superUser' })}
     onPositionLong={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
     // Un appui : la sortie ouverte, sinon le groupe ouvert, sinon tous mes groupes (Seb, 26/11).
-    onPosition={() => void basculerPosition(e, ciblesIci(e, groupes, sorties, sortieIci, ici), onToast)}
+    onPosition={() => void basculerPosition(e, ciblesIci(e, groupes, sorties, sortieIci, ici), onToast).then((on) => { if (on) onMaPosition(); })}
     onMessages={() => {
       // 💬 : la conversation de la sortie ouverte (sur sa carte), sinon celle du groupe ouvert, sinon toutes.
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
