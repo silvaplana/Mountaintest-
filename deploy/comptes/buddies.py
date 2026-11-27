@@ -979,7 +979,7 @@ def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
-NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage"}
+NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage", "planning"}
 # Comme AppBase (§7.13) : 25 Mo par fichier ou photo, 100 Mo par vidéo ; un sondage a 2 à 10 réponses.
 MAX_FICHIER, MAX_VIDEO = 25 * 1024 * 1024, 100 * 1024 * 1024
 MAX_REPONSES = 10
@@ -1059,12 +1059,18 @@ def message(s: Session, u: Utilisateur, op: dict) -> None:
         fichier = fid
     if nature == "sondage":
         sondage = sondage_propre(op.get("sondage"))
+    planning = None
+    if nature == "planning":  # un planning du groupe de la conversation (§7.28) ; son nom pour la notification
+        pl = s.get(Planning, uuid.UUID(str(op["planning"])))
+        if pl is None or pl.groupe_id != (so.groupe_id if so else g.id):
+            raise Refus("Planning inconnu")
+        planning, texte = pl.id, pl.nom
     # Réponse à un message de la même conversation (sinon le rappel est ignoré).
     cible = s.get(MessageBuddy, uuid.UUID(str(op["repond_a"]))) if op.get("repond_a") else None
     repond_a = cible.id if cible and (cible.groupe_id, cible.sortie_id) == (None if so else g.id, so.id if so else None) else None
     s.add(MessageBuddy(id=mid, groupe_id=g.id if g else None, sortie_id=so.id if so else None, par=u.id, nature=nature,
                        texte=texte, lon=lon, lat=lat, photo_id=photo, bud=bool(op.get("bud")), repond_a=repond_a,
-                       fichier_id=fichier, sondage=sondage, transfere=bool(op.get("transfere"))))
+                       fichier_id=fichier, sondage=sondage, transfere=bool(op.get("transfere")), planning_id=planning))
 
 
 def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
@@ -1077,6 +1083,8 @@ def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
         return f"{'🎬' if f and f.mime.startswith('video/') else '📷' if f and f.mime.startswith('image/') else '📄'} {f.nom if f else 'Fichier'}"
     if m.nature == "sondage":
         return "📊 " + json.loads(m.sondage or "{}").get("question", "Sondage")
+    if m.nature == "planning":
+        return "📅 Planning : " + m.texte
     return m.texte[:200]
 
 
@@ -1142,7 +1150,7 @@ def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
         if g is None or not droits.admin_du_groupe(s, u, g):
             raise Refus("On ne supprime que ses messages")
     m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
-    m.fichier_id = m.sondage = None
+    m.fichier_id = m.sondage = m.planning_id = None
     for r in [*s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id == m.id)), *s.scalars(select(VoteBuddy).where(VoteBuddy.message_id == m.id))]:
         s.delete(r)
 
@@ -1281,7 +1289,7 @@ def traiter_signalement(s: Session, u: Utilisateur, op: dict) -> None:
     m = s.get(MessageBuddy, x.message_id) if x.message_id else None
     if suite == "efface" and m is not None and not m.supprime:
         m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
-        m.fichier_id = m.sondage = None
+        m.fichier_id = m.sondage = m.planning_id = None
     if suite == "retire" and m is not None and x.cible_id is not None:
         g = s.get(Groupe, s.get(Sortie, m.sortie_id).groupe_id if m.sortie_id else m.groupe_id)
         mb = membre(s, g.id, x.cible_id) if g is not None and g.nature == "bande" else None
@@ -1579,7 +1587,7 @@ def vue_message(m: MessageBuddy, reactions: list[dict[str, str]] | None = None, 
             "par": str(m.par), "nature": m.nature, "texte": m.texte, "lon": m.lon, "lat": m.lat,
             "photo": str(m.photo_id) if m.photo_id else None, "bud": m.bud, "cree_le": iso(m.cree_le),
             "repond_a": str(m.repond_a) if m.repond_a else None, "edite": m.edite_le is not None, "supprime": m.supprime,
-            "reactions": reactions or [], "transfere": m.transfere,
+            "reactions": reactions or [], "transfere": m.transfere, "planning": str(m.planning_id) if m.planning_id else None,
             "fichier": {"id": str(f.id), "nom": f.nom, "mime": f.mime, "taille": f.taille, "envoye": f.envoye} if f else None,
             "sondage": {**json.loads(m.sondage), "votes": votes or []} if m.sondage else None}
 

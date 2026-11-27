@@ -458,7 +458,10 @@ export function App() {
   useEffect(() => ecouterCompte(setToast, () => setAccount(true), () => setAccount(false)), []);
   useEffect(() => appliquerIcones(), []);
   // 👥 Liens d'invitation (fr.assomoutain.rando://rejoindre?c=…) et synchro des Buddies.
-  useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
+  useEffect(() => ecouterBuddies(setToast, (planning) => {
+    if (planning) { setCarteSortie(null); setBuddiesDepart({ ecran: 'planning', id: planning }); }
+    setBuddies(true);
+  }), []);
   // 📞 Appel : la sonnerie (écran 10) et, une fois en ligne, la carte à l'écran avec la barre d'appel (écran 24).
   useSonnerie(setToast);
   // 🔔 Toucher la notification d'un message : sa conversation s'ouvre (celle d'une sortie, sur sa carte).
@@ -1585,6 +1588,8 @@ export function App() {
         onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCount={() => { setBuddiesDepart({ ecran: 'count', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onDodo={() => { setBuddiesDepart({ ecran: 'dodo', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
+        onPlanning={(id, remplir) => { setBuddiesDepart({ ecran: remplir ? 'dispos' : 'planning', id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
+        onNouveauPlanning={() => { setBuddiesDepart({ ecran: 'nvPlanning', groupe: carteSortie.sortie.groupe, poster: { sortie: carteSortie.sortie.id } }); setCarteSortie(null); setBuddies(true); }}
         onToast={setToast} map={map} />}
       {associer && traceMenu && selected && isMine(selected.id) && <AssocierPanel nom={selected.name} lien={selected.lien ?? null}
         ouverte={carteSortie?.sortie ?? null} onFermer={() => setAssocier(false)}

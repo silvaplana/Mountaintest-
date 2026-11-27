@@ -434,6 +434,8 @@ class MessageBuddy(Base):
     fichier_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     sondage: Mapped[str | None] = mapped_column(Text)
     transfere: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Un planning du groupe de la conversation, en carte dans le fil (Seb, 27/11, §7.28).
+    planning_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
 

@@ -997,3 +997,19 @@ def test_inviter_un_ami_a_installer_l_appli(client, monkeypatch):
     (a, sujet, texte), = envoyes
     assert a == "paul@exemple.fr" and "Salut Paul" in texte and "mountainbuddies.silvaplana.cloud/app/apk/" in texte and "bien plus encore" in texte
     assert client.post("/inviter-appli", headers=entete(), json={"email": "pas-une-adresse"}).status_code == 409
+
+
+def test_planning_dans_la_messagerie(client):
+    """Un planning en carte dans le fil (§7.28) : seulement un planning du groupe de la conversation ; supprimé, la carte s'en va."""
+    gid, julie = bande_avec_julie(client)
+    autre = nouveau_groupe("Escalade")
+    pl, ailleurs = nouveau_planning(gid), nouveau_planning(autre["groupe"])
+    bon = nouveau_message(groupe=gid, nature="planning", texte="", planning=pl["planning"])
+    faux = nouveau_message(groupe=gid, nature="planning", texte="", planning=ailleurs["planning"])
+    r = sync(client, ops=[autre, pl, ailleurs, bon, faux])
+    assert len(r["refus"]) == 1
+    m = next(x for x in sync(client, sub="julie")["messages"] if x["id"] == bon["message"])
+    assert (m["nature"], m["planning"], m["texte"]) == ("planning", pl["planning"], pl["nom"])
+    sync(client, ops=[{"id": "x", "type": "retirer_message", "message": bon["message"]}])
+    m = next(x for x in sync(client, sub="julie")["messages"] if x["id"] == bon["message"])
+    assert m["supprime"] and m["planning"] is None

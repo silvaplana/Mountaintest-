@@ -101,6 +101,7 @@ COLONNES_AJOUTEES = [
     ("messages_buddies", "fichier_id", "UUID"),
     ("messages_buddies", "sondage", "TEXT"),
     ("messages_buddies", "transfere", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("messages_buddies", "planning_id", "UUID"),
     ("photos", "video", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("sorties", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
     ("groupes", "supprime_le", "TIMESTAMP WITH TIME ZONE"),

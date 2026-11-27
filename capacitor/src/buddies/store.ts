@@ -83,7 +83,7 @@ export type Hebergement = {
 };
 /** 💬 Message d'un groupe ou d'une sortie (§5.6) : texte, « je suis ici » (point) ou photo de l'album. */
 export type MessageBuddy = {
-  id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo' | 'fichier' | 'sondage'; texte: string;
+  id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo' | 'fichier' | 'sondage' | 'planning'; texte: string;
   lon: number | null; lat: number | null; photo: string | null; cree_le: string; attente?: boolean;
   /** 🐻 Réponse de Bud (§5.12), demandée par `par`. */
   bud?: boolean;
@@ -91,6 +91,8 @@ export type MessageBuddy = {
   repond_a?: string | null; edite?: boolean; supprime?: boolean; reactions?: { qui: string; emoji: string }[];
   /** Étape 3 : fichier joint (photo, vidéo, document), sondage, transféré. */
   fichier?: FichierMessage | null; sondage?: Sondage | null; transfere?: boolean;
+  /** 📅 Un planning du groupe, en carte dans le fil (Seb, 27/11, §7.28). */
+  planning?: string | null;
 };
 export type FichierMessage = { id: string; nom: string; mime: string; taille: number; envoye: boolean };
 export type Sondage = { question: string; multiple: boolean; options: string[]; votes: { qui: string; option: number }[] };
@@ -296,7 +298,7 @@ export function vue(e: Etat): {
         photo: (op.photo as string) ?? null, cree_le: quand(op), attente: true, ...(op.bud ? { bud: true } : {}),
         repond_a: (op.repond_a as string) ?? null, reactions: [], transfere: !!op.transfere,
         fichier: op.fichier ? { ...(op.fichier as FichierMessage), envoye: !!(op.fichier as FichierMessage).envoye } : null,
-        sondage: op.sondage ? { ...(op.sondage as Omit<Sondage, 'votes'>), votes: [] } : null });
+        sondage: op.sondage ? { ...(op.sondage as Omit<Sondage, 'votes'>), votes: [] } : null, planning: (op.planning as string) ?? null });
     } else if (op.type === 'renommer_sortie') {
       const k = sorties.findIndex((y) => y.id === op.sortie);
       if (k >= 0) sorties[k] = { ...sorties[k], nom: String(op.nom), attente: true };
@@ -715,7 +717,7 @@ export function proposerHebergement(sorties: string[], h: { nom: string; nature:
 }
 /** 💬 Envoyer dans la conversation d'un groupe ou d'une sortie ; part au retour du réseau. */
 export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { nature?: MessageBuddy['nature']; texte?: string; lon?: number; lat?: number; photo?: string; bud?: boolean;
-  repond_a?: string; fichier?: FichierMessage; sondage?: Omit<Sondage, 'votes'>; transfere?: boolean }) {
+  repond_a?: string; fichier?: FichierMessage; sondage?: Omit<Sondage, 'votes'>; transfere?: boolean; planning?: string }) {
   const texte = (m.texte ?? '').trim().slice(0, 2000);
   const nature = m.nature ?? 'texte';
   if (nature === 'texte' && !texte) return '';
@@ -723,7 +725,7 @@ export function envoyerMessage(dest: { groupe?: string; sortie?: string }, m: { 
   ajouter({ type: 'message', message, ...(dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe }), nature, texte,
     ...(m.lon != null && m.lat != null ? { lon: Math.round(m.lon * 1e6) / 1e6, lat: Math.round(m.lat * 1e6) / 1e6 } : {}),
     ...(m.photo ? { photo: m.photo } : {}), ...(m.bud ? { bud: true } : {}), ...(m.repond_a ? { repond_a: m.repond_a } : {}),
-    ...(m.fichier ? { fichier: m.fichier } : {}), ...(m.sondage ? { sondage: m.sondage } : {}), ...(m.transfere ? { transfere: true } : {}) });
+    ...(m.fichier ? { fichier: m.fichier } : {}), ...(m.sondage ? { sondage: m.sondage } : {}), ...(m.transfere ? { transfere: true } : {}), ...(m.planning ? { planning: m.planning } : {}) });
   if (m.fichier && !m.transfere) ecrire({ ...lire(), envoisFichiers: [...(lire().envoisFichiers ?? []), m.fichier.id] });
   return message;
 }

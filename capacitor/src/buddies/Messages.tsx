@@ -18,6 +18,7 @@ import {
 } from './store';
 import { TrashIcon } from '../icones';
 import { FlagIcon, Signaler } from './Moderation';
+import { CartePlanning, ChoisirPlanning, PlanningIcon } from './Planning';
 
 /**
  * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par groupe et par sortie.
@@ -40,6 +41,9 @@ export type Actions = {
   onTrace: (t: TraceBuddy) => void;
   onHebergement?: (h: Hebergement) => void;
   onPhoto?: () => void;
+  /** 📅 Ouvrir un planning du fil (`remplir` : directement mes dispos), ou en créer un pour l'envoyer ici (Seb, 27/11). */
+  onPlanning?: (id: string, remplir?: boolean) => void;
+  onNouveauPlanning?: () => void;
 };
 
 // Comme la messagerie d'AppBase (Seb, 24 novembre) : réactions une par buddy, émojis du 🙂 (montagne au lieu de danse).
@@ -89,6 +93,9 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const autres = membres.map((b) => b.id).filter((id) => id !== moi && id !== 'moi');
   const groupe = appliquer(e).find((g) => g.id === (sortie?.groupe ?? dest.groupe));
   const admin = !!groupe && estAdmin(groupe, e);
+  // 📅 Un planning appartient à un groupe : seulement dans la conversation d'un groupe ou de l'une de ses sorties.
+  const plannings = groupe?.nature === 'bande' && a.onPlanning ? v.plannings.filter((p) => p.groupe === groupe.id) : null;
+  const [choixPlanning, setChoixPlanning] = useState(false);
   // Ouverte : on regarde les nouveaux messages toutes les 5 s (« écrit… », « en ligne »), et on les marque lus (✓✓ bleues).
   useEffect(() => {
     const t = setInterval(() => { void synchroniser().catch(() => undefined); }, 5_000);
@@ -166,7 +173,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   const choisis = v.messages.filter((m) => selection.includes(m.id));
   const seul = choisis.length === 1 ? choisis[0] : null;
   const peutModifier = !!seul && seul.par === moi && !seul.bud && seul.nature === 'texte' && Date.now() - Date.parse(seul.cree_le) < DELAI_MODIFIER;
-  const aTransferer = choisis.filter((m) => !m.supprime && !m.sondage && m.nature !== 'photo' && !m.bud);
+  const aTransferer = choisis.filter((m) => !m.supprime && !m.sondage && m.nature !== 'photo' && m.nature !== 'planning' && !m.bud);
   const peutSupprimer = choisis.length > 0 && choisis.every((m) => m.par === moi || m.par === 'moi' || admin);
   const envoyerSuppressions = (ids: string[]) => { ids.forEach(retirerMessage); void synchroniser().catch(() => undefined); };
   const supprimer = () => {
@@ -192,7 +199,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
 
   const montrees = court ? bulles.slice(-2) : bulles;
   const lectures = e.lectures ?? [];
-  const ctx: Contexte = { moi, nom, photos: v.photos, messages: v.messages, autres, lectures, selection, aSupprimer, clignote,
+  const ctx: Contexte = { moi, nom, photos: v.photos, plannings: v.plannings, messages: v.messages, autres, lectures, selection, aSupprimer, clignote,
     appui: court ? undefined : appui, toast: onToast, allerA, reagir: (m, x) => { reagir(m.id, x); setSelection([]); void synchroniser().catch(() => undefined); } };
   return <div className={`bd-conv${court ? ' court' : ''}`}>
     {selection.length > 0 && <div className="bd-selection">
@@ -232,7 +239,11 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
       <button disabled={occupe} onClick={() => { setMenu(false); void point(); }}><span>📍</span>Ma position</button>
       <button onClick={() => { setMenu(false); piece.current?.click(); }}><span>📄</span>Fichier</button>
       <button onClick={() => { setMenu(false); setSondage(true); }}><span>📊</span>Sondage</button>
+      {plannings && <button onClick={() => { setMenu(false); setChoixPlanning(true); }}><span><PlanningIcon /></span>Planning</button>}
     </div>}
+    {choixPlanning && plannings && <ChoisirPlanning plannings={plannings} onFermer={() => setChoixPlanning(false)}
+      onNouveau={a.onNouveauPlanning && (() => { setChoixPlanning(false); a.onNouveauPlanning!(); })}
+      onChoisir={(p) => { envoyerMessage(dest, { nature: 'planning', planning: p.id, texte: p.nom }); setChoixPlanning(false); void synchroniser().catch(() => undefined); }} />}
     {sondage && <NouveauSondage onFermer={() => setSondage(false)} onEnvoyer={(x) => { envoyerMessage(dest, { nature: 'sondage', sondage: x }); setSondage(false); void synchroniser().catch(() => undefined); }} />}
     {aSignaler && <Signaler message={aSignaler.id} buddy={aSignaler.bud ? undefined : membres.find((x) => x.id === aSignaler.par) ?? { id: aSignaler.par, pseudo: nom(aSignaler.par), photo: null }}
       onFermer={() => setASignaler(null)} onFait={(t) => { setASignaler(null); montrer(t); }} />}
@@ -283,7 +294,7 @@ function useAppuiLong(selection: string[], setSelection: (f: (s: string[]) => st
 }
 
 type Contexte = {
-  moi: string; nom: (id: string) => string; photos: ReturnType<typeof vue>['photos']; messages: MessageBuddy[]; autres: string[];
+  moi: string; nom: (id: string) => string; photos: ReturnType<typeof vue>['photos']; plannings: ReturnType<typeof vue>['plannings']; messages: MessageBuddy[]; autres: string[];
   lectures: Lecture[]; selection: string[]; aSupprimer: string[]; clignote: string | null;
   appui?: ReturnType<typeof useAppuiLong>; toast: (m: string) => void; allerA: (id: string) => void; reagir: (m: MessageBuddy, emoji: string | null) => void;
 };
@@ -324,7 +335,7 @@ function Texte({ t }: { t: string }) {
     ? <a key={i} href={x.lien} target="_blank" rel="noreferrer" onClick={(ev) => ev.stopPropagation()}>{x.texte}</a> : x.texte)}</span>;
 }
 
-function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto }: Actions & { b: Bulle; c: Contexte }) {
+function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }: Actions & { b: Bulle; c: Contexte }) {
   const { moi, nom } = c;
   const [voir, setVoir] = useState(false);
   if (b.genre === 'trace') {
@@ -387,6 +398,11 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto }: Actions & 
   } else if (m.fichier) {
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} fichier${classe}`} {...appui}>{qui}{transfere}{rappel}
       <Piece f={m.fichier} attente={!!m.attente || (mien && !m.fichier.envoye)} onErreur={c.toast} />{m.texte && <Texte t={m.texte} />}{heure}</div>;
+  } else if (m.nature === 'planning') {
+    const p = c.plannings.find((x) => x.id === m.planning);
+    corps = <div className={`bd-bulle${mien ? ' mien' : ''} planning${classe}`} {...appui}>{qui}{rappel}
+      {p ? <CartePlanning p={p} onOuvrir={(remplir) => onPlanning?.(p.id, remplir)} />
+        : <span className="bd-msg">📅 {m.texte || 'Planning'} · plus disponible</span>}{heure}</div>;
   } else if (m.sondage) {
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} sondage${classe}`} {...appui}>{qui}<UnSondage m={m} c={c} />{heure}</div>;
   } else {
