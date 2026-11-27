@@ -158,7 +158,7 @@ Dans la barre étendue de la carte, 👥 ouvre Buddies (pastille = du nouveau) ;
 (profil, compte, réglages, état hors ligne). 👤 reprend l'écran « Mon compte » existant. **(Seb)**
 
 Depuis le 24/11 (Seb), la carte n'a plus qu'une colonne d'icônes : réduite = ✕, flèche, ◎, 🔍, 📷 ;
-étendue = ✕, flèche, ◎, 🔍, 📷, ✈, ✏, Calques, activité, 👥, 🌦 (🏔 à sa gauche, comme 👖 pour ✈).
+étendue = ✕, flèche, ◎, 🔍, 📷, ✈, ✏, Calques, activité, 🌦 (🏔 à sa gauche, comme 👖 pour ✈), 👥 (tout en bas, le bouton important, Seb 26/11).
 🔍 (chercher un lieu) est de nouveau un bouton visible juste sous ◎, même en barre réduite (Seb, 25/11 ; avant : appui long sur ◎).
 La loupe 🔍 (Seb, 25/11) cherche d'abord dans les noms de lieux gardés sur le téléphone (sommets, cols, crêtes,
 lieux-dits, sources, refuges, calanques… de la BD TOPO IGN complétée par OpenStreetMap), téléchargés avec les cartes
@@ -409,9 +409,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 3** : un groupe, ses visages (toucher : inviter, nommer admin, retirer, quitter).
   Le dernier admin qui part passe la main au plus ancien membre ; un groupe vide disparaît.
 - **Écran 20** : photo, nom, invitations par Contacts (sélecteur d'Android, sans permission
-  « contacts »), Partager, Téléphone (SMS) ou QR code. 26/11 : « Mail » devient « Partager » (feuille de
-  partage du téléphone : WhatsApp, mail, SMS…, avec le lien réutilisable) ; l'appli n'envoie pas de mail
-  elle-même (pas de Brevo pour l'instant). L'invitation part au serveur avant le message, pour que le lien
+  « contacts »), Mail, Téléphone (SMS) ou QR code. 26/11 au soir : « Partager » (qui avait remplacé « Mail »)
+  redevient « Mail », envoyé par le serveur avec Brevo (§7.23). L'invitation part au serveur avant le message, pour que le lien
   marche tout de suite ; valable 30 jours. La page du lien (rejoindre.html) prend les couleurs de l'appli,
   un seul bouton, et réessaie une minute avant de dire « pas reconnu » (plus de faux « expiré »).
 - **Colonne d'icônes** : visible partout ; 💶 ouvre le partage des frais et 🏨 l'hébergement
@@ -1036,10 +1035,52 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 ### Accueil et aide (Seb, 26/11)
 
 - **Panneau d'accueil** (Accueil.tsx) à la première ouverture : « Mountain Buddies, c'est la carte magique dans ta
-  poche, même sans réseau, pour préparer et vivre tes sorties outdoor. Et c'est collaboratif : traces, topos, photos,
+  poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor. Et c'est collaboratif : traces, topos, photos,
   vidéos, vidéos 3D, dépenses communes, positions et messagerie, partagées avec ta bande. » Puis l'aide : appui long
   sur la flèche, sur la carte comme dans le second écran (👥), celui des « buddies ». Un bouton « C'est parti ».
 - Case « Afficher l'aide à l'ouverture » dans Mon compte : le panneau revient à chaque ouverture.
 - **Aide** : appui long sur la flèche, une bulle par bouton, sur la carte et dans la colonne des buddies. Une seule
   bulle pour les calques et pour l'activité (sous-icônes cachées) ; pas de bulle pour les 4 réglages du suivi de
   trace ni pour la clé du Super User. « Touche n'importe où pour fermer l'aide » en haut, côté opposé aux icônes.
+
+### 7.23 Invitations par mail, envoyées par le serveur (Seb, 26 novembre 2026)
+
+- Écran 20 : le bouton « Partager » est remplacé par « ✉️ Mail », sur le modèle de Téléphone : prénom, adresse,
+  « Envoyer l'invitation ». Pas de 5e bouton (Seb : « partager ne sert à rien »). L'appui long sur un groupe garde
+  son Partager (§3, appui long).
+- Le serveur comptes envoie le mail par Brevo (SMTP, comme AppBase : `deploy/comptes/mails.py`), après
+  l'opération `inviter` de canal « mail », en arrière-plan. Expéditeur « Mountain Buddies »
+  `SMTP_FROM_EMAIL` (mountainbuddies@silvaplana.cloud) ; réponses à l'adresse de celui qui invite.
+  Configuration : `SMTP_*` de `~/mountaintest/comptes.env` (copiée de contretemps par l'installeur des comptes,
+  la même que pour les codes de connexion Logto).
+- Le mail (maquette maquettes/mail-invitation/) : « Seb t'invite dans « groupe » sur Mountain Buddies », texte
+  qui finit par « … positions, messages et bien plus encore. », lien écrit en clair (Brevo réécrit les liens
+  cliquables), valable 30 jours. On dit « groupe », jamais « bande » (Seb).
+- Colonne `invitations.mail` : « envoye », « erreur », vide tant que pas envoyé. Sous l'invitation : « 🕓 mail en
+  attente de réseau », « ✉️ mail envoyé », ou « ⚠ mail non parti · Renvoyer » (opération `renvoyer_mail`).
+- Profil › « Inviter un ami » (Seb, 26/11) : prénom et adresse, sans groupe ; le serveur (`POST /inviter-appli`)
+  envoie tout de suite un mail avec le lien de la page de téléchargement (…/mountaintest/apk/, qui envoie les
+  iPhone vers la version web). Demande le réseau (bouton grisé sinon), « Le mail n'est pas parti » en cas d'échec.
+
+### 7.24 Play Store : supprimer mon compte, signaler, bloquer (Seb, 27 novembre 2026)
+
+Exigés par Google pour une appli avec comptes et messagerie (maquettes maquettes/play-store-compte-signaler/,
+validées par Seb le 27/11).
+
+- **Supprimer mon compte** : Profil, sous « Se déconnecter ». Un écran dit ce qui est effacé (profil, photo, e-mail,
+  photos partagées, positions, voiture, dispos, place dans les groupes et sorties), ce qui reste pour les buddies
+  (messages signés « Ancien buddy », dépenses des Buddy counts) et ce qui reste sur le téléphone (traces, cartes).
+  Bouton rouge, puis déconnexion. Serveur : `DELETE /moi` anonymise la fiche (`utilisateurs.supprime_le`,
+  `logto_id = "supprime:<id>"`) et supprime l'utilisateur chez Logto ; se reconnecter donne un compte neuf.
+  Sur le web (pour qui n'a plus l'appli) : page `compte.html`, qui ouvre la version web sur `?compte=supprimer`.
+- **Signaler** : appui long sur le message d'un autre (ou de Bud) › drapeau ; ou un membre dans la liste des membres
+  d'un groupe. Un motif (insultant, choquant, pub ou arnaque, autre), un mot facultatif, « Bloquer X aussi » coché
+  d'office. Opération `signaler`, table `signalements` (extrait du message et lieu gardés). Les Super Users sont
+  prévenus ; ils traitent dans l'espace 🔑 › Signalements : Ignorer, Effacer le message, Retirer X du groupe
+  (opération `traiter_signalement`).
+- **Bloquer** : depuis Signaler ou la liste des membres ; Profil › Personnes bloquées pour débloquer. Table
+  `blocages`. La personne bloquée reste dans les groupes, n'est pas prévenue ; ses messages se replient
+  (« Message d'une personne bloquée · Afficher »), elle ne voit plus ma position ni ma voiture, et ses messages ne
+  me notifient plus.
+- **Pages publiques** (`capacitor/public/`) : `conditions.html` et `confidentialite.html` (liens dans Profil › Mon
+  compte) ; responsable Sébastien Richard, contact mountainbuddies@silvaplana.cloud (renvoi vers son Gmail).

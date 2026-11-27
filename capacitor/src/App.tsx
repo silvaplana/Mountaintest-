@@ -5,7 +5,7 @@ import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
 import type { Map as MlMap } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BASE_MODES, type Bbox, DEFAULT_SCAN_KEY, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
+import { BASE_MODES, type Bbox, DEFAULT_SCAN_KEY, fondsPermis, PLAY, LAYERS, OFFLINE_MAX_ZOOM, OFFLINE_MIN_ZOOM, offlinePlan, wmtsTileUrl, type BaseMode } from './config';
 import { decideSettings, sameSettings } from './gps/adaptive';
 import { EcoLocation } from './gps/ecoLocation';
 import { filterForMode } from './gps/filter';
@@ -16,7 +16,7 @@ import { QuickButtons } from './QuickButtons';
 import { ScaleBar } from './map/ScaleBar';
 import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
-import { Account, ecouterCompte } from './Account';
+import { Account, ecouterCompte, suppressionDemandee } from './Account';
 import { appliquerIcones } from './doigt';
 import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
@@ -129,7 +129,7 @@ export function App() {
   const sheet = useSheet('menu', { depart: 0, masque: false });
   const open = sheet.cran > 0;
   const setOpen = (v: boolean) => { if (v) setBandeau(true); sheet.setCran((c) => (!v ? 0 : c === 0 ? 1 : c)); };
-  const [baseLayer, setBaseLayer] = useState<BaseMode>('auto');
+  const [baseLayer, setBaseLayer] = useState<BaseMode>(PLAY ? 'planign' : 'auto');
   const [showSlopes, setShowSlopes] = useState(false);
   const [showDrones, setShowDrones] = useState(false);
   /** Calque « Hors ligne » (Seb, 26/11) : voile sur ce qui n'est pas gardé, traces gardées en vert, place prise en bas. */
@@ -205,7 +205,7 @@ export function App() {
       for (const bb of bbs) for (const t of tilesForBbox(bb, a, b)) seen.set(`${t.z}/${t.x}/${t.y}`, t);
       return [...seen.values()];
     };
-    const steps = offlineSteps(tilesFor, bbox, 'auto');
+    const steps = offlineSteps(tilesFor, bbox, fonds.includes('auto') ? 'auto' : 'planign');
     const total = steps.slice(0, -1).reduce((n, st) => n + st.tiles.length, 0);
     if (total > MAX_ZONE_TILES) { setToast(`Trop de tuiles d'un coup (${sq.length}) : fais un rectangle plus petit.`); return; }
     setToast(`Téléchargement de ${sq.length} tuile${sq.length > 1 ? 's' : ''}…`);
@@ -229,7 +229,7 @@ export function App() {
   const [expenses, setExpenses] = useState(false);
   /** 👥 Mon compte (connexion Logto, marche hors ligne une fois connecté). */
   // Tant qu'on n'est pas connecté, l'écran de connexion s'ouvre au lancement (« Plus tard » le ferme) : demande de Seb.
-  const [account, setAccount] = useState(() => !connecte());
+  const [account, setAccount] = useState(() => !connecte() || suppressionDemandee());
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);
   /** ‹ depuis la carte d'une sortie : on revient sur son groupe. */
@@ -244,6 +244,9 @@ export function App() {
   /** Panneau de partage d'une trace (écran 22). */
   const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void; hebergement?: Lodging } | null>(null);
   const buddiesEtat = useBuddies();
+  // Fonds de carte permis : tous, sauf dans la version Play sans SCAN 25 débloqué (spec/play-store.md).
+  const fonds = fondsPermis(!!buddiesEtat.scan25);
+  useEffect(() => { if (!fonds.includes(baseLayer)) setBaseLayer('planign'); }, [fonds, baseLayer]);
   const [lodging, setLodging] = useState(false);
   const [lodgingPins, setLodgingPins] = useState<PlacedLodging[]>([]);
   /** Loupe 🔍 « refuge », « gîte », « auberge », « hébergement »… (+ lieu) : sur la carte, comme les hébergements trouvés. */
@@ -1451,11 +1454,10 @@ export function App() {
         onSearch={() => { setNature(false); setSearching(true); }}
         onBaseLayer={() => {
           // Fond de carte : Carte auto → SCAN 25 → Plan IGN → …
-          const keys = Object.keys(BASE_MODES) as BaseMode[];
-          const next = keys[(keys.indexOf(baseLayer) + 1) % keys.length];
+          const next = fonds[(fonds.indexOf(baseLayer) + 1) % fonds.length];
           setBaseLayer(next); setToast(`Fond de carte : ${BASE_MODES[next]}`);
         }}
-        baseLayer={baseLayer} onPickBaseLayer={(m) => { setBaseLayer(m); setToast(`Fond de carte : ${BASE_MODES[m]}`); }}
+        fonds={fonds} baseLayer={baseLayer} onPickBaseLayer={(m) => { setBaseLayer(m); setToast(`Fond de carte : ${BASE_MODES[m]}`); }}
         slopes={showSlopes} onSlopes={setShowSlopes} drones={showDrones} onDrones={setShowDrones} offline={showOffline} onOffline={toggleOffline} shade={showShade} onShade={setShowShade}
         tilted={tilted} onTilt3d={() => map?.easeTo({ pitch: 60, duration: 900 })} onFlat={() => map?.easeTo({ pitch: 0, bearing: 0, duration: 700 })}
         forests={forests.length > 0 || forestsLoading} onForests={() => {

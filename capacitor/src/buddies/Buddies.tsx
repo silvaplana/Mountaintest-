@@ -10,6 +10,7 @@ import { TracesAssociees } from './Associer';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
+import { BlockIcon, FlagIcon, Signaler, Signalements } from './Moderation';
 import type { ConversationNotif } from './notifs';
 import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
 import { BuddyCount, Comptes, NouveauCount, NouveauCountSortie, sortieDuCount, sortiesAvecCount, UneDepense } from './BuddyCount';
@@ -24,9 +25,9 @@ import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  aDeux, annulerInvitation, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
-  type Buddy, type Canal, type Etat, type Groupe, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
+  aDeux, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
+  type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
 /**
@@ -93,6 +94,14 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: () => voi
     onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
   };
   const subs: Promise<{ remove: () => Promise<void> }>[] = [];
+  // Version web (ordinateur, iPhone) : rejoindre.html renvoie sur …/mountaintest/?rejoindre=CODE.
+  const web = new URLSearchParams(window.location.search).get('rejoindre');
+  if (!Capacitor.isNativePlatform() && web) {
+    const u = new URL(window.location.href);
+    u.searchParams.delete('rejoindre');
+    window.history.replaceState(null, '', u.toString());
+    traiter(`${SCHEMA}://rejoindre?c=${encodeURIComponent(web)}`);
+  }
   if (Capacitor.isNativePlatform()) {
     subs.push(CapApp.addListener('appUrlOpen', ({ url }) => traiter(url)));
     void CapApp.getLaunchUrl().then((r) => { if (r?.url) traiter(r.url); }).catch(() => undefined);
@@ -134,6 +143,14 @@ function resume(g: Groupe) {
 }
 
 const CANAL: Record<Canal, string> = { sms: 'SMS envoyé', contacts: 'SMS envoyé', mail: 'mail envoyé', qr: 'QR code', lien: 'lien envoyé' };
+
+/** Sous une invitation : par mail, c'est le serveur qui l'envoie (Brevo) ; « Renvoyer » s'il n'est pas parti. */
+function EtatInvitation({ i }: { i: Invitation }) {
+  if (i.canal !== 'mail') return <small className="bd-etat">{i.attente ? '🕓 ' : ''}{CANAL[i.canal]}</small>;
+  if (i.attente) return <small className="bd-etat">🕓 mail en attente de réseau</small>;
+  if (i.mail === 'erreur') return <small className="bd-etat bd-erreur">⚠ mail non parti · <button className="bd-lien" onClick={() => renvoyerMail(i.id)}>Renvoyer</button></small>;
+  return <small className="bd-etat">{i.mail === 'envoye' ? '✉️ mail envoyé' : '🕓 mail en cours d’envoi'}</small>;
+}
 
 /** Photo choisie dans la galerie, réduite à 256 px (JPEG en data: URL, comme la photo du profil). */
 function reduire(f: File): Promise<string> {
@@ -260,7 +277,8 @@ function CleIcon() {
   </svg>;
 }
 /** Messages de support pas encore lus (pastille de la clé). */
-const supportNonLus = (e: Etat) => { const v = vueSorties(e); return demandesSupport(e).reduce((n, g) => n + nonLus(e, g.id, v.messages), 0); };
+const supportNonLus = (e: Etat) => { const v = vueSorties(e); return demandesSupport(e).reduce((n, g) => n + nonLus(e, g.id, v.messages), 0)
+  + (e.signalements ?? []).filter((x) => !x.suite).length; };
 
 /** Espace du Super User (Seb, 26/11) : les demandes de support ; plus tard la place serveur, les comptes… */
 function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir: (id: string) => void; onRetour: () => void; onClose: () => void }) {
@@ -282,6 +300,8 @@ function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir
         {n > 0 && <span className="bd-nonlu">{n}</span>}
       </button>;
     }) : <p className="bd-vide">Pas encore de demande</p>}
+    <h3 className="bd-section">Signalements</h3>
+    <Signalements e={e} />
     <h3 className="bd-section">Plus tard</h3>
     <p className="hint">La place sur le serveur de chacun, les comptes, les chiffres d'usage…</p>
   </div>;
@@ -384,27 +404,15 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   const envoyer = async (canal: Canal, nom: string, contact: string) => {
     const code = nouveauCode();
     // L'invitation part au serveur avant le SMS : le copain peut ouvrir le lien tout de suite.
+    // Par mail, c'est le serveur qui envoie le mail (Brevo), au retour du réseau si besoin.
     onInvite({ canal, nom: nom.trim() || contact, contact, code });
     setForm(null);
+    if (canal === 'mail') return;
     try {
       if (Capacitor.isNativePlatform()) await Natif.sms({ numero: contact, texte: texte(code) });
       else window.location.href = `sms:${encodeURIComponent(contact)}?body=${encodeURIComponent(texte(code))}`;
     } catch (err) { onToast(String((err as Error).message)); }
   };
-  /** Par la feuille de partage du téléphone (WhatsApp, mail, SMS…) avec le lien réutilisable, comme le QR code.
-   * Remplace « Mail » (Seb, 26/11) : l'appli n'envoie pas de mail elle-même. */
-  const partager = async () => {
-    if (!pret()) return;
-    let code = qrExistant;
-    if (!code) { code = nouveauCode(); onInvite({ canal: 'qr', nom: '', contact: '', code }); }
-    await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]);
-    try {
-      if (Capacitor.isNativePlatform()) await Natif.partager({ titre: nomGroupe, texte: texte(code) });
-      else if (navigator.share) await navigator.share({ title: nomGroupe, text: texte(code) });
-      else { await navigator.clipboard.writeText(texte(code)); onToast('Copié : colle-le dans un message'); }
-    } catch { /* annulé */ }
-  };
-
   const contacts = async () => {
     if (!pret()) return;
     if (!Capacitor.isNativePlatform()) { setForm({ canal: 'sms', nom: '', contact: '' }); return; }
@@ -424,7 +432,7 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
   return <>
     <div className="bd-inviter">
       <button onClick={() => void contacts()}><span>📇</span>Contacts</button>
-      <button onClick={() => void partager()}><span>📤</span>Partager</button>
+      <button onClick={() => { if (pret()) setForm({ canal: 'mail', nom: '', contact: '' }); }}><span>✉️</span>Mail</button>
       <button onClick={() => { if (pret()) setForm({ canal: 'sms', nom: '', contact: '' }); }}><span>📱</span>Téléphone</button>
       <button onClick={montrerQr}><span>🔳</span>QR code</button>
     </div>
@@ -434,14 +442,15 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
       <label className="field">{form.canal === 'mail' ? 'Son adresse e-mail' : 'Son numéro de téléphone'}
         <input type={form.canal === 'mail' ? 'email' : 'tel'} inputMode={form.canal === 'mail' ? 'email' : 'tel'} value={form.contact}
           onChange={(ev) => setForm({ ...form, contact: ev.target.value })} placeholder={form.canal === 'mail' ? 'julie@exemple.fr' : '06 12 34 56 78'} /></label>
+      {form.canal === 'mail' && <p className="hint">Mountain Buddies lui envoie le mail, avec le lien pour rejoindre {sortie ? 'la sortie' : 'le groupe'}. Sans réseau, il part au retour du réseau.</p>}
       <button className="primary" disabled={!form.contact.trim()} onClick={() => void envoyer(form.canal, form.nom, form.contact.trim())}>
-        {form.canal === 'mail' ? 'Écrire le mail' : 'Écrire le SMS'}</button>
+        {form.canal === 'mail' ? 'Envoyer l’invitation' : 'Écrire le SMS'}</button>
       <button onClick={() => setForm(null)}>Annuler</button>
     </div></div>}
     {qr && <div className="bd-voile" onClick={() => setQr(null)}><div className="bd-feuille bd-centre" onClick={(ev) => ev.stopPropagation()}>
       <h3>{nomGroupe}</h3>
       <Qr texte={lien(qr)} />
-      <p className="hint">Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer {sortie ? 'dans la sortie' : 'dans la bande'}.</p>
+      <p className="hint">Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer {sortie ? 'dans la sortie' : 'dans le groupe'}.</p>
       <button onClick={() => setQr(null)}>Fermer</button>
     </div></div>}
   </>;
@@ -683,7 +692,11 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const ouvrir = (x: Sortie, parler = false) => onCarte({ sortie: x, traces: traces.filter((t) => t.sortie === x.id), parler });
   // Une sortie terminé s'ouvre sur son carnet (spec §5.4) ; la carte reste à un toucher.
   const voir = (x: Sortie) => (x.fin < aujourdhui() ? setVue({ ecran: 'carnet', id: x.id, groupe: vue.ecran === 'groupe' ? vue.id : undefined }) : ouvrir(x));
-  const g = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
+  const trouve = vue.ecran === 'groupe' ? groupes.find((x) => x.id === vue.id) : undefined;
+  // Une discussion à deux (duo, support) n'a pas d'écran de groupe : son nom est technique (infos du support).
+  // On y arrivait en revenant d'un écran ouvert depuis la conversation (Seb, 26/11) : on montre la conversation.
+  const g = trouve && !aDeux(trouve) ? trouve : undefined;
+  const enConv = vue.ecran === 'conv' || (!!trouve && aDeux(trouve));
   // Groupe perso, sans nom (« Seul », Seb 26 novembre) : il naît à la première sortie seul.
   const meTime = groupes.find((x) => x.nature === 'me_time');
   // 📅 : les plannings du groupe ouvert, sinon de toutes mes bandes (spec §5.5).
@@ -762,10 +775,10 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'nouvelleConv' ? <NouvelleDiscussion onContact={parlerA} onNouveauGroupe={() => setVue({ ecran: 'nouveau' })} onClose={onClose}
         onRetour={() => setVue({ ecran: 'messages' })} />
-      : vue.ecran === 'conv' && groupes.some((x) => x.id === vue.id) ? (() => {
+      : enConv && 'id' in vue && groupes.some((x) => x.id === vue.id) ? (() => {
         const gc = groupes.find((x) => x.id === vue.id)!;
         return <div className="bd-corps bd-corps-conv">
-          <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: vue.retour ?? 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
+          <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: ('retour' in vue && vue.retour) || 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
             {aDeux(gc) && <Visage b={gc.nature === 'support' && !superUser() ? { id: gc.id, nom: 'Support', photo: null } : autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
             <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? gc.nom : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
@@ -958,17 +971,18 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
   // Un admin retire un membre ; un admin, seul l'admin principal le retire ; l'admin principal, personne.
   const retirable = (b: Buddy) => b.role === 'admin_principal' ? false : b.role === 'admin' ? principal : admin;
   const [choisi, setChoisi] = useState<Buddy | null>(null);
+  const [aSignaler, setASignaler] = useState<Buddy | null>(null);
   const moi = (b: Buddy) => b.id === e.moi || b.id === 'moi';
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
     <h3>Inviter mes copains</h3>
     <Inviter nomGroupe={g.nom} qrExistant={qr} onToast={onToast} onInvite={(i) => { inviter(g.id, i); if (i.canal !== 'qr') onToast(`Invitation envoyée à ${i.nom}`); }} />
-    <h3>Dans la bande</h3>
-    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m) || !(principal || retirable(m))} onClick={() => setChoisi(m)}>
+    <h3>Dans le groupe</h3>
+    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m)} onClick={() => setChoisi(m)}>
       <Visage b={m} /><span className="bd-texte"><b>{m.pseudo}{moi(m) ? ' (toi)' : ''}</b>{m.role === 'admin_principal' ? <small>admin principal</small> : m.role === 'admin' && <small>admin</small>}</span>
     </button>)}
     {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <div key={i.id} className="bd-ligne petite bd-invite">
       <Visage b={{ id: i.id, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
-      <small className="bd-etat">{i.attente ? '🕓 ' : ''}{CANAL[i.canal]}</small>
+      <EtatInvitation i={i} />
       <button aria-label="Annuler l'invitation" onClick={() => annulerInvitation(i.id)}>✕</button>
     </div>)}
     {choisi && <div className="bd-actions">
@@ -977,9 +991,20 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
       {principal && choisi.role === 'admin' && <button onClick={() => { retirerAdmin(g.id, choisi.id); setChoisi(null); }}>N'est plus admin</button>}
       {principal && <button onClick={() => { transmettre(g.id, choisi.id); setChoisi(null); onToast(`${choisi.pseudo} devient admin principal`); }}>
         Lui passer mon rôle d'admin principal</button>}
-      {retirable(choisi) && <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer de la bande</button>}
+      {retirable(choisi) && <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer du groupe</button>}
+      {/* 🚩🚫 Pour tout le monde (Play Store) : signaler ou bloquer un buddy sans passer par un message. */}
+      <button onClick={() => { setASignaler(choisi); setChoisi(null); }}><FlagIcon size={20} /> Signaler {choisi.pseudo}</button>
+      {estBloque(choisi.id, e)
+        ? <button onClick={() => { debloquer(choisi.id); setChoisi(null); onToast(`${choisi.pseudo} est débloqué`); }}><BlockIcon size={20} /> Débloquer {choisi.pseudo}</button>
+        : <button className="danger" onClick={() => { bloquer(choisi); setChoisi(null); void synchroniser().catch(() => undefined); onToast(`${choisi.pseudo} est bloqué`); }}>
+          <BlockIcon size={20} /> Bloquer {choisi.pseudo}</button>}
+      {/* Super User : SCAN 25 dans la version Play Store, pour les membres de l'asso une fois l'accord de l'IGN reçu. */}
+      {superUser() && (e.scan25_ids ?? []).includes(choisi.id)
+        ? <button onClick={() => { donnerScan25(choisi.id, false); void synchroniser().catch(() => undefined); setChoisi(null); onToast(`${choisi.pseudo} n'a plus le SCAN 25`); }}>Retirer le SCAN 25</button>
+        : superUser() && <button onClick={() => { donnerScan25(choisi.id, true); void synchroniser().catch(() => undefined); setChoisi(null); onToast(`${choisi.pseudo} a le SCAN 25`); }}>Donner le SCAN 25</button>}
       <button onClick={() => setChoisi(null)}>Annuler</button>
     </div>}
+    {aSignaler && <Signaler buddy={aSignaler} onFermer={() => setASignaler(null)} onFait={(t) => { setASignaler(null); onToast(t); }} />}
     <button className="acc-deco" onClick={() => {
       if (!confirm(`Quitter « ${g.nom} » ?`)) return;
       quitter(g.id); onToast(`Tu as quitté « ${g.nom} »`); onParti();
@@ -1020,16 +1045,16 @@ function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) 
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
     <ChoixPhoto photo={photo} onPhoto={setPhoto} onToast={onToast} />
-    <input className="bd-nom" value={nom} maxLength={80} placeholder="Nom de la bande" onChange={(ev) => setNom(ev.target.value)} />
+    <input className="bd-nom" value={nom} maxLength={80} placeholder="Nom du groupe" onChange={(ev) => setNom(ev.target.value)} />
     <h3 className="bd-section">Inviter mes copains</h3>
     <Inviter nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast}
       onInvite={(i) => setInvites((l) => [...l, i])} />
-    <h3 className="bd-section">Dans la bande <small>{1 + invites.filter((i) => i.canal !== 'qr').length} buddies</small></h3>
+    <h3 className="bd-section">Dans le groupe <small>{1 + invites.filter((i) => i.canal !== 'qr').length} buddies</small></h3>
     <div className="bd-ligne petite"><Visage b={{ id: 'moi', pseudo: nomAffiche(compte), photo: compte.profil?.photo ?? null }} />
       <span className="bd-texte"><b>{nomAffiche(compte)} (toi)</b><small>crée le groupe</small></span></div>
     {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">
       <Visage b={{ id: i.code, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
-      <small className="bd-etat">{CANAL[i.canal]}</small></div>)}
+      <small className="bd-etat">{i.canal === 'mail' ? '✉️ mail à envoyer' : CANAL[i.canal]}</small></div>)}
     <p className="hint">Ils reçoivent un lien : il installe l'appli et les fait entrer dans le groupe.</p>
     <span style={{ flex: 1 }} />
     <button className="primary bd-grand" disabled={!nom.trim()} onClick={creer}>Créer le groupe</button>
@@ -1076,7 +1101,7 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
       <Inviter sortie nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast} onInvite={(i) => setInvites((l) => [...l, i])} />
       {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">
         <Visage b={{ id: i.code, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
-        <small className="bd-etat">{CANAL[i.canal]}</small></div>)}
+        <small className="bd-etat">{i.canal === 'mail' ? '✉️ mail à envoyer' : CANAL[i.canal]}</small></div>)}
       {!invites.length && <p className="hint">Seul, ou invite un ou deux copains à cette sortie, sans créer de groupe.</p>}
     </> : <div className="bd-qui">
       {g.membres.map((m) => <button key={m.id} className={qui.has(m.id) ? 'oui' : ''} disabled={m.id === moiId}

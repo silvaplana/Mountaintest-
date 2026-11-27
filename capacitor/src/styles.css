@@ -1207,6 +1207,15 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
   .quick:not(.help) .pair.calques { height: 40px; padding-right: 48px; }
   .quick > button:not(.arrow), .quick > .pair, .quick-reste > button, .quick-reste > .pair { margin-right: 8px; }
 }
+/* Aide (appui long sur la flèche) : toute la colonne doit tenir, jusqu'à 👥 Buddies tout en bas (Seb, 26/11). */
+@media (max-height: 800px) {
+  .quick.help { gap: 4px; }
+  .quick.help button:not(.toggle) { width: 40px; height: 40px; font-size: 20px; }
+}
+@media (max-height: 720px) {
+  .quick.help { gap: 3px; }
+  .quick.help button:not(.toggle) { width: 36px; height: 36px; font-size: 18px; }
+}
 /* « 🔍 Rechercher ici » (façon Komoot) : en haut au centre, flou ; grisé dans la zone déjà cherchée. */
 .search-here { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 116px);
   min-height: 48px; padding: 0 18px; border-radius: 24px; border: 2px solid transparent; font-size: 17px; font-weight: 600;
@@ -1396,7 +1405,7 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 /* Icônes à gauche (👤 Mon compte, Seb 25/11) : la colonne d'icônes à gauche ; le reste passe à droite. */
 .icones-gauche .quick { right: auto; left: 10px; align-items: flex-start; }
 .icones-gauche .quick .pair { flex-direction: row; }
-.icones-gauche .quick.help .pair { align-items: flex-start; }
+.icones-gauche .quick.help .pair { flex-direction: column; align-items: flex-start; }
 .icones-gauche .quick:not(.help) .pair.calques { padding-right: 0; padding-left: 52px; }
 .icones-gauche .quick:not(.help) .pair.calques > button:first-child { right: auto; left: 0; }
 .icones-gauche .quick.help button::before { right: auto; left: 52px; }
@@ -1588,3 +1597,25 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .sel-panneau.sel-haut { position: absolute; z-index: 7; left: 8px; right: 8px; top: calc(env(safe-area-inset-top) + 8px);
   background: var(--bg, #fff); border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,.25); padding: 4px 12px; display: flex; flex-direction: column; }
 .sel-barre.sel-haut { top: calc(env(safe-area-inset-top) + 8px); bottom: auto; }
+.bd-etat.bd-erreur { color: var(--danger); display: flex; align-items: center; }
+.bd-etat.bd-erreur .bd-lien { color: var(--danger); font-size: 15px; }
+
+/* 🚩 Signaler, 🚫 bloquer, supprimer mon compte (Play Store) */
+.md-choix { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--line); font-size: 17px; }
+.md-choix input { width: 22px; height: 22px; accent-color: var(--accent); }
+.md-rouge { background: var(--danger) !important; color: #fff !important; border: 0 !important; font-weight: 700; }
+.md-danger { color: var(--danger); }
+.md-ligne { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; border-bottom: 1px solid var(--line); }
+.md-masque { font-size: 15px; color: var(--muted); border: 1.5px dashed var(--line); background: none; }
+.md-carte { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: var(--card); margin: 8px 0; }
+.md-carte.traite { opacity: .6; }
+.md-carte small { color: var(--muted); font-size: 14px; }
+.md-carte q { border-left: 3px solid var(--line); padding-left: 10px; quotes: none; }
+.md-boutons { display: flex; gap: 8px; flex-wrap: wrap; }
+.md-boutons button { flex: 1; min-height: 48px; }
+.acc-liens { display: flex; flex-direction: column; }
+.acc-liens > * { display: flex; align-items: center; gap: 12px; min-height: 52px; border: 0; border-bottom: 1px solid var(--line); background: none;
+  color: var(--fg); font-size: 17px; text-decoration: none; text-align: left; padding: 0; }
+.acc-liens > * > span:last-child { margin-left: auto; color: var(--muted); }
+.acc-supprimer { color: var(--danger); background: none; border: 0; min-height: 48px; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.acc-efface { margin: 0; padding-left: 20px; line-height: 1.45; }

@@ -123,6 +123,8 @@ describe('compte (connexion Logto, hors ligne)', () => {
   it('Google : la page Logto envoie directement chez Google ; refusé si pas encore activé', async () => {
     const url = new URL(await debutConnexion({ ...CONFIG, fournisseurs: ['google'] }, undefined, 'google'));
     expect(url.searchParams.get('direct_sign_in')).toBe('social:google');
+    // Après une déconnexion, on doit pouvoir choisir un autre compte : jamais de reconnexion silencieuse.
+    expect(url.searchParams.get('prompt')).toBe('login consent');
     await expect(debutConnexion({ ...CONFIG, fournisseurs: [] }, undefined, 'google')).rejects.toThrow(/pas encore activé/);
     await expect(debutConnexion({ ...CONFIG, fournisseurs: ['google'] }, undefined, 'apple')).rejects.toThrow(/Apple/);
   });

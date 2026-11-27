@@ -35,14 +35,14 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="fr.assomoutain.rando" android:host="callback" />
+                <data android:scheme="${applicationId}" android:host="callback" />
             </intent-filter>
             <!-- 👥 Lien d'invitation dans un Buddy Group (public/rejoindre.html → fr.assomoutain.rando://rejoindre?c=…). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="fr.assomoutain.rando" android:host="rejoindre" />
+                <data android:scheme="${applicationId}" android:host="rejoindre" />
             </intent-filter>
             <!-- 📥 « Ouvrir avec » / « Partager » un fichier de trace (GPX, KML, GeoJSON), depuis Gmail, Fichiers… -->
             <intent-filter>
@@ -127,9 +127,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- 📷 Retrouver les photos qu'on vient de prendre pour les ranger dans un album (PhotoPlugin.recentes). -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- ⑂ Écran rallumé avant les carrefours pendant le suivi de trace (Android 14 et plus). -->
     <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
@@ -140,7 +137,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- 📞 Appels de groupe : le micro, et la sonnerie en plein écran. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />

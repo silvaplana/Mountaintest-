@@ -19,10 +19,14 @@ from typing import Any
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-import droits
-from modeles import (BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
-                     Position, PositionGroupe, ReactionBuddy, Recit, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
+import logging
 
+import droits
+import mails
+from modeles import (Blocage, BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
+                     Position, PositionGroupe, ReactionBuddy, Recit, Signalement, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
+
+log = logging.getLogger(__name__)
 DUREE_INVITATION = timedelta(days=30)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
 # Groupe perso (ex-Me Time) : un par personne, même identifiant sur tous ses téléphones.
@@ -219,6 +223,40 @@ def inviter(s: Session, u: Utilisateur, op: dict) -> None:
                      canal=canal, nom=propre(op.get("nom"), 80), contact=contact,
                      email=contact.lower() if canal == "mail" else None, expire_le=maintenant() + DUREE_INVITATION))
     toucher(sortie or g)
+    if canal == "mail" and contact:
+        s.info.setdefault("mails", []).append(iid)
+
+
+def renvoyer_mail(s: Session, u: Utilisateur, op: dict) -> None:
+    """« Renvoyer » sous une invitation par mail qui n'est pas partie."""
+    inv = s.get(Invitation, uuid.UUID(str(op["invitation"])))
+    if inv is None or inv.canal != "mail":
+        return
+    g = groupe_de(s, u, inv.groupe_id)
+    inv.mail = None
+    toucher(s.get(Sortie, inv.sortie_id) if inv.sortie_id else g)
+    s.info.setdefault("mails", []).append(inv.id)
+
+
+def envoyer_mails(Sessions, ids: list[uuid.UUID]) -> None:
+    """Envoie les mails d'invitation et note le résultat, que le téléphone affiche (« mail envoyé » / « non parti »)."""
+    for iid in ids:
+        with Sessions() as s:
+            inv = s.get(Invitation, iid)
+            if inv is None or inv.mail == "envoye":
+                continue
+            par = s.get(Utilisateur, inv.invite_par)
+            sortie = s.get(Sortie, inv.sortie_id) if inv.sortie_id else None
+            g = s.get(Groupe, inv.groupe_id)
+            try:
+                mails.invitation(inv.contact, inv.nom if inv.nom != inv.contact else "", personne(par)["pseudo"], (sortie or g).nom,
+                                 inv.code, sortie=sortie is not None, repondre_a=par.email)
+                inv.mail = "envoye"
+            except Exception:  # noqa: BLE001  (pas de SMTP, Brevo refuse, adresse invalide…)
+                log.exception("Invitation par mail non partie (%s)", iid)
+                inv.mail = "erreur"
+            toucher(sortie or g)
+            s.commit()
 
 
 def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
@@ -1060,7 +1098,8 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
             titre = personne(u)["pseudo"] if a_deux else g.nom
         de = "🐻 Bud" if m.bud else personne(u)["pseudo"]
         texte = resume_message(m, s.get(FichierBuddy, m.fichier_id) if m.fichier_id else None)
-        l.append(([x for x in qui if x != u.id], {
+        bloque = set(s.scalars(select(Blocage.utilisateur_id).where(Blocage.bloque_id == u.id)))
+        l.append(([x for x in qui if x != u.id and x not in bloque], {
             "type": "message", "cle": str(m.sortie_id or m.groupe_id), "groupe": str(m.groupe_id or ""), "sortie": str(m.sortie_id or ""),
             "titre": titre, "de": de, "texte": texte, "duo": "1" if a_deux else "",
             "envoye_le": str(int(datetime.now(timezone.utc).timestamp() * 1000))}))
@@ -1164,10 +1203,147 @@ def fichier_photo(pid: uuid.UUID, taille: str) -> str:
     return os.path.join(DOSSIER_PHOTOS, f"{pid}-{taille}.jpg")
 
 
+# ------------------------------------------------------------------ 🚩 signaler, 🚫 bloquer (Play Store)
+
+MOTIFS = {"insulte", "choquant", "pub", "autre"}
+SUITES = {"ignore", "efface", "retire"}
+
+
+def bloquer(s: Session, u: Utilisateur, op: dict) -> None:
+    """Je bloque un buddy : ses messages se replient chez moi, il ne voit plus ma position. Il n'est pas prévenu."""
+    autre = uuid.UUID(str(op["buddy"]))
+    if autre == u.id or s.get(Utilisateur, autre) is None:
+        raise Refus("Personne inconnue")
+    if s.get(Blocage, (u.id, autre)) is None:
+        s.add(Blocage(utilisateur_id=u.id, bloque_id=autre))
+
+
+def donner_scan25(s: Session, u: Utilisateur, op: dict) -> None:
+    """Le Super User donne (ou retire) le SCAN 25 à un buddy dans la version du Play Store (spec/play-store.md)."""
+    if not u.super_user:
+        raise Refus("Réservé au Super User")
+    autre = s.get(Utilisateur, uuid.UUID(str(op["buddy"])))
+    if autre is None or autre.supprime_le is not None:
+        raise Refus("Personne inconnue")
+    autre.scan25 = bool(op.get("oui"))
+
+
+def debloquer(s: Session, u: Utilisateur, op: dict) -> None:
+    b = s.get(Blocage, (u.id, uuid.UUID(str(op["buddy"]))))
+    if b is not None:
+        s.delete(b)
+
+
+def signaler(s: Session, u: Utilisateur, op: dict) -> None:
+    """Signaler un message (ou une personne) au Super User. Le message est gardé tel quel dans `extrait`."""
+    sid = uuid.UUID(str(op["signalement"]))
+    if s.get(Signalement, sid) is not None:
+        return  # renvoyé : déjà là
+    motif = str(op.get("motif") or "autre")
+    if motif not in MOTIFS:
+        raise ValueError("motif")
+    m = cible = None
+    lieu = ""
+    if op.get("message"):
+        m, g = message_de(s, u, op["message"])
+        if m is None:
+            raise Refus("Message inconnu")
+        cible = None if m.bud else m.par
+        lieu = s.get(Sortie, m.sortie_id).nom if m.sortie_id else (g.nom if g else "")
+    else:
+        cible = uuid.UUID(str(op["buddy"]))
+        if s.get(Utilisateur, cible) is None:
+            raise Refus("Personne inconnue")
+    if cible == u.id:
+        raise Refus("On ne se signale pas soi-même")
+    s.add(Signalement(id=sid, par=u.id, cible_id=cible, message_id=m.id if m else None, motif=motif,
+                      mot=propre(op.get("mot"), 300), extrait=(m.texte if m else "")[:500], lieu=propre(lieu, 80)))
+    sus = list(s.scalars(select(Utilisateur.id).where(Utilisateur.super_user.is_(True), Utilisateur.id != u.id)))
+    if sus:
+        g = groupe_perso_support(s, u)
+        if g is not None:
+            prevenir(s, u, sus, g, "Signalement", "a signalé " + ("une réponse de Bud" if m and m.bud else "un message" if m else "une personne"))
+
+
+def groupe_perso_support(s: Session, u: Utilisateur) -> Groupe | None:
+    """La discussion « support » de cette personne, si elle existe : la notification d'un signalement l'ouvre."""
+    return s.get(Groupe, uuid.uuid5(ESPACE_DUO, f"support:{u.id}"))
+
+
+def traiter_signalement(s: Session, u: Utilisateur, op: dict) -> None:
+    """Le Super User répond : ignorer, effacer le message (chez tous), ou retirer la personne du groupe."""
+    if not u.super_user:
+        raise Refus("Réservé au Super User")
+    x = s.get(Signalement, uuid.UUID(str(op["signalement"])))
+    suite = str(op.get("suite"))
+    if x is None or suite not in SUITES:
+        raise Refus("Signalement inconnu")
+    m = s.get(MessageBuddy, x.message_id) if x.message_id else None
+    if suite == "efface" and m is not None and not m.supprime:
+        m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
+        m.fichier_id = m.sondage = None
+    if suite == "retire" and m is not None and x.cible_id is not None:
+        g = s.get(Groupe, s.get(Sortie, m.sortie_id).groupe_id if m.sortie_id else m.groupe_id)
+        mb = membre(s, g.id, x.cible_id) if g is not None and g.nature == "bande" else None
+        if mb is not None:
+            partir(s, g, mb)
+    x.suite = suite
+
+
+def vue_signalements(s: Session, u: Utilisateur) -> list[dict[str, Any]]:
+    """Pour le Super User : ceux à traiter, puis ceux traités ces 30 derniers jours."""
+    if not u.super_user:
+        return []
+    l = s.scalars(select(Signalement).where(or_(Signalement.suite.is_(None), Signalement.cree_le > maintenant() - timedelta(days=30)))
+                  .order_by(Signalement.cree_le.desc())).all()
+    nom = lambda i: personne(s.get(Utilisateur, i))["pseudo"] if i else "Bud"  # noqa: E731
+    return [{"id": str(x.id), "par": nom(x.par), "cible": nom(x.cible_id), "cible_id": str(x.cible_id) if x.cible_id else None,
+             "message": str(x.message_id) if x.message_id else None, "motif": x.motif, "mot": x.mot, "extrait": x.extrait,
+             "lieu": x.lieu, "suite": x.suite, "le": iso(x.cree_le)} for x in l]
+
+
+def bloques_par(s: Session, u: Utilisateur):
+    """Les personnes qui m'ont bloqué (elles ne doivent plus voir ma position) : sous-requête."""
+    return select(Blocage.utilisateur_id).where(Blocage.bloque_id == u.id)
+
+
+def vue_bloques(s: Session, u: Utilisateur) -> list[dict[str, Any]]:
+    return [personne(x) for x in s.scalars(select(Utilisateur).join(Blocage, Blocage.bloque_id == Utilisateur.id)
+                                           .where(Blocage.utilisateur_id == u.id).order_by(Blocage.cree_le))]
+
+
+# ------------------------------------------------------------------ supprimer mon compte (Play Store)
+
+def supprimer_compte(s: Session, u: Utilisateur) -> None:
+    """Efface la personne : sa place dans les groupes et sorties, ses photos, positions, voiture, dispos, réactions…
+    Ses messages et ses dépenses restent pour les autres, signés « Ancien buddy » (la fiche est vidée, pas effacée)."""
+    for p in s.scalars(select(Photo).where(Photo.par == u.id)).all():
+        for taille in TAILLES:
+            try:
+                os.remove(fichier_photo(p.id, taille))
+            except OSError:
+                pass
+        toucher(s.get(Sortie, p.sortie_id))
+        s.delete(p)
+    s.flush()
+    for g, m in s.execute(select(Groupe, Membre).join(Membre, Membre.groupe_id == Groupe.id).where(Membre.utilisateur_id == u.id)).all():
+        partir(s, g, m)
+    for so in s.scalars(select(Sortie).join(Participant, Participant.sortie_id == Sortie.id).where(Participant.utilisateur_id == u.id)).all():
+        toucher(so)
+    for table in (Participant, Position, PositionGroupe, Voiture, Dispo, Recit, ReactionBuddy, VoteBuddy, LectureBuddy, Coeur):
+        s.execute(delete(table).where(table.utilisateur_id == u.id))
+    s.execute(delete(Blocage).where(or_(Blocage.utilisateur_id == u.id, Blocage.bloque_id == u.id)))
+    s.execute(delete(Invitation).where(Invitation.invite_par == u.id, Invitation.acceptee_par.is_(None)))
+    u.logto_id = f"supprime:{u.id}"  # une nouvelle connexion avec le même compte Google repart de zéro
+    u.email = u.photo = u.telephone = u.iban = u.wero_numero = None
+    u.pseudo, u.prenom, u.nom, u.wero, u.super_user = "Ancien buddy", "", "", False, False
+    u.supprime_le = maintenant()
+
+
 OPERATIONS = {
     "creer_groupe": creer_groupe, "renommer_groupe": renommer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "retirer_admin": retirer_admin, "transmettre": transmettre,
-    "annuler_invitation": annuler_invitation,
+    "annuler_invitation": annuler_invitation, "renvoyer_mail": renvoyer_mail,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
     "supprimer_sortie": supprimer_sortie, "supprimer_groupe": supprimer_groupe, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
@@ -1175,6 +1351,8 @@ OPERATIONS = {
     "epingle": epingle, "position": position, "voiture": voiture, "proposer_hebergement": proposer_hebergement, "coeur": coeur,
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
     "message": message, "retirer_message": retirer_message, "duo": duo, "support": support, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
+    "bloquer": bloquer, "debloquer": debloquer, "signaler": signaler, "traiter_signalement": traiter_signalement,
+    "scan25": donner_scan25,
 }
 
 
@@ -1194,7 +1372,7 @@ def vue_groupe(s: Session, g: Groupe) -> dict[str, Any]:
         "id": str(g.id), "nom": g.nom, "nature": g.nature, "photo": g.photo, "modifie_le": iso(g.modifie_le),
         "organisation": str(g.organisation_id) if g.organisation_id else None,
         "membres": [{**personne(u), "role": m.role} for m, u in membres],
-        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact,
+        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact, "mail": i.mail,
                          "par": str(i.invite_par)} for i in invitations],
     }
 
@@ -1258,15 +1436,17 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     # Positions : toujours toutes (peu nombreuses), seulement des participants, et oubliées après 48 h.
     positions = s.scalars(select(Position).join(Participant, (Participant.sortie_id == Position.sortie_id)
                                                 & (Participant.utilisateur_id == Position.utilisateur_id))
-                          .where(Position.sortie_id.in_(sids), Position.modifie_le > debut - GARDE_POSITIONS)).all()
+                          .where(Position.sortie_id.in_(sids), Position.modifie_le > debut - GARDE_POSITIONS,
+                                 Position.utilisateur_id.not_in(bloques_par(s, u)))).all()
     # Hors sortie (§7.14) : celles partagées avec mes groupes, par qui en est encore membre.
     positions_g = s.scalars(select(PositionGroupe).join(Membre, (Membre.groupe_id == PositionGroupe.groupe_id)
                                                         & (Membre.utilisateur_id == PositionGroupe.utilisateur_id))
-                            .where(PositionGroupe.groupe_id.in_(gids), PositionGroupe.modifie_le > debut - GARDE_POSITIONS)).all()
+                            .where(PositionGroupe.groupe_id.in_(gids), PositionGroupe.modifie_le > debut - GARDE_POSITIONS,
+                                   PositionGroupe.utilisateur_id.not_in(bloques_par(s, u)))).all()
     # 🚗 Voitures garées : la mienne et celles des membres de mes groupes, tant qu'elles sont là.
     copains = select(Membre.utilisateur_id).where(Membre.groupe_id.in_(gids))
     voitures = s.scalars(select(Voiture).where(or_(Voiture.utilisateur_id == u.id, Voiture.utilisateur_id.in_(copains)),
-                                               Voiture.modifie_le > debut - GARDE_POSITIONS)).all()
+                                               Voiture.modifie_le > debut - GARDE_POSITIONS, Voiture.utilisateur_id.not_in(bloques_par(s, u)))).all()
     return {"curseur": iso(debut), "moi": str(u.id), "roles": droits.vue_roles(u), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
@@ -1281,7 +1461,11 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
             "positions": [vue_position(x) for x in [*positions, *positions_g]],
             "voitures": [{"qui": str(v.utilisateur_id), "lat": v.lat, "lon": v.lon, "garee_le": v.garee_le, "jusqu": v.jusqu} for v in voitures], "appels": appels_en_cours(s, gids, sids),
-            "paiements": paiements(s, u, depenses), "refus": refus}
+            "paiements": paiements(s, u, depenses), "bloques": vue_bloques(s, u), "signalements": vue_signalements(s, u),
+            # SCAN 25 de la version Play : le mien ; et pour le Super User, la liste de ceux qui l'ont.
+            "scan25": u.scan25 or u.super_user,
+            "scan25_ids": [str(x) for x in s.scalars(select(Utilisateur.id).where(Utilisateur.scan25))] if u.super_user else [],
+            "refus": refus}
 
 
 def soldes(depenses: list[Depense]) -> dict[uuid.UUID, float]:
@@ -1332,7 +1516,7 @@ def vue_sortie(s: Session, so: Sortie) -> dict[str, Any]:
     return {
         "id": str(so.id), "groupe": str(so.groupe_id), "nom": so.nom, "photo": so.photo, "debut": so.debut, "fin": so.fin,
         "lieu": so.lieu, "modifie_le": iso(so.modifie_le), "par": str(so.cree_par), "participants": [personne(x) for x in qui],
-        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact,
+        "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact, "mail": i.mail,
                          "par": str(i.invite_par)} for i in invitations],
         "carnet": vue_carnet(s, so),
     }

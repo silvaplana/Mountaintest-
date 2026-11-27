@@ -17,11 +17,23 @@ export const DISPLAY_MAX_ZOOM = 18;
 export const AUTO_SCAN_FROM = 12;
 export const AUTO_PLAN_UNTIL = 13;
 export type BaseMode = 'auto' | 'scan25' | 'planign';
+
+/**
+ * Version du Play Store (VITE_PLAY=1, build « play », spec/play-store.md) : pas de SCAN 25, réservé aux usages
+ * non grand public par la licence IGN ; Plan IGN seul, et pas de mise à jour hors du Play Store.
+ */
+export const PLAY = import.meta.env.VITE_PLAY === '1';
 export const BASE_MODES: Record<BaseMode, string> = {
   auto: 'Carte auto',
   scan25: 'SCAN 25',
   planign: 'Plan IGN',
 };
+/**
+ * Fonds proposés. Version Play : Plan IGN seul, sauf si le Super User a débloqué le SCAN 25 pour ce compte
+ * (membres d'une asso, avec l'accord écrit de l'IGN ; spec/play-store.md).
+ */
+export const fondsPermis = (scan25Debloque: boolean): BaseMode[] =>
+  !PLAY || scan25Debloque ? ['auto', 'scan25', 'planign'] : ['planign'];
 
 /** Couches et zooms à télécharger pour un fond donné, dans l'ordre. */
 export function offlinePlan(mode: BaseMode, min: number, max: number): { layer: string; minZoom: number; maxZoom: number }[] {

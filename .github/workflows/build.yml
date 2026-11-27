@@ -106,12 +106,25 @@ jobs:
         env: { VITE_IA_MOT_DE_PASSE: '${{ secrets.IA_MOT_DE_PASSE }}' }
       - working-directory: capacitor/android
         run: |
-          ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
+          ./gradlew --no-daemon assembleApkRelease -PversionCode=${{ github.run_number }}
       - name: Renommer l'APK
         run: |
-          cp capacitor/android/app/build/outputs/apk/release/*.apk mountain-buddies-capacitor.apk
+          cp capacitor/android/app/build/outputs/apk/apk/release/*.apk mountain-buddies-capacitor.apk
       - uses: actions/upload-artifact@v4
         with: { name: apk-capacitor, path: mountain-buddies-capacitor.apk }
+      # Version du Play Store (spec/play-store.md) : Plan IGN seul, pas de mise à jour maison, autre identifiant.
+      # Fichier .aab à déposer à la main dans la Play Console (signé avec la même clé, servant de clé d'envoi).
+      - working-directory: capacitor
+        run: |
+          npx vite build
+          npx cap sync android
+        env: { VITE_PLAY: '1', VITE_IA_MOT_DE_PASSE: '${{ secrets.IA_MOT_DE_PASSE }}' }
+      - working-directory: capacitor/android
+        run: |
+          ./gradlew --no-daemon bundlePlayRelease -PversionCode=${{ github.run_number }}
+          cp app/build/outputs/bundle/playRelease/*.aab ../../mountain-buddies-play.aab
+      - uses: actions/upload-artifact@v4
+        with: { name: aab-play, path: mountain-buddies-play.aab }
 
   release:
     name: Mettre les APK en téléchargement
@@ -121,6 +134,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with: { pattern: apk-*, merge-multiple: true }
+      - uses: actions/download-artifact@v4
+        with: { name: aab-play }
       - name: Publier la release « latest »
         env: { GH_TOKEN: '${{ github.token }}', GH_REPO: '${{ github.repository }}' }
         run: |
@@ -128,9 +143,9 @@ jobs:
           printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk"}}\n' \
             "${{ github.run_number }}" "$u" > version.json
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest mountain-buddies-capacitor.apk version.json \
+          gh release create latest mountain-buddies-capacitor.apk mountain-buddies-play.aab version.json \
             --title "Mountain Buddies : dernière version" \
-            --notes "APK construits automatiquement depuis le commit ${{ github.sha }}. À ouvrir depuis le téléphone pour installer."
+            --notes "APK construits automatiquement depuis le commit ${{ github.sha }}. À ouvrir depuis le téléphone pour installer. Le fichier .aab est la version du Play Store, à déposer dans la Play Console."
 
   site:
     # Branche « site » = ce que le VPS sert sur https://silvaplana.cloud/mountaintest/
@@ -152,12 +167,14 @@ jobs:
           # Relais IA (randos trouvées par Claude) : le VPS le fait tourner, voir deploy/ia/README.md.
           mkdir -p site/ia && cp deploy/ia/relais.py deploy/ia/installer-ia.sh deploy/ia/activer-mail.sh site/ia/
           # Comptes (Logto + serveur Python) : installés une fois sur le VPS, voir deploy/comptes/README.md.
+          # Page publique de https://mountainbuddies.silvaplana.cloud/ (deploy/installer-mountainbuddies.sh).
+          cp -r deploy/vitrine site/vitrine && cp deploy/installer-mountainbuddies.sh site/
           mkdir -p site/comptes && cp deploy/comptes/*.py deploy/comptes/requirements.txt deploy/comptes/installer-comptes.sh deploy/comptes/installer-appels.sh site/comptes/
           sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" \
               -e "s/@CAP@/$(du -m site/apk/mountain-buddies-capacitor.apk | cut -f1)/" \
               deploy/apk-index.html > site/apk/index.html
           # Lu par les applis pour proposer la mise à jour (Updater.java).
-          u=https://silvaplana.cloud/mountaintest/apk
+          u=https://mountainbuddies.silvaplana.cloud/app/apk
           printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk"}}\n' \
             "${{ github.run_number }}" "$u" > site/apk/version.json
       - name: Pousser la branche site

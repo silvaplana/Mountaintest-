@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "738535122716",
+    "project_id": "mountain-buddies-941fa",
+    "storage_bucket": "mountain-buddies-941fa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:738535122716:android:975f0a19599414e50d3cd9",
+        "android_client_info": {
+          "package_name": "fr.assomoutain.rando"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbe4wVNPSoQibGyG4agJJGDwaZ1uyDeCs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

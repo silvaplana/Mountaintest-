@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- Page publique de https://mountainbuddies.silvaplana.cloud/ (l'appli web est sous /app/).
+     Servie par le VPS depuis le dossier vitrine/ de la branche « site », voir deploy/README.md. -->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies.">
+<title>Mountain Buddies</title>
+<link rel="icon" href="img/logo.svg">
+<style>
+  :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --card: #f6f8fa; --glass: #f6f8fab3; --line: #b3c2cf; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --card: #1d2834; --glass: #1d2834cc; --line: #38495b; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 18px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+  header.hero { padding: 48px 0 32px; text-align: center; }
+  .logo { width: 112px; height: 112px; border-radius: 26px; box-shadow: 0 6px 20px #0003; }
+  h1 { font-size: clamp(32px, 6vw, 52px); margin: 16px 0 8px; letter-spacing: -0.5px; }
+  .accroche { font-size: clamp(19px, 2.4vw, 23px); color: var(--muted); max-width: 640px; margin: 0 auto; }
+  .boutons { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 28px 0 8px; }
+  .b { min-height: 56px; padding: 14px 28px; border-radius: 30px; text-decoration: none; font-weight: 800; font-size: 19px;
+       display: inline-flex; align-items: center; background: var(--glass); color: var(--accent); border: 1.5px solid var(--line); box-shadow: 0 2px 8px #0002; }
+  .b.principal { border-width: 2.5px; border-color: var(--accent); }
+  .petit { font-size: 16px; color: var(--muted); }
+  section.fonctions { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 20px; padding: 24px 0 40px; }
+  .f { background: var(--card); border-radius: 22px; padding: 18px; border: 1px solid var(--line); text-align: center; }
+  .f img { width: 100%; max-width: 240px; aspect-ratio: 9/16; object-fit: cover; object-position: top; border-radius: 16px; border: 1px solid var(--line); }
+  .f h2 { font-size: 21px; margin: 14px 0 4px; }
+  .f p { margin: 0; color: var(--muted); font-size: 17px; }
+  .bande { background: var(--card); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 32px 0; text-align: center; }
+  .bande p { max-width: 680px; margin: 0 auto; color: var(--muted); }
+  footer { padding: 28px 0 40px; text-align: center; color: var(--muted); font-size: 16px; }
+  footer a { color: var(--accent); margin: 0 10px; display: inline-block; min-height: 48px; line-height: 48px; }
+</style>
+</head>
+<body>
+<header class="hero wrap">
+  <img class="logo" src="img/logo.svg" alt="">
+  <h1>Mountain Buddies</h1>
+  <p class="accroche">La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies.</p>
+  <div class="boutons">
+    <a class="b principal" href="app/apk/mountain-buddies-capacitor.apk" download>Télécharger pour Android</a>
+    <a class="b" href="app/">Ouvrir dans le navigateur</a>
+  </div>
+  <p class="petit">Gratuit · <a href="app/apk/" style="color:inherit">Comment l'installer ?</a> · iPhone et ordinateur : version navigateur</p>
+</header>
+
+<main class="wrap">
+  <section class="fonctions">
+    <div class="f"><img src="img/sortie.jpg" alt=""><h2>La carte, même sans réseau</h2><p>Cartes IGN gardées sur le téléphone, pentes et relief.</p></div>
+    <div class="f"><img src="img/survol.jpg" alt=""><h2>Traces et films 3D</h2><p>Dessine, importe et suis tes traces, puis revis la sortie en survol 3D filmé.</p></div>
+    <div class="f"><img src="img/buddies.jpg" alt=""><h2>Tes groupes et tes sorties</h2><p>Planning, hébergement, voiture garée : tout le monde voit la même chose.</p></div>
+    <div class="f"><img src="img/messages.jpg" alt=""><h2>Messages et positions</h2><p>On discute, on partage photos et traces, on voit où sont les autres.</p></div>
+    <div class="f"><img src="img/count.jpg" alt=""><h2>Les dépenses partagées</h2><p>Le gîte, l'essence, les courses : chacun ajoute, l'appli fait les comptes.</p></div>
+  </section>
+</main>
+
+<div class="bande"><p>Mountain Buddies est un projet de passionnés de montagne, fait pour partager entre copains. Pas de publicité, pas de revente de données.</p></div>
+
+<footer class="wrap">
+  <a href="conditions">Conditions d'utilisation</a>
+  <a href="confidentialite">Confidentialité</a>
+  <div>© 2026 silvaplana.cloud</div>
+</footer>
+</body>
+</html>

@@ -13,7 +13,7 @@ const PocketMode = registerPlugin<{
   addListener(e: 'pocket', f: (r: { black: boolean }) => void): Promise<{ remove: () => Promise<void> }>;
 }>('PocketMode');
 /** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : ouvre l'application Appareil photo. */
-import { noterPrise, Photo } from './buddies/photoPrise';
+import { Photo } from './buddies/photoPrise';
 /** Plugin natif (shared/Weather.java) : ouvre l'appli Météo-France, ou sa page Météo montagne. */
 const Weather = registerPlugin<{ open(o: { mountain: boolean }): Promise<void> }>('Weather');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
@@ -31,6 +31,8 @@ export interface QuickProps {
   onSearch: () => void;
   /** 🗺 : appui = fond suivant ; appui long = choisir le fond. */
   onBaseLayer: () => void;
+  /** Fonds de carte permis (version Play : Plan IGN seul, sauf SCAN 25 débloqué). */
+  fonds: BaseMode[];
   baseLayer: BaseMode; onPickBaseLayer: (m: BaseMode) => void;
   slopes: boolean; onSlopes: (on: boolean) => void;
   shade: boolean; onShade: (on: boolean) => void;
@@ -171,7 +173,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseLayer, fonds, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -356,7 +358,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         {pick.kind === 'activity'
           ? ACTIVITIES.map((a) => <button key={a} className={a === activity ? 'sel' : ''} aria-label={ACTIVITY_LABEL[a]}
               onClick={() => { setPick(null); if (a !== activity) onActivity(a); }}>{ACTIVITY_ICON[a]}</button>)
-          : (Object.keys(BASE_MODES) as BaseMode[]).map((m) => <button key={m} className={`txt ${m === baseLayer ? 'sel' : ''}`} aria-label={BASE_MODES[m]}
+          : fonds.map((m) => <button key={m} className={`txt ${m === baseLayer ? 'sel' : ''}`} aria-label={BASE_MODES[m]}
               onClick={() => { setPick(null); if (m !== baseLayer) onPickBaseLayer(m); }}>{LAYER_SHORT[m]}</button>)}
       </div>
     </div>}
@@ -388,10 +390,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       {/* 🔍 de nouveau visible sous ◎, même en colonne réduite (Seb, 25/11). */}
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
       <button disabled={!native} aria-label="Prendre une photo" data-help="Prendre des photos sans quitter l'application" {...lp('photo')}
-        onClick={() => {
-          noterPrise();
-          Photo.open().catch((e) => onToast(String((e as Error).message ?? e)));
-        }}>📷</button>
+        onClick={() => { Photo.open().catch((e) => onToast(String((e as Error).message ?? e))); }}>📷</button>
       <div className="pair" ref={pairRef}>
       <button className={airplane ? 'on' : ''} aria-label={pair ? 'Mode avion (sans réseau, Wi-Fi ni Bluetooth)' : 'Mode avion et mode poche'} data-help="Mode avion (et mode poche)" {...lp('avion')}
         onClick={() => {
@@ -446,14 +445,13 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       {relief && !help && <button className={offline ? 'on' : ''} aria-label="Hors ligne : ce qui est gardé sur le téléphone" data-help="Hors ligne" {...lp('offline')}
         onClick={() => onOffline(!offline)}><OfflineLayerIcon /></button>}
       {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}
-      {relief && !help && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
+      {/* Version Play Store sans SCAN 25 : Plan IGN seul, rien à choisir. */}
+      {relief && !help && fonds.length > 1 && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
       </div>
       {/* Activité : toucher ouvre les sorties ⛷ ou les itinéraires ; appui long : ⛷ 🚵 🚴 🚲 🥾 au choix. */}
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
         className="aide-long" data-help="Choix de l'activité (ski, VTT, randonnée, vélo de route, gravel) : recherche collaborative de sorties (traces, topos)" {...lpPick('activity')}
         onClick={() => { setPairOpen(null); if (activity === 'ski') onSkiText(); else onTopos(); }}>{ACTIVITY_ICON[activity]}</button>
-      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}><BuddiesIcon />
-        {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       <div className="pair" ref={meteoRef}>
       <button className={weather ? 'on' : ''} aria-label={meteo ? 'Météo sur la carte' : 'Météo et météo montagne'} data-help="Météo · appui long : Météo-France"
         onPointerDown={() => { wx.current.long = false; wx.current.timer = setTimeout(() => { wx.current.long = true; openWeather(false); }, 550); }}
@@ -468,6 +466,9 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         }}>🌦</button>
       {(meteo || help) && <button aria-label="Météo montagne" data-help="Météo montagne" {...lp('weatherMountain')} onClick={() => openWeather(true)}>🏔</button>}
       </div>
+      {/* Buddies tout en bas de la colonne, après la météo : c'est le bouton important (Seb, 26/11). */}
+      <button aria-label="Buddies" data-help="Mes « buddies »" {...lp('groups')} onClick={onBuddies}><BuddiesIcon />
+        {nouveautes > 0 && <span className="nb-dot">{nouveautes}</span>}</button>
       </div>
     </div>
     </>

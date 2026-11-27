@@ -5,9 +5,33 @@ import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
-  changerInfos, changerPseudo, changerWero, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
+  api, changerInfos, changerPseudo, changerWero, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
   initiales, nomAffiche, nomComplet, retourWeb, retourWebEnAttente, SCHEMA, suivre, synchroniser, type Etat, type Fournisseur, type Infos,
 } from './compte/auth';
+import { lire as lireBuddies, oublierTout, suivre as suivreBuddies } from './buddies/store';
+import { BlockIcon, PersonnesBloquees } from './buddies/Moderation';
+import { TrashIcon } from './icones';
+
+/** Pages publiques exigées par le Play Store (dans deploy/site, servies par le VPS). */
+const PAGES = 'https://mountainbuddies.silvaplana.cloud/app/';
+const ouvrirPage = (page: string) => void Browser.open({ url: PAGES + page });
+
+/**
+ * compte.html (page web de suppression, Play Store) renvoie sur …/?compte=supprimer : on s'en souvient le temps de la
+ * connexion (qui passe par Logto et recharge la page), puis le profil s'ouvre sur « Supprimer mon compte ».
+ */
+export function suppressionDemandee(): boolean {
+  try {
+    const u = new URL(window.location.href);
+    if (u.searchParams.get('compte') === 'supprimer') {
+      sessionStorage.setItem('supprimer-compte', '1');
+      u.searchParams.delete('compte');
+      window.history.replaceState(null, '', u.toString());
+    }
+    return sessionStorage.getItem('supprimer-compte') === '1';
+  } catch { return false; }
+}
+const oublierDemande = () => { try { sessionStorage.removeItem('supprimer-compte'); } catch { /* bloqué */ } };
 
 /** Logos officiels (couleurs imposées par Google et Apple pour leurs boutons). */
 const GoogleLogo = () => (
@@ -117,11 +141,82 @@ function Champ({ titre, valeur, cle, type = 'text', onToast, ...autres }: {
   </label>;
 }
 
+/** Profil › Inviter un ami : prénom et adresse, le serveur envoie le mail avec le lien de téléchargement. */
+function InviterAmi({ enLigne, onToast }: { enLigne: boolean; onToast: (m: string) => void }) {
+  const [form, setForm] = useState<{ nom: string; email: string } | null>(null);
+  const [occupe, setOccupe] = useState(false);
+  const envoyer = async () => {
+    if (!form) return;
+    setOccupe(true);
+    try {
+      await api('POST', '/inviter-appli', { nom: form.nom.trim(), email: form.email.trim() });
+      onToast(`Invitation envoyée à ${form.nom.trim() || form.email.trim()}`);
+      setForm(null);
+    } catch (err) { onToast(err instanceof HorsLigne ? 'Pas de réseau' : String((err as Error).message)); }
+    finally { setOccupe(false); }
+  };
+  return <>
+    <h3 className="acc-rubrique">Inviter</h3>
+    <button className="acc-support" disabled={!enLigne} onClick={() => setForm({ nom: '', email: '' })}><span className="acc-support-rond">✉️</span>
+      <span><b>Inviter un ami</b><small>{enLigne ? 'il reçoit un mail pour installer Mountain Buddies' : 'pas de réseau'}</small></span><span aria-hidden="true">›</span></button>
+    {form && <div className="bd-voile" onClick={() => setForm(null)}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+      <h3>Inviter un ami</h3>
+      <label className="field">Son prénom<input value={form.nom} onChange={(ev) => setForm({ ...form, nom: ev.target.value })} placeholder="Paul" /></label>
+      <label className="field">Son adresse e-mail<input type="email" inputMode="email" value={form.email}
+        onChange={(ev) => setForm({ ...form, email: ev.target.value })} placeholder="paul@exemple.fr" /></label>
+      <p className="hint">Mountain Buddies lui envoie un mail avec le lien pour installer l'appli.</p>
+      <button className="primary" disabled={occupe || !form.email.trim()} onClick={() => void envoyer()}>Envoyer l’invitation</button>
+      <button onClick={() => setForm(null)}>Annuler</button>
+    </div></div>}
+  </>;
+}
+
+const icone = (d: string) => <svg viewBox="0 0 24 24" width={24} height={24} aria-hidden="true" fill="none" stroke="currentColor"
+  strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>;
+const DocIcon = () => icone('M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5');
+const CadenasIcon = () => icone('M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 11V8a4 4 0 0 1 8 0v3');
+
+/**
+ * Supprimer mon compte (exigé par le Play Store ; maquette validée par Seb le 27/11) : ce qui est effacé, ce qui
+ * reste pour les buddies, un seul bouton rouge. Le serveur efface (DELETE /moi), puis le téléphone oublie le compte.
+ */
+function SupprimerCompte({ enLigne, onAnnuler, onToast }: { enLigne: boolean; onAnnuler: () => void; onToast: (m: string) => void }) {
+  const [occupe, setOccupe] = useState(false);
+  const effacer = async () => {
+    setOccupe(true);
+    try {
+      await api('DELETE', '/moi');
+      oublierTout();
+      await deconnecter();
+      onToast('Ton compte est supprimé');
+      onAnnuler();
+    } catch (err) {
+      onToast(err instanceof HorsLigne ? 'Pas de réseau : réessaie plus tard' : String((err as Error).message));
+    } finally { setOccupe(false); }
+  };
+  return <div className="bd-voile" onClick={onAnnuler}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+    <h3>Supprimer mon compte</h3>
+    <b>Ton compte et tes données seront effacés du serveur.</b>
+    <h3 className="acc-rubrique">Effacé</h3>
+    <ul className="acc-efface"><li>ton profil, ta photo, ton e-mail</li><li>tes photos partagées et tes positions</li><li>ta place dans tes groupes et sorties</li></ul>
+    <h3 className="acc-rubrique">Gardé pour tes buddies</h3>
+    <ul className="acc-efface"><li>tes messages, signés « Ancien buddy »</li><li>les dépenses des Buddy counts, pour que les comptes restent justes</li></ul>
+    <h3 className="acc-rubrique">Sur ce téléphone</h3>
+    <p className="hint">Tes traces et tes cartes hors ligne restent sur le téléphone.</p>
+    <button onClick={onAnnuler}>Annuler</button>
+    <button className="md-rouge" disabled={occupe || !enLigne} onClick={() => void effacer()}>{enLigne ? 'Supprimer définitivement' : 'Pas de réseau'}</button>
+  </div></div>;
+}
+
 export function Account({ onClose, onToast, onSupport }: { onClose: () => void; onToast: (m: string) => void; onSupport?: () => void }) {
   const e = useCompte();
   const [email, setEmail] = useState(e.email ?? '');
   const [pseudo, setPseudo] = useState(nomAffiche(e));
   const [occupe, setOccupe] = useState(false);
+  const [bloques, setBloques] = useState(false);
+  const [supprimer, setSupprimer] = useState(suppressionDemandee);
+  const [buddies, setBuddies] = useState(lireBuddies);
+  useEffect(() => suivreBuddies(setBuddies), []);
   const [enLigne, setEnLigne] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setEnLigne(true), off = () => setEnLigne(false);
@@ -209,8 +304,19 @@ export function Account({ onClose, onToast, onSupport }: { onClose: () => void; 
       }}>🔄 Synchroniser</button>
       <ChoixMain />
       <span style={{ flex: 1 }} />
+      <h3 className="acc-rubrique">Mon compte</h3>
+      <div className="acc-liens">
+        <button onClick={() => ouvrirPage('conditions.html')}><DocIcon />Conditions d'utilisation<span>›</span></button>
+        <button onClick={() => ouvrirPage('confidentialite.html')}><CadenasIcon />Confidentialité<span>›</span></button>
+        <button onClick={() => setBloques(true)}><BlockIcon />Personnes bloquées<span>{(buddies.bloques ?? []).length || ''} ›</span></button>
+      </div>
       <button className="acc-deco" onClick={() => { if (confirm('Se déconnecter ? Tes traces restent sur le téléphone.')) { void deconnecter(); onToast('Déconnecté'); } }}>Se déconnecter</button>
       <p className="hint acc-centre">Se déconnecter garde tes traces sur le téléphone.</p>
+      <button className="acc-supprimer" onClick={() => setSupprimer(true)}><TrashIcon />Supprimer mon compte</button>
+      {bloques && <PersonnesBloquees e={buddies} onFermer={() => setBloques(false)} />}
+      {supprimer && <SupprimerCompte enLigne={enLigne} onAnnuler={() => { oublierDemande(); setSupprimer(false); }} onToast={onToast} />}
+      {/* Inviter un ami à installer l'appli, sans groupe (Seb, 26/11) : mail envoyé par le serveur (Brevo). */}
+      {connecte() && <InviterAmi enLigne={enLigne} onToast={onToast} />}
       {/* Écrire au support (Seb, 26/11) : une discussion à deux avec le Super User, tout en bas du profil (Seb, 26/11). */}
       {onSupport && !p?.super_user && <>
         <h3 className="acc-rubrique">Aide</h3>

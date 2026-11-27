@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mountain Buddies : invitation</title>
 <!-- Page du lien d'invitation à un groupe ou une sortie (SMS, mail, QR code) : spec/buddies.md §5.3.
-     Servie sur https://silvaplana.cloud/mountaintest/rejoindre.html?c=CODE
+     Servie sur https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=CODE (et l'ancienne adresse silvaplana.cloud/mountaintest/)
      Couleurs de l'appli (Seb, 26/11 : ciel breton, ardoise, verre dépoli ; un seul bouton, plus de vert). -->
 <style>
   :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --card: #f6f8fa; --glass: #f6f8fab3; --line: #b3c2cf; }
@@ -34,21 +34,36 @@
 
   <a class="b" id="ouvrir" href="#">Ouvrir dans Mountain Buddies</a>
 
+  <div id="android">
   <p><b>Pas encore l'appli ?</b></p>
   <ol>
     <li>Installe-la sur ton téléphone Android : <a href="apk/">page de téléchargement</a>.</li>
     <li>Ouvre-la et connecte-toi (avec Google ou ton adresse e-mail).</li>
     <li>Reviens sur cette page et touche « Ouvrir dans Mountain Buddies ».</li>
   </ol>
-  <p><small>Sur iPhone, l'appli arrive bientôt.</small></p>
+  </div>
+  <p id="web" hidden>L'appli s'ouvre dans ton navigateur : connecte-toi (avec Google ou ton adresse e-mail) et tu entres dans le groupe.</p>
 </main>
 <script>
   const code = new URLSearchParams(location.search).get('c') || '';
-  document.getElementById('ouvrir').href = 'fr.assomoutain.rando://rejoindre?c=' + encodeURIComponent(code);
+  // Android : l'appli installée. Ordinateur, iPhone : la version web, qui garde l'invitation jusqu'à la connexion (Seb, 26/11).
+  if (/android/i.test(navigator.userAgent)) {
+    // Deux applis possibles : la version du Play Store d'abord ; si elle n'est pas installée, Chrome revient sur
+    // cette page avec apk=1 et le bouton ouvre l'APK des copains.
+    const c = encodeURIComponent(code);
+    const apk = new URLSearchParams(location.search).get('apk');
+    const retour = location.origin + location.pathname + '?c=' + c + '&apk=1';
+    document.getElementById('ouvrir').href = apk ? 'fr.assomoutain.rando://rejoindre?c=' + c
+      : 'intent://rejoindre?c=' + c + '#Intent;scheme=cloud.silvaplana.mountainbuddies;package=cloud.silvaplana.mountainbuddies;S.browser_fallback_url=' + encodeURIComponent(retour) + ';end';
+  } else {
+    document.getElementById('ouvrir').href = './?rejoindre=' + encodeURIComponent(code);
+    document.getElementById('android').hidden = true;
+    document.getElementById('web').hidden = false;
+  }
   // Un lien tout juste envoyé peut arriver avant l'invitation sur le serveur (réseau lent chez celui qui invite) :
   // on réessaie quelques fois avant de dire qu'il n'est pas reconnu (Seb, 26/11 : « Ce lien a expiré » à tort).
   let essais = 0;
-  const lire = () => fetch('/mountaintest-api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
+  const lire = () => fetch('https://silvaplana.cloud/mountaintest-api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
     .then((a) => {
       document.getElementById('titre').textContent = a.groupe;
       document.getElementById('par').textContent = a.par + (a.sortie ? ' t’invite à cette sortie.' : ' t’invite dans ce groupe.');

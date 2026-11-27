@@ -23,14 +23,15 @@ import urllib.request
 
 INTERNE = os.environ.get("LOGTO_INTERNE", "http://mb-logto:3001").rstrip("/")
 API = os.environ.get("API_RESSOURCE", "https://silvaplana.cloud/mountaintest-api")
-LOGO = os.environ.get("LOGO_URL", "https://silvaplana.cloud/mountaintest/logo.svg")
+LOGO = os.environ.get("LOGO_URL", "https://mountainbuddies.silvaplana.cloud/app/logo.svg")
 DOSSIER = os.environ.get("COMPTES_DOSSIER", "/data")
 M2M_ID, M2M_SECRET = os.environ["LOGTO_M2M_ID"], os.environ["LOGTO_M2M_SECRET"]
 
-# Schémas d'URL de retour après connexion = identifiant Android de chaque appli.
+# Schémas d'URL de retour après connexion = identifiant Android de chaque appli. L'appli Capacitor en a deux :
+# l'APK des copains (fr.assomoutain.rando) et la version du Play Store (cloud.silvaplana.mountainbuddies).
 APPLIS = {
-    "capacitor": ("Mountain Buddies", "fr.assomoutain.rando"),
-    "kotlin": ("Mountain Buddies K", "fr.assomoutain.proto.kotlin"),
+    "capacitor": ("Mountain Buddies", ["fr.assomoutain.rando", "cloud.silvaplana.mountainbuddies"]),
+    "kotlin": ("Mountain Buddies K", ["fr.assomoutain.proto.kotlin"]),
 }
 VERT = "#2f6f4f"
 
@@ -79,8 +80,8 @@ print("API :", ressource["indicator"])
 # 2. Applis natives
 existantes = {a["name"]: a for a in appel("GET", "/applications?page_size=100")}
 ids = {}
-for cle, (nom, schema) in APPLIS.items():
-    oidc = {"redirectUris": [f"{schema}://callback"], "postLogoutRedirectUris": [f"{schema}://logout"]}
+for cle, (nom, schemas) in APPLIS.items():
+    oidc = {"redirectUris": [f"{x}://callback" for x in schemas], "postLogoutRedirectUris": [f"{x}://logout" for x in schemas]}
     perso = {"alwaysIssueRefreshToken": True, "rotateRefreshToken": False, "refreshTokenTtlInDays": 180}
     if cle == "capacitor":
         # L'appli Capacitor est une page web dans le téléphone (origine https://localhost sur Android,
@@ -94,14 +95,16 @@ for cle, (nom, schema) in APPLIS.items():
     else:
         appel("PATCH", f"/applications/{a['id']}", {"oidcClientMetadata": oidc, "customClientMetadata": perso})
     ids[cle] = a["id"]
-    print(f"Appli {nom} : {a['id']} (retour {schema}://callback)")
+    print(f"Appli {nom} : {a['id']} (retour {', '.join(x + '://callback' for x in schemas)})")
 
-# 2 bis. Version web (iPhone en PWA, https://silvaplana.cloud/mountaintest/) : appli « page web » (SPA),
-# retour sur la page elle-même. Même jeton de renouvellement de 180 jours, gardé par le navigateur.
-SITE = os.environ.get("SITE_URL", "https://silvaplana.cloud/mountaintest/")
-oidc = {"redirectUris": [SITE, SITE + "index.html"], "postLogoutRedirectUris": [SITE]}
+# 2 bis. Version web (iPhone en PWA) : appli « page web » (SPA), retour sur la page elle-même.
+# Deux adresses : https://mountainbuddies.silvaplana.cloud/app/ et l'ancienne https://silvaplana.cloud/mountaintest/.
+# Même jeton de renouvellement de 180 jours, gardé par le navigateur.
+SITES = os.environ.get("SITE_URL", "https://mountainbuddies.silvaplana.cloud/app/ https://silvaplana.cloud/mountaintest/").split()
+SITE = SITES[0]
+oidc = {"redirectUris": [u for s in SITES for u in (s, s + "index.html")], "postLogoutRedirectUris": SITES}
 perso = {"alwaysIssueRefreshToken": True, "rotateRefreshToken": False, "refreshTokenTtlInDays": 180,
-         "corsAllowedOrigins": [SITE.split("/", 3)[0] + "//" + SITE.split("/", 3)[2]]}
+         "corsAllowedOrigins": [s.split("/", 3)[0] + "//" + s.split("/", 3)[2] for s in SITES]}
 a = existantes.get("Mountain Buddies Web")
 if a is None:
     a = appel("POST", "/applications", {"name": "Mountain Buddies Web", "type": "SPA", "oidcClientMetadata": oidc,

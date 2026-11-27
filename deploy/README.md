@@ -1,7 +1,7 @@
 # Mise en ligne sur le VPS
 
-Adresse : **https://silvaplana.cloud/mountaintest/** (version web du proto React)
-et **https://silvaplana.cloud/mountaintest/apk/** (les deux APK à installer).
+Adresse : **https://mountainbuddies.silvaplana.cloud/** (page publique), **…/app/** (version web)
+et **…/app/apk/** (l'APK à installer). Mêmes fichiers aussi sur l'ancienne adresse https://silvaplana.cloud/mountaintest/.
 
 ```
 push sur main ─▶ GitHub Actions : tests, build web, APK Capacitor
@@ -13,6 +13,24 @@ gateway (~/gateway/Caddyfile) : /mountaintest/* ─▶ conteneur mountaintest-we
 Différence avec contretemps : ici c'est le VPS qui va chercher (dépôt privé, clé
 GitHub en lecture seule « deploy key »), GitHub n'a aucune clé du VPS et il n'y a
 aucun secret à mettre dans le dépôt.
+
+## Adresse publique : mountainbuddies.silvaplana.cloud
+
+```
+https://mountainbuddies.silvaplana.cloud/                 page publique (deploy/vitrine/, copiée dans vitrine/ de la branche « site »)
+https://mountainbuddies.silvaplana.cloud/app/             l'appli web (mêmes fichiers que /mountaintest/)
+https://mountainbuddies.silvaplana.cloud/app/apk/         téléchargement de l'APK
+https://mountainbuddies.silvaplana.cloud/conditions       ─▶ /app/conditions.html
+https://mountainbuddies.silvaplana.cloud/confidentialite  ─▶ /app/confidentialite.html
+```
+
+L'ancienne adresse silvaplana.cloud/mountaintest/ reste en place : les APK déjà installés y cherchent
+leurs mises à jour, et les liens d'invitation déjà envoyés y mènent. L'API reste sur silvaplana.cloud.
+
+Mise en place, une fois : créer chez Hostinger un enregistrement DNS A `mountainbuddies` vers l'IP du VPS,
+puis sur le VPS : `bash ~/mountaintest/www/installer-mountainbuddies.sh`. Le script vérifie le DNS,
+ajoute le site au gateway (sauvegarde `~/gateway/Caddyfile.avant-mountainbuddies`, retour arrière si refus)
+et autorise la connexion web à la nouvelle adresse dans Logto.
 
 ## Installation (une seule fois, sur le VPS)
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { PLAY } from './config';
 
 const Updater = registerPlugin<{ check(): Promise<{ current: number; build?: number }>; install(): Promise<void> }>('Updater');
 
@@ -14,7 +15,8 @@ export function useMiseAJour(visible: boolean) {
   const [build, setBuild] = useState<number | null>(null);
   const [tue, setTue] = useState(0);
   useEffect(() => {
-    if (!visible || !Capacitor.isNativePlatform()) return;
+    // Version du Play Store : c'est lui qui met à jour (pas de plugin Updater dans ce build).
+    if (!visible || PLAY || !Capacitor.isNativePlatform()) return;
     const chercher = () => {
       Updater.check().then((r) => { if (r.build && r.build > r.current) setBuild(r.build); }).catch(() => { /* pas de réseau */ });
     };
