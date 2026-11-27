@@ -10,7 +10,7 @@ import { maPosition } from './Messages';
 import { COULEURS, dessinVoiture, FORMES, NOMS_COULEURS, type Couleur, type Forme } from './voitureDessin';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
-  aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, moiBuddy, monEpingle, positions, releverEpingle, synchroniser, voitures, vue,
+  aDeux, appliquer, heureServeur, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, moiBuddy, monEpingle, positions, releverEpingle, synchroniser, voitures, vue,
   type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
@@ -232,7 +232,7 @@ export function useEpingle() {
       () => undefined, { maximumAge: 60_000, timeout: 30_000 });
     prendre();
     const t = setInterval(prendre, 5 * 60_000);
-    const fin = setTimeout(() => clearInterval(t), Math.max(0, jusqu - Date.now()));
+    const fin = setTimeout(() => clearInterval(t), Math.max(0, jusqu - heureServeur()));
     return () => { clearInterval(t); clearTimeout(fin); };
   }, [jusqu]);
 }

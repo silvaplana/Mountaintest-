@@ -66,6 +66,24 @@ describe('ordre des messages de carte', () => {
     stop(); await raccrocher();
   });
 
+  it('15 s sans message de celui qui montre : sa carte est finie ; il reprend, on le resuit', async () => {
+    vi.useFakeTimers();
+    try {
+      const { appeler, appelEnCours, raccrocher, _recevoirCarte } = await import('../src/buddies/appel');
+      await appeler({ groupe: 'g1' }, 'Ski');
+      _recevoirCarte(vue(10, 2000, 1), julie);
+      await vi.advanceTimersByTimeAsync(10_000);
+      _recevoirCarte(vue(10, 2000, 2), julie); // son renvoi régulier : on suit toujours
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(appelEnCours()?.suit?.id).toBe('julie');
+      await vi.advanceTimersByTimeAsync(10_000); // plus rien depuis 20 s
+      expect(appelEnCours()?.suit).toBeNull();
+      _recevoirCarte(vue(11, 2000, 3), julie); // elle montrait toujours (appli revenue à l'écran)
+      expect(appelEnCours()?.suit?.id).toBe('julie');
+      await raccrocher();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('deux buddies allument en même temps : un seul garde la main, pas aucun', async () => {
     const { appeler, appelEnCours, envoyerCarte, montrerMaCarte, raccrocher, _recevoirCarte } = await import('../src/buddies/appel');
     await appeler({ groupe: 'g1' }, 'Ski');

@@ -7,7 +7,7 @@
  */
 import { distanceM } from '../gps/adaptive';
 import { km, metres } from './carnet';
-import type { Buddy, Position, Sortie } from './store';
+import { heureServeur, type Buddy, type Position, type Sortie } from './store';
 
 /** Au-delà, une épingle enfoncée sans nouvelle position : « plus de réseau ? ». */
 export const SANS_NOUVELLES_MIN = 20;
@@ -15,7 +15,7 @@ export const SANS_NOUVELLES_MIN = 20;
 export type Repere = { b: Buddy; p: Position & { lat: number; lon: number; prise_le: number }; moi: boolean; actif: boolean; age: number };
 
 /** Les buddies visibles de cette sortie (moi compris), les plus récents d'abord. */
-export function reperes(x: Sortie, ps: Position[], moi: string, t = Date.now()): Repere[] {
+export function reperes(x: Sortie, ps: Position[], moi: string, t = heureServeur()): Repere[] {
   const out: Repere[] = [];
   for (const b of x.participants) {
     const p = ps.find((y) => y.sortie === x.id && y.qui === b.id);
@@ -58,7 +58,7 @@ export function detail(r: Repere, moi?: Repere): string {
  * 📍 de la colonne (§7.14) : tous les buddies visibles, groupes et sorties mêlés, une fois chacun (sa position
  * la plus récente), moi compris. `gens` : les buddies que je connais (membres et participants).
  */
-export function reperesTous(ps: Position[], gens: Buddy[], moi: string, t = Date.now()): Repere[] {
+export function reperesTous(ps: Position[], gens: Buddy[], moi: string, t = heureServeur()): Repere[] {
   const par = new Map<string, Repere>();
   for (const p of ps) {
     const b = gens.find((x) => x.id === p.qui);

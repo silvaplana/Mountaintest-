@@ -6,6 +6,7 @@ import {
   enregistrerCarnet, enregistrerDepense, nouveautes, retirerDepense, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type PhotoBuddy, type Planning, type Sortie, type TraceBuddy,
 } from '../src/buddies/store';
 import { exif } from '../src/buddies/album';
+import { garerVoiture, maVoiture, voitures } from '../src/buddies/store';
 import { compte, euros, icone, lireEuros } from '../src/buddies/count';
 import { detail, etiquette, opacite, reperes, reperesTous } from '../src/buddies/positions';
 import { enfoncerEpingle, envoyerPosition, finEpingle, mesEpingles, monEpingle, positions, releverEpingle } from '../src/buddies/store';
@@ -635,6 +636,19 @@ describe('synchro : cas limites', () => {
     await synchroniser();
     expect(appels.map((a) => a.corps.depuis)).toEqual(['2026-11-27T12:00:00+00:00', null]);
     expect(lire().sorties.map((s) => s.nom)).toEqual(['Ailefroide']);
+  });
+
+  it('horloge du téléphone en retard : la voiture garée à l’instant par un buddy se voit quand même', async () => {
+    const serveur = Date.now() + 10 * 60_000; // le téléphone retarde de 10 minutes
+    reseau(() => ({ ...vide, maintenant: serveur, voitures: [{ qui: 'u-julie', lat: 44.6, lon: 6.7, garee_le: serveur - 1000, jusqu: serveur + 3600_000 }] }));
+    await synchroniser();
+    expect(Math.abs((lire().decalage ?? 0) - 10 * 60_000)).toBeLessThan(2000);
+    expect(voitures().map((v) => v.qui)).toEqual(['u-julie']);
+    // Avec l'horloge du téléphone seule, elle était « garée dans 10 minutes » : cachée.
+    expect(voitures(lire(), Date.now())).toEqual([]);
+    // Ma voiture, garée hors ligne, est datée à l'heure du serveur.
+    garerVoiture({ lat: 44.61, lon: 6.71 });
+    expect(Math.abs(maVoiture()!.garee_le - serveur)).toBeLessThan(2000);
   });
 
   it('la file survit quand la copie locale ne tient plus dans le stockage', () => {

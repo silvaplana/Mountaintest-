@@ -451,6 +451,12 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   arrive par la synchro. L'appareil qui envoie n'est pas réveillé par son propre envoi. Deux écarts avec AppBase : le
   flux est recréé avec un jeton neuf quand le jeton d'une heure a expiré, et il est fermé en arrière-plan (batterie).
   Restent en filet : le passage toutes les 2 minutes, les 5 s en conversation, le push Firebase.
+  Choix validés par Seb (27/11) : **dépenses en suppression douce** (`depenses.supprime_le` : une dépense retirée,
+  ou un « J'ai payé » refusé, reste en base, cachée ; modifiée ou renvoyée ensuite par un téléphone resté hors ligne,
+  elle ne ressuscite pas, l'opération est refusée) ; **heure du serveur** (la synchro rend `maintenant`, le téléphone
+  garde son décalage d'horloge et compare les heures des voitures, épingles et positions à l'heure du serveur, aussi
+  hors ligne) ; **« Suis ma carte » : 15 s sans message de celui qui montre vaut fin** (il renvoie tout toutes les
+  4 s ; s'il montre toujours, son prochain message fait resuivre).
 
 ### 7.2 Bloc 2 : ce qui est construit (23 novembre 2026)
 

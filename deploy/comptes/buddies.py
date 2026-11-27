@@ -461,7 +461,8 @@ def retirer_sortie(s: Session, u: Utilisateur, op: dict) -> None:
         raise Refus("Seul celui qui a créé la sortie peut l'annuler")
     for t, c in ((TracePartagee, TracePartagee.sortie_id), (Photo, Photo.sortie_id), (Depense, Depense.sortie_id),
                  (MessageBuddy, MessageBuddy.sortie_id), (Hebergement, Hebergement.sortie_id)):
-        if s.scalar(select(t).where(c == so.id).limit(1)) is not None:
+        vivant = (Depense.supprime_le.is_(None),) if t is Depense else ()
+        if s.scalar(select(t).where(c == so.id, *vivant).limit(1)) is not None:
             raise Refus("Cette sortie a déjà servi : elle reste")
     g = s.get(Groupe, so.groupe_id)
     for t in (Participant, Invitation, BuddyCount):
@@ -726,6 +727,8 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
     groupe, pour un Buddy count de groupe). Fermé : plus rien ne s'ajoute ni ne change."""
     did = uuid.UUID(str(op["depense"]))
     d = s.get(Depense, did)
+    if d is not None and d.supprime_le is not None:
+        raise Refus("Cette dépense a été retirée")  # modifiée hors ligne après son retrait : elle ne revient pas
     if d is not None:
         lieu, qui, _, c = caisse(s, u, d.sortie_id, d.count_id)
     else:
@@ -804,7 +807,7 @@ def paye(s: Session, u: Utilisateur, op: dict) -> None:
 def recu(s: Session, u: Utilisateur, op: dict) -> None:
     """« OK, reçu » (le remboursement compte) ou « Pas reçu » (il disparaît, celui qui a payé est prévenu)."""
     d = s.get(Depense, uuid.UUID(str(op["depense"])))
-    if d is None or d.remb != "annonce":
+    if d is None or d.supprime_le is not None or d.remb != "annonce":
         return  # déjà fait
     if json.loads(d.pour) != [str(u.id)]:
         raise Refus("Seul celui qui a reçu l'argent le confirme")
@@ -813,7 +816,7 @@ def recu(s: Session, u: Utilisateur, op: dict) -> None:
         d.remb, d.modifie_le = "recu", maintenant()
         prevenir_paiement(s, u, d.paye_par, lieu, c, f"a bien reçu tes {d.montant // 100} €")
     else:
-        s.delete(d)
+        d.supprime_le = d.modifie_le = maintenant()
         prevenir_paiement(s, u, d.paye_par, lieu, c, f"n'a pas reçu tes {d.montant // 100} €")
     toucher(lieu)
 
@@ -826,12 +829,12 @@ def a_moi_ou_admin(s: Session, u: Utilisateur, par: uuid.UUID, so: Sortie, quoi:
 
 def retirer_depense(s: Session, u: Utilisateur, op: dict) -> None:
     d = s.get(Depense, uuid.UUID(str(op["depense"])))
-    if d is None:
+    if d is None or d.supprime_le is not None:
         return  # déjà retirée
     lieu, _, g, c = caisse(s, u, d.sortie_id, d.count_id)
     if d.par != u.id and not (g is not None and droits.admin_du_groupe(s, u, g)):
         raise Refus("Seul celui qui a ajouté cette dépense (ou un admin du groupe) peut le retirer")
-    s.delete(d)
+    d.supprime_le = d.modifie_le = maintenant()
     toucher(lieu)
 
 
@@ -1550,7 +1553,8 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     photos = s.scalars(select(Photo).where(Photo.sortie_id.in_(sids)).order_by(Photo.prise_le)).all()
     # Buddy counts (§7.20) : ceux de mes groupes et de mes sorties, supprimés compris (le téléphone les cache).
     counts = s.scalars(select(BuddyCount).where(or_(BuddyCount.groupe_id.in_(gids), BuddyCount.sortie_id.in_(sids)))).all()
-    depenses = s.scalars(select(Depense).where(or_(Depense.sortie_id.in_(sids), Depense.count_id.in_([c.id for c in counts if c.groupe_id])))
+    depenses = s.scalars(select(Depense).where(or_(Depense.sortie_id.in_(sids), Depense.count_id.in_([c.id for c in counts if c.groupe_id])),
+                                               Depense.supprime_le.is_(None))
                          .order_by(Depense.jour, Depense.cree_le)).all()
     hebergements = s.scalars(select(Hebergement).where(Hebergement.sortie_id.in_(sids)).order_by(Hebergement.cree_le)).all()
     # Messages : ceux des 90 derniers jours seulement.
@@ -1580,7 +1584,9 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
     copains = select(Membre.utilisateur_id).where(Membre.groupe_id.in_(gids))
     voitures = s.scalars(select(Voiture).where(or_(Voiture.utilisateur_id == u.id, Voiture.utilisateur_id.in_(copains)),
                                                Voiture.modifie_le > debut - GARDE_POSITIONS, Voiture.utilisateur_id.not_in(bloques_par(s, u)))).all()
-    return {"curseur": iso(debut), "moi": str(u.id), "roles": droits.vue_roles(u), "ids": [str(g) for g in gids],
+    # `maintenant` (ms) : le téléphone en déduit son décalage d'horloge, pour comparer les heures des voitures et des
+    # épingles à l'heure du serveur et non à la sienne.
+    return {"curseur": iso(debut), "maintenant": int(maintenant().timestamp() * 1000), "moi": str(u.id), "roles": droits.vue_roles(u), "ids": [str(g) for g in gids],
             "groupes": [vue_groupe(s, g) for g in mes if neuf(g.modifie_le)],
             "ids_sorties": [str(x) for x in sids], "sorties": [vue_sortie(s, so) for so in sorties if neuf(so.modifie_le)],
             "ids_traces": [str(t.id) for t in traces], "traces": [vue_trace(s, t) for t in traces if neuf(t.cree_le)],
