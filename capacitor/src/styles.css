@@ -1081,6 +1081,13 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
   padding: 8px 12px; border-radius: 12px; margin-bottom: 6px; white-space: nowrap; box-shadow: 0 4px 14px #0004; }
 .bd-voiture-carte.ouvert em { display: block; }
 .bd-voiture-carte.ouvert { z-index: 5; }
+/* Taille qui suit le zoom (--k-voiture, PinLayer.tsx) : la voiture, son badge et son aiguille ensemble. */
+.bd-voiture-carte .bd-auto.dessin { zoom: var(--k-voiture, 1); }
+.bd-voiture-carte .bd-auto:not(.dessin) { zoom: calc(var(--k-voiture, 1) * 1.6); } /* l'émoji fait ~60 px, pas 96 */
+.bd-voiture-carte .bd-pointe { zoom: max(var(--k-voiture, 1), .7); }
+/* Le badge suit, mais reste lisible : entre 0,7 et 1,2 fois sa taille normale. */
+.bd-voiture-carte .bd-auto.dessin i { zoom: clamp(calc(.7 / var(--k-voiture, 1)), 1, calc(1.2 / var(--k-voiture, 1))); }
+.bd-voiture-carte .bd-auto:not(.dessin) i { zoom: clamp(calc(.7 / (1.6 * var(--k-voiture, 1))), 1, calc(1.2 / (1.6 * var(--k-voiture, 1)))); }
 .bd-voiture-carte .bd-pointe { position: relative; width: 3px; height: 14px; margin-top: -3px; background: #16222f; border-radius: 2px; }
 .bd-voiture-carte .bd-pointe::after { content: ''; position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; margin-left: -5px;
   box-sizing: border-box; border-radius: 50%; background: #16222f; border: 2px solid #fff; }

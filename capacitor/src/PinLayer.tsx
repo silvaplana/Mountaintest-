@@ -5,6 +5,7 @@ import type { Pin } from './trails/edit';
 import { decalage } from './doigt';
 import { TRASH_SVG } from './icones';
 import type { Trail } from './trails/osmTrails';
+import { longueurVoiturePx } from './buddies/voitureDessin';
 
 /** Appui long : le point se déplace ; très long : 🗑 propose de l'enlever (règle de Seb, 25/11). */
 const LONG_MS = 450, TRES_LONG_MS = 1400;
@@ -95,6 +96,8 @@ export function rangerEtiquettes(map: MlMap) {
   requestAnimationFrame(() => {
     prevus.delete(map);
     const c = map.getContainer();
+    // La taille des voitures suit le zoom (bornée) : silhouettes de 96 px de large à l'échelle 1 (styles.css).
+    c.style.setProperty('--k-voiture', (longueurVoiturePx(map.getZoom()) / 96).toFixed(3));
     const marques = [...c.querySelectorAll<HTMLElement>('.bd-pin, .bd-voiture-carte')];
     marques.forEach((m) => { m.style.translate = ''; m.querySelector(':scope > .bd-relie')?.remove(); });
     const icone = (m: HTMLElement) => m.querySelector('svg, .bd-auto') ?? m;
