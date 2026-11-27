@@ -111,15 +111,19 @@ export function BarreAppel() {
   </div>;
 }
 
-/** 🗺 Ma carte suit celle d'un buddy : une seule ligne, son badge, « Carte de Seb », Stop et ✕ (choix A de Seb, 27/11). */
+/**
+ * 🗺 Ma carte suit celle d'un buddy (Seb, 27/11) : à gauche son badge avec l'icône carte dessus, et Stop ; à droite,
+ * les boutons du téléphone comme d'habitude (micro, raccrocher).
+ */
 function BarreSuivie({ e }: { e: EtatAppel }) {
   const b = useBuddies();
   const suit = e.suit!;
   const lui = appliquer(b).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null };
   return <div className="ap-barre ap-annonce ap-suivie">
-    <Visage b={lui} taille={44} />
-    <span className="bd-texte"><b>Carte de {suit.pseudo}</b><small>{duree(Date.now() - (e.debut ?? Date.now()))}</small></span>
+    <span className="ap-guide" aria-label={`Carte de ${suit.pseudo}`}><Visage b={lui} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></span>
     <button className="ap-stop" onClick={reprendreMaCarte}>Stop</button>
+    <span className="bd-texte"><small>{duree(Date.now() - (e.debut ?? Date.now()))}</small></span>
+    <button aria-label={e.muet ? 'Remettre le micro' : 'Couper le micro'} className={e.muet ? 'muet' : ''} onClick={() => void couperMicro(!e.muet)}>{e.muet ? '🔇' : '🎙'}</button>
     <button className="ap-rouge" aria-label="Raccrocher" onClick={() => void raccrocher()}>✕</button>
   </div>;
 }

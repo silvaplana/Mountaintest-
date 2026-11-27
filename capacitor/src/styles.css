@@ -1193,8 +1193,11 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .ap-barre button.allume { background: #fff; color: #2e8b57; }
 .ap-suivie { padding-left: 6px; }
 .ap-suivie .bd-texte { min-width: 0; flex: 1; }
-.ap-suivie .bd-texte b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ap-suivie .bd-visage { border: 2px solid #fff; flex: none; }
+.ap-guide { position: relative; flex: none; display: flex; }
+.ap-guide .bd-visage { border: 2px solid #fff; }
+.ap-guide-carte { position: absolute; right: -6px; bottom: -6px; width: 26px; height: 26px; border-radius: 50%; background: #fff; color: #2e8b57;
+  display: grid; place-items: center; box-shadow: 0 1px 3px #0005; }
+.ap-guide-carte svg { width: 18px; height: 18px; }
 .ap-barre button.ap-stop { width: auto; border-radius: 24px; padding: 0 14px; background: #fff; color: #d93a3a; font-size: 17px; font-weight: bold; }
 /* 🗺 « Suis ma carte » : sous la barre d'appel, chez ceux qui suivent. */
 .cs-bandeau { position: absolute; z-index: 12; top: calc(env(safe-area-inset-top) + 72px); left: 8px; right: 8px; background: #fff; color: #23313f;
