@@ -759,8 +759,10 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
   const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
-  return <div className={`buddies${enConv ? ` bd-avec-poignee${cl.classe}` : ''}`} style={enConv ? cl.style : undefined}>
-    {enConv && <div {...cl.prise} />}
+  // Toute la messagerie coulisse : la liste des messages comme une conversation (Seb, 27/11).
+  const coulisse = enConv || vue.ecran === 'messages' || vue.ecran === 'nouvelleConv';
+  return <div className={`buddies${coulisse ? ` bd-avec-poignee${cl.classe}` : ''}`} style={coulisse ? cl.style : undefined}>
+    {coulisse && <div {...cl.prise} />}
     {colonne}
     {vue.ecran === 'position' ? <MaPosition onToast={onToast} onClose={onClose} ici={ciblesIci(e, groupes, sorties, vue.sortie, vue.groupe)}
       onVoir={(r) => onCarte({ traces: [], positions: r.b.id })}
