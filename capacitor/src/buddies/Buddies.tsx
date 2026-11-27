@@ -52,6 +52,8 @@ export const Natif = registerPlugin<{
   addListener(e: 'dicteeNiveau', f: (x: { niveau: number }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'dicteeFin', f: (x: { erreur?: number }) => void): Promise<{ remove: () => Promise<void> }>;
   partager(o: { titre: string; texte: string }): Promise<void>;
+  /** Le texte du presse-papiers (invitation copiée par la page avant le téléchargement, §7.29). */
+  pressePapiers(): Promise<{ texte?: string }>;
   /** Partage un fichier du cache de l'appli (film du survol 3D) : WhatsApp, mail… */
   partagerFichier(o: { chemin: string; mime: string; titre: string }): Promise<void>;
   /** ⬇ Copie un film du cache dans la galerie (Movies/Mountain Buddies) ; rend le dossier à montrer. */
@@ -126,6 +128,16 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning
     u.searchParams.delete('rejoindre'); u.searchParams.delete('planning');
     window.history.replaceState(null, '', u.toString());
     traiter(`${SCHEMA}://rejoindre?c=${encodeURIComponent(web)}${webPlanning ? `&p=${encodeURIComponent(webPlanning)}` : ''}`);
+  }
+  // Première ouverture après une installation depuis la page d'invitation (Seb, 27/11) : « Télécharger l'appli » a
+  // copié le lien ; l'appli le retrouve et fait entrer dans le groupe sans revenir sur la page. Une seule fois.
+  if (Capacitor.isNativePlatform()) {
+    let vu = true;
+    try { vu = !!localStorage.getItem('invitation-presse-papiers'); localStorage.setItem('invitation-presse-papiers', '1'); } catch { /* rien */ }
+    if (!vu) void Natif.pressePapiers().then(({ texte }) => {
+      const m = /mountainbuddies\.silvaplana\.cloud\/api\/i\?c=([A-Za-z0-9_-]{16,32})(?:&p=([A-Za-z0-9-]+))?/.exec(texte ?? '');
+      if (m) traiter(`${SCHEMA}://rejoindre?c=${m[1]}${m[2] ? `&p=${m[2]}` : ''}`);
+    }).catch(() => undefined);
   }
   if (Capacitor.isNativePlatform()) {
     subs.push(CapApp.addListener('appUrlOpen', ({ url }) => traiter(url)));
