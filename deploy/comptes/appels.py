@@ -24,7 +24,7 @@ import jwt
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from buddies import Refus, groupe_de, iso, participants, personne, sortie_de
+from buddies import Refus, groupe_de, iso, message_de, participants, personne, sortie_de
 from modeles import Appareil, Appel, Groupe, Membre, Utilisateur, maintenant
 
 LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "")
@@ -35,12 +35,27 @@ FIREBASE_CLE = os.environ.get("FIREBASE_CLE", "/data/firebase-cle.json")
 DUREE_MAX = timedelta(hours=4)
 
 
-def jeton_salle(salle: str, u: Utilisateur, duree: int = 6 * 3600) -> str:
-    """Jeton d'entrée LiveKit (JWT HS256) : parler, écouter et montrer du doigt (données) dans cette salle seulement."""
+def jeton_salle(salle: str, u: Utilisateur, duree: int = 6 * 3600, voix: bool = True) -> str:
+    """Jeton d'entrée LiveKit (JWT HS256) : parler, écouter et montrer du doigt (données) dans cette salle seulement.
+    Sans voix : seulement les données (« Suis ma carte » depuis la messagerie, sans appel)."""
     t = int(time.time())
     return jwt.encode({"iss": LIVEKIT_CLE, "sub": str(u.id), "name": personne(u)["pseudo"], "nbf": t - 10, "exp": t + duree,
-                       "video": {"room": salle, "roomJoin": True, "canPublish": True, "canSubscribe": True, "canPublishData": True}},
+                       "video": {"room": salle, "roomJoin": True, "canPublish": voix, "canSubscribe": True, "canPublishData": True}},
                       LIVEKIT_SECRET, algorithm="HS256")
+
+
+def salle_carte(s: Session, u: Utilisateur, mid: str) -> dict[str, Any]:
+    """🗺 « Suis ma carte » depuis la messagerie (spec/buddies.md §7.10) : la salle muette d'un message « carte ».
+    Pas d'appel ni de sonnerie : ceux de la conversation y entrent seulement s'ils touchent Suivre."""
+    if not (LIVEKIT_URL and LIVEKIT_CLE and LIVEKIT_SECRET):
+        raise Refus("Le partage de carte n'est pas encore installé sur le serveur")
+    try:
+        m, _ = message_de(s, u, mid)
+    except ValueError:
+        m = None
+    if m is None or m.nature != "carte" or m.supprime:
+        raise Refus("Carte inconnue")
+    return {"id": str(m.id), "par": str(m.par), "url": LIVEKIT_URL, "jeton": jeton_salle(f"carte-{m.id}", u, 4 * 3600, voix=False)}
 
 
 # ---------------------------------------------------------------- Firebase (sonnerie)

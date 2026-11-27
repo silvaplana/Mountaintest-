@@ -19,6 +19,9 @@ import {
 import { TrashIcon } from '../icones';
 import { FlagIcon, Signaler } from './Moderation';
 import { CartePlanning, ChoisirPlanning, PlanningIcon } from './Planning';
+import { montrerMaCarte, reprendreMaCarte, suivreUneCarte } from './appel';
+import { useAppel } from './Appel';
+import { IconeSuisCarte } from './IconeSuisCarte';
 
 /**
  * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par groupe et par sortie.
@@ -199,7 +202,7 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
 
   const montrees = court ? bulles.slice(-2) : bulles;
   const lectures = e.lectures ?? [];
-  const ctx: Contexte = { moi, nom, photos: v.photos, plannings: v.plannings, messages: v.messages, autres, lectures, selection, aSupprimer, clignote,
+  const ctx: Contexte = { dest, moi, nom, photos: v.photos, plannings: v.plannings, messages: v.messages, autres, lectures, selection, aSupprimer, clignote,
     appui: court ? undefined : appui, toast: onToast, allerA, reagir: (m, x) => { reagir(m.id, x); setSelection([]); void synchroniser().catch(() => undefined); } };
   return <div className={`bd-conv${court ? ' court' : ''}`}>
     {selection.length > 0 && <div className="bd-selection">
@@ -294,7 +297,7 @@ function useAppuiLong(selection: string[], setSelection: (f: (s: string[]) => st
 }
 
 type Contexte = {
-  moi: string; nom: (id: string) => string; photos: ReturnType<typeof vue>['photos']; plannings: ReturnType<typeof vue>['plannings']; messages: MessageBuddy[]; autres: string[];
+  dest: Dest; moi: string; nom: (id: string) => string; photos: ReturnType<typeof vue>['photos']; plannings: ReturnType<typeof vue>['plannings']; messages: MessageBuddy[]; autres: string[];
   lectures: Lecture[]; selection: string[]; aSupprimer: string[]; clignote: string | null;
   appui?: ReturnType<typeof useAppuiLong>; toast: (m: string) => void; allerA: (id: string) => void; reagir: (m: MessageBuddy, emoji: string | null) => void;
 };
@@ -398,6 +401,8 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }
   } else if (m.fichier) {
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} fichier${classe}`} {...appui}>{qui}{transfere}{rappel}
       <Piece f={m.fichier} attente={!!m.attente || (mien && !m.fichier.envoye)} onErreur={c.toast} />{m.texte && <Texte t={m.texte} />}{heure}</div>;
+  } else if (m.nature === 'carte') {
+    corps = <div className={`bd-bulle${mien ? ' mien' : ''} carte${classe}`} {...appui}><BulleCarte m={m} c={c} mien={mien} />{heure}</div>;
   } else if (m.nature === 'planning') {
     const p = c.plannings.find((x) => x.id === m.planning);
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} planning${classe}`} {...appui}>{qui}{rappel}
@@ -409,6 +414,31 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }
     corps = <div className={`bd-bulle${mien ? ' mien' : ''}${m.attente ? ' attente' : ''}${classe}`} {...appui}>{qui}{transfere}{rappel}<Texte t={m.texte} />{heure}</div>;
   }
   return <div id={`m-${m.id}`} className={`bd-bulle-de${mien ? ' mien' : ''}`}>{rapides}{corps}<Reactions m={m} c={c} mien={mien} /></div>;
+}
+
+/**
+ * 🗺 « Seb veut te montrer sa carte » (spec/buddies.md §7.10) : on s'écrit, sans se parler. « Suivre » : la conversation
+ * descend et ma carte suit la sienne ; « Non merci » cache les boutons. Au-delà de 4 h, la demande est passée.
+ */
+const cartesRefusees = new Set<string>();
+function BulleCarte({ m, c, mien }: { m: MessageBuddy; c: Contexte; mien: boolean }) {
+  const a = useAppel();
+  const [, maj] = useState(0);
+  const active = a?.muette && a.carte === m.id;
+  const vieille = Date.now() - new Date(m.cree_le).getTime() > 4 * 3600e3;
+  if (mien) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
+    {active ? <>Tu montres ta carte <button className="bd-lien" onClick={() => montrerMaCarte(false)}>Arrêter</button></> : 'Tu as montré ta carte'}</span>;
+  const qui = c.nom(m.par);
+  if (active) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
+    Tu suis la carte de {qui} <button className="bd-lien" onClick={reprendreMaCarte}>Arrêter</button></span>;
+  if (vieille || cartesRefusees.has(m.id)) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>{qui} a montré sa carte</span>;
+  return <div className="bd-mc-demande">
+    <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span><b>{qui} veut te montrer sa carte</b></span>
+    <div className="bd-mc-choix">
+      <button className="bd-mc-non" onClick={() => { cartesRefusees.add(m.id); maj((n) => n + 1); }}>Non merci</button>
+      <button className="bd-mc-oui" onClick={() => void suivreUneCarte(m.id, c.dest, qui).catch((err: Error) => c.toast(err.message || 'Impossible de suivre sa carte'))}>Suivre</button>
+    </div>
+  </div>;
 }
 
 /** Une pièce jointe : photo (plein écran au toucher), vidéo (▶), document (s'ouvre avec l'appli du téléphone). */

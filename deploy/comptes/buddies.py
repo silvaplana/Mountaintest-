@@ -979,7 +979,7 @@ def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
-NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage", "planning"}
+NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage", "planning", "carte"}
 # Comme AppBase (§7.13) : 25 Mo par fichier ou photo, 100 Mo par vidéo ; un sondage a 2 à 10 réponses.
 MAX_FICHIER, MAX_VIDEO = 25 * 1024 * 1024, 100 * 1024 * 1024
 MAX_REPONSES = 10
@@ -1085,6 +1085,8 @@ def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
         return "📊 " + json.loads(m.sondage or "{}").get("question", "Sondage")
     if m.nature == "planning":
         return "📅 Planning : " + m.texte
+    if m.nature == "carte":
+        return "🗺 veut te montrer sa carte"
     return m.texte[:200]
 
 

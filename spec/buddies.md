@@ -711,14 +711,24 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   l'icône carte de la barre d'appel (juste avant micro et raccrocher) est exclusive : elle devient le badge de Julie avec la petite icône carte dessus, barre verte ; un appui sur le badge arrête de suivre (Seb, 27 novembre : pas de Stop à part, pas d'encart, la barre garde sa forme). Pas
   d'acceptation au départ ; c'est chacun qui arrête de suivre avec Stop (Seb, 27 novembre). Quand on arrête (ou que Julie
   arrête, ou fin d'appel), si des traces sont arrivées : « Garder les traces de Julie ? » avec leurs noms, Non merci /
-  Garder (toutes rangées dans Mes traces). La même icône est en haut d'une conversation de groupe (Seb, 27 novembre) : en appel, elle allume ma
-  carte ; sinon elle appelle la bande et ma carte s'allume dès que quelqu'un décroche (le suivi passe par l'appel).
+  Garder (toutes rangées dans Mes traces). La même icône est en haut de chaque conversation (groupe et duo) : en appel, elle allume ma carte ;
+  hors appel, voir ci-dessous.
   Ce qui suit aussi (Seb, 27 novembre) : les calques pentes, ombres, drones et météo (mêmes cases chez eux) ; le
   trait que je dessine au doigt, en direct (4 fois par seconde, orange) ; le profil de la trace que j'ouvre (le
   même profil s'ouvre chez eux, et se ferme quand je le ferme). Les forêts ne suivent pas (recherche à la demande). Une seule personne montre à la fois : si Luc
   allume la sienne, celle de Julie s'éteint. Un buddy qui arrive en cours reçoit tout de suite la vue et les traces.
   Les tuiles ne voyagent pas : chacun charge la même zone (un appel demande du réseau). Messages de données LiveKit
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).
+- **🗺 Montrer sa carte en s'écrivant, sans appel** (Seb, 27 novembre, maquette `messagerie.png`) : hors appel, l'icône
+  carte en haut de la conversation envoie un message « carte » dans le fil (nature `carte`, notification comme un
+  message : « 🗺 veut te montrer sa carte »). Chez les autres, la bulle dit « Seb veut te montrer sa carte » avec
+  Non merci / Suivre (la demande vaut 4 h). Suivre : la conversation descend et la carte suit celle de Seb, comme
+  en appel (vue, fond, traces, calques, trait, profil) ; on continue de s'écrire, on ne se parle pas. L'icône du haut
+  devient le badge de Seb avec la petite carte, un appui arrête ; Seb arrête en touchant l'icône (allumée) ou
+  « Arrêter » sur sa bulle, et le suivi s'arrête chez tous. À l'arrêt : « Garder les traces de Seb ? ». Une pastille
+  verte en haut de la carte reprend l'icône ou le badge quand la messagerie est fermée. Un vrai appel (passé ou
+  reçu) remplace la carte montrée. Technique : une salle LiveKit muette par message (`carte-<id>`, sans micro, 4 h),
+  jeton par `POST /cartes/{message}` (seulement les membres de la conversation).
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne

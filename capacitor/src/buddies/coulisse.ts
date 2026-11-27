@@ -65,6 +65,8 @@ export function useCoulisse() {
 
   return {
     bas,
+    /** 🗺 Descendre l'écran pour voir la carte (carte montrée ou suivie en s'écrivant). */
+    descendre: () => { if (!bas) setBas(dernier.current); },
     /** Classe et position à poser sur l'écran de Buddies. */
     classe: bas ? ' coulisse' : '',
     style: bas ? { top: `min(${(bas * 100).toFixed(2)}%, calc(100% - ${RESTE}px))` } : undefined,

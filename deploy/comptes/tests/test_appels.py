@@ -13,7 +13,7 @@ def livekit(monkeypatch):
     monkeypatch.setattr(appels, "LIVEKIT_CLE", "cle")
     monkeypatch.setattr(appels, "LIVEKIT_SECRET", "secret-de-test-assez-long-pour-hs256")
     sonne = []
-    monkeypatch.setattr(appels, "sonner", lambda _S, qui, data: sonne.append((sorted(map(str, qui)), data)))
+    monkeypatch.setattr(appels, "sonner", lambda _S, qui, data, **_: sonne.append((sorted(map(str, qui)), data)))
     return sonne
 
 
@@ -60,3 +60,23 @@ def test_sans_livekit_pas_d_appel(client):
 def test_firebase_absent_ne_casse_rien(monkeypatch, tmp_path):
     monkeypatch.setattr(appels, "FIREBASE_CLE", str(tmp_path / "absente.json"))
     assert appels.envoyer_push(["x" * 30], {"type": "appel"}) == []
+
+
+def test_carte_dans_la_messagerie(client, livekit):
+    """🗺 Un message « carte » : salle muette (données seulement), sans sonnerie, pour ceux de la conversation."""
+    from test_buddies import nouveau_message
+    gid, julie = bande_avec_julie(client)
+    op = nouveau_message(groupe=gid, nature="carte", texte="")
+    sync(client, ops=[op])
+    m = next(x for x in sync(client, sub="julie")["messages"] if x["id"] == op["message"])
+    assert m["nature"] == "carte"
+    r = client.post(f"/cartes/{op['message']}", headers=entete(sub="julie"))
+    assert r.status_code == 200, r.text
+    j = jwt.decode(r.json()["jeton"], "secret-de-test-assez-long-pour-hs256", algorithms=["HS256"])
+    assert j["video"]["room"] == f"carte-{op['message']}" and j["video"]["canPublish"] is False and j["video"]["canPublishData"]
+    # Personne ne sonne : seule la notification du message part (« veut te montrer sa carte »).
+    assert [d["type"] for _, d in livekit] == ["message"] and "carte" in livekit[0][1]["texte"]
+    assert client.post(f"/cartes/{op['message']}", headers=entete(sub="luc")).status_code in (404, 409)
+    texte = nouveau_message(groupe=gid)
+    sync(client, ops=[texte])
+    assert client.post(f"/cartes/{texte['message']}", headers=entete(sub="seb")).status_code == 409

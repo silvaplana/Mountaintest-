@@ -83,7 +83,7 @@ export type Hebergement = {
 };
 /** 💬 Message d'un groupe ou d'une sortie (§5.6) : texte, « je suis ici » (point) ou photo de l'album. */
 export type MessageBuddy = {
-  id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo' | 'fichier' | 'sondage' | 'planning'; texte: string;
+  id: string; groupe: string | null; sortie: string | null; par: string; nature: 'texte' | 'point' | 'photo' | 'fichier' | 'sondage' | 'planning' | 'carte'; texte: string;
   lon: number | null; lat: number | null; photo: string | null; cree_le: string; attente?: boolean;
   /** 🐻 Réponse de Bud (§5.12), demandée par `par`. */
   bud?: boolean;
