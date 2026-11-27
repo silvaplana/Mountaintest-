@@ -98,7 +98,7 @@ import { BDFORET_ATTRIBUTION, fetchForests, forestZoneTooBig, formatHa, groupByE
 import { computeStats, formatDuration, formatKm } from './track/stats';
 import { useSheet } from './useSheet';
 import { useMiseAJour } from './miseAJour';
-import Accueil from './Accueil';
+import Accueil, { accueilAOuvrir } from './Accueil';
 
 type Tab = 'sortie' | 'randos' | 'forets' | 'horsligne' | 'mesures' | 'versions' | 'usage';
 type SourceKind = 'gps' | 'sim10' | 'sim60';
@@ -239,6 +239,8 @@ export function App() {
   /** 👥 Mon compte (connexion Logto, marche hors ligne une fois connecté). */
   // Tant qu'on n'est pas connecté, l'écran de connexion s'ouvre au lancement (« Plus tard » le ferme) : demande de Seb.
   const [account, setAccount] = useState(() => !connecte() || suppressionDemandee());
+  // « Je récupère tes affaires » attend que l'écran de connexion et le panneau d'accueil soient fermés (Seb, 27/11).
+  const [accueilOuvert, setAccueilOuvert] = useState(accueilAOuvrir);
   /** 👥 Buddies (spec/buddies.md) : copie locale, marche hors ligne. */
   const [buddies, setBuddies] = useState(false);
   /** ‹ depuis la carte d'une sortie : on revient sur son groupe. */
@@ -1603,7 +1605,7 @@ export function App() {
       <BarreAppel />
       <EcranSonnerie onToast={setToast} />
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
-      <Restauration />
+      <Restauration cache={account || accueilOuvert} />
       {toast && <div className="toast">{toast}</div>}
       {showOffline && !spaceClosed && !open && !drawing && !framing && (
         <PhoneSpacePanel cartes={stored.scan25Bytes + stored.planignBytes + stored.mntBytes} squares={owned.size} squaresBytes={ownedBytes}
@@ -1623,7 +1625,7 @@ export function App() {
       )}
       {/* Panneau d'accueil : une seule fois, à la première ouverture (Seb, 26/11), après l'écran de connexion (Seb, 27/11) ;
           « C'est parti » la 1re fois mène à la carte vue de haut, centrée sur ma position. */}
-      {!account && <Accueil onPremiereFois={() => {
+      {!account && <Accueil onFerme={() => setAccueilOuvert(false)} onPremiereFois={() => {
         map?.easeTo({ zoom: VUE_DE_HAUT, duration: 800 });
         navigator.geolocation?.getCurrentPosition((p) => map?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: VUE_DE_HAUT, duration: 800 }),
           () => undefined, { enableHighAccuracy: false, timeout: 20_000, maximumAge: 600_000 });

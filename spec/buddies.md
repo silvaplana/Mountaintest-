@@ -1137,6 +1137,8 @@ Maquette : `maquettes/restauration/` (variante B choisie par Seb ; A notificatio
   dépoli s'affiche en haut de la carte : « Je récupère tes affaires », une ligne au trait par chose qui revient :
   Traces, Groupes, Sorties, Albums, Conversations, avec leur nombre. Chaque ligne se coche quand elle arrive (roue avant),
   la barre avance, puis le titre devient « Tes affaires sont revenues » et l'encart s'efface seul 5 s après. Un toucher le ferme.
+  Il attend que l'écran de connexion et le panneau d'accueil soient fermés (sinon il passait dessous, invisible) :
+  il se montre après « C'est parti ».
 - Traces : seulement si Mes traces était vide sur le téléphone. Groupes : sans les discussions à deux. Albums : sorties
   qui ont des photos. Conversations : groupes et sorties qui ont des messages. Une ligne à 0 ne s'affiche pas ; rien
   revenu, pas d'encart.

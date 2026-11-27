@@ -12,13 +12,17 @@ export const choisirAideAOuverture = (oui: boolean) => { try { localStorage.setI
  * Panneau d'accueil (Seb, 26/11) : une seule fois, à la première ouverture de l'appli. Le but en deux phrases (texte de
  * Seb), puis comment avoir l'aide : appui long sur la flèche, sur la carte comme dans l'écran des « buddies ».
  */
-export default function Accueil({ onPremiereFois }: { onPremiereFois?: () => void }) {
-  const [vu, setVu] = useState(() => { try { return localStorage.getItem(CLE) === '1' && !aideAOuverture(); } catch { return true; } });
+/** Le panneau va s'ouvrir (première ouverture, ou aide à chaque ouverture). */
+export const accueilAOuvrir = () => { try { return localStorage.getItem(CLE) !== '1' || aideAOuverture(); } catch { return false; } };
+
+export default function Accueil({ onPremiereFois, onFerme }: { onPremiereFois?: () => void; onFerme?: () => void }) {
+  const [vu, setVu] = useState(() => !accueilAOuvrir());
   if (vu) return null;
   const fermer = () => {
     let premiere = false;
     try { premiere = localStorage.getItem(CLE) !== '1'; localStorage.setItem(CLE, '1'); } catch { /* ignoré */ }
     setVu(true);
+    onFerme?.();
     if (premiere) onPremiereFois?.();
   };
   const cote = iconesAGauche() ? 'gauche' : 'droite';
