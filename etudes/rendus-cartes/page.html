@@ -6,7 +6,7 @@
 <style>html,body,#m{margin:0;height:100%}</style></head><body><div id="m"></div><script>
 const q = new URLSearchParams(location.search);
 const zones = { ailefroide: [6.445, 44.885], laciotat: [5.615, 43.19] };
-const wmts = (layer, fmt, priv) => `https://data.geopf.fr/${priv ? 'private/' : ''}wmts?${priv ? 'apikey=ign_scan_ws&' : ''}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}`;
+const wmts = (layer, fmt, priv) => `https://data.geopf.fr/${priv ? 'private/' : ''}wmts?${priv ? 'apikey=ign_scan_ws&' : ''}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=${q.get('style') || 'normal'}&TILEMATRIXSET=${q.get('tms') || 'PM'}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}`;
 const raster = (url, max) => ({ type: 'raster', tiles: [url], tileSize: 256, maxzoom: max || 18 });
 const style = { version: 8, glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf', sources: {}, layers: [] };
 const add = (id, src, paint) => { style.sources[id] = src; style.layers.push({ id, type: 'raster', source: id, paint: paint || {} }); };
