@@ -159,7 +159,7 @@ jobs:
               -e "s/@CAP@/$(du -m site/apk/mountain-buddies-capacitor.apk | cut -f1)/" \
               deploy/apk-index.html > site/apk/index.html
           # Lu par les applis pour proposer la mise à jour (Updater.java).
-          u=https://silvaplana.cloud/mountaintest/apk
+          u=https://mountainbuddies.silvaplana.cloud/app/apk
           printf '{"build": %s, "apk": {"capacitor": "%s/mountain-buddies-capacitor.apk"}}\n' \
             "${{ github.run_number }}" "$u" > site/apk/version.json
       - name: Pousser la branche site

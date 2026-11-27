@@ -16,8 +16,8 @@ from email.utils import formataddr
 from html import escape
 
 log = logging.getLogger(__name__)
-LIEN_APPLI = os.environ.get("LIEN_APPLI", "https://silvaplana.cloud/mountaintest/apk/")
-LIEN_INVITATION = os.environ.get("LIEN_INVITATION", "https://silvaplana.cloud/mountaintest/rejoindre.html?c=")
+LIEN_APPLI = os.environ.get("LIEN_APPLI", "https://mountainbuddies.silvaplana.cloud/app/apk/")
+LIEN_INVITATION = os.environ.get("LIEN_INVITATION", "https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=")
 
 
 def actif() -> bool:

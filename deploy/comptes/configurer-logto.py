@@ -23,7 +23,7 @@ import urllib.request
 
 INTERNE = os.environ.get("LOGTO_INTERNE", "http://mb-logto:3001").rstrip("/")
 API = os.environ.get("API_RESSOURCE", "https://silvaplana.cloud/mountaintest-api")
-LOGO = os.environ.get("LOGO_URL", "https://silvaplana.cloud/mountaintest/logo.svg")
+LOGO = os.environ.get("LOGO_URL", "https://mountainbuddies.silvaplana.cloud/app/logo.svg")
 DOSSIER = os.environ.get("COMPTES_DOSSIER", "/data")
 M2M_ID, M2M_SECRET = os.environ["LOGTO_M2M_ID"], os.environ["LOGTO_M2M_SECRET"]
 

@@ -48,7 +48,7 @@ public final class Updater {
     private static final String CHANNEL = "maj";
     private static final String[] VERSION_URLS = {
         "https://github.com/silvaplana/Mountaintest-/releases/latest/download/version.json",
-        "https://silvaplana.cloud/mountaintest/apk/version.json",
+        "https://mountainbuddies.silvaplana.cloud/app/apk/version.json",
     };
 
     private Updater() {}

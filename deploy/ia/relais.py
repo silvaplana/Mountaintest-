@@ -1951,7 +1951,7 @@ def lire_voyage(d: dict) -> dict:
 # ---------- Invitation par e-mail (partage des frais) ----------
 # Même envoi que contretemps : SMTP de Brevo, variables SMTP_* copiées dans ia.env (deploy/ia/activer-mail.sh).
 
-LIEN_APK = "https://silvaplana.cloud/mountaintest/apk/"
+LIEN_APK = "https://mountainbuddies.silvaplana.cloud/app/apk/"
 SMTP = {k: os.environ.get(k, "") for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM_EMAIL", "SMTP_REPLY_TO")}
 MAIL_ACTIF = bool(SMTP["SMTP_HOST"] and SMTP["SMTP_USER"] and SMTP["SMTP_PASSWORD"])
 MAX_MAILS_PAR_JOUR = 30
