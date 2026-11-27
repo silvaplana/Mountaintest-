@@ -104,7 +104,9 @@ export type Sondage = { question: string; multiple: boolean; options: string[]; 
 /** ✓✓ Un buddy de mes conversations : sa dernière synchro (« reçu ») et jusqu'où il a lu chacune (« lu », bleu). */
 export type Lecture = { qui: string; vu_le: string | null; lus: Record<string, string> };
 /** 🚗 Une voiture garée (Seb, 26/11) : la mienne ou celle d'un buddy de mes groupes ; finie à `jusqu` (minuit). */
-export type Voiture = { qui: string; lat: number; lon: number; garee_le: number; jusqu: number };
+export type Voiture = { qui: string; lat: number; lon: number; garee_le: number; jusqu: number;
+  /** Ma voiture du profil (Seb, 27/11) : marque et modèle, silhouette, couleur ; absentes = la voiture rouge. */
+  modele?: string | null; forme?: string | null; couleur?: string | null };
 /** 📍 Position d'un buddy dans une sortie (§5.9) ou, hors sortie, dans un groupe (§7.14) : son épingle (ms)
  * et sa dernière position. */
 export type Position = {

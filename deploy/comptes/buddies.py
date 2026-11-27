@@ -954,6 +954,19 @@ def position(s: Session, u: Utilisateur, op: dict) -> None:
     p.prise_le, p.modifie_le = t, maintenant()
 
 
+# 🚗 Ma voiture (Seb, 27/11) : les silhouettes dessinées dans l'appli (buddies/voitureDessin.ts) et ses couleurs.
+FORMES_VOITURE = ("citadine", "berline", "break", "suv", "van", "camping", "pickup", "cabriolet")
+COULEURS_VOITURE = ("rouge", "bleu", "blanc", "gris", "noir", "vert", "jaune", "orange")
+
+
+def vue_voiture(s: Session, v: Voiture) -> dict:
+    """Une voiture garée, avec la marque, le modèle, la silhouette et la couleur de son propriétaire."""
+    p = s.get(Utilisateur, v.utilisateur_id)
+    return {"qui": str(v.utilisateur_id), "lat": v.lat, "lon": v.lon, "garee_le": v.garee_le, "jusqu": v.jusqu,
+            "modele": p.voiture_modele if p else None, "forme": p.voiture_forme if p else None,
+            "couleur": p.voiture_couleur if p else None}
+
+
 def voiture(s: Session, u: Utilisateur, op: dict) -> None:
     """🚗 Garer ma voiture ici (appui long) ou l'enlever ; elle s'efface seule à minuit (`jusqu`, un jour au plus)."""
     v = s.get(Voiture, u.id)
@@ -1414,6 +1427,7 @@ def supprimer_compte(s: Session, u: Utilisateur) -> None:
     s.execute(delete(Invitation).where(Invitation.invite_par == u.id, Invitation.acceptee_par.is_(None)))
     u.logto_id = f"supprime:{u.id}"  # une nouvelle connexion avec le même compte Google repart de zéro
     u.email = u.photo = u.telephone = u.iban = u.wero_numero = None
+    u.voiture_modele = u.voiture_forme = u.voiture_couleur = None
     u.pseudo, u.prenom, u.nom, u.wero, u.super_user = "Ancien buddy", "", "", False, False
     u.supprime_le = maintenant()
 
@@ -1547,7 +1561,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "ids_messages": [str(m.id) for m in messages], "messages": [vue_message(m, reactions.get(m.id, []), votes.get(m.id, []), fichiers.get(m.fichier_id)) for m in neufs],
             "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
             "positions": [vue_position(x) for x in [*positions, *positions_g]],
-            "voitures": [{"qui": str(v.utilisateur_id), "lat": v.lat, "lon": v.lon, "garee_le": v.garee_le, "jusqu": v.jusqu} for v in voitures], "appels": appels_en_cours(s, gids, sids),
+            "voitures": [vue_voiture(s, v) for v in voitures], "appels": appels_en_cours(s, gids, sids),
             "paiements": paiements(s, u, depenses), "bloques": vue_bloques(s, u), "signalements": vue_signalements(s, u),
             # SCAN 25 de la version Play : le mien ; et pour le Super User, la liste de ceux qui l'ont.
             "scan25": u.scan25 or u.super_user,

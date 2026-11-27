@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { LigneMaVoiture } from './compte/MaVoiture';
 import { choisirIcones, choisirMain, choisirNouvellesIcones, iconesAGauche, main, nouvellesIcones, type Main } from './doigt';
 import { aideAOuverture, choisirAideAOuverture } from './Accueil';
 import { App as CapApp } from '@capacitor/app';
@@ -282,6 +283,9 @@ export function Account({ onClose, onToast, onSupport }: { onClose: () => void; 
           onBlur={() => { if (pseudo.trim() && pseudo.trim() !== nomAffiche(e)) void changerPseudo(pseudo); }} />
       </label>
       <Champ titre="Téléphone (facultatif)" valeur={p?.telephone ?? ''} cle="telephone" type="tel" inputMode="tel" placeholder="06 12 34 56 78" onToast={onToast} />
+      {/* 🚗 Ma voiture (Seb, 27/11) : chacun sa voiture sur la carte. */}
+      <h3 className="acc-rubrique">Ma voiture</h3>
+      <LigneMaVoiture p={p} />
       <h3 className="acc-rubrique">Remboursements</h3>
       <Champ titre="Mon IBAN (facultatif, pour les remboursements)" valeur={p?.iban ?? ''} cle="iban" placeholder="FR76 …" onToast={onToast} />
       {/* Wero (Seb 26/11) : par défaut le portable ci-dessus ; un autre numéro ou un mail seulement s'il diffère. */}

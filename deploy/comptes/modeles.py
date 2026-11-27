@@ -62,6 +62,11 @@ class Utilisateur(Base):
     # Onglet Utilisateurs du Super User (Seb, 27/11) : d'où vient la personne (apk, play, web) et sa version,
     # redits par l'appli à chaque ouverture.
     plateforme: Mapped[str | None] = mapped_column(String(10))
+    # 🚗 Ma voiture (Seb, 27/11) : marque et modèle en texte libre, silhouette (citadine, suv…) et couleur, pour que
+    # chacun ait sa voiture sur la carte. Vus par les buddies qui voient ma voiture garée.
+    voiture_modele: Mapped[str | None] = mapped_column(String(60))
+    voiture_forme: Mapped[str | None] = mapped_column(String(12))
+    voiture_couleur: Mapped[str | None] = mapped_column(String(10))
     version: Mapped[str | None] = mapped_column(String(20))
 
 

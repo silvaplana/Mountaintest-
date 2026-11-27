@@ -128,6 +128,9 @@ COLONNES_AJOUTEES = [
     ("utilisateurs", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
     ("utilisateurs", "plateforme", "VARCHAR(10)"),
     ("utilisateurs", "version", "VARCHAR(20)"),
+    ("utilisateurs", "voiture_modele", "VARCHAR(60)"),
+    ("utilisateurs", "voiture_forme", "VARCHAR(12)"),
+    ("utilisateurs", "voiture_couleur", "VARCHAR(10)"),
 ]
 
 
@@ -232,7 +235,8 @@ def profil(u: Utilisateur) -> dict[str, Any]:
     """Mon profil (à moi seul : téléphone et IBAN ne partent jamais chez les autres)."""
     return {"id": str(u.id), "email": u.email, "pseudo": u.pseudo, "photo": u.photo, "cree_le": iso(u.cree_le),
             "prenom": u.prenom, "nom": u.nom, "telephone": u.telephone, "iban": u.iban,
-            "wero": u.wero, "wero_numero": u.wero_numero, "super_user": u.super_user}
+            "wero": u.wero, "wero_numero": u.wero_numero, "super_user": u.super_user,
+            "voiture_modele": u.voiture_modele, "voiture_forme": u.voiture_forme, "voiture_couleur": u.voiture_couleur}
 
 
 def normaliser_iban(iban: str | None) -> str | None:
@@ -392,6 +396,10 @@ class Changement(BaseModel):
     iban: str | None = Field(None, max_length=60)  # vide = effacé
     wero: bool | None = None
     wero_numero: str | None = Field(None, max_length=100)  # vide = le portable du profil
+    # 🚗 Ma voiture : vide = effacé (on revient à la voiture rouge d'avant).
+    voiture_modele: str | None = Field(None, max_length=60)
+    voiture_forme: str | None = Field(None, pattern=f"^({'|'.join(buddies.FORMES_VOITURE)})?$")
+    voiture_couleur: str | None = Field(None, pattern=f"^({'|'.join(buddies.COULEURS_VOITURE)})?$")
 
 
 @app.put("/moi")
@@ -418,6 +426,12 @@ def changer_moi(ch: Changement, j: dict = Depends(jeton_requis), s: Session = De
         u.wero = ch.wero
     if ch.wero_numero is not None:
         u.wero_numero = re.sub(r"\s+", " ", ch.wero_numero).strip() or None
+    if ch.voiture_modele is not None:
+        u.voiture_modele = re.sub(r"\s+", " ", ch.voiture_modele).strip() or None
+    if ch.voiture_forme is not None:
+        u.voiture_forme = ch.voiture_forme or None
+    if ch.voiture_couleur is not None:
+        u.voiture_couleur = ch.voiture_couleur or None
     buddies.profil_change(s, u)
     s.commit()
     return profil(u)
