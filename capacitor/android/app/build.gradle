@@ -77,9 +77,9 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-// Firebase (sonnerie des appels, notifications) : src/apk/google-services.json pour l'APK. La version Play
-// demande sa propre appli dans la console Firebase (src/play/google-services.json) ; sans elle, elle se construit
-// quand même, sans notifications (BuddiesPlugin le vérifie).
+// Firebase (sonnerie des appels, notifications) : src/apk/google-services.json pour l'APK, src/play/google-services.json
+// pour la version Play (2e appli du même projet Firebase). Sans fichier, l'appli se construit quand même, sans
+// notifications (BuddiesPlugin le vérifie).
 if (file('src/apk/google-services.json').exists() || file('src/play/google-services.json').exists()) {
     apply plugin: 'com.google.gms.google-services'
     googleServices { missingGoogleServicesStrategy = 'WARN' }
