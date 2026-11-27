@@ -994,8 +994,8 @@ export function synchroniser(): Promise<string[]> {
           conversations: new Set(mg.liste.map((m) => m.sortie ?? m.groupe)).size,
         }, true);
       }
-      await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
-      await envoyerFichiersMessages().catch(() => undefined);
+      // Photos et fichiers à côté : un gros envoi en 4G ne retarde plus les synchros suivantes (Seb, 27/11).
+      void envoyerFichiersAttente(new Set(r.ids_photos ?? []));
       return r.refus.map((x) => x.raison);
     } finally {
       enCours = null;
@@ -1003,6 +1003,18 @@ export function synchroniser(): Promise<string[]> {
     }
   })();
   return enCours;
+}
+
+let envoisEnCours: Promise<void> | null = null;
+/** Un seul envoi de fichiers à la fois ; sans réseau, ils repartent au prochain tour. */
+function envoyerFichiersAttente(connues: Set<string>) {
+  envoisEnCours ??= (async () => {
+    try {
+      await envoyerPhotos(connues).catch(() => undefined);
+      await envoyerFichiersMessages().catch(() => undefined);
+    } finally { envoisEnCours = null; }
+  })();
+  return envoisEnCours;
 }
 
 /** Fichiers joints à mes messages acceptés par le serveur ; ceux d'un message refusé sont oubliés. */
@@ -1033,4 +1045,4 @@ export function oublierTout() {
 }
 
 /** Pour les tests. */
-export function _reinitialiser() { memoire = null; abonnes.clear(); enCours = null; }
+export function _reinitialiser() { memoire = null; abonnes.clear(); enCours = null; envoisEnCours = null; }
