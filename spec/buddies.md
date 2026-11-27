@@ -747,6 +747,13 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   groupe ni sortie n'est ouvert, ouvre une feuille par-dessus la carte : « Chercher un nom » en haut (sans accents ni
   majuscules), puis les groupes et sorties en cours ou à venir (derniers appelés d'abord, gardés sur le téléphone,
   puis dernière activité), puis les buddies un par un (l'appel passe par la discussion à deux). Un appui = appel.
+- **🔔 Notification d'une carte partagée** (Seb, 27 novembre, maquette `maquettes/notif-carte/`) : où qu'ils
+  soient, appli fermée comprise, les autres reçoivent une notification avec deux boutons. Depuis la messagerie :
+  « 🗺 <groupe> · Seb partage sa carte », **Non merci** / **Suivre** ; Suivre ouvre l'appli sur la carte de Seb,
+  la conversation en dessous (valable 4 h). Pendant un appel, ceux du groupe qui ne sont pas dans l'appel :
+  « 📞 <groupe> · Seb partage sa carte pendant l'appel », **Non merci** / **Rejoindre** ; Rejoindre décroche, la
+  carte suit toute seule (valable 10 min). Ceux déjà dans l'appel gardent la simple ligne « Seb a partagé sa
+  carte ». Technique : push Firebase `carte` (message) et `carte_appel` (appel), canal Android « Cartes ».
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne

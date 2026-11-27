@@ -227,6 +227,12 @@ def carte_en_appel(s: Session, Sessions, u: Utilisateur, aid: str, on: bool) -> 
         "type": "message", "cle": str(a.sortie_id or a.groupe_id), "groupe": str(a.groupe_id or ""), "sortie": str(a.sortie_id or ""),
         "titre": de if a_deux else nom, "de": de, "texte": "🗺 " + fait, "duo": "1" if a_deux else "",
         "ligne": f"{de} {fait} {'avec toi' if a_deux else 'dans ' + nom}", "envoye_le": str(int(time.time() * 1000))})
+    # Ceux du groupe qui ne sont pas dans l'appel : « Seb partage sa carte pendant l'appel », Non merci / Rejoindre.
+    absents = [x for x in qui if x != u.id and x not in en_ligne]
+    if on and a.fin is None and absents:
+        sonner(Sessions, absents, {
+            "type": "carte_appel", "appel": str(a.id), "de": de, "nom": nom, "groupe": str(a.groupe_id or ""), "sortie": str(a.sortie_id or ""),
+            "titre": de if a_deux else nom, "ligne": f"{de} partage sa carte pendant l'appel", "envoye_le": str(int(time.time() * 1000))})
     return {"ok": True}
 
 

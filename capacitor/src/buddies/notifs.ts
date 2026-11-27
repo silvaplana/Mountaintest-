@@ -11,7 +11,8 @@ import { synchroniser } from './store';
  * comme la sonnerie des appels. Appli fermée : une notification par conversation (MessagesNotif.java), la toucher
  * ouvre la conversation. Appli ouverte : pas de notification, on va chercher le message tout de suite.
  */
-export type ConversationNotif = { cle: string; groupe?: string; sortie?: string };
+/** `carte` : « Suivre » touché sur la notification d'une carte partagée (le message « carte » à suivre). */
+export type ConversationNotif = { cle: string; groupe?: string; sortie?: string; carte?: string; carteDe?: string };
 
 const Permissions = registerPlugin<{ requestPermissions(o: { permissions: string[] }): Promise<{ notifications: string }> }>('EcoLocation');
 

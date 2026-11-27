@@ -77,7 +77,7 @@ def test_carte_dans_la_messagerie(client, livekit):
     j = jwt.decode(r.json()["jeton"], "secret-de-test-assez-long-pour-hs256", algorithms=["HS256"])
     assert j["video"]["room"] == f"carte-{op['message']}" and j["video"]["canPublish"] is False and j["video"]["canPublishData"]
     # Personne ne sonne : seule la notification du message part (« veut te montrer sa carte »).
-    assert [d["type"] for _, d in livekit] == ["message"] and "carte" in livekit[0][1]["texte"]
+    assert [d["type"] for _, d in livekit] == ["carte"] and "carte" in livekit[0][1]["texte"]
     assert client.post(f"/cartes/{op['message']}", headers=entete(sub="luc")).status_code in (404, 409)
     texte = nouveau_message(groupe=gid)
     sync(client, ops=[texte])
@@ -91,6 +91,7 @@ def test_carte_debut_et_fin_notifies(client, livekit):
     op = nouveau_message(groupe=gid, nature="carte", texte="")
     sync(client, ops=[op])
     d = livekit[-1][1]
+    assert d["type"] == "carte" and d["message"] == op["message"]
     assert d["ligne"].endswith("a partagé sa carte dans " + d["titre"]) and d["ligne"].startswith(d["de"])
     fin = nouveau_message(groupe=gid, nature="carte_fin", texte=op["message"])
     sync(client, ops=[fin])
@@ -108,6 +109,17 @@ def test_carte_imposee_pendant_l_appel_notifiee(client, livekit):
     assert client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": True}).status_code == 200
     qui, d = livekit[-1]
     assert qui == [julie] and d["ligne"].endswith("a partagé sa carte dans Ski du dimanche") and d["ligne"].startswith(d["de"])
+    n = len(livekit)  # tout le groupe est dans l'appel : personne d'autre à prévenir
     client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": False})
-    assert livekit[-1][1]["ligne"].endswith("a arrêté de partager sa carte dans Ski du dimanche")
+    assert len(livekit) == n + 1 and livekit[-1][1]["ligne"].endswith("a arrêté de partager sa carte dans Ski du dimanche")
     assert client.post(f"/appels/{a['id']}/carte", headers=entete(sub="luc"), json={"on": True}).status_code == 409
+
+
+def test_carte_en_appel_proposee_aux_absents(client, livekit):
+    """🗺 Seb, 27/11 (maquette notif-carte) : ceux du groupe pas dans l'appel reçoivent « Seb partage sa carte pendant l'appel »."""
+    gid, julie = bande_avec_julie(client)
+    a = client.post("/appels", headers=entete(sub="seb"), json={"groupe": gid}).json()
+    client.post(f"/appels/{a['id']}/presence", headers=entete(sub="seb"), json={"en_ligne": True})
+    client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": True})
+    qui, d = livekit[-1]
+    assert qui == [julie] and d["type"] == "carte_appel" and d["appel"] == a["id"] and d["ligne"].endswith("partage sa carte pendant l'appel")

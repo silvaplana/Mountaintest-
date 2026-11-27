@@ -24,7 +24,7 @@ import { PointSurCarte } from './buddies/Messages';
 import { BuddiesVisiblesSurCarte, PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
-import { montrer } from './buddies/appel';
+import { montrer, suivreUneCarte } from './buddies/appel';
 import { appliquer as groupesBuddies, lire as lireBuddies, mesEpingles, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
 import { appareilLisible } from './buddies/appareil';
@@ -481,6 +481,11 @@ export function App() {
     const x = c.sortie ? v.sorties.find((y) => y.id === c.sortie) : undefined;
     if (x) montrerBuddies({ sortie: x, traces: v.traces.filter((t) => t.sortie === x.id), parler: true });
     else if (c.groupe) { setCarteSortie(null); setBuddiesDepart({ ecran: 'conv', id: c.groupe }); setBuddies(true); }
+    // 🗺 « Suivre » sur la notification d'une carte partagée : la carte suit tout de suite (Seb, 27/11).
+    if (c.carte) {
+      const nom = x?.nom ?? groupesBuddies(lireBuddies()).find((g) => g.id === c.groupe)?.nom ?? '';
+      void suivreUneCarte(c.carte, x ? { sortie: x.id } : { groupe: c.groupe }, nom).catch((err: Error) => setToast(err.message || 'Impossible de suivre sa carte'));
+    }
   });
   // 🔔 Ouverture après des notifications : une fenêtre dit ce qui est arrivé (Seb, 26/11).
   const [arrivees, vuArrivees] = useNotifsAExpliquer();
