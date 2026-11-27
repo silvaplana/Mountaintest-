@@ -725,7 +725,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   arrête (ou qu'un appel prend la place), un message `carte_fin` part aussi : « Seb a arrêté de partager sa carte
   dans <groupe> », et la bulle de départ n'offre plus Suivre. En appel aussi (Seb, 27/11), ceux qui sont en ligne reçoivent
   « Seb a partagé sa carte dans <groupe> » quand j'allume ma carte, et « … a arrêté de partager sa carte » quand je
-  l'éteins ou raccroche (`POST /appels/{id}/carte`, notification seule, rien dans le fil). Chez les autres, la bulle dit « Seb partage sa carte » avec
+  l'éteins ou raccroche (`POST /appels/{id}/carte`, notification seule, rien dans le fil). L'icône carte est dans la
+  barre dès « Ça sonne… » (Seb, 27/11) : touchée avant qu'ils décrochent, elle s'allume et ma carte part dès que
+  quelqu'un décroche (un 2e appui annule). Chez les autres, la bulle dit « Seb partage sa carte » avec
   Non merci / Suivre (la demande vaut 4 h). Suivre : la conversation descend et la carte suit celle de Seb, comme
   en appel (vue, fond, traces, calques, trait, profil) ; on continue de s'écrire, on ne se parle pas. L'icône du haut
   devient le badge de Seb avec la petite carte, un appui arrête ; Seb arrête en touchant l'icône (allumée) ou

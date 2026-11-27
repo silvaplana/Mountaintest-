@@ -26,6 +26,8 @@ export type EtatAppel = {
   suit?: Voix | null;
   /** 🗺 Carte montrée depuis la messagerie : salle muette (pas de voix), `carte` = le message « carte » du fil. */
   muette?: boolean; carte?: string;
+  /** Ma carte s'allumera dès que quelqu'un décroche (touchée pendant « Ça sonne… »). */
+  carteDesQue?: boolean;
 };
 
 /** Les calques de la carte, les mêmes chez ceux qui suivent. */
@@ -250,10 +252,17 @@ export async function couperMicro(muet: boolean) {
  * 🗺 Depuis la messagerie : en appel, j'allume ma carte ; sinon j'appelle la bande et ma carte s'allume dès que
  * quelqu'un décroche (« Suis ma carte » passe par l'appel).
  */
+/** 🗺 Pendant « Ça sonne… » (Seb, 27/11) : ma carte s'allumera chez eux dès qu'ils décrochent ; un 2e appui annule. */
+export function montrerMaCarteDesQue() {
+  if (!etat || etat.phase === 'en_ligne' || etat.muette) return;
+  montrerDesQue = !montrerDesQue;
+  changer({ ...etat, carteDesQue: montrerDesQue });
+}
+
 export async function montrerMaCarteA(dest: Dest, nom: string) {
-  if (etat) { if (etat.phase === 'en_ligne') montrerMaCarte(true); else montrerDesQue = true; return; }
+  if (etat) { if (etat.phase === 'en_ligne') montrerMaCarte(true); else { montrerDesQue = true; changer({ ...etat, carteDesQue: true }); } return; }
   await appeler(dest, nom);
-  if (etat) montrerDesQue = true;
+  const e = etat as EtatAppel | null; if (e) { montrerDesQue = true; changer({ ...e, carteDesQue: true }); }
 }
 
 /**

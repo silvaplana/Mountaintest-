@@ -6,8 +6,7 @@ import { api, connecte } from '../compte/auth';
 import { Natif, useBuddies, Visage } from './Buddies';
 import {
   appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, reprendreMaCarte, refuser, sonner, suivreAppel, suivreDoigts,
-  type EtatAppel, type Sonnerie,
-} from './appel';
+  montrerMaCarteDesQue, type EtatAppel, type Sonnerie } from './appel';
 import { appliquer, vue } from './store';
 import { IconeSuisCarte } from './IconeSuisCarte';
 
@@ -118,6 +117,8 @@ export function BarreAppel() {
       {e.phase === 'en_ligne' && !e.jeMontre && !suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
     {e.phase === 'en_ligne' && guide && <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${guide.pseudo}`} onClick={reprendreMaCarte}>
       <Visage b={guide} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>}
+    {e.phase !== 'en_ligne' && <button aria-label={e.carteDesQue ? 'Ne pas montrer ma carte' : 'Montrer ma carte dès qu\'ils décrochent'}
+      className={e.carteDesQue ? 'allume' : ''} onClick={montrerMaCarteDesQue}><IconeSuisCarte /></button>}
     {e.phase === 'en_ligne' && !guide && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
       className={e.jeMontre ? 'allume' : ''} onClick={() => montrerMaCarte(!e.jeMontre)}>
       <IconeSuisCarte /></button>}
