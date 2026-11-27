@@ -53,6 +53,8 @@ export function epingleSurCarte(map: MlMap, lon: number, lat: number, texte: str
   }
   b.append(texte);
   el.appendChild(b);
+  el.dataset.lon = String(lon);
+  el.dataset.lat = String(lat);
   return new maplibregl.Marker({ element: el, anchor: 'bottom-left', offset: [-2, 2] }).setLngLat([lon, lat]).addTo(map);
 }
 
@@ -60,29 +62,57 @@ const rangees = new WeakSet<MlMap>();
 type Boite = { l: number; r: number; t: number; b: number };
 const boite = (x: Element): Boite => { const r = x.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
 const touche = (a: Boite, b: Boite, m = 3) => a.l < b.r + m && a.r > b.l - m && a.t < b.b + m && a.b > b.t - m;
-const decale = (a: Boite, dx: number): Boite => ({ ...a, l: a.l + dx, r: a.r + dx });
+const decale = (a: Boite, dx: number, dy = 0): Boite => ({ l: a.l + dx, r: a.r + dx, t: a.t + dy, b: a.b + dy });
 
 /**
  * Rien ne se superpose (Seb, 27/11 : noms et voitures illisibles l'un sur l'autre) : 1. les épingles et les
- * voitures au même endroit s'écartent côte à côte (propriété CSS `translate`, qui s'ajoute au placement de
+ * voitures au même endroit s'écartent juste autour de leur endroit, reliées à lui par un fin trait (propriété CSS `translate`, qui s'ajoute au placement de
  * MapLibre), sans couvrir mon point bleu ; 2. leurs étiquettes s'empilent vers le haut, au-dessus des icônes.
  * Refait après chaque zoom et à chaque nouvelle épingle ou voiture.
  */
+/**
+ * Une icône écartée de son endroit : un fin trait la relie à son vrai point, marqué d'un rond (Seb, 27/11 : « on ne
+ * sait pas où est vraiment la voiture »).
+ */
+function relier(map: MlMap, m: HTMLElement, dx: number, dy: number) {
+  const lon = Number(m.dataset.lon), lat = Number(m.dataset.lat);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+  const p = map.project([lon, lat]);
+  const r = m.getBoundingClientRect(), c = map.getContainer().getBoundingClientRect();
+  const x = p.x + c.left - r.left, y = p.y + c.top - r.top; // le vrai point, dans l'icône déplacée
+  const l = document.createElement('span');
+  l.className = 'bd-relie';
+  Object.assign(l.style, { left: `${x}px`, top: `${y - 1}px`, width: `${Math.hypot(dx, dy)}px`, transform: `rotate(${Math.atan2(dy, dx)}rad)` });
+  m.appendChild(l);
+}
+
+const prevus = new WeakSet<MlMap>();
 export function rangerEtiquettes(map: MlMap) {
-  if (!rangees.has(map)) { rangees.add(map); map.on('zoomend', () => rangerEtiquettes(map)); }
+  // Pendant le zoom aussi, à chaque image (Seb, 27/11 : les voitures « ne suivaient pas le zoom »).
+  if (!rangees.has(map)) { rangees.add(map); map.on('zoom', () => rangerEtiquettes(map)); }
+  if (prevus.has(map)) return;
+  prevus.add(map);
   requestAnimationFrame(() => {
+    prevus.delete(map);
     const c = map.getContainer();
     const marques = [...c.querySelectorAll<HTMLElement>('.bd-pin, .bd-voiture-carte')];
-    marques.forEach((m) => { m.style.translate = ''; });
+    marques.forEach((m) => { m.style.translate = ''; m.querySelector(':scope > .bd-relie')?.remove(); });
     const icone = (m: HTMLElement) => m.querySelector('svg, .bd-auto') ?? m;
     const fixes = [...c.querySelectorAll('.maplibregl-user-location-dot')].map(boite);
     const placees: Boite[] = [...fixes];
     for (const m of marques.map((m) => ({ m, x: boite(icone(m)) })).sort((a, b) => a.x.l - b.x.l)) {
-      const pas = m.x.r - m.x.l + 6;
-      let dx = 0;
-      for (let k = 1; k < 20 && placees.some((p) => touche(decale(m.x, dx), p)); k++) dx = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * pas;
-      if (dx) m.m.style.translate = `${dx}px 0`;
-      placees.push(decale(m.x, dx));
+      // Au plus près de son endroit : des cercles de plus en plus grands autour de lui, la première place libre.
+      const pas = Math.max(m.x.r - m.x.l, m.x.b - m.x.t) * 0.7 + 6;
+      let d = [0, 0];
+      for (let k = 1; k <= 6 && placees.some((p) => touche(decale(m.x, d[0], d[1]), p)); k++) {
+        const essais = Array.from({ length: 8 * k }, (_, i) => -Math.PI / 2 + (i / (8 * k)) * 2 * Math.PI).map((t) => [Math.round(Math.cos(t) * k * pas), Math.round(Math.sin(t) * k * pas)]);
+        const libre = essais.find(([dx, dy]) => !placees.some((p) => touche(decale(m.x, dx, dy), p)));
+        if (libre) d = libre; else if (k === 6) d = essais[0];
+      }
+      const [dx, dy] = d;
+      if (dx || dy) m.m.style.translate = `${dx}px ${dy}px`;
+      placees.push(decale(m.x, dx, dy));
+      if (dx || dy) relier(map, m.m, dx, dy);
     }
     const ls = [...map.getContainer().querySelectorAll<HTMLElement>('.bd-pin b, .bd-voiture-carte b')];
     ls.forEach((b) => b.style.setProperty('--dy', '0px'));

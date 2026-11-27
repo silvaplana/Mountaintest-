@@ -929,7 +929,9 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   que les épingles des traces, Seb 27/11 : pas de gros rond aux initiales), avec l'étiquette « pseudo · heure »
   précédée d'une petite photo, sinon des initiales « SR » (Seb, 27/11), comme
   les voitures, sans passer par la liste. Rien ne se superpose (Seb, 27/11) : épingles et voitures au même endroit
-  s'écartent côte à côte, sans couvrir mon point bleu, et leurs étiquettes s'empilent vers le haut, au-dessus des
+  s'écartent juste autour de leur endroit (cercles de plus en plus grands), reliées à leur vrai point par un fin trait
+  terminé par un rond, sans couvrir mon point bleu, à chaque image du zoom ; la voiture a une aiguille dont le rond
+  touche l'endroit exact, et plus d'heure au-dessus (l'appui la montre), et leurs étiquettes s'empilent vers le haut, au-dessus des
   icônes ; refait à chaque zoom. Synchro toutes les 2 minutes, appli ouverte, pour recevoir positions et voitures garées.
 - **Push silencieux** (Seb, 27/11) : garer ou enlever sa voiture, allumer ou éteindre sa position envoie aux membres
   de mes groupes un message Firebase `type: synchro`, sans rien afficher ; appli à l'écran, elle se synchronise
