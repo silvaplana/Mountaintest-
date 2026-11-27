@@ -541,6 +541,11 @@ function Inviter({ nomGroupe, liens, onInvite, onToast, sortie = false }: {
         <button className={approbation ? 'choisi' : ''} onClick={() => choisirType(true)}><b>Un admin accepte</b><small>le lien ne périme pas</small></button>
       </div>}
       <Qr texte={lien(qr)} />
+      {/* Le lien en clair, avec « Copier » (Seb, 27/11). */}
+      <div className="bd-lien-copier">
+        <span>{lien(qr)}</span>
+        <button onClick={() => { void navigator.clipboard?.writeText(lien(qr)).then(() => onToast('Lien copié')).catch(() => onToast(lien(qr))); void envoyerAttente(); }}>Copier</button>
+      </div>
       <p className="hint">Un seul lien pour tous tes copains, même dans un groupe WhatsApp. Il ouvre la page de Mountain Buddies, puis les fait entrer {sortie ? 'dans la sortie' : approbation ? 'quand un admin accepte leur demande' : 'dans le groupe'}. Ils peuvent aussi viser ce code avec l'appareil photo.</p>
       <button className="primary" onClick={() => void partagerLien(qr, true)}>Envoyer dans WhatsApp</button>
       <button onClick={() => void partagerLien(qr, false)}>Partager ailleurs</button>
