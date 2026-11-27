@@ -1,6 +1,7 @@
 package fr.assomoutain.rando;
 
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -10,6 +11,7 @@ import android.os.Build;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 import androidx.activity.result.ActivityResult;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -19,10 +21,12 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 📥 Charger une trace : ouvre le sélecteur de fichiers d'Android dans le dernier dossier utilisé,
- * ou dans Téléchargements la première fois, et rend le texte du fichier choisi (GPX, KML, GeoJSON).
+ * ou dans Téléchargements la première fois, et rend le texte des fichiers choisis (GPX, KML, GeoJSON).
  * Même comportement côté Kotlin (TraceFile.kt).
  */
 @CapacitorPlugin(name = "TraceFile")
@@ -93,6 +97,8 @@ public class TraceFilePlugin extends Plugin {
         i.addCategory(Intent.CATEGORY_OPENABLE);
         // Beaucoup de téléphones ne connaissent pas le type « GPX » : on accepte tout, la lecture trie.
         i.setType("*/*");
+        // Plusieurs fichiers d'un coup (Seb, 27/11 : reprendre toutes ses traces après une réinstallation).
+        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         if (Build.VERSION.SDK_INT >= 26) i.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri(getContext()));
         startActivityForResult(call, i, "picked");
     }
@@ -100,24 +106,37 @@ public class TraceFilePlugin extends Plugin {
     @ActivityCallback
     private void picked(PluginCall call, ActivityResult result) {
         if (call == null) return;
-        Uri uri = result.getData() != null ? result.getData().getData() : null;
-        if (result.getResultCode() != Activity.RESULT_OK || uri == null) {
+        Intent data = result.getData();
+        List<Uri> uris = new ArrayList<>();
+        if (result.getResultCode() == Activity.RESULT_OK && data != null) {
+            ClipData clip = data.getClipData();
+            if (clip != null) for (int k = 0; k < clip.getItemCount(); k++) uris.add(clip.getItemAt(k).getUri());
+            else if (data.getData() != null) uris.add(data.getData());
+        }
+        if (uris.isEmpty()) {
             JSObject r = new JSObject();
             r.put("cancelled", true);
             call.resolve(r);
             return;
         }
         Context ctx = getContext();
-        try {
-            String text = readText(ctx, uri);
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(LAST, uri.toString()).apply();
+        new Thread(() -> {
+            JSArray files = new JSArray();
+            for (Uri uri : uris) {
+                JSObject f = new JSObject();
+                f.put("name", displayName(ctx, uri));
+                try {
+                    f.put("text", readText(ctx, uri));
+                } catch (Exception e) {
+                    f.put("error", String.valueOf(e.getMessage()));
+                }
+                files.put(f);
+            }
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(LAST, uris.get(0).toString()).apply();
             JSObject r = new JSObject();
-            r.put("name", displayName(ctx, uri));
-            r.put("text", text);
+            r.put("files", files);
             call.resolve(r);
-        } catch (Exception e) {
-            call.reject("Lecture impossible : " + e.getMessage());
-        }
+        }).start();
     }
 
     /** Dossier du dernier fichier choisi, sinon Téléchargements. */

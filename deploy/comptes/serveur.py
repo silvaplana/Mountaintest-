@@ -56,7 +56,7 @@ import appels
 import buddies
 import droits
 import mails
-from modeles import Base, Groupe, Membre, Telechargement, Usage, Utilisateur, maintenant
+from modeles import Base, Groupe, MaTrace, Membre, Telechargement, Usage, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
 LOGTO_INTERNE = os.environ.get("LOGTO_INTERNE", LOGTO).rstrip("/")
@@ -335,6 +335,41 @@ def stockage(u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
                             for x in s.scalars(select(Utilisateur))),
                            key=lambda d: -(d["photos"] + d["fichiers"] + d["donnees"] + (d["telephone"] or 0)))
     return r
+
+
+# ---------------------------------------------------------------- 💾 Mes traces sauvegardées (Seb, 27/11)
+
+class MesTraces(BaseModel):
+    traces: list[dict[str, Any]] = Field(default_factory=list, max_length=5000)
+    supprimees: list[int] = Field(default_factory=list, max_length=5000)
+
+
+@app.put("/mes-traces")
+def sauver_mes_traces(m: MesTraces, u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """Le téléphone envoie ses traces (ajoutées ou remplacées) et celles qu'il a effacées. Une trace absente
+    n'est jamais effacée : un téléphone vide (appli réinstallée) ne vide pas la sauvegarde."""
+    for t in m.traces:
+        tid, donnees = t.get("id"), json.dumps(t, ensure_ascii=False, separators=(",", ":"))
+        if not isinstance(tid, int) or len(donnees) > 2_000_000:
+            raise HTTPException(422, "Trace illisible.")
+        x = s.get(MaTrace, (u.id, tid))
+        if x is None:
+            s.add(MaTrace(utilisateur_id=u.id, id_tel=tid, donnees=donnees))
+        elif x.supprime_le is None and x.donnees != donnees:
+            x.donnees, x.modifie_le = donnees, maintenant()
+    for tid in m.supprimees:
+        x = s.get(MaTrace, (u.id, tid))
+        if x is not None and x.supprime_le is None:
+            x.supprime_le = maintenant()
+    s.commit()
+    return {"ok": True}
+
+
+@app.get("/mes-traces")
+def lire_mes_traces(u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """Mes traces gardées sur le serveur (sauf les effacées), pour les remettre sur un téléphone neuf."""
+    return {"traces": [json.loads(x.donnees) for x in s.scalars(
+        select(MaTrace).where(MaTrace.utilisateur_id == u.id, MaTrace.supprime_le.is_(None)).order_by(MaTrace.id_tel.desc()))]}
 
 
 class Changement(BaseModel):

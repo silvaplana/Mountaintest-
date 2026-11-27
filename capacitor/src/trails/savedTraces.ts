@@ -16,6 +16,8 @@ export interface SavedTrace {
   pins?: Pin[];
   /** 👥 Groupe et sortie associés. */
   lien?: { groupe: string; sortie: string | null } | null;
+  /** 📥 Reprise d'un fichier : son GPX est déjà dans Téléchargements, on ne le réécrit pas (sinon un doublon « (1) »). */
+  fichier?: boolean;
 }
 
 const KEY = 'tracesEnregistrees';
@@ -42,6 +44,31 @@ export async function saveTrace(name: string, line: LonLat[], onPaths: boolean, 
   const t: SavedTrace = { id: Date.now(), name, onPaths, line: round(line), pins, lien };
   await write([t, ...(await listTraces())]);
   return t;
+}
+
+/**
+ * 📥 Traces lues dans des fichiers : ajoutées à Mes traces (Seb, 27/11 : après une réinstallation, on reprend les
+ * GPX de Téléchargements/Mountain Buddies). Une trace déjà là (même nom, même forme) n'est pas ajoutée deux fois.
+ */
+export function addImported(all: SavedTrace[], files: { name: string; line: LonLat[] }[], now = Date.now()) {
+  const out = [...all];
+  const added: SavedTrace[] = [];
+  let id = Math.max(now, ...all.map((t) => t.id + 1));
+  for (const f of files) {
+    const line = round(f.line);
+    const same = out.find((t) => t.name === f.name && JSON.stringify(t.line) === JSON.stringify(line));
+    if (same) { added.push(same); continue; }
+    const t: SavedTrace = { id: id++, name: f.name, onPaths: false, line, pins: [], lien: null, fichier: true };
+    out.unshift(t);
+    added.push(t);
+  }
+  return { all: out, added, fresh: out.length - all.length };
+}
+
+export async function importTraces(files: { name: string; line: LonLat[] }[]) {
+  const r = addImported(await listTraces(), files);
+  if (r.fresh) await write(r.all);
+  return r;
 }
 
 /** ✏ / 📍 Trace enregistrée modifiée : on garde la nouvelle forme et ses points (même identifiant). */
@@ -79,6 +106,44 @@ export function readLien(v: unknown): SavedTrace['lien'] {
 
 export async function deleteTrace(id: number) {
   await write((await listTraces()).filter((t) => t.id !== id));
+  // 💾 À effacer aussi de la sauvegarde du serveur (trails/traceBackup.ts), au prochain réseau.
+  await Preferences.set({ key: KEY_EFFACEES, value: JSON.stringify([...new Set([...(await deletedIds()), id])]) });
+}
+
+const KEY_EFFACEES = 'tracesEffacees';
+
+/** Traces effacées ici, pas encore effacées de la sauvegarde du serveur. */
+export async function deletedIds(): Promise<number[]> {
+  try {
+    const v = JSON.parse((await Preferences.get({ key: KEY_EFFACEES })).value ?? '[]');
+    return Array.isArray(v) ? v.filter((x) => Number.isInteger(x)) : [];
+  } catch { return []; }
+}
+
+/** Effacements bien reçus par le serveur. */
+export async function forgetDeleted(ids: number[]) {
+  const reste = (await deletedIds()).filter((x) => !ids.includes(x));
+  await Preferences.set({ key: KEY_EFFACEES, value: JSON.stringify(reste) });
+}
+
+/**
+ * 💾 Traces de la sauvegarde du serveur qui manquent ici (appli réinstallée, autre téléphone) : ajoutées,
+ * sauf celles effacées ici. Leur GPX est sans doute déjà dans Téléchargements (`fichier`).
+ */
+export function addRestored(all: SavedTrace[], server: unknown[], effacees: number[]) {
+  const ici = new Set([...all.map((t) => t.id), ...effacees]);
+  const neuves = server.filter((t): t is SavedTrace => {
+    const x = t as SavedTrace | null;
+    return !!x && Number.isInteger(x.id) && typeof x.name === 'string' && Array.isArray(x.line) && x.line.length >= 2 && !ici.has(x.id);
+  }).map((t) => ({ ...t, fichier: true }));
+  return [...all, ...neuves].sort((a, b) => b.id - a.id);
+}
+
+export async function restoreTraces(server: unknown[]) {
+  const all = await listTraces();
+  const r = addRestored(all, server, await deletedIds());
+  if (r.length > all.length) await write(r);
+  return r.length - all.length;
 }
 
 export const traceLine = (t: SavedTrace): LonLat[] => t.line.map(([lon, lat]) => ({ lon, lat }));

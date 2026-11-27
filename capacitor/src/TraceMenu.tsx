@@ -115,7 +115,7 @@ export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose
   onRename: (t: SavedTrace, name: string) => void;
   /** 📤 Partager le fichier GPX (mail, WhatsApp…). */
   onShare: (t: SavedTrace) => void;
-  /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone. */
+  /** 📥 Ouvrir un ou plusieurs fichiers GPX, KML ou GeoJSON du téléphone (rangés dans Mes traces). */
   onFile: () => void;
 }) {
   const [showFolder, setShowFolder] = useState(false);
@@ -135,7 +135,7 @@ export function TraceList({ traces, onPick, onDelete, onShare, onRename, onClose
         <b>📂 Charger des traces</b>
         <button className="close" onClick={onClose} aria-label="Fermer la liste des traces">✕</button>
       </div></div>
-      <div className="row"><button onClick={onFile}>📥 Ouvrir un fichier (GPX, KML, GeoJSON)</button></div>
+      <div className="row"><button onClick={onFile}>📥 Ouvrir des fichiers (GPX, KML, GeoJSON)</button></div>
       {/* Appui long sur « Mes traces » : le dossier des fichiers GPX (demande de Seb : pas affiché en permanence). */}
       <b className="list-title" onContextMenu={(e) => e.preventDefault()}
         onPointerDown={() => { if (press.current) clearTimeout(press.current); press.current = setTimeout(() => setShowFolder((v) => !v), 550); }}
