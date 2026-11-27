@@ -23,17 +23,20 @@ export type BaseMode = 'auto' | 'scan25' | 'planign';
  * non grand public par la licence IGN ; Plan IGN seul, et pas de mise à jour hors du Play Store.
  */
 export const PLAY = import.meta.env.VITE_PLAY === '1';
-export const BASE_MODES: Partial<Record<BaseMode, string>> = PLAY ? { planign: 'Plan IGN' } : {
+export const BASE_MODES: Record<BaseMode, string> = {
   auto: 'Carte auto',
   scan25: 'SCAN 25',
   planign: 'Plan IGN',
 };
-/** Fond affiché à l'ouverture. */
-export const FOND_DEPART: BaseMode = PLAY ? 'planign' : 'auto';
+/**
+ * Fonds proposés. Version Play : Plan IGN seul, sauf si le Super User a débloqué le SCAN 25 pour ce compte
+ * (membres d'une asso, avec l'accord écrit de l'IGN ; spec/play-store.md).
+ */
+export const fondsPermis = (scan25Debloque: boolean): BaseMode[] =>
+  !PLAY || scan25Debloque ? ['auto', 'scan25', 'planign'] : ['planign'];
 
 /** Couches et zooms à télécharger pour un fond donné, dans l'ordre. */
 export function offlinePlan(mode: BaseMode, min: number, max: number): { layer: string; minZoom: number; maxZoom: number }[] {
-  if (PLAY) mode = 'planign';
   if (mode === 'auto') {
     return [
       { layer: 'planign', minZoom: min, maxZoom: Math.min(max, AUTO_SCAN_FROM) },

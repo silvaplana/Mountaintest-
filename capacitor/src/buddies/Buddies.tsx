@@ -26,7 +26,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   aDeux, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  inviterSortie, supprimerGroupe, bloquer, debloquer, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
+  inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -998,6 +998,10 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
         ? <button onClick={() => { debloquer(choisi.id); setChoisi(null); onToast(`${choisi.pseudo} est débloqué`); }}><BlockIcon size={20} /> Débloquer {choisi.pseudo}</button>
         : <button className="danger" onClick={() => { bloquer(choisi); setChoisi(null); void synchroniser().catch(() => undefined); onToast(`${choisi.pseudo} est bloqué`); }}>
           <BlockIcon size={20} /> Bloquer {choisi.pseudo}</button>}
+      {/* Super User : SCAN 25 dans la version Play Store, pour les membres de l'asso une fois l'accord de l'IGN reçu. */}
+      {superUser() && (e.scan25_ids ?? []).includes(choisi.id)
+        ? <button onClick={() => { donnerScan25(choisi.id, false); void synchroniser().catch(() => undefined); setChoisi(null); onToast(`${choisi.pseudo} n'a plus le SCAN 25`); }}>Retirer le SCAN 25</button>
+        : superUser() && <button onClick={() => { donnerScan25(choisi.id, true); void synchroniser().catch(() => undefined); setChoisi(null); onToast(`${choisi.pseudo} a le SCAN 25`); }}>Donner le SCAN 25</button>}
       <button onClick={() => setChoisi(null)}>Annuler</button>
     </div>}
     {aSignaler && <Signaler buddy={aSignaler} onFermer={() => setASignaler(null)} onFait={(t) => { setASignaler(null); onToast(t); }} />}

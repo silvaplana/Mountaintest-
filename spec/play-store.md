@@ -9,6 +9,10 @@ Deux applis Android sortent du même code (`capacitor/android/app/build.gradle`,
 | Fonds de carte | Carte auto, SCAN 25, Plan IGN | Plan IGN seul (SCAN 25 : licence IGN payante pour le grand public) |
 | Mise à jour | maison (Updater, REQUEST_INSTALL_PACKAGES) | par le Play Store (ni Updater ni cette permission) |
 
+- **SCAN 25 débloqué par compte** (Seb, 27/11) : dans la liste des membres d'un groupe, le Super User a « Donner le
+  SCAN 25 » / « Retirer le SCAN 25 » (op `scan25`, colonne `utilisateurs.scan25`). La personne retrouve alors Carte
+  auto, SCAN 25 et le bouton 🗺 dans la version Play. Personne n'est coché : à n'utiliser que pour les membres d'une
+  asso, une fois l'accord écrit de l'IGN reçu (la licence gratuite exclut le grand public, même avec un code).
 - Les deux s'installent côte à côte. Web : `VITE_PLAY=1` (`PLAY` dans `config.ts`) au moment de `vite build`.
 - Retour de connexion Logto : `<identifiant>://callback` ; `configurer-logto.py` déclare les deux (relancer
   l'installeur des comptes). Lien d'invitation (`rejoindre.html`) : ouvre la version Play si elle est là, sinon l'APK.

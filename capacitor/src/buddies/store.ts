@@ -157,6 +157,9 @@ export type Etat = {
   bloques?: Buddy[];
   /** 🚩 Signalements à traiter (Super User seulement). */
   signalements?: Signalement[];
+  /** SCAN 25 débloqué pour moi dans la version du Play Store ; et, pour le Super User, qui l'a. */
+  scan25?: boolean;
+  scan25_ids?: string[];
 };
 
 export type Motif = 'insulte' | 'choquant' | 'pub' | 'autre';
@@ -783,6 +786,12 @@ export function traiterSignalement(id: string, suite: 'ignore' | 'efface' | 'ret
   ecrire({ ...lire(), signalements: (lire().signalements ?? []).map((x) => (x.id === id ? { ...x, suite } : x)) });
   ajouter({ type: 'traiter_signalement', signalement: id, suite });
 }
+/** Super User : donner ou retirer le SCAN 25 à un buddy dans la version du Play Store. */
+export function donnerScan25(buddy: string, oui: boolean) {
+  const e = lire(), ids = (e.scan25_ids ?? []).filter((x) => x !== buddy);
+  ecrire({ ...e, scan25_ids: oui ? [...ids, buddy] : ids });
+  ajouter({ type: 'scan25', buddy, oui });
+}
 
 export const reagir = (message: string, emoji: string | null) => ajouter({ type: 'reagir', message, emoji: emoji ?? '' });
 /** Conversation lue jusqu'à maintenant ; `jusqu` (heure du serveur du dernier message) part aussi aux autres : ✓✓ bleues. */
@@ -911,6 +920,7 @@ type Reponse = {
   paiements?: Etat['paiements'];
   bloques?: Buddy[];
   signalements?: Signalement[];
+  scan25?: boolean; scan25_ids?: string[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -950,6 +960,7 @@ export function synchroniser(): Promise<string[]> {
         counts: r.counts ?? e.counts, positions: r.positions ?? e.positions, voitures: r.voitures ?? e.voitures, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
         lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],
         bloques: r.bloques ?? e.bloques, signalements: r.signalements ?? e.signalements,
+        scan25: r.scan25 ?? e.scan25, scan25_ids: r.scan25_ids ?? e.scan25_ids,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
