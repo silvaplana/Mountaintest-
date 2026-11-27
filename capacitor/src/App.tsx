@@ -242,7 +242,7 @@ export function App() {
   /** ✕ (de la carte ou de la sortie) : retour au Buddy Group de la sortie ouverte sur la carte (Seb, 26/11). */
   const retourSortie = () => { if (carteSortie) setBuddiesDepart(carteSortie.sortie.groupe); setCarteSortie(null); setBuddies(true); };
   // 📍 Le point d'un message d'un groupe (« Julie est ici »), montré sur la carte.
-  const [pointBuddy, setPointBuddy] = useState<CarteBuddies['point'] | null>(null);
+  const [pointBuddy, setPointBuddy] = useState<(CarteBuddies['point'] & { cache?: number }) | null>(null);
   const [positionsBuddy, setPositionsBuddy] = useState<string | null>(null);
   /** Panneau de partage d'une trace (écran 22). */
   const [partage, setPartage] = useState<{ nom: string; ligne: [number, number][]; ailleurs: () => void; hebergement?: Lodging } | null>(null);
@@ -1036,9 +1036,11 @@ export function App() {
    * traces affichées (profil, 🚗 Y aller, ▶ Commencer, 📶 Hors ligne marchent comme pour les miennes).
    */
   function montrerBuddies(x: CarteBuddies) {
-    setBuddies(false); setBuddiesDepart(undefined); setTraceList(null);
+    // Messagerie descendue sur la carte (Seb, 27/11) : elle reste ouverte, on montre au-dessus d'elle.
+    if (!x.cache) { setBuddies(false); setBuddiesDepart(undefined); }
+    setTraceList(null);
     setCarteSortie(x.sortie ? { sortie: x.sortie, traces: x.traces, parler: x.parler } : null);
-    setPointBuddy(x.point ?? null);
+    setPointBuddy(x.point ? { ...x.point, cache: x.cache } : null);
     setPositionsBuddy(x.positions ?? null);
     if (x.sortie) noterOuvert('sorties', x.sortie.id);
     const pts: LonLat[] = [];
@@ -1053,7 +1055,7 @@ export function App() {
     if (x.sortie) setTraceMenu(false);
     if (map && pts.length) {
       const lons = pts.map((p) => p.lon), lats = pts.map((p) => p.lat);
-      map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 70, maxZoom: 15, duration: 600 });
+      map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: { top: 70, left: 70, right: 70, bottom: 70 + (x.cache ?? 0) }, maxZoom: 15, duration: 600 });
     }
   }
 
@@ -1530,7 +1532,7 @@ export function App() {
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
         onCarte={montrerBuddies} />}
-      {pointBuddy && !buddies && <PointSurCarte map={map} p={pointBuddy} />}
+      {pointBuddy && (!buddies || !!pointBuddy.cache) && <PointSurCarte map={map} p={pointBuddy} />}
       <VoituresSurCarte map={map} />
       {positionsBuddy && !buddies && <PositionsBuddiesSurCarte key={positionsBuddy} map={map} centre={positionsBuddy} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}

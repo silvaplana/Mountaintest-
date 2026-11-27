@@ -1074,6 +1074,16 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
   font-weight: 700; font-size: 16px; }
 .bd-heberg-bas .bd-lien, .bd-heberg .bd-carte-qui small { white-space: nowrap; }
 /* 💬 Messagerie (écrans 6 et 24) */
+/* La messagerie coulisse sur la carte (Seb 27/11, maquettes/buddies-coulisse) : poignée en haut au milieu ; tirée vers
+   le bas, l'écran devient un panneau du bas et la carte reste visible et utilisable au-dessus. */
+.buddies.bd-avec-poignee { padding-top: calc(env(safe-area-inset-top) + 30px); }
+.bd-poignee { position: absolute; z-index: 2; left: 50%; top: env(safe-area-inset-top); width: 112px; height: 30px; margin-left: -56px;
+  touch-action: none; cursor: grab; }
+.bd-poignee::after { content: ""; position: absolute; left: 50%; top: 12px; width: 48px; height: 6px; margin-left: -24px; border-radius: 3px; background: var(--line); }
+.buddies.coulisse { padding-top: 30px; border-radius: 18px 18px 0 0; box-shadow: 0 -3px 14px #0005; transition: top .25s ease; }
+.buddies.coulisse.glisse { transition: none; }
+.buddies.coulisse .bd-poignee { top: 0; }
+.buddies.coulisse > .bd-colonne { top: 30px; }
 .bd-carte-msg { max-height: 68vh; }
 .bd-conv { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
 .bd-corps-conv { padding-bottom: calc(env(safe-area-inset-bottom) + 10px); }

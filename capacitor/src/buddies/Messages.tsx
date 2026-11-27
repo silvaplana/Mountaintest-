@@ -489,14 +489,14 @@ function Transferer({ ms, ici, onFermer, onFait }: { ms: MessageBuddy[]; ici: st
 }
 
 /** Le point montré sur la carte (« Julie est ici »), le temps de le regarder. */
-export function PointSurCarte({ map, p }: { map: MlMap | null; p: { lon: number; lat: number; nom: string } | null }) {
+export function PointSurCarte({ map, p }: { map: MlMap | null; p: { lon: number; lat: number; nom: string; cache?: number } | null }) {
   useEffect(() => {
     if (!map || !p) return;
     const el = document.createElement('div');
     el.className = 'bd-point-carte';
     el.textContent = `📍 ${p.nom}`;
     const mk = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lon, p.lat]).addTo(map);
-    map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
+    map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 14), duration: 600, offset: [0, -(p.cache ?? 0) / 2] });
     return () => { mk.remove(); };
   }, [map, p]);
   return null;
