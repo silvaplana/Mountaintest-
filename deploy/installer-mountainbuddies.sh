@@ -5,7 +5,7 @@
 #   /conditions, /confidentialite   pages des conditions d'utilisation et de confidentialité
 # Avant : enregistrement DNS A « mountainbuddies » vers l'IP du VPS. Relançable sans risque.
 set -euo pipefail
-M="$HOME/mountaintest"
+M="$HOME/mountainbuddies"
 D=mountainbuddies.silvaplana.cloud
 G="$HOME/gateway/Caddyfile"
 
@@ -25,14 +25,20 @@ if ! grep -q "^$D" "$G"; then
 
 $D {
 	redir /app /app/ 308
+	handle_path /api/* {
+		reverse_proxy mb-api:8000
+	}
+	handle_path /ia/* {
+		reverse_proxy mb-ia:8080
+	}
 	handle_path /app/* {
-		reverse_proxy mountaintest-web:80
+		reverse_proxy mb-web:80
 	}
 	redir /conditions /app/conditions.html
 	redir /confidentialite /app/confidentialite.html
 	handle {
 		rewrite * /vitrine{path}
-		reverse_proxy mountaintest-web:80
+		reverse_proxy mb-web:80
 	}
 }
 CADDY

@@ -2,7 +2,7 @@
 
 ```
 appli ─▶ https://auth.silvaplana.cloud         ─▶ conteneur mb-logto (Logto 1.46 : connexion, code par mail)
-      ─▶ https://silvaplana.cloud/mountaintest-api ─▶ conteneur mb-api (serveur.py : profils, puis groupes, invitations)
+      ─▶ https://mountainbuddies.silvaplana.cloud/api ─▶ conteneur mb-api (serveur.py : profils, puis groupes, invitations)
                                                      └─ conteneur mb-db (Postgres 17 : bases « logto » et « mountain »)
 ```
 
@@ -13,7 +13,7 @@ appli ─▶ https://auth.silvaplana.cloud         ─▶ conteneur mb-logto (Lo
   du réseau. Après 180 jours, il faut retaper un code (seulement quand il y a du réseau ; rien n'est perdu).
   Pas de rotation du jeton : testé, une réponse perdue (réseau qui coupe) déconnectait le téléphone.
 - **Sécurité** : la console d'admin de Logto n'est pas ouverte sur Internet (port 3002 de la machine seulement).
-  Les secrets sont dans `~/mountaintest/comptes.env` (lisible par toi seul), jamais dans le dépôt ni dans l'APK.
+  Les secrets sont dans `~/mountainbuddies/comptes.env` (lisible par toi seul), jamais dans le dépôt ni dans l'APK.
 - **Tout est configuré par script** (`configurer-logto.py`, via l'API de gestion de Logto) : rien à cliquer.
 
 ## Installation (une fois)
@@ -21,13 +21,13 @@ appli ─▶ https://auth.silvaplana.cloud         ─▶ conteneur mb-logto (Lo
 1. **DNS** : Hostinger hPanel › Domaines › silvaplana.cloud › DNS / Nameservers › ajouter un enregistrement
    **A**, nom **auth**, valeur **l'IP du VPS** (187.124.17.136), TTL par défaut. Attendre quelques minutes.
 2. **VPS** (SSH depuis PowerShell : `ssh root@187.124.17.136`), coller :
-   `bash <(curl -fsSL https://silvaplana.cloud/mountaintest/comptes/installer-comptes.sh)`
+   `bash <(curl -fsSL https://mountainbuddies.silvaplana.cloud/app/comptes/installer-comptes.sh)`
    Il vérifie le DNS, reprend la config mail Brevo, lance les 3 conteneurs, configure Logto, ajoute les routes
    au gateway (sauvegarde `~/gateway/Caddyfile.avant-comptes`, vérification, retour arrière si refus).
    Relançable sans risque.
-3. Vérifier : https://silvaplana.cloud/mountaintest-api/config doit lister les applis `capacitor` et `kotlin`.
+3. Vérifier : https://mountainbuddies.silvaplana.cloud/api/config doit lister les applis `capacitor` et `kotlin`.
 
-Le serveur redémarre tout seul quand une nouvelle version de `serveur.py` arrive avec le site (`~/mountaintest/maj-comptes.sh`, toutes les 5 min).
+Le serveur redémarre tout seul quand une nouvelle version de `serveur.py` arrive avec le site (`~/mountainbuddies/maj-comptes.sh`, toutes les 5 min).
 
 ## Buddies (bloc 1)
 
@@ -43,9 +43,9 @@ par le conteneur `mb-livekit` (https://appels.silvaplana.cloud, ports TCP 7881 e
 1. **DNS** : enregistrement **A**, nom **appels**, valeur 187.124.17.136 (comme « auth »).
 2. **Firebase** (pour que ça sonne appli fermée) : console.firebase.google.com › projet « Mountain Buddies » ›
    Paramètres › Comptes de service › « Générer une nouvelle clé privée ». Copier le fichier sur le VPS sous
-   `~/mountaintest/firebase-cle.json` (depuis PowerShell : `scp chemin\du\fichier.json root@187.124.17.136:mountaintest/firebase-cle.json`).
+   `~/mountainbuddies/firebase-cle.json` (depuis PowerShell : `scp chemin\du\fichier.json root@187.124.17.136:mountainbuddies/firebase-cle.json`).
    Cette clé est secrète : jamais dans le dépôt ni dans un message.
-3. **VPS** : `bash <(curl -fsSL https://silvaplana.cloud/mountaintest/comptes/installer-appels.sh)`. Relançable :
+3. **VPS** : `bash <(curl -fsSL https://mountainbuddies.silvaplana.cloud/app/comptes/installer-appels.sh)`. Relançable :
    à relancer après avoir ajouté la clé Firebase.
 
 Les fichiers `google-services.json` des deux applis (`capacitor/android/app/`, `kotlin-natif/app/`) ne sont pas
@@ -67,9 +67,9 @@ Les applis affichent le bouton Google dès l'ouverture ; il marche quand Google 
    connecteur, posé par configurer-logto.py).
 3. Sur le VPS (les secrets restent dans comptes.env, jamais dans le dépôt) :
    ```
-   echo 'GOOGLE_CLIENT_ID=…' >> ~/mountaintest/comptes.env
-   echo 'GOOGLE_CLIENT_SECRET=…' >> ~/mountaintest/comptes.env
-   bash ~/mountaintest/www/comptes/installer-comptes.sh
+   echo 'GOOGLE_CLIENT_ID=…' >> ~/mountainbuddies/comptes.env
+   echo 'GOOGLE_CLIENT_SECRET=…' >> ~/mountainbuddies/comptes.env
+   bash ~/mountainbuddies/www/comptes/installer-comptes.sh
    ```
    L'installeur crée le connecteur Google, l'ajoute à la page de connexion et l'annonce aux applis
    (`GET /config` → `"fournisseurs": ["google"]`). Le bouton envoie directement chez Google
@@ -90,8 +90,8 @@ mail de bout en bout, renouvellement du jeton, `/moi`.
 ## Tout retirer
 
 ```bash
-crontab -l | grep -v mountaintest/maj-comptes.sh | crontab -
+crontab -l | grep -v mountainbuddies/maj-comptes.sh | crontab -
 docker rm -f mb-api mb-logto mb-db
 cat ~/gateway/Caddyfile.avant-comptes > ~/gateway/Caddyfile && (cd ~/gateway && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile)
-rm -rf ~/mountaintest/comptes.env ~/mountaintest/comptes-db ~/mountaintest/comptes-data
+rm -rf ~/mountainbuddies/comptes.env ~/mountainbuddies/comptes-db ~/mountainbuddies/comptes-data
 ```

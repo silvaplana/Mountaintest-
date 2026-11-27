@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Installation unique du relais IA sur le VPS (voir deploy/ia/README.md). Relançable sans risque.
-# Prérequis : deploy/installer-vps.sh déjà installé (le site arrive dans ~/mountaintest/www).
+# Prérequis : deploy/installer-vps.sh déjà installé (le site arrive dans ~/mountainbuddies/www).
 set -euo pipefail
-M="$HOME/mountaintest"
+M="$HOME/mountainbuddies"
 [ -d "$M/www" ] || { echo "Installe d'abord le site (deploy/installer-vps.sh)."; exit 1; }
 [ -f "$M/www/ia/relais.py" ] || "$M/maj.sh" || true
 [ -f "$M/www/ia/relais.py" ] || { echo "Le fichier ia/relais.py n'est pas encore sur le VPS : réessaie dans 5 minutes."; exit 1; }
@@ -29,29 +29,29 @@ fi
 chmod 600 "$M/ia.env"
 
 # 2. Conteneur du relais (Python + SDK Anthropic), sur le réseau « web » comme le site.
-docker rm -f mountaintest-ia >/dev/null 2>&1 || true
-docker run -d --name mountaintest-ia --network web --restart unless-stopped \
+docker rm -f mb-ia >/dev/null 2>&1 || true
+docker run -d --name mb-ia --network web --restart unless-stopped \
   --env-file "$M/ia.env" -v "$M/www/ia:/app:ro" -v "$M/ia-data:/data" \
   python:3.12-slim sh -c "pip install -q --no-cache-dir anthropic==2.3.0 && exec python -I /app/relais.py" >/dev/null
 
 # 3. Redémarrer le relais quand une nouvelle version arrive avec le site (vérifié toutes les 5 min).
 cat > "$M/maj-ia.sh" <<'MAJ'
 #!/bin/sh
-M="$HOME/mountaintest"
+M="$HOME/mountainbuddies"
 h=$(sha1sum "$M/www/ia/relais.py" 2>/dev/null | cut -c1-40)
-[ -n "$h" ] && [ "$h" != "$(cat "$M/ia-data/version" 2>/dev/null)" ] && docker restart mountaintest-ia >/dev/null && echo "$h" > "$M/ia-data/version"
+[ -n "$h" ] && [ "$h" != "$(cat "$M/ia-data/version" 2>/dev/null)" ] && docker restart mb-ia >/dev/null && echo "$h" > "$M/ia-data/version"
 MAJ
 chmod +x "$M/maj-ia.sh"
 sha1sum "$M/www/ia/relais.py" | cut -c1-40 > "$M/ia-data/version"
-(crontab -l 2>/dev/null | grep -v 'mountaintest/maj-ia.sh'; echo "*/5 * * * * $M/maj-ia.sh >/dev/null 2>&1") | crontab -
+(crontab -l 2>/dev/null | grep -v 'mountain[a-z]*/maj-ia.sh'; echo "*/5 * * * * $M/maj-ia.sh >/dev/null 2>&1") | crontab -
 
 # 4. Route https://silvaplana.cloud/mountaintest-ia/ dans le gateway (sauvegarde, vérification, retour arrière).
 G="$HOME/gateway/Caddyfile"
-if ! grep -q 'mountaintest-ia' "$G"; then
+if ! grep -q 'mb-ia' "$G"; then
   cp "$G" "$G.avant-ia"
   awk '!fait && /redir \/mountaintest \/mountaintest\// {
          print "\thandle_path /mountaintest-ia/* {"
-         print "\t\treverse_proxy mountaintest-ia:8080"
+         print "\t\treverse_proxy mb-ia:8080"
          print "\t}"
          print ""
          fait=1 }
@@ -71,8 +71,8 @@ fi
 echo "Démarrage du relais (installation du SDK, environ 30 s)…"
 sleep 30
 echo
-if curl -fsS https://silvaplana.cloud/mountaintest-ia/ >/dev/null; then
+if curl -fsS https://mountainbuddies.silvaplana.cloud/ia/ >/dev/null; then
   echo "=== Relais IA en ligne. Dans l'appli : onglet Randos, tape ton mot de passe IA. ==="
 else
-  echo "Le relais ne répond pas encore. Regarde : docker logs mountaintest-ia"
+  echo "Le relais ne répond pas encore. Regarde : docker logs mb-ia"
 fi
