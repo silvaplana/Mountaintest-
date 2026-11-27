@@ -31,6 +31,7 @@ import {
   inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, envoyerMessage, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
+import { relireAppareil } from './appareil';
 
 /**
  * Buddies (spec/buddies.md) : la liste façon WhatsApp (écran 2), un groupe (3), nouveau groupe et
@@ -130,8 +131,11 @@ export const couleur = (id: string) => COULEURS[[...id].reduce((n, c) => n + c.c
 
 export function Visage({ b, taille = 34 }: { b: { id: string; pseudo?: string; nom?: string; photo: string | null }; taille?: number }) {
   const nom = b.pseudo ?? b.nom ?? '?';
+  // Une photo qui ne se charge pas (Seb, 27/11 : rond cassé) laisse place à l'initiale. Les photos Google refusent
+  // souvent l'affichage quand la page dit d'où elle vient : on ne le dit pas.
+  const [casse, setCasse] = useState<string | null>(null);
   return <span className="bd-visage" style={{ width: taille, height: taille, fontSize: taille * 0.45, background: couleur(b.id) }}>
-    {b.photo ? <img src={b.photo} alt="" /> : nom.slice(0, 1).toUpperCase()}</span>;
+    {b.photo && casse !== b.photo ? <img src={b.photo} alt="" referrerPolicy="no-referrer" onError={() => setCasse(b.photo)} /> : nom.slice(0, 1).toUpperCase()}</span>;
 }
 
 function quand(iso: string) {
@@ -310,7 +314,7 @@ function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir
       return <button key={g.id} className="bd-ligne" onClick={() => onOuvrir(g.id)}>
         <Visage b={qui ?? { id: g.id, nom: '?', photo: null }} />
         <span className="bd-texte"><b>{qui?.pseudo ?? '?'}</b>
-          <small>{dernier ? `${dernier.par === moi ? 'Toi : ' : ''}${dernier.texte || '📎'}` : g.nom}</small></span>
+          <small>{dernier ? `${dernier.par === moi ? 'Toi : ' : ''}${dernier.texte || '📎'}` : relireAppareil(g.nom)}</small></span>
         {n > 0 && <span className="bd-nonlu">{n}</span>}
       </button>;
     }) : <p className="bd-vide">Pas encore de demande</p>}
@@ -812,7 +816,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
         return <div className="bd-corps bd-corps-conv">
           <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: ('retour' in vue && vue.retour) || 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
             {aDeux(gc) && <Visage b={gc.nature === 'support' && !superUser() ? { id: gc.id, nom: 'Support', photo: null } : autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
-            <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? gc.nom : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
+            <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? relireAppareil(gc.nom) : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
             onPlanning={(id, remplir) => setVue({ ecran: remplir ? 'dispos' : 'planning', id, groupe: gc.id, conv: gc.id })}

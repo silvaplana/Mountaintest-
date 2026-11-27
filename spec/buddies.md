@@ -1023,7 +1023,9 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Profil** : rubrique « Aide » tout en bas du profil, sous « Se déconnecter » (Seb, 26/11), ligne « Écrire au support » (pas pour le Super User lui-même). Elle ouvre une
   discussion à deux avec le Super User, toujours la même, comme avec un buddy : réponses, photos, dictée, notifications
   (un message de buddy), coches « lu ». La version de l'appli et le téléphone sont joints (nom de la discussion, vu par
-  le Super User sous le pseudo).
+  le Super User sous le pseudo). Ligne lisible (Seb, 27/11) : « Ordinateur Windows · version web »,
+  « Android 14 · Samsung SM-S911B · version 1.2.3 » ; les anciennes lignes brutes sont relues pareil à l'affichage.
+  Une photo de profil qui ne se charge pas laisse place à l'initiale dans le rond.
 - **🔑 Clé d'or** (Seb : « comme je suis modeste, mettons la clé ») : en bas de la colonne, sous 👤, pour le Super User
   seul, avec une pastille rouge des messages de support non lus. Elle ouvre « Super User » : la partie « Support »
   (une ligne par personne, dernier message, non lus) ; plus tard la place serveur de chacun, les comptes…
