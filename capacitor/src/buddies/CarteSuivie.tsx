@@ -15,10 +15,16 @@ const r5 = (l: LonLat[]) => l.map((p) => [+p.lon.toFixed(5), +p.lat.toFixed(5)] 
 
 /** ✏ Le trait que je dessine part en direct (4 fois par seconde au plus) quand je montre ma carte. */
 let traitT = 0, traitFin: ReturnType<typeof setTimeout> | undefined;
+/** Le dernier trait envoyé : renvoyé avec le reste toutes les 4 s, pour qu'un buddy qui a raté un message se rattrape. */
+let dernierTrait: [number, number][] = [];
 export function envoyerTrait(line: LonLat[]) {
   if (!appelEnCours()?.jeMontre) return;
   clearTimeout(traitFin);
-  const envoi = () => { traitT = Date.now(); envoyerCarte({ trait: r5(tracesAEnvoyer([{ id: 0, name: '', kind: '', rank: 0, color: '', distanceM: 0, segments: [line] }], 400)[0]?.ligne.map(([lon, lat]) => ({ lon, lat })) ?? []) }); };
+  const envoi = () => {
+    traitT = Date.now();
+    dernierTrait = r5(tracesAEnvoyer([{ id: 0, name: '', kind: '', rank: 0, color: '', distanceM: 0, segments: [line] }], 300)[0]?.ligne.map(([lon, lat]) => ({ lon, lat })) ?? []);
+    envoyerCarte({ trait: dernierTrait });
+  };
   if (!line.length || Date.now() - traitT > 250) envoi(); else traitFin = setTimeout(envoi, 250);
 }
 
@@ -67,7 +73,9 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
     tout();
     map.on('move', bouge); map.on('moveend', vue);
     const stop = suivreCartes(() => undefined, tout);
-    return () => { map.off('move', bouge); map.off('moveend', vue); stop(); };
+    // Tout l'état repart toutes les 4 s (vue, traces, trait, profil) : un message perdu se rattrape tout seul.
+    const rattrape = setInterval(() => { tout(); envoyerCarte({ trait: dernierTrait }); }, 4000);
+    return () => { map.off('move', bouge); map.off('moveend', vue); stop(); clearInterval(rattrape); dernierTrait = []; };
   }, [map, jeMontre]);
   useEffect(() => {
     if (!map || !jeMontre) return;

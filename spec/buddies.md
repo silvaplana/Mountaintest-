@@ -722,6 +722,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   trait que je dessine au doigt, en direct (4 fois par seconde, orange) ; le profil de la trace que j'ouvre (le
   même profil s'ouvre chez eux, et se ferme quand je le ferme). Les forêts ne suivent pas (recherche à la demande). Une seule personne montre à la fois : si Luc
   allume la sienne, celle de Julie s'éteint. Un buddy qui arrive en cours reçoit tout de suite la vue et les traces.
+  Envoi (Seb, 27/11 : le suivi se figeait au bout de quelques secondes) : pas de file qui grossit ; par nature
+  (traces, trait, profil) seul le dernier état attend, un seul envoi en route à la fois ; la vue part en rapide
+  (perte acceptée) ; tout l'état repart toutes les 4 s pour rattraper un message perdu.
   Les tuiles ne voyagent pas : chacun charge la même zone (un appel demande du réseau). Messages de données LiveKit
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).
 - **🗺 Montrer sa carte en s'écrivant, sans appel** (Seb, 27 novembre, maquette `messagerie.png`) : hors appel, l'icône
