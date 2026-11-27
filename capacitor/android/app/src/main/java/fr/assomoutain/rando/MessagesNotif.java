@@ -29,7 +29,8 @@ final class MessagesNotif {
             nm.createNotificationChannel(new NotificationChannel(CANAL, "Messages des buddies", NotificationManager.IMPORTANCE_HIGH));
         }
         boolean aDeux = "1".equals(d.get("duo"));
-        String ligne = aDeux ? d.get("texte") : d.get("de") + " : " + d.get("texte");
+        String phrase = d.get("ligne"); // 🗺 « Seb a partagé sa carte dans … » : une phrase entière
+        String ligne = phrase != null && !phrase.isEmpty() ? phrase : aDeux ? d.get("texte") : d.get("de") + " : " + d.get("texte");
         // Les derniers messages de la conversation (6 au plus), gardés jusqu'à ce qu'on l'ouvre.
         SharedPreferences sp = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         JSONArray l;

@@ -5,6 +5,7 @@
  */
 import { Room, RoomEvent, Track, type Participant, type RemoteTrack } from 'livekit-client';
 import { api } from '../compte/auth';
+import { envoyerMessage, synchroniser } from './store';
 
 export type Dest = { groupe?: string; sortie?: string };
 type Reponse = { id: string; groupe: string | null; sortie: string | null; en_ligne: string[]; url: string; jeton: string; nouveau?: boolean };
@@ -206,6 +207,11 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
 }
 
 function fini() {
+  // 🗺 Je partageais ma carte en s'écrivant : « Seb a arrêté de partager sa carte » part dans le fil (Seb, 27/11).
+  if (etat?.muette && etat.jeMontre && etat.carte) {
+    envoyerMessage(etat.dest, { nature: 'carte_fin', texte: etat.carte });
+    void synchroniser().catch(() => undefined);
+  }
   const id = etat?.muette ? undefined : etat?.id;
   clearTimeout(minuteur);
   sons.splice(0).forEach((el) => el.remove());

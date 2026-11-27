@@ -25,7 +25,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from buddies import Refus, groupe_de, iso, message_de, participants, personne, sortie_de
-from modeles import Appareil, Appel, Groupe, Membre, Utilisateur, maintenant
+from modeles import Appareil, Appel, Groupe, Membre, MessageBuddy, Utilisateur, maintenant
 
 LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "")
 LIVEKIT_CLE = os.environ.get("LIVEKIT_CLE", "")
@@ -55,6 +55,8 @@ def salle_carte(s: Session, u: Utilisateur, mid: str) -> dict[str, Any]:
         m = None
     if m is None or m.nature != "carte" or m.supprime:
         raise Refus("Carte inconnue")
+    if s.scalar(select(MessageBuddy.id).where(MessageBuddy.nature == "carte_fin", MessageBuddy.texte == str(m.id)).limit(1)):
+        raise Refus("Sa carte n'est plus partagée")
     return {"id": str(m.id), "par": str(m.par), "url": LIVEKIT_URL, "jeton": jeton_salle(f"carte-{m.id}", u, 4 * 3600, voix=False)}
 
 

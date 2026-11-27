@@ -979,7 +979,7 @@ def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
-NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage", "planning", "carte"}
+NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage", "planning", "carte", "carte_fin"}
 # Comme AppBase (§7.13) : 25 Mo par fichier ou photo, 100 Mo par vidéo ; un sondage a 2 à 10 réponses.
 MAX_FICHIER, MAX_VIDEO = 25 * 1024 * 1024, 100 * 1024 * 1024
 MAX_REPONSES = 10
@@ -1086,7 +1086,9 @@ def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
     if m.nature == "planning":
         return "📅 Planning : " + m.texte
     if m.nature == "carte":
-        return "🗺 veut te montrer sa carte"
+        return "🗺 a partagé sa carte"
+    if m.nature == "carte_fin":
+        return "🗺 a arrêté de partager sa carte"
     return m.texte[:200]
 
 
@@ -1108,10 +1110,15 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
             titre = personne(u)["pseudo"] if a_deux else g.nom
         de = "🐻 Bud" if m.bud else personne(u)["pseudo"]
         texte = resume_message(m, s.get(FichierBuddy, m.fichier_id) if m.fichier_id else None)
+        # 🗺 Carte partagée (Seb, 27/11) : une phrase entière, « Seb a partagé sa carte dans <groupe> ».
+        ligne = ""
+        if m.nature in ("carte", "carte_fin"):
+            fait = "a partagé sa carte" if m.nature == "carte" else "a arrêté de partager sa carte"
+            ligne = f"{de} {fait} {'avec toi' if a_deux else 'dans ' + titre}"
         bloque = set(s.scalars(select(Blocage.utilisateur_id).where(Blocage.bloque_id == u.id)))
         l.append(([x for x in qui if x != u.id and x not in bloque], {
             "type": "message", "cle": str(m.sortie_id or m.groupe_id), "groupe": str(m.groupe_id or ""), "sortie": str(m.sortie_id or ""),
-            "titre": titre, "de": de, "texte": texte, "duo": "1" if a_deux else "",
+            "titre": titre, "de": de, "texte": texte, "duo": "1" if a_deux else "", "ligne": ligne,
             "envoye_le": str(int(datetime.now(timezone.utc).timestamp() * 1000))}))
     return l
 

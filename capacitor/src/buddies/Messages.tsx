@@ -401,6 +401,9 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }
   } else if (m.fichier) {
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} fichier${classe}`} {...appui}>{qui}{transfere}{rappel}
       <Piece f={m.fichier} attente={!!m.attente || (mien && !m.fichier.envoye)} onErreur={c.toast} />{m.texte && <Texte t={m.texte} />}{heure}</div>;
+  } else if (m.nature === 'carte_fin') {
+    corps = <div className={`bd-bulle${mien ? ' mien' : ''} carte${classe}`} {...appui}><span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
+      {mien ? 'Tu as arrêté de partager ta carte' : `${nom(m.par)} a arrêté de partager sa carte`}</span>{heure}</div>;
   } else if (m.nature === 'carte') {
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} carte${classe}`} {...appui}><BulleCarte m={m} c={c} mien={mien} />{heure}</div>;
   } else if (m.nature === 'planning') {
@@ -417,7 +420,7 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }
 }
 
 /**
- * 🗺 « Seb veut te montrer sa carte » (spec/buddies.md §7.10) : on s'écrit, sans se parler. « Suivre » : la conversation
+ * 🗺 « Seb partage sa carte » (spec/buddies.md §7.10) : on s'écrit, sans se parler. « Suivre » : la conversation
  * descend et ma carte suit la sienne ; « Non merci » cache les boutons. Au-delà de 4 h, la demande est passée.
  */
 const cartesRefusees = new Set<string>();
@@ -425,15 +428,15 @@ function BulleCarte({ m, c, mien }: { m: MessageBuddy; c: Contexte; mien: boolea
   const a = useAppel();
   const [, maj] = useState(0);
   const active = a?.muette && a.carte === m.id;
-  const vieille = Date.now() - new Date(m.cree_le).getTime() > 4 * 3600e3;
+  const vieille = Date.now() - new Date(m.cree_le).getTime() > 4 * 3600e3 || c.messages.some((x) => x.nature === 'carte_fin' && x.texte === m.id);
   if (mien) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
-    {active ? <>Tu montres ta carte <button className="bd-lien" onClick={() => montrerMaCarte(false)}>Arrêter</button></> : 'Tu as montré ta carte'}</span>;
+    {active ? <>Tu partages ta carte <button className="bd-lien" onClick={() => montrerMaCarte(false)}>Arrêter</button></> : 'Tu as partagé ta carte'}</span>;
   const qui = c.nom(m.par);
   if (active) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
     Tu suis la carte de {qui} <button className="bd-lien" onClick={reprendreMaCarte}>Arrêter</button></span>;
-  if (vieille || cartesRefusees.has(m.id)) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>{qui} a montré sa carte</span>;
+  if (vieille || cartesRefusees.has(m.id)) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>{qui} a partagé sa carte</span>;
   return <div className="bd-mc-demande">
-    <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span><b>{qui} veut te montrer sa carte</b></span>
+    <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span><b>{qui} partage sa carte</b></span>
     <div className="bd-mc-choix">
       <button className="bd-mc-non" onClick={() => { cartesRefusees.add(m.id); maj((n) => n + 1); }}>Non merci</button>
       <button className="bd-mc-oui" onClick={() => void suivreUneCarte(m.id, c.dest, qui).catch((err: Error) => c.toast(err.message || 'Impossible de suivre sa carte'))}>Suivre</button>

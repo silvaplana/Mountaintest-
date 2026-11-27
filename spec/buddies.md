@@ -721,7 +721,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).
 - **🗺 Montrer sa carte en s'écrivant, sans appel** (Seb, 27 novembre, maquette `messagerie.png`) : hors appel, l'icône
   carte en haut de la conversation envoie un message « carte » dans le fil (nature `carte`, notification comme un
-  message : « 🗺 veut te montrer sa carte »). Chez les autres, la bulle dit « Seb veut te montrer sa carte » avec
+  message, phrase entière : « Seb a partagé sa carte dans <groupe> », « … avec toi » à deux ; Seb, 27/11). Quand Seb
+  arrête (ou qu'un appel prend la place), un message `carte_fin` part aussi : « Seb a arrêté de partager sa carte
+  dans <groupe> », et la bulle de départ n'offre plus Suivre. Chez les autres, la bulle dit « Seb partage sa carte » avec
   Non merci / Suivre (la demande vaut 4 h). Suivre : la conversation descend et la carte suit celle de Seb, comme
   en appel (vue, fond, traces, calques, trait, profil) ; on continue de s'écrire, on ne se parle pas. L'icône du haut
   devient le badge de Seb avec la petite carte, un appui arrête ; Seb arrête en touchant l'icône (allumée) ou
