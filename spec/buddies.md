@@ -1145,3 +1145,20 @@ Maquette : `maquettes/restauration/` (variante B choisie par Seb ; A notificatio
 - Les **photos** des albums ne sont pas retéléchargées d'un coup : seule leur liste revient, chaque photo se charge
   quand on ouvre l'album ou qu'on la touche, puis reste sur le téléphone (comme WhatsApp).
 - Pas de notification Android : à la première ouverture, l'appli n'a pas encore le droit d'en envoyer.
+
+### 7.28 Partager un planning dans la messagerie (Seb, 27 novembre 2026)
+
+Maquette : `maquettes/planning-messagerie/` (validée par Seb) ; captures `captures/planning-messagerie/`.
+
+- **📎 → Planning** : 5ᵉ bouton du menu 📎 (icône calendrier coché, au trait), dans la conversation d'un groupe ou
+  d'une de ses sorties (pas dans une discussion à deux : un planning appartient à un groupe). On choisit un planning du
+  groupe, ou « Nouveau planning » (l'écran habituel ; une fois créé, il part dans le fil).
+- **La carte dans le fil** : nom, nombre de week-ends et date limite, mes réponses en pastilles (vert ✓, jaune ?, rouge ✗,
+  vide = à remplir) pour les 4 prochaines dates puis « +N », gros bouton « Remplir mes dispos · N restantes » (ou « Voir le
+  planning » quand tout est rempli), « 3 buddies sur 5 ont répondu ». Toucher la carte ouvre le planning ; ‹ revient au fil.
+- **Partager depuis le planning** (icône Partager en haut) : « Dans la messagerie » (le fil du groupe ou d'une sortie à
+  venir du groupe) ou « Envoyer un lien » (WhatsApp, SMS… par la feuille de partage). Le lien est celui, réutilisable,
+  d'invitation au groupe plus `&p=<planning>` : il ouvre l'appli sur le planning ; quelqu'un qui n'est pas dans le groupe
+  y entre d'abord (comme une invitation). Sans l'appli (ordinateur, iPhone), la version web (`?rejoindre=…&planning=…`).
+- Serveur : message de nature `planning`, colonne `messages_buddies.planning_id` (planning du groupe de la conversation,
+  sinon refusé) ; son texte = nom du planning (notification « 📅 Planning : … »). On ne transfère pas une carte de planning.

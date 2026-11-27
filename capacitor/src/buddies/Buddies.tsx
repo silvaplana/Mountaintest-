@@ -28,7 +28,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   aDeux, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
+  inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, envoyerMessage, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -86,23 +86,28 @@ export function useBuddies(): Etat {
  * Liens d'invitation (fr.assomoutain.rando://rejoindre?c=…) et synchro : au démarrage, au retour du réseau,
  * quand l'appli revient au premier plan. À brancher une fois.
  */
-export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: () => void) {
+export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning?: string) => void) {
   const sync = () => { if (connecte()) void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };
   const traiter = (url: string) => {
     if (!url.startsWith(`${SCHEMA}://rejoindre`)) return;
-    const code = new URL(url.replace(/^[a-z.]+:\/\//, 'https://x/')).searchParams.get('c') ?? '';
+    const q = new URL(url.replace(/^[a-z.]+:\/\//, 'https://x/')).searchParams;
+    const code = q.get('c') ?? '';
+    // 📅 Lien d'un planning (§7.28) : on entre dans le groupe si besoin (rien si on y est déjà), puis le planning s'ouvre.
+    const planning = q.get('p') ?? undefined;
     rejoindre(code);
-    onOuvrir();
-    onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
+    onOuvrir(planning);
+    if (planning) { if (!connecte()) onToast('Connecte-toi (👤) pour voir le planning'); }
+    else onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
   };
   const subs: Promise<{ remove: () => Promise<void> }>[] = [];
   // Version web (ordinateur, iPhone) : rejoindre.html renvoie sur …/app/?rejoindre=CODE.
   const web = new URLSearchParams(window.location.search).get('rejoindre');
+  const webPlanning = new URLSearchParams(window.location.search).get('planning');
   if (!Capacitor.isNativePlatform() && web) {
     const u = new URL(window.location.href);
-    u.searchParams.delete('rejoindre');
+    u.searchParams.delete('rejoindre'); u.searchParams.delete('planning');
     window.history.replaceState(null, '', u.toString());
-    traiter(`${SCHEMA}://rejoindre?c=${encodeURIComponent(web)}`);
+    traiter(`${SCHEMA}://rejoindre?c=${encodeURIComponent(web)}${webPlanning ? `&p=${encodeURIComponent(webPlanning)}` : ''}`);
   }
   if (Capacitor.isNativePlatform()) {
     subs.push(CapApp.addListener('appUrlOpen', ({ url }) => traiter(url)));
@@ -555,7 +560,7 @@ export function FeuilleNom({ titre, nom, onEnregistrer, onFermer, onToast }: {
 }
 
 /** Le lien d'invitation réutilisable (comme le QR code) d'un groupe ou d'une sortie ; créé la première fois. */
-function lienReutilisable(c: { groupe: Groupe } | { sortie: Sortie }): string {
+export function lienReutilisable(c: { groupe: Groupe } | { sortie: Sortie }): string {
   const l = 'groupe' in c ? c.groupe.invitations : c.sortie.invitations;
   const deja = l.find((i) => i.canal === 'qr')?.code;
   if (deja) return lien(deja);
@@ -588,7 +593,7 @@ async function partagerChoix(c: { groupe: Groupe } | { sortie: Sortie }, nomGrou
 }
 
 /** Icône Partager au trait (trois points reliés). */
-function PartagerIcon() {
+export function PartagerIcon() {
   return <svg width="24" height="24" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="36" cy="10" r="5" /><circle cx="12" cy="24" r="5" /><circle cx="36" cy="38" r="5" /><path d="M16.5 21.5l15-8.5M16.5 26.5l15 8.5" /></svg>;
 }
@@ -639,14 +644,16 @@ function useChoix(e: Etat, groupes: Groupe[], onToast: (m: string) => void, supp
 }
 
 type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouveau' } | { ecran: 'sortie'; groupe: string }
-  | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string } | { ecran: 'dispos'; id: string; groupe?: string }
-  | { ecran: 'nvPlanning'; groupe?: string } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
+  | { ecran: 'plannings'; groupe?: string } | { ecran: 'planning'; id: string; groupe?: string; conv?: string } | { ecran: 'dispos'; id: string; groupe?: string; conv?: string }
+  | { ecran: 'nvPlanning'; groupe?: string; poster?: { groupe?: string; sortie?: string } } | { ecran: 'albums'; groupe?: string } | { ecran: 'album'; id: string; groupe?: string; carnet?: boolean }
   | { ecran: 'carnet'; id: string; groupe?: string } | { ecran: 'ecrire'; id: string; groupe?: string }
   | { ecran: 'comptes'; groupe?: string } | { ecran: 'count'; id: string; groupe?: string } | { ecran: 'depense'; id: string; depense?: string; groupe?: string }
   | { ecran: 'dodo'; id: string; groupe?: string } | { ecran: 'messages'; groupe?: string } | { ecran: 'conv'; id: string; retour?: 'superUser' } | { ecran: 'nouvelleConv' } | { ecran: 'superUser' }
   | { ecran: 'position'; groupe?: string; sortie?: string } | { ecran: 'nvCount'; groupe: string } | { ecran: 'nvCountSortie'; groupe: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un groupe (‹ depuis la carte), l'album ou le carnet d'une sortie. */
-export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string };
+export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string }
+  /** 📅 Un planning du fil d'une sortie, ou d'un lien reçu ; un nouveau planning à poster dans le fil d'une sortie (§7.28). */
+  | { ecran: 'planning' | 'dispos'; id: string; groupe?: string } | { ecran: 'nvPlanning'; groupe: string; poster: { sortie: string } };
 
 /** Ce qu'on montre sur la carte : une sortie (sa conversation ouverte si `parler`), des traces, un point d'un message,
  * ou les buddies visibles (📍 de la colonne) centrés sur l'un d'eux (`positions` = son identifiant). */
@@ -665,7 +672,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   // La messagerie coulisse sur la carte (Seb, 27/11).
   const cl = useCoulisse();
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
-    : depart?.ecran === 'conv' ? depart : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
+    : depart && 'sortie' in depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : depart ?? { ecran: 'liste' });
   // Plus de ‹ à l'écran (Seb, 26/11) : le retour du téléphone, comme ✕, revient à l'écran d'avant.
   const fermer = useRef(onClose);
   fermer.current = onClose;
@@ -808,6 +815,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
             <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? gc.nom : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
+            onPlanning={(id, remplir) => setVue({ ecran: remplir ? 'dispos' : 'planning', id, groupe: gc.id, conv: gc.id })}
+            onNouveauPlanning={() => setVue({ ecran: 'nvPlanning', groupe: gc.id, poster: { groupe: gc.id } })}
             onPoint={(p) => onCarte({ traces: [], point: p, cache: cache() })} onTrace={(t) => onCarte({ traces: [t], cache: cache() })} />
         </div>;
       })()
@@ -840,10 +849,18 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       onNouveau={() => setVue({ ecran: 'nvPlanning', groupe: vue.groupe })} onClose={onClose}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
       : vue.ecran === 'nvPlanning' ? <NouveauPlanning groupes={groupes} groupe={vue.groupe} onToast={onToast} onClose={onClose}
-        onFini={(id) => setVue({ ecran: 'planning', id, groupe: vue.groupe })} onRetour={() => retourPlannings(vue.groupe)} />
+        onFini={(id) => {
+          // Créé depuis 📎 d'une conversation : il part dans son fil, et on y revient (celui d'un groupe).
+          if (vue.poster) {
+            envoyerMessage(vue.poster, { nature: 'planning', planning: id, texte: vueSorties(lire()).plannings.find((x) => x.id === id)?.nom });
+            void synchroniser().catch(() => undefined);
+          }
+          setVue(vue.poster?.groupe ? { ecran: 'conv', id: vue.poster.groupe } : { ecran: 'planning', id, groupe: vue.groupe });
+        }} onRetour={() => (vue.poster?.groupe ? setVue({ ecran: 'conv', id: vue.poster.groupe }) : retourPlannings(vue.groupe))} />
       : vue.ecran === 'planning' && pl ? <UnPlanning p={pl} g={groupes.find((x) => x.id === pl.groupe)} sorties={sorties} onToast={onToast} onClose={onClose}
-        onSortie={ouvrir} onRemplir={() => setVue({ ecran: 'dispos', id: pl.id, groupe: vue.groupe })} onRetour={() => retourPlannings(vue.groupe)} />
-      : vue.ecran === 'dispos' && pl ? <MesDispos p={pl} onClose={onClose} onRetour={() => setVue({ ecran: 'planning', id: pl.id, groupe: vue.groupe })} />
+        onSortie={ouvrir} onRemplir={() => setVue({ ecran: 'dispos', id: pl.id, groupe: vue.groupe, conv: vue.conv })}
+        onRetour={() => (vue.conv ? setVue({ ecran: 'conv', id: vue.conv }) : retourPlannings(vue.groupe))} />
+      : vue.ecran === 'dispos' && pl ? <MesDispos p={pl} onClose={onClose} onRetour={() => setVue({ ecran: 'planning', id: pl.id, groupe: vue.groupe, conv: vue.conv })} />
       : vue.ecran === 'nouveau' ? <Nouveau onToast={onToast} onFini={(id) => setVue({ ecran: 'groupe', id })} onRetour={() => setVue({ ecran: 'liste' })} onClose={onClose} />
       : vue.ecran === 'sortie' && vue.groupe !== SEUL && !groupes.some((x) => x.id === vue.groupe)
         ? <ChoixGroupe groupes={groupes.filter((x) => x.nature === 'bande')} onChoix={(id) => setVue({ ecran: 'sortie', groupe: id })}
@@ -1143,7 +1160,9 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
 /** Haut et bas de la carte d'une sortie : ‹ nom et dates en haut, bandeau rabattable en bas. */
-export function BandeauSortie({ x, traces, parler, onRetour, onFermer, onAlbum, onCarnet, onCount, onDodo, onToast, map }: {
+export function BandeauSortie({ x, traces, parler, onRetour, onFermer, onAlbum, onCarnet, onCount, onDodo, onPlanning, onNouveauPlanning, onToast, map }: {
+  /** 📅 Un planning du fil (§7.28) : l'ouvrir (ou mes dispos), en créer un pour ce fil. */
+  onPlanning?: (id: string, remplir?: boolean) => void; onNouveauPlanning?: () => void;
   /** ✕ du panneau (Seb, 27/11) : le panneau disparaît, on reste sur la carte. */
   onFermer: () => void;
   x: Sortie; traces: TraceBuddy[]; parler?: boolean; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void; onDodo: () => void;
@@ -1225,7 +1244,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onFermer, onAlbum, 
       {msg && <>
         {!replie && <div className="bd-entre"><b className="bd-gros">💬 Messagerie</b><button className="bd-lien" onClick={() => { setMsg(false); setPoint(null); }}>Retour</button></div>}
         <Conversation dest={{ sortie: x.id }} membres={x.participants} sortie={x} court={replie} onToast={onToast}
-          onPoint={(p) => { setPoint(p); setReplie(true); }} onTrace={voirTrace} onPhoto={onAlbum}
+          onPoint={(p) => { setPoint(p); setReplie(true); }} onTrace={voirTrace} onPhoto={onAlbum} onPlanning={onPlanning} onNouveauPlanning={onNouveauPlanning}
           onHebergement={(h) => (h.lon != null && h.lat != null ? (setPoint({ lon: h.lon, lat: h.lat, nom: h.nom }), setReplie(true)) : onDodo())} />
       </>}
       {!replie && pos && !msg && <>

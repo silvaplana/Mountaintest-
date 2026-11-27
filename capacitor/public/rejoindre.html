@@ -46,17 +46,21 @@
 </main>
 <script>
   const code = new URLSearchParams(location.search).get('c') || '';
+  // 📅 Lien d'un planning (Seb, 27/11, §7.28) : le même lien d'invitation au groupe, plus le planning à ouvrir.
+  const planning = new URLSearchParams(location.search).get('p') || '';
+  const pl = planning ? '&p=' + encodeURIComponent(planning) : '';
+  if (planning) document.getElementById('titre').textContent = 'Un planning à remplir';
   // Android : l'appli installée. Ordinateur, iPhone : la version web, qui garde l'invitation jusqu'à la connexion (Seb, 26/11).
   if (/android/i.test(navigator.userAgent)) {
     // Deux applis possibles : la version du Play Store d'abord ; si elle n'est pas installée, Chrome revient sur
     // cette page avec apk=1 et le bouton ouvre l'APK des copains.
     const c = encodeURIComponent(code);
     const apk = new URLSearchParams(location.search).get('apk');
-    const retour = location.origin + location.pathname + '?c=' + c + '&apk=1';
-    document.getElementById('ouvrir').href = apk ? 'fr.assomoutain.rando://rejoindre?c=' + c
-      : 'intent://rejoindre?c=' + c + '#Intent;scheme=cloud.silvaplana.mountainbuddies;package=cloud.silvaplana.mountainbuddies;S.browser_fallback_url=' + encodeURIComponent(retour) + ';end';
+    const retour = location.origin + location.pathname + '?c=' + c + pl + '&apk=1';
+    document.getElementById('ouvrir').href = apk ? 'fr.assomoutain.rando://rejoindre?c=' + c + pl
+      : 'intent://rejoindre?c=' + c + pl + '#Intent;scheme=cloud.silvaplana.mountainbuddies;package=cloud.silvaplana.mountainbuddies;S.browser_fallback_url=' + encodeURIComponent(retour) + ';end';
   } else {
-    document.getElementById('ouvrir').href = './?rejoindre=' + encodeURIComponent(code);
+    document.getElementById('ouvrir').href = './?rejoindre=' + encodeURIComponent(code) + (planning ? '&planning=' + encodeURIComponent(planning) : '');
     document.getElementById('android').hidden = true;
     document.getElementById('web').hidden = false;
   }
@@ -65,8 +69,9 @@
   let essais = 0;
   const lire = () => fetch('https://mountainbuddies.silvaplana.cloud/api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
     .then((a) => {
-      document.getElementById('titre').textContent = a.groupe;
-      document.getElementById('par').textContent = a.par + (a.sortie ? ' t’invite à cette sortie.' : ' t’invite dans ce groupe.');
+      document.getElementById('titre').textContent = planning ? 'Un planning à remplir' : a.groupe;
+      document.getElementById('par').textContent = planning ? a.par + ' te demande tes dispos dans « ' + a.groupe + ' ».'
+        : a.par + (a.sortie ? ' t’invite à cette sortie.' : ' t’invite dans ce groupe.');
       if (a.photo) { const p = document.getElementById('photo'); p.textContent = ''; p.style.backgroundImage = 'url("' + a.photo + '")'; }
     })
     .catch((e) => {

@@ -83,6 +83,14 @@ describe('discussions à deux', () => {
     expect(presence('u-luc', [], maintenant)).toBeNull();
   });
 
+  it('un planning en carte dans le fil (§7.28), sans réseau', () => {
+    envoyerMessage({ sortie: 's1' }, { nature: 'planning', planning: 'p1', texte: 'Hiver 2027' });
+    const [x] = vue(lire()).messages;
+    expect([x.nature, x.planning, x.sortie, x.attente]).toEqual(['planning', 'p1', 's1', true]);
+    expect(lire().attente[0]).toMatchObject({ type: 'message', nature: 'planning', planning: 'p1', sortie: 's1' });
+    expect(resume(x)).toBe('📅 Hiver 2027');
+  });
+
   it('sondage, fichier joint et transfert, sans réseau', () => {
     const s = envoyerMessage({ groupe: 'g' }, { nature: 'sondage', sondage: { question: 'Quel jour ?', multiple: false, options: ['Samedi', 'Dimanche'] } });
     voter(s, [1]);

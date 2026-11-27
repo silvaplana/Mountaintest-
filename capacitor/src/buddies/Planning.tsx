@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
-  aRemplir, aujourdhui, creerPlanning, creerSortie, datesPlanning, lire, repondre, sortieDeLigne,
+  appliquer, aRemplir, aujourdhui, creerPlanning, creerSortie, datesPlanning, envoyerAttente, envoyerMessage, lire, repondre, sortieDeLigne, synchroniser,
   type Buddy, type Etat3, type Groupe, type Planning, type Sortie,
 } from './store';
-import { Visage } from './Buddies';
+import { lienReutilisable, Natif, PartagerIcon, Visage } from './Buddies';
+import { nomAffiche } from '../compte/auth';
 
 /**
  * Planning de saison (spec/buddies.md §5.5, écrans 16 à 19) : une bande propose des dates sur quelques mois,
@@ -77,6 +79,7 @@ export function UnPlanning({ p, g, sorties, onRemplir, onSortie, onRetour, onClo
   onRetour: () => void; onClose: () => void; onToast: (m: string) => void;
 }) {
   const [ligne, setLigne] = useState<[string, string] | null>(null);
+  const [partage, setPartage] = useState(false);
   const qui = colonnes(p, g);
   const moi = moiId();
   const dispo = (b: string, d: string) => p.dispos.find((x) => x.qui === b && x.debut === d);
@@ -85,6 +88,7 @@ export function UnPlanning({ p, g, sorties, onRemplir, onSortie, onRetour, onClo
     <div className="xp-head">
       <button onClick={onRetour} aria-label="Retour">‹</button>
       <span className="bd-titre"><b>{p.nom}</b><small>{g?.nom ?? ''} · lancé par {p.par.pseudo}{p.attente ? ' · 🕓' : ''}</small></span>
+      {g && <button onClick={() => setPartage(true)} aria-label="Partager"><PartagerIcon /></button>}
       <button onClick={onClose} aria-label="Fermer">✕</button>
     </div>
     <ARemplir p={p} onRemplir={onRemplir} />
@@ -116,7 +120,96 @@ export function UnPlanning({ p, g, sorties, onRemplir, onSortie, onRetour, onClo
     </div>
     <p className="hint">Touche ta colonne pour répondre (✓ dispo, ? peut-être, ✗ non). Touche une date pour voir qui est dispo et créer la sortie.</p>
     {ligne && <Valider p={p} g={g} dt={ligne} qui={qui} onFermer={() => setLigne(null)} onToast={onToast} />}
+    {partage && g && <PartagerPlanning p={p} g={g} sorties={sorties} onFermer={() => setPartage(false)} onToast={onToast} />}
   </div>;
+}
+
+// ------------------------------------------------------------------ dans la messagerie (Seb, 27/11, §7.28)
+
+/** Icône du planning au trait : un calendrier coché. */
+export function PlanningIcon({ size = 28 }: { size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3.5" y="5" width="17" height="15" rx="2.5" /><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4" /></svg>;
+}
+
+const jourMois = (d: string) => `${jourN(d)} ${MOIS[mois(d)]}`;
+const resumePlanning = (p: Planning) => {
+  const we = p.dates.every(([d, f]) => d !== f);
+  return `${p.dates.length} ${we ? `week-end${p.dates.length > 1 ? 's' : ''}` : `date${p.dates.length > 1 ? 's' : ''}`} · avant le ${jourMois(p.limite)}`;
+};
+
+/** 📎 → Planning : un planning du groupe à poster dans le fil, ou « Nouveau planning ». */
+export function ChoisirPlanning({ plannings, onChoisir, onNouveau, onFermer }: {
+  plannings: Planning[]; onChoisir: (p: Planning) => void; onNouveau?: () => void; onFermer: () => void;
+}) {
+  const l = [...plannings].sort((a, b) => b.limite.localeCompare(a.limite));
+  return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+    <h3>Quel planning partager ?</h3>
+    {!l.length && <p className="hint">Pas encore de planning dans ce groupe.</p>}
+    {l.map((p) => <button key={p.id} className="bd-ligne bd-choix-planning" onClick={() => onChoisir(p)}>
+      <span className="bd-icone"><PlanningIcon /></span><span className="bd-texte"><b>{p.nom}</b><small>{resumePlanning(p)}</small></span></button>)}
+    {onNouveau && <button className="bd-ligne bd-choix-planning plus" onClick={onNouveau}><span className="bd-icone">＋</span><span className="bd-texte"><b>Nouveau planning</b></span></button>}
+    <button onClick={onFermer}>Annuler</button>
+  </div></div>;
+}
+
+/** La carte d'un planning dans le fil : mes réponses en pastilles, « Remplir mes dispos », qui a répondu. Toucher = ouvrir. */
+export function CartePlanning({ p, onOuvrir }: { p: Planning; onOuvrir: (remplir: boolean) => void }) {
+  const moi = moiId();
+  const auj = aujourdhui();
+  const venir = p.dates.filter(([, f]) => f >= auj);
+  const montrees = (venir.length ? venir : p.dates).slice(0, 4);
+  const reste = (venir.length ? venir : p.dates).length - montrees.length;
+  const n = aRemplir(p, moi);
+  const g = appliquer(lire()).find((x) => x.id === p.groupe);
+  const ont = new Set(p.dispos.map((x) => x.qui)).size;
+  return <div className="bd-carte-planning" role="button" onClick={() => onOuvrir(false)}>
+    <b className="bd-carte-planning-nom"><PlanningIcon /> {p.nom}</b>
+    <small>{resumePlanning(p)}</small>
+    <span className="bd-carte-planning-dates">
+      {montrees.map((dt) => {
+        const r = p.dispos.find((x) => x.qui === moi && x.debut === dt[0]);
+        return <span key={dt[0]}><small>{dt[0] === dt[1] ? jourN(dt[0]) : `${jourN(dt[0])}–${jourN(dt[1])}`}<br />{MOIS[mois(dt[1])]}</small><b className={`bd-case ${r?.etat ?? ''}`}>{r ? SIGNE[r.etat] : '·'}</b></span>;
+      })}
+      {reste > 0 && <span><small>+{reste}<br />&nbsp;</small><b className="bd-case">…</b></span>}
+    </span>
+    <button className="primary" onClick={(ev) => { ev.stopPropagation(); onOuvrir(n > 0); }}>
+      {n > 0 ? `Remplir mes dispos · ${n} restante${n > 1 ? 's' : ''}` : 'Voir le planning'}</button>
+    <small>{ont} {ont > 1 ? 'buddies' : 'buddy'}{g ? ` sur ${g.membres.length}` : ''} {ont > 1 ? 'ont' : 'a'} répondu</small>
+  </div>;
+}
+
+/** Partager depuis le planning : dans la messagerie (le groupe ou l'une de ses sorties), ou un lien (WhatsApp, SMS…)
+ * qui ouvre le planning dans Mountain Buddies, en faisant d'abord entrer dans le groupe qui n'y est pas encore. */
+function PartagerPlanning({ p, g, sorties, onFermer, onToast }: { p: Planning; g: Groupe; sorties: Sortie[]; onFermer: () => void; onToast: (m: string) => void }) {
+  const [ou, setOu] = useState(false);
+  const auj = aujourdhui();
+  const convs = [{ id: g.id, nom: g.nom, sous: 'Le fil du groupe', dest: { groupe: g.id } },
+    ...sorties.filter((x) => x.groupe === g.id && x.fin >= auj).map((x) => ({ id: x.id, nom: x.nom, sous: 'Sortie', dest: { sortie: x.id } }))];
+  const lien = async () => {
+    const texte = `${nomAffiche()} te propose le planning « ${p.nom} » de « ${g.nom} » sur Mountain Buddies : dis quand tu es dispo ! ${lienReutilisable({ groupe: g })}&p=${p.id}`;
+    onFermer();
+    await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]); // le lien est connu du serveur avant de partir
+    try {
+      if (Capacitor.isNativePlatform()) await Natif.partager({ titre: p.nom, texte });
+      else if (navigator.share) await navigator.share({ title: p.nom, text: texte });
+      else { await navigator.clipboard.writeText(texte); onToast('Copié : colle-le dans un message'); }
+    } catch { /* annulé */ }
+  };
+  return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
+    <h3>Partager « {p.nom} »</h3>
+    {!ou ? <>
+      <button className="bd-ligne bd-choix-planning" onClick={() => setOu(true)}><span className="bd-icone"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16v11H9l-5 4z" /></svg></span>
+        <span className="bd-texte"><b>Dans la messagerie</b><small>Le fil du groupe, ou une sortie du groupe</small></span></button>
+      <button className="bd-ligne bd-choix-planning" onClick={() => void lien()}><span className="bd-icone"><svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1" /></svg></span>
+        <span className="bd-texte"><b>Envoyer un lien</b><small>WhatsApp, SMS… Le lien ouvre le planning dans Mountain Buddies</small></span></button>
+    </> : convs.map((c) => <button key={c.id} className="bd-ligne bd-choix-planning" onClick={() => {
+      envoyerMessage(c.dest, { nature: 'planning', planning: p.id, texte: p.nom });
+      void synchroniser().catch(() => undefined);
+      onToast(`Envoyé dans « ${c.nom} »`); onFermer();
+    }}><span className="bd-texte"><b>{c.nom}</b><small>{c.sous}</small></span></button>)}
+    <button onClick={ou ? () => setOu(false) : onFermer}>Annuler</button>
+  </div></div>;
 }
 
 /** Une ligne du planning (écran 19) : qui est dispo, où, puis « Créer la sortie » ou « Pas encore ». */

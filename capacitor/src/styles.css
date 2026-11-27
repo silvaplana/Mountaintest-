@@ -1267,6 +1267,20 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .bd-joindre button span { width: 52px; height: 52px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 26px; }
 .bd-transfere { display: block; color: var(--muted); font-style: italic; font-size: 13px; }
 .bd-bulle.fichier, .bd-bulle.sondage { min-width: 220px; }
+/* 📅 Un planning dans le fil (Seb, 27/11, §7.28). */
+.bd-bulle.planning { min-width: 270px; }
+.bd-carte-planning { display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+.bd-carte-planning-nom { display: flex; align-items: center; gap: 8px; font-size: 18px; }
+.bd-carte-planning > small { color: var(--muted); font-size: 14px; }
+.bd-carte-planning-dates { display: flex; gap: 6px; margin: 6px 0 4px; }
+.bd-carte-planning-dates > span { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.bd-carte-planning-dates small { font-size: 12px; line-height: 1.15; text-align: center; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bd-carte-planning-dates .bd-case { width: 100%; height: 28px; }
+.bd-carte-planning .primary { flex: none; min-height: 48px; font-size: 17px; margin: 2px 0; background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.bd-choix-planning { background: var(--card); border-radius: 14px; padding: 8px 12px; }
+.bd-choix-planning.plus { background: none; border: 2px dashed var(--line, #9aa7b4); }
+.bd-choix-planning .bd-icone { display: grid; place-items: center; font-size: 26px; }
+.bd-choix-planning .bd-texte small { white-space: normal; }
 .bd-piece-image { display: block; border: 0; padding: 0; background: none; margin: 2px 0; }
 .bd-piece-image img { display: block; max-width: min(64vw, 260px); max-height: 300px; border-radius: 12px; }
 .bd-piece-image span { display: grid; place-items: center; width: 160px; height: 120px; border-radius: 12px; background: #0001; font-size: 32px; }

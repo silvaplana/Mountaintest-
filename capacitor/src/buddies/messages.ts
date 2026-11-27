@@ -86,5 +86,6 @@ export function resume(m: MessageBuddy): string {
   if (m.supprime) return 'Ce message a été supprimé';
   if (m.fichier) return `${m.fichier.mime.startsWith('video/') ? '🎬' : m.fichier.mime.startsWith('image/') ? '📷' : '📄'} ${m.fichier.nom}${m.texte ? ` · ${m.texte}` : ''}`;
   if (m.sondage) return `📊 ${m.sondage.question}`;
+  if (m.nature === 'planning') return `📅 ${m.texte || 'Planning'}`;
   return m.nature === 'point' ? '📍 Position' : m.nature === 'photo' ? '📷 Photo' : m.texte;
 }
