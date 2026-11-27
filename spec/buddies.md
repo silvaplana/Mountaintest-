@@ -887,8 +887,9 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 - **Sur la carte principale, toujours** (Seb, 27/11 : la position partagée depuis le PC ne se voyait pas sur le
   téléphone) : les buddies qui me montrent leur position en ce moment y ont une simple épingle rouge (même dessin
   que les épingles des traces, Seb 27/11 : pas de rond aux initiales), avec l'étiquette « pseudo · heure », comme
-  les voitures, sans passer par la liste. Étiquettes au même endroit (épingles, voitures) : empilées vers le haut,
-  au-dessus des icônes. Synchro toutes les 2 minutes, appli ouverte, pour recevoir positions et voitures garées.
+  les voitures, sans passer par la liste. Rien ne se superpose (Seb, 27/11) : épingles et voitures au même endroit
+  s'écartent côte à côte, sans couvrir mon point bleu, et leurs étiquettes s'empilent vers le haut, au-dessus des
+  icônes ; refait à chaque zoom. Synchro toutes les 2 minutes, appli ouverte, pour recevoir positions et voitures garées.
 - **Push silencieux** (Seb, 27/11) : garer ou enlever sa voiture, allumer ou éteindre sa position envoie aux membres
   de mes groupes un message Firebase `type: synchro`, sans rien afficher ; appli à l'écran, elle se synchronise
   tout de suite. Pas pour chaque position (toutes les 5 min). La synchro de 2 minutes reste en filet (et pour
