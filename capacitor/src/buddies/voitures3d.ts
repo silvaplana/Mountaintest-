@@ -8,46 +8,88 @@
  * Le badge des initiales, l'heure et l'appui pour le détail restent les marqueurs HTML de Positions.tsx.
  */
 import type { Map as MlMap, GeoJSONSource } from 'maplibre-gl';
-import { COULEURS, FORMES, longueurVoiturePx, type Couleur, type Forme } from './voitureDessin';
+import { COULEURS, FORMES, type Couleur, type Forme } from './voitureDessin';
 
-/** Longueur, largeur, haut de la caisse, cabine (de l'arrière 0 à l'avant 1, hauteur du toit), roues, en mètres. */
-type Gabarit = { l: number; w: number; caisse: number; cab: [number, number, number]; roue: number; vitre?: 'pleine' };
+/** Longueur, largeur, haut de la caisse, cabine (de l'arrière 0 à l'avant 1, hauteur du toit), longueur du
+ * pare-brise et de la lunette arrière (pente en marches), roues, en mètres. */
+type Gabarit = { l: number; w: number; caisse: number; cab: [number, number, number]; pb: number; lu: number; roue: number };
 const GABARITS: Record<Forme, Gabarit> = {
-  citadine: { l: 3.9, w: 1.75, caisse: 1.0, cab: [0.2, 0.75, 1.5], roue: 0.62 },
-  berline: { l: 4.7, w: 1.8, caisse: 0.95, cab: [0.28, 0.7, 1.45], roue: 0.64 },
-  break: { l: 4.7, w: 1.8, caisse: 0.95, cab: [0.04, 0.72, 1.5], roue: 0.64 },
-  suv: { l: 4.5, w: 1.85, caisse: 1.15, cab: [0.05, 0.72, 1.7], roue: 0.75 },
-  van: { l: 4.9, w: 1.95, caisse: 1.1, cab: [0.02, 0.86, 2.0], roue: 0.66 },
-  camping: { l: 6.5, w: 2.2, caisse: 1.1, cab: [0, 0.8, 2.9], roue: 0.7, vitre: 'pleine' },
-  pickup: { l: 5.3, w: 1.9, caisse: 1.0, cab: [0.45, 0.76, 1.8], roue: 0.75 },
-  cabriolet: { l: 4.3, w: 1.8, caisse: 0.9, cab: [0.55, 0.6, 1.25], roue: 0.62 },
+  citadine: { l: 3.9, w: 1.75, caisse: 0.95, cab: [0.16, 0.72, 1.5], pb: 0.7, lu: 0.3, roue: 0.62 },
+  berline: { l: 4.7, w: 1.8, caisse: 0.92, cab: [0.2, 0.7, 1.45], pb: 0.8, lu: 0.6, roue: 0.64 },
+  break: { l: 4.7, w: 1.8, caisse: 0.92, cab: [0.04, 0.7, 1.5], pb: 0.75, lu: 0.15, roue: 0.64 },
+  suv: { l: 4.5, w: 1.85, caisse: 1.1, cab: [0.05, 0.72, 1.7], pb: 0.6, lu: 0.15, roue: 0.75 },
+  van: { l: 4.9, w: 1.95, caisse: 1.05, cab: [0.02, 0.84, 2.0], pb: 0.55, lu: 0.05, roue: 0.66 },
+  camping: { l: 6.5, w: 2.2, caisse: 1.05, cab: [0, 0.8, 2.9], pb: 0.5, lu: 0, roue: 0.7 },
+  pickup: { l: 5.3, w: 1.9, caisse: 1.0, cab: [0.42, 0.74, 1.8], pb: 0.55, lu: 0.05, roue: 0.75 },
+  cabriolet: { l: 4.3, w: 1.8, caisse: 0.88, cab: [0.5, 0.6, 1.2], pb: 0.4, lu: 0, roue: 0.62 },
 };
-const VITRE = '#bfe0f2', PNEU = '#1c1f24';
+const VITRE = '#bfe0f2', PNEU = '#1c1f24', PARE_CHOCS = '#3a3f46', PHARE = '#fff3c4', FEU = '#c62828', SIEGE = '#2b2f35';
 
-/** Taille à l'écran : une berline fait `longueurVoiturePx(zoom)` de long (petite de loin, plus grande de près). */
+/** Taille de la maquette : à l'échelle de la carte (elle grandit et rapetisse avec le zoom, comme posée dessus),
+ * 80 px de long au zoom 16, jamais moins de 34 px (visible de loin), jamais plus de 180 px (ne cache pas tout). */
 const L_REF = 4.7;
+/** Posée sur la carte, l'avant vers l'est : elle tourne avec la carte (Seb, 27/11 : « comme posée physiquement »). */
+const CAP = 90;
+export const longueur3dPx = (zoom: number) => Math.min(180, Math.max(34, 80 * 2 ** (zoom - 16)));
 
 export type Voiture3d = { qui: string; lon: number; lat: number; forme?: string | null; couleur?: string | null };
 type Bloc = { x0: number; x1: number; y0: number; y1: number; b: number; h: number; c: string };
 
 /** Les blocs d'une voiture, en mètres (x vers l'avant, y vers la gauche, centre au milieu). */
 export function blocs(forme: Forme, couleur: string): Bloc[] {
-  const g = GABARITS[forme], x = (f: number) => (f - 0.5) * g.l, w = g.w / 2, r = g.roue / 2;
-  const roues = [0.18, 0.82].flatMap((f) => [-1, 1].map((cote) => ({
-    x0: x(f) - r, x1: x(f) + r, y0: cote * w - cote * 0.3, y1: cote * w, b: 0, h: g.roue, c: PNEU,
-  })));
-  const [a, av, toit] = g.cab;
-  const l: Bloc[] = [...roues, { x0: -g.l / 2, x1: g.l / 2, y0: -w, y1: w, b: r * 0.9, h: g.caisse, c: couleur }];
-  if (forme === 'cabriolet') {
-    l.push({ x0: x(a), x1: x(av), y0: -w + 0.12, y1: w - 0.12, b: g.caisse, h: toit, c: VITRE }); // pare-brise
-  } else if (g.vitre === 'pleine') {
-    // Camping-car : la cellule de la couleur choisie, le pare-brise de la cabine devant.
-    l.push({ x0: x(a), x1: x(av), y0: -w + 0.05, y1: w - 0.05, b: g.caisse, h: toit, c: couleur });
-    l.push({ x0: x(av), x1: x(0.93), y0: -w + 0.15, y1: w - 0.15, b: g.caisse, h: 1.9, c: VITRE });
-  } else {
-    l.push({ x0: x(a), x1: x(av), y0: -w + 0.15, y1: w - 0.15, b: g.caisse, h: toit - 0.14, c: VITRE });
-    l.push({ x0: x(a) + 0.05, x1: x(av) - 0.05, y0: -w + 0.12, y1: w - 0.12, b: toit - 0.14, h: toit, c: couleur });
+  const g = GABARITS[forme], x = (f: number) => (f - 0.5) * g.l, w = g.w / 2, r = g.roue / 2, L = g.l / 2;
+  const bas = r * 0.9, [a, av, toit] = g.cab;
+  const l: Bloc[] = [];
+  const bloc = (x0: number, x1: number, dy: number, b: number, h: number, c: string) => l.push({ x0, x1, y0: -w + dy, y1: w - dy, b, h, c });
+  // Roues : affleurent la caisse, on voit le pneu sous le bas de caisse.
+  for (const f of [0.18, 0.82]) for (const cote of [-1, 1]) l.push({ x0: x(f) - r, x1: x(f) + r, y0: cote * (w - 0.32), y1: cote * w, b: 0, h: g.roue, c: PNEU });
+  // Caisse aux bouts arrondis : le milieu à pleine largeur, les bouts un peu plus étroits et plus bas.
+  const bout = 0.16;
+  bloc(-L + bout, L - bout, 0, bas, g.caisse, couleur);
+  bloc(-L, -L + bout, 0.1, bas, g.caisse - 0.1, couleur);
+  bloc(L - bout, L, 0.1, bas, g.caisse - 0.16, couleur);
+  // Pare-chocs, phares devant, feux derrière.
+  bloc(L - 0.04, L + 0.06, 0.12, bas - 0.05, bas + 0.22, PARE_CHOCS);
+  bloc(-L - 0.06, -L + 0.04, 0.12, bas - 0.05, bas + 0.22, PARE_CHOCS);
+  for (const cote of [-1, 1]) {
+    l.push({ x0: L - 0.02, x1: L + 0.03, y0: cote * (w - 0.42), y1: cote * (w - 0.14), b: g.caisse - 0.42, h: g.caisse - 0.24, c: PHARE });
+    l.push({ x0: -L - 0.03, x1: -L + 0.02, y0: cote * (w - 0.38), y1: cote * (w - 0.14), b: g.caisse - 0.4, h: g.caisse - 0.24, c: FEU });
   }
+  // Vitres : pare-brise et lunette en pente (trois marches), montant central couleur carrosserie, toit par-dessus.
+  const marches = (x0: number, x1: number, haut: number, devant: boolean, c: string, dy: number) => {
+    for (let i = 0; i < 3; i++) {
+      const p = (x1 - x0) / 3, h = g.caisse + (haut - g.caisse) * (i + 1) / 3.4;
+      if (devant) bloc(x1 - p * (i + 1), x1 - p * i, dy, g.caisse, h, c);
+      else bloc(x0 + p * i, x0 + p * (i + 1), dy, g.caisse, h, c);
+    }
+  };
+  if (forme === 'cabriolet') {
+    marches(x(a), x(av), toit, true, VITRE, 0.14);
+    bloc(x(a) - 1.3, x(a) - 0.05, 0.28, g.caisse, g.caisse + 0.42, SIEGE); // sièges
+    return l;
+  }
+  if (forme === 'camping') {
+    // Cellule de la couleur choisie au-dessus de la cabine (capucine), pare-brise en pente devant.
+    bloc(x(0), x(av), 0, g.caisse, toit, couleur);
+    bloc(x(av), x(av) + 0.55, 0.05, 2.05, toit - 0.15, couleur);
+    marches(x(av), x(av) + 0.55, 2.05, true, VITRE, 0.12);
+    bloc(x(0.08), x(0.3), -0.01, 1.6, 2.15, VITRE); // fenêtre de la cellule
+    return l;
+  }
+  if (forme === 'pickup') {
+    // Benne ouverte derrière la cabine : fond plus bas, ridelles de la couleur.
+    l.splice(l.findIndex((b) => b.c === couleur && b.x0 === -L + bout), 1);
+    bloc(x(a), L - bout, 0, bas, g.caisse, couleur);
+    bloc(-L + bout, x(a), 0, bas, g.caisse - 0.4, couleur);
+    for (const cote of [-1, 1]) l.push({ x0: -L + bout, x1: x(a), y0: cote * (w - 0.1), y1: cote * w, b: g.caisse - 0.4, h: g.caisse, c: couleur });
+  }
+  const x0 = x(a), x1 = x(av), pb = g.pb, lu = g.lu;
+  marches(x1 - pb, x1, toit, true, VITRE, 0.13);
+  if (lu > 0.2) marches(x0, x0 + lu, toit, false, VITRE, 0.13);
+  const m0 = lu > 0.2 ? x0 + lu : x0, m1 = x1 - pb;
+  bloc(m0, m1, 0.11, g.caisse, toit - 0.1, VITRE);
+  bloc(m0 - 0.02, m1 + 0.06, 0.08, toit - 0.1, toit, couleur); // toit
+  bloc((m0 + m1) / 2 - 0.06, (m0 + m1) / 2 + 0.06, 0.1, g.caisse, toit - 0.1, couleur); // montant
   return l;
 }
 
@@ -86,8 +128,8 @@ export function voitures3d(map: MlMap, vs: Voiture3d[]): () => void {
     const c = map.getCenter(), z = map.getZoom();
     // Mètres par pixel à ce zoom (tuiles de 512 px) : la voiture suit le zoom, bornée (voitureDessin.ts).
     const mpp = 78271.517 * Math.cos(c.lat * Math.PI / 180) / 2 ** z;
-    const k = Math.max(1, longueurVoiturePx(z) * mpp / L_REF);
-    return { type: 'FeatureCollection', features: vs.flatMap((v) => polygones(v, k, map.getBearing() + 90, (lon, lat) => map.queryTerrainElevation([lon, lat]))) };
+    const k = Math.max(1, longueur3dPx(z) * mpp / L_REF);
+    return { type: 'FeatureCollection', features: vs.flatMap((v) => polygones(v, k, CAP, (lon, lat) => map.queryTerrainElevation([lon, lat]))) };
   };
   const en3d = () => !!map.getTerrain();
   let attente = 0;
@@ -125,7 +167,6 @@ export function voitures3d(map: MlMap, vs: Voiture3d[]): () => void {
   map.on('styledata', surStyle);
   map.on('terrain', maj);
   map.on('zoom', maj);
-  map.on('rotate', maj);
   map.on('pitch', maj);
   map.on('moveend', maj); // relief arrivé entre-temps
   return () => {
@@ -133,7 +174,6 @@ export function voitures3d(map: MlMap, vs: Voiture3d[]): () => void {
     map.off('styledata', surStyle);
     map.off('terrain', maj);
     map.off('zoom', maj);
-    map.off('rotate', maj);
     map.off('pitch', maj);
     map.off('moveend', maj);
     map.getContainer().classList.remove('voitures-3d');

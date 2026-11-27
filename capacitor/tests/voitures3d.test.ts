@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { FORMES } from '../src/buddies/voitureDessin';
-import { blocs, polygones, voitures3d } from '../src/buddies/voitures3d';
+import { blocs, longueur3dPx, polygones, voitures3d } from '../src/buddies/voitures3d';
 
 describe('Voitures garées en 3D (Seb, 27/11)', () => {
   it('a une maquette pour chaque silhouette, à la couleur choisie', () => {
@@ -22,8 +22,8 @@ describe('Voitures garées en 3D (Seb, 27/11)', () => {
     const fs = polygones({ qui: 'a', lon: 6, lat: 45, forme: 'berline', couleur: 'bleu' }, 10, 90);
     const xs = fs.flatMap((f) => (f.geometry as GeoJSON.Polygon).coordinates[0].map((p) => p[0]));
     const ys = fs.flatMap((f) => (f.geometry as GeoJSON.Polygon).coordinates[0].map((p) => p[1]));
-    // Cap 90 (est) : longue de 47 m d'ouest en est, large de 18 m environ.
-    expect((Math.max(...xs) - Math.min(...xs)) * 111320 * Math.cos(45 * Math.PI / 180)).toBeCloseTo(47, 0);
+    // Cap 90 (est) : longue de 48 m d'ouest en est (pare-chocs compris), large de 18 m environ.
+    expect((Math.max(...xs) - Math.min(...xs)) * 111320 * Math.cos(45 * Math.PI / 180)).toBeCloseTo(48.2, 0);
     expect((Math.max(...ys) - Math.min(...ys)) * 110540).toBeLessThan(20);
     expect((Math.max(...xs) + Math.min(...xs)) / 2).toBeCloseTo(6, 6);
   });
@@ -35,8 +35,8 @@ describe('Voitures garées en 3D (Seb, 27/11)', () => {
     fs.forEach((f, i) => {
       const anneau = (f.geometry as GeoJSON.Polygon).coordinates[0];
       const z = pente(anneau.reduce((a, p) => a + p[0], 0) / 5);
-      // Haut du bloc en altitude absolue = celui de la voiture à plat.
-      expect(f.properties!.h + z).toBeCloseTo(plat[i].properties!.h, 6);
+      // Haut du bloc en altitude absolue = celui de la voiture à plat (sauf un bloc enfoui dans la pente : hauteur 0).
+      if (f.properties!.h > 0) expect(f.properties!.h + z).toBeCloseTo(plat[i].properties!.h, 6);
     });
   });
 });
@@ -60,5 +60,15 @@ describe('Voitures 3D sur une vraie carte (Seb, 27/11 : la voiture noire dispara
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     voitures3d(map as any, [{ qui: 'moi', lon: 6, lat: 45, forme: 'berline', couleur: 'noir' }]);
     expect(calques).toContain('voitures3d');
+  });
+});
+
+describe('Voiture posée sur la carte (Seb, 27/11 : « il faut que ça suive le zoom »)', () => {
+  it('grandit comme la carte, sans devenir invisible ni tout cacher', () => {
+    expect(longueur3dPx(16)).toBe(80);
+    expect(longueur3dPx(17)).toBe(160); // un cran de zoom : deux fois plus grande, comme la carte
+    expect(longueur3dPx(15)).toBe(40);
+    expect(longueur3dPx(12)).toBe(34);
+    expect(longueur3dPx(19)).toBe(180);
   });
 });
