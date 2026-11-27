@@ -107,3 +107,17 @@ def test_supprimer_mon_compte(client, photos):
     assert r["moi"] != julie and r["ids"] == []
     p = client.get("/moi", headers=entete(sub="julie")).json()
     assert p["pseudo"] != "Ancien buddy"
+
+
+def test_le_super_user_donne_le_scan25(client):
+    gid, julie = bande_avec_julie(client)
+    sync(client, sub="luc")
+    rendre_super_user("luc")
+    assert sync(client, sub="julie")["scan25"] is False and sync(client, sub="luc")["scan25"] is True
+    donner = {"id": "s", "type": "scan25", "buddy": julie, "oui": True}
+    assert sync(client, ops=[donner])["refus"]  # pas Super User
+    r = sync(client, sub="luc", ops=[donner])
+    assert r["refus"] == [] and r["scan25_ids"] == [julie]
+    assert sync(client, sub="julie")["scan25"] is True and sync(client, sub="julie")["scan25_ids"] == []
+    sync(client, sub="luc", ops=[{"id": "r", "type": "scan25", "buddy": julie, "oui": False}])
+    assert sync(client, sub="julie")["scan25"] is False

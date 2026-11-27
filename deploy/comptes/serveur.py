@@ -104,6 +104,7 @@ COLONNES_AJOUTEES = [
     ("depenses", "remb", "VARCHAR(10)"),
     ("depenses", "moyen", "VARCHAR(10)"),
     ("utilisateurs", "super_user", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("utilisateurs", "scan25", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("utilisateurs", "prenom", "VARCHAR(100) NOT NULL DEFAULT ''"),
     ("utilisateurs", "nom", "VARCHAR(100) NOT NULL DEFAULT ''"),
     ("utilisateurs", "telephone", "VARCHAR(50)"),

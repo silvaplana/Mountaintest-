@@ -1218,6 +1218,16 @@ def bloquer(s: Session, u: Utilisateur, op: dict) -> None:
         s.add(Blocage(utilisateur_id=u.id, bloque_id=autre))
 
 
+def donner_scan25(s: Session, u: Utilisateur, op: dict) -> None:
+    """Le Super User donne (ou retire) le SCAN 25 à un buddy dans la version du Play Store (spec/play-store.md)."""
+    if not u.super_user:
+        raise Refus("Réservé au Super User")
+    autre = s.get(Utilisateur, uuid.UUID(str(op["buddy"])))
+    if autre is None or autre.supprime_le is not None:
+        raise Refus("Personne inconnue")
+    autre.scan25 = bool(op.get("oui"))
+
+
 def debloquer(s: Session, u: Utilisateur, op: dict) -> None:
     b = s.get(Blocage, (u.id, uuid.UUID(str(op["buddy"]))))
     if b is not None:
@@ -1342,6 +1352,7 @@ OPERATIONS = {
     "retenir_hebergement": retenir_hebergement, "retirer_hebergement": retirer_hebergement,
     "message": message, "retirer_message": retirer_message, "duo": duo, "support": support, "modifier_message": modifier_message, "reagir": reagir, "lu": lu, "voter": voter,
     "bloquer": bloquer, "debloquer": debloquer, "signaler": signaler, "traiter_signalement": traiter_signalement,
+    "scan25": donner_scan25,
 }
 
 
@@ -1450,7 +1461,11 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "lectures": lectures, "ecrivent": ecrivent(u, gids + sids),
             "positions": [vue_position(x) for x in [*positions, *positions_g]],
             "voitures": [{"qui": str(v.utilisateur_id), "lat": v.lat, "lon": v.lon, "garee_le": v.garee_le, "jusqu": v.jusqu} for v in voitures], "appels": appels_en_cours(s, gids, sids),
-            "paiements": paiements(s, u, depenses), "bloques": vue_bloques(s, u), "signalements": vue_signalements(s, u), "refus": refus}
+            "paiements": paiements(s, u, depenses), "bloques": vue_bloques(s, u), "signalements": vue_signalements(s, u),
+            # SCAN 25 de la version Play : le mien ; et pour le Super User, la liste de ceux qui l'ont.
+            "scan25": u.scan25 or u.super_user,
+            "scan25_ids": [str(x) for x in s.scalars(select(Utilisateur.id).where(Utilisateur.scan25))] if u.super_user else [],
+            "refus": refus}
 
 
 def soldes(depenses: list[Depense]) -> dict[uuid.UUID, float]:

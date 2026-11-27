@@ -1,5 +1,5 @@
 import { ACTIVITY_ICON, type Activity } from './activity';
-import { BASE_MODES, PLAY, type BaseMode } from './config';
+import { BASE_MODES, type BaseMode } from './config';
 import { useEffect, useRef, useState } from 'react';
 import type { GeolocateControl } from 'maplibre-gl';
 import { App as CapApp } from '@capacitor/app';
@@ -31,6 +31,8 @@ export interface QuickProps {
   onSearch: () => void;
   /** 🗺 : appui = fond suivant ; appui long = choisir le fond. */
   onBaseLayer: () => void;
+  /** Fonds de carte permis (version Play : Plan IGN seul, sauf SCAN 25 débloqué). */
+  fonds: BaseMode[];
   baseLayer: BaseMode; onPickBaseLayer: (m: BaseMode) => void;
   slopes: boolean; onSlopes: (on: boolean) => void;
   shade: boolean; onShade: (on: boolean) => void;
@@ -171,7 +173,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseLayer, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseLayer, fonds, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -356,7 +358,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
         {pick.kind === 'activity'
           ? ACTIVITIES.map((a) => <button key={a} className={a === activity ? 'sel' : ''} aria-label={ACTIVITY_LABEL[a]}
               onClick={() => { setPick(null); if (a !== activity) onActivity(a); }}>{ACTIVITY_ICON[a]}</button>)
-          : (Object.keys(BASE_MODES) as BaseMode[]).map((m) => <button key={m} className={`txt ${m === baseLayer ? 'sel' : ''}`} aria-label={BASE_MODES[m]}
+          : fonds.map((m) => <button key={m} className={`txt ${m === baseLayer ? 'sel' : ''}`} aria-label={BASE_MODES[m]}
               onClick={() => { setPick(null); if (m !== baseLayer) onPickBaseLayer(m); }}>{LAYER_SHORT[m]}</button>)}
       </div>
     </div>}
@@ -443,8 +445,8 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onBaseL
       {relief && !help && <button className={offline ? 'on' : ''} aria-label="Hors ligne : ce qui est gardé sur le téléphone" data-help="Hors ligne" {...lp('offline')}
         onClick={() => onOffline(!offline)}><OfflineLayerIcon /></button>}
       {/* 🗺 avec ⛰ : tout ce qui touche à la vue de la carte au même endroit (Seb, 24/11). */}
-      {/* Version Play Store : Plan IGN seul, rien à choisir. */}
-      {relief && !help && !PLAY && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
+      {/* Version Play Store sans SCAN 25 : Plan IGN seul, rien à choisir. */}
+      {relief && !help && fonds.length > 1 && <button aria-label="Changer de fond de carte (appui long : choisir)" data-help="Fond de carte · appui long : choisir" {...lpPick('layer')} onClick={onBaseLayer}>🗺</button>}
       </div>
       {/* Activité : toucher ouvre les sorties ⛷ ou les itinéraires ; appui long : ⛷ 🚵 🚴 🚲 🥾 au choix. */}
       <button aria-label={`${ACTIVITY_LABEL[activity]} (appui long : changer d'activité)`}
