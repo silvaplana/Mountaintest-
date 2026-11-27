@@ -16,6 +16,8 @@ export interface SavedTrace {
   pins?: Pin[];
   /** 👥 Groupe et sortie associés. */
   lien?: { groupe: string; sortie: string | null } | null;
+  /** 📥 Reprise d'un fichier : son GPX est déjà dans Téléchargements, on ne le réécrit pas (sinon un doublon « (1) »). */
+  fichier?: boolean;
 }
 
 const KEY = 'tracesEnregistrees';
@@ -42,6 +44,31 @@ export async function saveTrace(name: string, line: LonLat[], onPaths: boolean, 
   const t: SavedTrace = { id: Date.now(), name, onPaths, line: round(line), pins, lien };
   await write([t, ...(await listTraces())]);
   return t;
+}
+
+/**
+ * 📥 Traces lues dans des fichiers : ajoutées à Mes traces (Seb, 27/11 : après une réinstallation, on reprend les
+ * GPX de Téléchargements/Mountain Buddies). Une trace déjà là (même nom, même forme) n'est pas ajoutée deux fois.
+ */
+export function addImported(all: SavedTrace[], files: { name: string; line: LonLat[] }[], now = Date.now()) {
+  const out = [...all];
+  const added: SavedTrace[] = [];
+  let id = Math.max(now, ...all.map((t) => t.id + 1));
+  for (const f of files) {
+    const line = round(f.line);
+    const same = out.find((t) => t.name === f.name && JSON.stringify(t.line) === JSON.stringify(line));
+    if (same) { added.push(same); continue; }
+    const t: SavedTrace = { id: id++, name: f.name, onPaths: false, line, pins: [], lien: null, fichier: true };
+    out.unshift(t);
+    added.push(t);
+  }
+  return { all: out, added, fresh: out.length - all.length };
+}
+
+export async function importTraces(files: { name: string; line: LonLat[] }[]) {
+  const r = addImported(await listTraces(), files);
+  if (r.fresh) await write(r.all);
+  return r;
 }
 
 /** ✏ / 📍 Trace enregistrée modifiée : on garde la nouvelle forme et ses points (même identifiant). */

@@ -59,7 +59,7 @@ import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
 import { DrawOverlay } from './DrawOverlay';
 import { TraceList, TraceMenu } from './TraceMenu';
-import { defaultTraceName, deleteTrace, listTraces, readLien, readPins, renameTrace, saveTrace, traceLine, updateTrace, TRACES_CHANGED, type SavedTrace } from './trails/savedTraces';
+import { defaultTraceName, deleteTrace, importTraces, listTraces, readLien, readPins, renameTrace, saveTrace, traceLine, updateTrace, TRACES_CHANGED, type SavedTrace } from './trails/savedTraces';
 import { TraceEdit } from './TraceEdit';
 import { PinLayer } from './PinLayer';
 import { SelectBox, type Prise } from './SelectBox';
@@ -69,7 +69,7 @@ import { Profile, WayLegend } from './Profile';
 import { buildProfile, nearestD, pointAt, slopeLabels, type ProfileData } from './trails/profile';
 import { drawnTrail, isMine, nextMine, bikeHours, lineLengthM, routeOnPaths, walkingHours, waypoints } from './trails/route';
 import { parseTraceFile } from './trails/traceFile';
-import { onTraceFileOpened, pickTraceFile } from './trails/pickFile';
+import { onTraceFileOpened, pickTraceFiles } from './trails/pickFile';
 import { navState, OFF_TRACK_M } from './trails/navigation';
 import { loadShown, saveShown } from './trails/shownTraces';
 import { junctionAlongs, junctionsFor, lineKey, nextJunctionM, prefetchWays, wayRunsFor } from './trails/junctions';
@@ -1077,28 +1077,51 @@ export function App() {
     }
   }, [buddiesEtat]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** 📥 Ouvrir un fichier GPX, KML ou GeoJSON du téléphone : il s'ajoute aux traces affichées. */
+  /** 📥 Ouvrir un ou plusieurs fichiers GPX, KML ou GeoJSON du téléphone : ils vont dans 📂 Mes traces. */
   async function openTraceFile() {
     setDrawing(false); setTraceList(null);
     try {
-      const f = await pickTraceFile();
-      if (f) loadTraceText(f);
+      const files = await pickTraceFiles();
+      if (files.length) await loadTraceFiles(files);
     } catch (e) {
       setToast(`Fichier illisible : ${(e as Error).message}`);
     }
   }
 
-  /** Texte d'un fichier de trace (choisi ici, ou ouvert depuis une autre appli) : il s'ajoute aux traces affichées. */
-  function loadTraceText(f: { name: string; text: string }) {
+  /**
+   * Fichiers de trace (choisis ici, ou ouverts depuis une autre appli) : rangés dans 📂 Mes traces (Seb, 27/11).
+   * Un seul : affiché sur la carte. Plusieurs : la liste Mes traces s'ouvre.
+   */
+  async function loadTraceFiles(files: { name?: string; text?: string; error?: string }[]) {
     setDrawing(false); setTraceList(null);
+    const ok: { name: string; line: LonLat[] }[] = [];
+    const bad: string[] = [];
+    for (const f of files) {
+      try {
+        if (f.error || f.text == null) throw new Error(f.error ?? 'vide');
+        ok.push(parseTraceFile(f.text, f.name ?? ''));
+      } catch (e) {
+        bad.push(`${f.name || 'fichier'} (${(e as Error).message})`);
+      }
+    }
+    const pasLues = bad.length ? ` · illisible : ${bad.join(', ')}` : '';
+    if (!ok.length) { setToast(`Fichier illisible : ${bad.join(', ')}`); return; }
     try {
-      const t = parseTraceFile(f.text, f.name);
-      const shown = showMine(t.line, { onPaths: false, name: t.name, kind: `Fichier ${f.name || 'chargé'}` });
-      setToast(`📥 « ${t.name} » chargée : 🚗 Y aller pour s'y rendre, ▶ Commencer la trace sur place`);
-      // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
-      void downloadTrace(shown, true);
+      const r = await importTraces(ok);
+      if (r.added.length === 1) {
+        const st = r.added[0];
+        const shown = trails.find((x) => isMine(x.id) && x.savedId === st.id)
+          ?? showMine(traceLine(st), { onPaths: false, name: st.name, savedId: st.id, kind: `Fichier ${files[0].name || 'chargé'}` });
+        setToast(`📥 « ${st.name} » dans 📂 Mes traces : 🚗 Y aller pour s'y rendre, ▶ Commencer la trace sur place${pasLues}`);
+        // On propose tout de suite les cartes autour de la trace, pour partir tranquille sans réseau.
+        void downloadTrace(shown, true);
+      } else {
+        setTraceList(r.all);
+        const deja = r.added.length - r.fresh;
+        setToast(`📥 ${r.fresh} trace${r.fresh > 1 ? 's' : ''} ajoutée${r.fresh > 1 ? 's' : ''} à 📂 Mes traces${deja ? ` (${deja} déjà là)` : ''}${pasLues}`);
+      }
     } catch (e) {
-      setToast(`Fichier illisible : ${(e as Error).message}`);
+      setToast(`Ajout impossible : ${(e as Error).message}`);
     }
   }
 
@@ -1107,7 +1130,7 @@ export function App() {
     const list = await listTraces();
     setTraceList(list);
     // Traces sauvegardées avant les fichiers GPX : on les écrit dans Téléchargements/Mountain Buddies.
-    for (const st of list) void writeTraceFile(st, false);
+    for (const st of list) if (!st.fichier) void writeTraceFile(st, false);
   }
 
   function loadTrace(st: SavedTrace) {
@@ -1289,12 +1312,9 @@ export function App() {
   }, [selected?.id, baseLayer]);
 
   // 📥 Fichier ouvert depuis une autre appli (Gmail, Fichiers…) : chargé comme « Ouvrir un fichier ».
-  const loadTraceRef = useRef(loadTraceText);
-  loadTraceRef.current = loadTraceText;
-  useEffect(() => onTraceFileOpened((r) => {
-    if (r.error || r.text == null) setToast(`Fichier illisible : ${r.error ?? 'vide'}`);
-    else loadTraceRef.current({ name: r.name ?? '', text: r.text });
-  }), []);
+  const loadTraceRef = useRef(loadTraceFiles);
+  loadTraceRef.current = loadTraceFiles;
+  useEffect(() => onTraceFileOpened((r) => { void loadTraceRef.current([r]); }), []);
 
   // 🧭 Position suivie : bouton ◎ (GeolocateControl) ou enregistrement en cours.
   useEffect(() => {

@@ -8,7 +8,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 
 type Opened = { name?: string; text?: string; error?: string };
 const TraceFile = registerPlugin<{
-  pick(): Promise<{ cancelled?: boolean; name?: string; text?: string }>;
+  pick(): Promise<{ cancelled?: boolean; files?: Opened[] }>;
   addListener(e: 'opened', cb: (r: Opened) => void): Promise<PluginListenerHandle>;
 }>('TraceFile');
 
@@ -19,20 +19,21 @@ export function onTraceFileOpened(cb: (r: Opened) => void): () => void {
   return () => { void h.then((x) => x.remove()); };
 }
 
-export async function pickTraceFile(): Promise<{ name: string; text: string } | null> {
+/** 📥 Un ou plusieurs fichiers de trace choisis (vide si annulé). */
+export async function pickTraceFiles(): Promise<Opened[]> {
   const platform = Capacitor.getPlatform();
   if (platform === 'android') {
     const r = await TraceFile.pick();
-    return r.cancelled || r.text == null ? null : { name: r.name ?? '', text: r.text };
+    return r.cancelled ? [] : r.files ?? [];
   }
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
+    input.multiple = true;
     // iPhone : un .gpx n'a pas de type connu et serait grisé ; on accepte tout, la lecture trie.
     if (platform !== 'ios') input.accept = TRACE_FILE_ACCEPT;
     input.onchange = async () => {
-      const f = input.files?.[0];
-      resolve(f ? { name: f.name, text: await f.text() } : null);
+      resolve(await Promise.all([...(input.files ?? [])].map(async (f) => ({ name: f.name, text: await f.text() }))));
     };
     input.click();
   });
