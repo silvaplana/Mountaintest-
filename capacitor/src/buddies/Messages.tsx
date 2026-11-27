@@ -63,7 +63,7 @@ const ANNULER_MS = 10_000;
 const ENTREE_ENVOIE = typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches && !window.matchMedia('(any-pointer: coarse)').matches;
 
 /**
- * Une conversation : le fil, puis [🙂] [📎] [Message] [🎤 / ➤] (📎 : 📷 photo ou vidéo, 📍 position, 📄 fichier, 📊 sondage). `court` : seulement les derniers mots (écran 24).
+ * Une conversation : le fil, puis une seule bulle [🙂 Message 📎 🎤 / ➤] (Seb 27/11 : toute la ligne pour écrire, 📎 s'efface quand on écrit) (📎 : 📷 photo ou vidéo, 📍 position, 📄 fichier, 📊 sondage). `court` : seulement les derniers mots (écran 24).
  * Appui long sur un message (§5.6, comme AppBase) : Répondre, Copier, Modifier (15 min), Supprimer, et les réactions.
  */
 export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Actions & {
@@ -261,14 +261,14 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
     {emojis && <div className="bd-emojis">{EMOJIS.map((x) => <button key={x} onClick={() => insererEmoji(x)}>{x}</button>)}</div>}
     <div className="bd-saisie">
       {dictee.ecoute ? <Onde niveau={dictee.niveau} partiel={dictee.partiel} avant={texte} /> : <>
-        <button aria-label="Insérer une émoji" className={emojis ? 'actif' : ''} onClick={() => { setEmojis(!emojis); setMenu(false); }}>🙂</button>
-        {!edition && <button aria-label="Joindre" className={menu ? 'actif' : ''} disabled={occupe} onClick={() => { setMenu(!menu); setEmojis(false); }}>📎</button>}
+        <button aria-label="Insérer une émoji" className={emojis ? 'actif' : ''} onClick={() => { setEmojis(!emojis); setMenu(false); }}><SourireIcon /></button>
         <textarea ref={saisie} rows={1} value={texte} placeholder="Message, ou « Bud, … »" enterKeyHint={ENTREE_ENVOIE ? 'send' : 'enter'} maxLength={2000}
           onChange={(ev) => { setTexte(ev.target.value); signalerEcrit(k); ev.target.style.height = 'auto'; ev.target.style.height = `${Math.min(ev.target.scrollHeight, 140)}px`; }}
           onFocus={() => { setEmojis(false); setMenu(false); }}
           onKeyDown={(ev) => { if (ENTREE_ENVOIE && ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); envoyer(); } }} />
+        {!edition && !texte.trim() && <button aria-label="Joindre" className={menu ? 'actif' : ''} disabled={occupe} onClick={() => { setMenu(!menu); setEmojis(false); }}><TromboneIcon /></button>}
       </>}
-      {texte.trim() && !dictee.ecoute ? <button className="bd-envoyer" aria-label={edition ? 'Enregistrer' : 'Envoyer'} onClick={envoyer}>{edition ? '✓' : '➤'}</button>
+      {texte.trim() && !dictee.ecoute ? <button className="bd-envoyer" aria-label={edition ? 'Enregistrer' : 'Envoyer'} onClick={envoyer}>{edition ? '✓' : <EnvoyerIcon />}</button>
         : <button className={dictee.ecoute ? 'bd-ecoute' : 'micro'} aria-label={dictee.ecoute ? 'Arrêter la dictée' : 'Dicter'} onClick={() => void dictee.basculer()}>{dictee.ecoute ? '■' : <MicIcon />}</button>}
       <input ref={media} type="file" accept="image/*,video/*" multiple hidden onChange={(ev) => void joindre(ev.target.files).finally(() => { ev.target.value = ''; })} />
       <input ref={piece} type="file" multiple hidden onChange={(ev) => void joindre(ev.target.files).finally(() => { ev.target.value = ''; })} />
@@ -676,4 +676,16 @@ export function SousTitre({ g, e }: { g: Groupe; e: ReturnType<typeof useBuddies
   if (autre) return <small>{presence(autre.id, lectures) ?? 'Discussion à deux'}</small>;
   const la = g.membres.filter((b) => presence(b.id, lectures) === 'en ligne');
   return <small>{la.length === 1 ? `${la[0].pseudo} en ligne` : la.length > 1 ? `${la.length} en ligne` : `💬 ${g.membres.length} buddies`}</small>;
+}
+
+/** Icônes au trait de la bulle de saisie (Seb 27/11, maquettes/saisie-message, version B). */
+const TRAIT = { width: 24, height: 24, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+function SourireIcon() {
+  return <svg {...TRAIT} aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2" /><path d="M9 9.5h.01M15 9.5h.01" strokeWidth={3} /></svg>;
+}
+function TromboneIcon() {
+  return <svg {...TRAIT} aria-hidden="true"><path d="M21 11.5l-8.5 8.5a5 5 0 0 1-7-7l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.4 8.4a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8" /></svg>;
+}
+function EnvoyerIcon() {
+  return <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 20l17-8L4 4l2 8-2 8z" /></svg>;
 }

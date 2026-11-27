@@ -828,7 +828,7 @@ envoi sans réseau. Quatre étapes, une PR chacune :
    puis « en ligne » (synchro il y a moins de 30 s) ou « vu aujourd'hui à 10 h 42 » ; dans un groupe « Julie en
    ligne » / « 2 en ligne ». Conversation ouverte : synchro toutes les 5 s. « écrit… » passe par `POST /buddies/ecrit`
    (gardé 12 s en mémoire du serveur, jamais en file d'attente).
-3. **Sondages, fichiers et vidéos, Transférer** (fait) : saisie [🙂] [📎] [Message] [🎤 / ➤] ; 📎 ouvre 📷 Photo, vidéo
+3. **Sondages, fichiers et vidéos, Transférer** (fait) : saisie dans une seule bulle [🙂 Message 📎 🎤 / ➤], icônes au trait, 📎 s'efface quand on écrit (Seb 27/11, maquettes/saisie-message version B) ; 📎 ouvre 📷 Photo, vidéo
    (dans une sortie : photo de l'album, comme avant), 📍 Ma position, 📄 Fichier, 📊 Sondage. Une photo jointe est
    réduite à 1600 px et s'ouvre en plein écran ; une vidéo se lit dans la bulle (▶) ; un document (nom, taille)
    s'ouvre avec l'appli du téléphone. Limites d'AppBase : 25 Mo par fichier, 100 Mo par vidéo. Sans réseau, le
