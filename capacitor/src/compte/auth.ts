@@ -252,14 +252,18 @@ export async function synchroniser(): Promise<Etat> {
   let p: Profil;
   if (attente && Object.keys(attente).length) {
     p = await api<Profil>('PUT', '/moi', attente);
-    // Ce qui a changé pendant l'envoi reste en attente pour la prochaine fois.
+    // Ce qui a changé pendant l'envoi reste en attente pour la prochaine fois ; ce que le serveur ne connaît pas
+    // encore (champ absent de sa réponse : ma voiture avant sa mise à jour, Seb 27/11) aussi.
     const reste: Record<string, string | boolean | undefined> = { ...lire().attente };
-    for (const [k, v] of Object.entries(attente)) if (reste[k] === v) delete reste[k];
+    for (const [k, v] of Object.entries(attente)) if (reste[k] === v && k in p) delete reste[k];
     ecrire({ ...lire(), attente: reste });
   } else {
     p = await api<Profil>('GET', '/moi');
   }
-  ecrire({ ...lire(), profil: p, synchro: Date.now() });
+  // Un champ encore en attente que le serveur ne renvoie pas garde la valeur du téléphone.
+  const local = (lire().profil ?? {}) as Record<string, unknown>;
+  const garde = Object.fromEntries(Object.keys(lire().attente ?? {}).filter((k) => !(k in p)).map((k) => [k, local[k]]));
+  ecrire({ ...lire(), profil: { ...p, ...garde }, synchro: Date.now() });
   return lire();
 }
 

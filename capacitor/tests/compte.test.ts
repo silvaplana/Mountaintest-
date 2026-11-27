@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  _reinitialiser, API_URL, changerPseudo, claims, connecte, debutConnexion, defi, deconnecter, finConnexion,
+  _reinitialiser, API_URL, changerPseudo, changerVoiture, claims, connecte, debutConnexion, defi, deconnecter, finConnexion,
   HorsLigne, jetonAcces, lire, REDIRECT, Refuse, retourWeb, retourWebEnAttente, synchroniser, type Config,
 } from '../src/compte/auth';
 
@@ -93,6 +93,23 @@ describe('compte (connexion Logto, hors ligne)', () => {
     expect(lire().attente?.pseudo).toBeUndefined();
     expect(lire().refresh).toBe('R1'); // pas de rotation : le même jeton de renouvellement reste valable
     expect(lire().synchro).toBeGreaterThan(0);
+  });
+
+  it('ma voiture : gardée sur le téléphone et en attente tant que le serveur ne la renvoie pas (Seb, 27/11)', async () => {
+    await seConnecter();
+    // Serveur pas encore à jour : il ignore les champs de la voiture et rend le profil sans eux.
+    reseau(() => json({ id: 'p1', email: 'seb@exemple.fr', pseudo: 'seb', photo: null }));
+    const v = { voiture_modele: 'Dacia Duster', voiture_forme: 'suv', voiture_couleur: 'bleu' };
+    let e = await changerVoiture(v);
+    expect(e.profil?.voiture_forme).toBe('suv');
+    expect(e.attente?.voiture_forme).toBe('suv');
+    e = await synchroniser(); // un GET /moi ensuite ne l'efface pas non plus
+    expect(e.profil?.voiture_modele).toBe('Dacia Duster');
+    // Serveur à jour : il la renvoie, l'attente se vide.
+    reseau((a) => json({ id: 'p1', email: 'seb@exemple.fr', pseudo: 'seb', photo: null, ...JSON.parse(String(a.init?.body ?? '{}')) }));
+    e = await synchroniser();
+    expect(e.profil?.voiture_couleur).toBe('bleu');
+    expect(e.attente?.voiture_forme).toBeUndefined();
   });
 
   it('jeton refusé par Logto : demande de se reconnecter sans effacer le profil', async () => {
