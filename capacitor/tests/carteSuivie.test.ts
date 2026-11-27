@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tracesAEnvoyer, tracesInvitees } from '../src/buddies/carteSuivie';
+import { tracesAEnvoyer, tracesAMontrer, tracesInvitees } from '../src/buddies/carteSuivie';
 import type { Trail } from '../src/trails/osmTrails';
 
 const trace = (id: number, n: number): Trail => ({
@@ -27,5 +27,17 @@ describe('Suis ma carte : traces envoyées', () => {
     expect(g.id).toBeGreaterThan(0);
     expect(g.name).toBe('T-1 (de Julie)');
     expect(g.distanceM).toBeGreaterThan(50);
+  });
+});
+
+describe('Suis ma carte : ce qui est à l\'écran', () => {
+  it('envoie toutes mes traces, plus les randos qui passent dans l\'écran', () => {
+    const loin: Trail = { ...trace(7, 10), segments: [[{ lon: 10, lat: 50 }, { lon: 10.1, lat: 50 }]] };
+    const ecran: [number, number, number, number] = [5.5, 43.1, 5.7, 43.3];
+    const r = tracesAMontrer([trace(5, 10), loin, trace(-1, 10), { ...loin, id: -2 }], ecran, (id) => id < 0);
+    expect(r.map((t) => t.id)).toEqual([-1, -2, 5]);
+  });
+  it('pas plus de 15 traces', () => {
+    expect(tracesAMontrer(Array.from({ length: 30 }, (_, i) => trace(i + 1, 5)), [5.5, 43.1, 5.7, 43.3], () => false)).toHaveLength(15);
   });
 });

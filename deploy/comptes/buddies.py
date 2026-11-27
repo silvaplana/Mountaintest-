@@ -1160,7 +1160,9 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
             ligne = f"{de} {fait} {'avec toi' if a_deux else 'dans ' + titre}"
         bloque = set(s.scalars(select(Blocage.utilisateur_id).where(Blocage.bloque_id == u.id)))
         l.append(([x for x in qui if x != u.id and x not in bloque], {
-            "type": "message", "cle": str(m.sortie_id or m.groupe_id), "groupe": str(m.groupe_id or ""), "sortie": str(m.sortie_id or ""),
+            # 🗺 Carte partagée : une notification à part, avec Non merci / Suivre (Seb, 27/11, maquette notif-carte).
+            "type": "carte" if m.nature == "carte" else "message", "message": str(m.id),
+            "cle": str(m.sortie_id or m.groupe_id), "groupe": str(m.groupe_id or ""), "sortie": str(m.sortie_id or ""),
             "titre": titre, "de": de, "texte": texte, "duo": "1" if a_deux else "", "ligne": ligne,
             "envoye_le": str(int(datetime.now(timezone.utc).timestamp() * 1000))}))
     return l

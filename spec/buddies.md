@@ -722,6 +722,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   trait que je dessine au doigt, en direct (4 fois par seconde, orange) ; le profil de la trace que j'ouvre (le
   même profil s'ouvre chez eux, et se ferme quand je le ferme). Les forêts ne suivent pas (recherche à la demande). Une seule personne montre à la fois : si Luc
   allume la sienne, celle de Julie s'éteint. Un buddy qui arrive en cours reçoit tout de suite la vue et les traces.
+  Envoi (Seb, 27/11 : le suivi se figeait au bout de quelques secondes) : pas de file qui grossit ; par nature
+  (traces, trait, profil) seul le dernier état attend, un seul envoi en route à la fois ; la vue part en rapide
+  (perte acceptée) ; tout l'état repart toutes les 4 s pour rattraper un message perdu.
   Les tuiles ne voyagent pas : chacun charge la même zone (un appel demande du réseau). Messages de données LiveKit
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).
 - **🗺 Montrer sa carte en s'écrivant, sans appel** (Seb, 27 novembre, maquette `messagerie.png`) : hors appel, l'icône
@@ -744,6 +747,16 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   groupe ni sortie n'est ouvert, ouvre une feuille par-dessus la carte : « Chercher un nom » en haut (sans accents ni
   majuscules), puis les groupes et sorties en cours ou à venir (derniers appelés d'abord, gardés sur le téléphone,
   puis dernière activité), puis les buddies un par un (l'appel passe par la discussion à deux). Un appui = appel.
+- **Ce qui part chez ceux qui suivent** (Seb, 27 novembre : « tout ce qui est dans mon écran ») : toutes mes traces
+  affichées, puis les autres traces (randos…) qui passent dans l'écran, 15 au plus, allégées à 500 points en tout
+  (30 au moins par trace). Le contenu part, pas seulement l'identifiant : l'autre ne les a pas.
+- **🔔 Notification d'une carte partagée** (Seb, 27 novembre, maquette `maquettes/notif-carte/`) : où qu'ils
+  soient, appli fermée comprise, les autres reçoivent une notification avec deux boutons. Depuis la messagerie :
+  « 🗺 <groupe> · Seb partage sa carte », **Non merci** / **Suivre** ; Suivre ouvre l'appli sur la carte de Seb,
+  la conversation en dessous (valable 4 h). Pendant un appel, ceux du groupe qui ne sont pas dans l'appel :
+  « 📞 <groupe> · Seb partage sa carte pendant l'appel », **Non merci** / **Rejoindre** ; Rejoindre décroche, la
+  carte suit toute seule (valable 10 min). Ceux déjà dans l'appel gardent la simple ligne « Seb a partagé sa
+  carte ». Technique : push Firebase `carte` (message) et `carte_appel` (appel), canal Android « Cartes ».
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne

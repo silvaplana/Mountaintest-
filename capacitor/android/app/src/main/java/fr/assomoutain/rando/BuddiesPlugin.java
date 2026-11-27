@@ -82,7 +82,11 @@ public class BuddiesPlugin extends Plugin {
         c.put("cle", cle);
         c.put("groupe", i.getStringExtra("groupe"));
         c.put("sortie", i.getStringExtra("sortie"));
-        i.removeExtra("conversation");
+        // 🗺 « Suivre » sur la notification d'une carte partagée : suivre ce message « carte ».
+        String carte = i.getStringExtra("carte");
+        if (carte != null) { c.put("carte", carte); c.put("carteDe", i.getStringExtra("carteDe")); }
+        CarteNotif.effacer(getContext(), i.getIntExtra("carteNotif", 0));
+        i.removeExtra("conversation"); i.removeExtra("carte"); i.removeExtra("carteNotif");
         return c;
     }
 
@@ -115,6 +119,8 @@ public class BuddiesPlugin extends Plugin {
         String action = i.getStringExtra("appelAction");
         i.removeExtra("appel");
         i.removeExtra("appelAction");
+        CarteNotif.effacer(getContext(), i.getIntExtra("carteNotif", 0));
+        i.removeExtra("carteNotif");
         ((android.app.NotificationManager) getContext().getSystemService(android.content.Context.NOTIFICATION_SERVICE)).cancel(AppelService.NOTIF);
         try {
             JSObject a = JSObject.fromJSONObject(new org.json.JSONObject(s));

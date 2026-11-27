@@ -250,6 +250,7 @@ function fini() {
   jAppelle = false;
   montrerDesQue = false;
   ignore = null;
+  enAttente.clear(); enRoute.clear();
   changer(null);
   if (id) void api('POST', `/appels/${id}/presence`, { en_ligne: false }).catch(() => undefined);
 }
@@ -314,10 +315,43 @@ export function montrerMaCarte(on: boolean) {
   changer({ ...etat, jeMontre: on, suit: on ? null : etat.suit });
   if (!on) envoyerCarte({ carteFin: true });
 }
+/**
+ * File d'envoi de « Suis ma carte » (Seb, 27/11 : le suivi se figeait au bout de quelques secondes). Producteur-
+ * consommateur, mais sans file qui grossit : par nature de message (vue, traces, trait, profil), on ne garde que le
+ * DERNIER état, et un seul envoi est en route à la fois. Si le réseau ralentit, les états intermédiaires sautent
+ * (le trait de l'instant t remplace celui de t-1) au lieu de s'empiler. La vue part en « rapide » (perte acceptée,
+ * jamais de bouchon) ; le reste en « sûr ». Un envoi sûr bloqué plus de 6 s repart en rapide.
+ */
+const enAttente = new Map<string, MsgCarte>();
+const enRoute = new Map<string, number>();
+const natureCarte = (m: MsgCarte) => Object.keys(m)[0];
+function publier(m: MsgCarte, reliable: boolean) {
+  if (!salle) return Promise.resolve();
+  return salle.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(m)), { reliable }).catch(() => undefined);
+}
+function pousser(k: string) {
+  const m = enAttente.get(k);
+  if (!m || enRoute.has(k) || !salle) return;
+  enAttente.delete(k);
+  const debut = Date.now();
+  enRoute.set(k, debut);
+  const bouchon = setTimeout(() => { void publier(m, false); }, 6000);
+  void publier(m, true).finally(() => {
+    clearTimeout(bouchon);
+    if (enRoute.get(k) === debut) enRoute.delete(k);
+    pousser(k);
+  });
+}
 export function envoyerCarte(m: MsgCarte) {
   if (!salle || etat?.phase !== 'en_ligne') return;
-  void salle.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(m)), { reliable: true }).catch(() => undefined);
+  const k = natureCarte(m);
+  if (k === 'carte') { void publier(m, false); return; }
+  if (k === 'carteFin') enAttente.clear(); // rien de vieux ne doit arriver après la fin
+  enAttente.set(k, m);
+  pousser(k);
 }
+/** Pour les tests : vider la file. */
+export function _viderFileCarte() { enAttente.clear(); enRoute.clear(); }
 /** « Reprendre ma carte » : je ne suis plus personne (jusqu'à ce qu'un buddy rallume sa carte). */
 let ignore: string | null = null;
 export function reprendreMaCarte() {

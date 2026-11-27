@@ -44,6 +44,13 @@ public class AppelService extends FirebaseMessagingService {
             if (premierPlan && e != null) e.message(d.get("cle")); else MessagesNotif.montrer(this, d);
             return;
         }
+        if ("carte".equals(type) || "carte_appel".equals(type)) {
+            // 🗺 Carte partagée : la notification, même appli ouverte (Seb, 27/11 : « tout de suite, où qu'ils soient »).
+            CarteNotif.montrer(this, d);
+            Ecouteur e = ecouteur;
+            if ("carte".equals(type) && premierPlan && e != null) e.message(d.get("cle"));
+            return;
+        }
         if (!"appel".equals(type)) return;
         // Arrivé en retard (téléphone hors réseau) : l'appel ne sonne plus.
         try {
