@@ -457,6 +457,11 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   garde son décalage d'horloge et compare les heures des voitures, épingles et positions à l'heure du serveur, aussi
   hors ligne) ; **« Suis ma carte » : 15 s sans message de celui qui montre vaut fin** (il renvoie tout toutes les
   4 s ; s'il montre toujours, son prochain message fait resuivre).
+  **Copie locale dans IndexedDB** (Seb, 27/11) : groupes, sorties, messages et traces y vivent en un seul objet, lu
+  une fois avant le premier écran ; l'ancienne copie de localStorage (plafonnée vers 5 Mo, écriture qui échouait sans
+  bruit) est reprise une fois puis retirée. La file d'attente et la liste des photos et fichiers pas encore partis
+  restent en plus dans une petite clé de localStorage, écrite tout de suite : appli tuée juste après une action, rien
+  de ce qu'on a fait n'est perdu. Sans IndexedDB, tout reste dans localStorage.
 
 ### 7.2 Bloc 2 : ce qui est construit (23 novembre 2026)
 

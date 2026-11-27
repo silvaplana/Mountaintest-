@@ -187,19 +187,74 @@ export type Signalement = {
 
 let memoire: Etat | null = null;
 const vide = (): Etat => ({ serveur: [], sorties: [], traces: [], plannings: [], photos: [], attente: [] });
+/**
+ * Où vit la copie locale (Seb, 27/11).
+ * - La grosse partie (groupes, sorties, messages, traces) : IndexedDB, un seul objet. Avant, un seul texte dans
+ *   localStorage, plafonné vers 5 Mo : au-delà l'écriture échouait sans bruit et l'appli repartait d'une vieille copie.
+ * - Ce qui ne se retrouve pas sur le serveur (la file d'attente, les photos et fichiers pas encore partis) : en plus
+ *   dans une petite clé de localStorage, écrite tout de suite. IndexedDB écrit en différé ; si l'appli est tuée juste
+ *   après une action, la file est déjà à l'abri.
+ * `charger()` lit IndexedDB une fois, au démarrage, avant le premier écran : ensuite `lire()` reste immédiat.
+ * Sans IndexedDB (ou tant que `charger()` n'a pas réussi), tout reste dans localStorage, comme avant.
+ */
+const BASE = 'buddies-etat', MAGASIN = 'e', FICHE = 'etat';
+let charge = false;
+function magasin<T>(mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  return new Promise<IDBDatabase>((res, rej) => {
+    const r = indexedDB.open(BASE, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(MAGASIN);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }).then((d) => new Promise<T>((res, rej) => {
+    const tr = d.transaction(MAGASIN, mode), r = f(tr.objectStore(MAGASIN));
+    // Lu : dès la réponse ; écrit : seulement une fois la transaction terminée (sinon rien n'est sûr).
+    if (mode === 'readonly') r.onsuccess = () => res(r.result); else tr.oncomplete = () => res(r.result);
+    r.onerror = () => rej(r.error); tr.onerror = tr.onabort = () => rej(tr.error);
+  }).finally(() => d.close()));
+}
+/** La petite clé : la file et les envois en cours (un tableau seul : la file, version d'avant). */
+function petit(): Partial<Etat> {
+  try {
+    const a = JSON.parse(localStorage.getItem(CLE_ATTENTE) ?? 'null') as Op[] | Pick<Etat, 'attente' | 'envois' | 'envoisFichiers'> | null;
+    if (Array.isArray(a)) return { attente: a };
+    return a ? { attente: a.attente ?? [], ...(a.envois ? { envois: a.envois } : {}), ...(a.envoisFichiers ? { envoisFichiers: a.envoisFichiers } : {}) } : {};
+  } catch { return {}; }
+}
+/** À appeler une fois avant le premier écran (main.tsx). Reprend la copie d'avant (localStorage) la première fois. */
+export async function charger(): Promise<void> {
+  if (charge || typeof indexedDB === 'undefined') return;
+  try {
+    const e = await magasin<Etat | undefined>('readonly', (s) => s.get(FICHE));
+    if (e) memoire = { ...vide(), ...e, ...petit() };
+    else { memoire = null; await magasin('readwrite', (s) => s.put(lire(), FICHE)); }
+    charge = true;
+    try { localStorage.removeItem(CLE); } catch { /* stockage bloqué */ }
+    for (const f of abonnes) f(lire()); // si l'écran était déjà là (lecture lente) : il se remet à jour
+  } catch { /* IndexedDB refusée (navigation privée…) : on reste sur localStorage */ }
+}
 export function lire(): Etat {
   if (memoire) return memoire;
   try { memoire = { ...vide(), ...JSON.parse(localStorage.getItem(CLE) ?? '{}') as Etat }; } catch { memoire = vide(); }
-  try { const a = localStorage.getItem(CLE_ATTENTE); if (a) memoire = { ...memoire, attente: JSON.parse(a) as Op[] }; } catch { /* file illisible */ }
+  memoire = { ...memoire, ...petit() };
   return memoire;
+}
+/** Une écriture IndexedDB à la fois, toujours du dernier état : dix changements d'affilée n'en font qu'une ou deux. */
+let ecriture: Promise<void> | null = null, aEcrire = false;
+function sauver() {
+  aEcrire = true;
+  ecriture ??= (async () => {
+    while (aEcrire) {
+      aEcrire = false;
+      try { await magasin('readwrite', (s) => s.put(memoire ?? vide(), FICHE)); } catch { /* plein ou bloqué : la file, elle, est dans la petite clé */ }
+    }
+    ecriture = null;
+  })();
 }
 function ecrire(e: Etat) {
   memoire = e;
-  // La file d'abord, à part : elle est petite. Quand la copie locale ne tient plus dans le stockage (traces et
-  // messages qui s'accumulent), son écriture échoue sans bruit ; ce qu'on a fait hors ligne, lui, doit survivre
-  // à la fermeture de l'appli.
-  try { localStorage.setItem(CLE_ATTENTE, JSON.stringify(e.attente)); } catch { /* stockage plein ou bloqué */ }
-  try { localStorage.setItem(CLE, JSON.stringify(e)); } catch { /* stockage plein ou bloqué */ }
+  try { localStorage.setItem(CLE_ATTENTE, JSON.stringify({ attente: e.attente, envois: e.envois, envoisFichiers: e.envoisFichiers })); } catch { /* stockage plein ou bloqué */ }
+  if (charge) sauver();
+  else try { localStorage.setItem(CLE, JSON.stringify(e)); } catch { /* stockage plein ou bloqué */ }
   for (const f of abonnes) f(e);
 }
 const abonnes = new Set<(e: Etat) => void>();
@@ -1094,4 +1149,6 @@ export function oublierTout() {
 }
 
 /** Pour les tests. */
-export function _reinitialiser() { memoire = null; abonnes.clear(); enCours = null; suivante = null; envoisEnCours = null; }
+export function _reinitialiser() { memoire = null; abonnes.clear(); enCours = null; suivante = null; envoisEnCours = null; charge = false; }
+/** Pour les tests : l'écriture IndexedDB en cours est finie. */
+export const _ecrit = () => ecriture ?? Promise.resolve();
