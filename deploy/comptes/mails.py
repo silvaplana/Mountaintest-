@@ -51,7 +51,7 @@ def invitation(a: str, prenom: str, par: str, groupe: str, code: str, sortie: bo
     lien = LIEN_INVITATION + code
     paragraphes = [
         f"Salut {prenom}," if prenom else "Salut,",
-        f"{par} t'invite dans {ou} sur Mountain Buddies, l'appli pour préparer et vivre nos sorties montagne "
+        f"{par} t'invite dans {ou} sur Mountain Buddies, l'appli pour préparer, vivre et revivre nos sorties montagne "
         "ensemble : traces, photos, dépenses communes, positions, messages et bien plus encore.",
         f"Ouvre ce lien sur ton téléphone : il te propose d'installer l'appli et te fait entrer dans {'la sortie' if sortie else 'le groupe'}.",
     ]
@@ -83,7 +83,7 @@ def appli(a: str, prenom: str, par: str, repondre_a: str | None = None) -> None:
     """Inviter un ami à installer Mountain Buddies, depuis le profil (Seb, 26/11), sans groupe."""
     paragraphes = [
         f"Salut {prenom}," if prenom else "Salut,",
-        f"{par} t'invite à installer Mountain Buddies, l'appli pour préparer et vivre nos sorties montagne "
+        f"{par} t'invite à installer Mountain Buddies, l'appli pour préparer, vivre et revivre nos sorties montagne "
         "ensemble : traces, photos, dépenses communes, positions, messages et bien plus encore.",
         "Ouvre ce lien sur ton téléphone pour la télécharger.",
     ]
