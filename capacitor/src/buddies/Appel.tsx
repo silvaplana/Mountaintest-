@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { api, connecte } from '../compte/auth';
 import { Natif, useBuddies, Visage } from './Buddies';
 import {
-  appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, refuser, sonner, suivreAppel, suivreDoigts,
+  appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, reprendreMaCarte, refuser, sonner, suivreAppel, suivreDoigts,
   type EtatAppel, type Sonnerie,
 } from './appel';
 import { appliquer, vue } from './store';
@@ -95,17 +95,31 @@ export function BarreAppel() {
     return () => clearInterval(t);
   }, [e]);
   if (!e || e.phase === 'sonne' || (e.phase === 'connexion' && e.de)) return null;
+  if (e.suit) return <BarreSuivie e={e} />;
   const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
-  const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte' : e.suit ? `${e.suit.pseudo} te montre sa carte`
+  const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte'
     : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';
-  return <div className={`ap-barre${annonce || e.jeMontre || e.suit ? ' ap-annonce' : ''}`}>
+  return <div className={`ap-barre${annonce || e.jeMontre ? ' ap-annonce' : ''}`}>
     <span className="ap-icone">📞</span>
     <span className="bd-texte"><b>{titre}</b><small>{e.phase === 'en_ligne' ? enLigne(e) : e.nom}</small>
-      {e.phase === 'en_ligne' && !e.jeMontre && !e.suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
+      {e.phase === 'en_ligne' && !e.jeMontre && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
     {e.phase === 'en_ligne' && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
       className={e.jeMontre ? 'allume' : ''} onClick={() => montrerMaCarte(!e.jeMontre)}>
       <IconeSuisCarte /></button>}
     <button aria-label={e.muet ? 'Remettre le micro' : 'Couper le micro'} className={e.muet ? 'muet' : ''} onClick={() => void couperMicro(!e.muet)}>{e.muet ? '🔇' : '🎙'}</button>
+    <button className="ap-rouge" aria-label="Raccrocher" onClick={() => void raccrocher()}>✕</button>
+  </div>;
+}
+
+/** 🗺 Ma carte suit celle d'un buddy : une seule ligne, son badge, « Carte de Seb », Stop et ✕ (choix A de Seb, 27/11). */
+function BarreSuivie({ e }: { e: EtatAppel }) {
+  const b = useBuddies();
+  const suit = e.suit!;
+  const lui = appliquer(b).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null };
+  return <div className="ap-barre ap-annonce ap-suivie">
+    <Visage b={lui} taille={44} />
+    <span className="bd-texte"><b>Carte de {suit.pseudo}</b><small>{duree(Date.now() - (e.debut ?? Date.now()))}</small></span>
+    <button className="ap-stop" onClick={reprendreMaCarte}>Stop</button>
     <button className="ap-rouge" aria-label="Raccrocher" onClick={() => void raccrocher()}>✕</button>
   </div>;
 }
