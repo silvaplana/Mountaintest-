@@ -19,6 +19,7 @@ def livekit(monkeypatch):
 
 def test_appeler_sonner_rejoindre_raccrocher(client, livekit):
     gid, julie = bande_avec_julie(client)
+    livekit.clear()  # « Julie a rejoint le groupe »
     assert client.post("/appareils", headers=entete(sub="julie"), json={"jeton": "j" * 30}).status_code == 200
     r = client.post("/appels", headers=entete(sub="seb"), json={"groupe": gid})
     assert r.status_code == 200, r.text
@@ -66,6 +67,7 @@ def test_carte_dans_la_messagerie(client, livekit):
     """🗺 Un message « carte » : salle muette (données seulement), sans sonnerie, pour ceux de la conversation."""
     from test_buddies import nouveau_message
     gid, julie = bande_avec_julie(client)
+    livekit.clear()  # « Julie a rejoint le groupe »
     op = nouveau_message(groupe=gid, nature="carte", texte="")
     sync(client, ops=[op])
     m = next(x for x in sync(client, sub="julie")["messages"] if x["id"] == op["message"])

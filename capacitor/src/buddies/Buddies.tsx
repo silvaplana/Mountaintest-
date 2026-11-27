@@ -29,7 +29,7 @@ import { IconeSuisCarte } from './IconeSuisCarte';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  aDeux, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  aDeux, accepterDemande, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
   inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, envoyerMessage, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -52,6 +52,8 @@ export const Natif = registerPlugin<{
   addListener(e: 'dicteeNiveau', f: (x: { niveau: number }) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(e: 'dicteeFin', f: (x: { erreur?: number }) => void): Promise<{ remove: () => Promise<void> }>;
   partager(o: { titre: string; texte: string }): Promise<void>;
+  /** Le texte du presse-papiers (invitation copiée par la page avant le téléchargement, §7.29). */
+  pressePapiers(): Promise<{ texte?: string }>;
   /** Partage un fichier du cache de l'appli (film du survol 3D) : WhatsApp, mail… */
   partagerFichier(o: { chemin: string; mime: string; titre: string }): Promise<void>;
   /** ⬇ Copie un film du cache dans la galerie (Movies/Mountain Buddies) ; rend le dossier à montrer. */
@@ -92,15 +94,32 @@ export function useBuddies(): Etat {
 export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning?: string) => void) {
   const sync = () => { if (connecte()) void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };
   const traiter = (url: string) => {
+    // 🔗 Lien d'application (§7.29) : le lien d'invitation lui-même ouvre l'appli.
+    if (url.startsWith('https://mountainbuddies.silvaplana.cloud/api/i?')) url = `${SCHEMA}://rejoindre?${url.split('?')[1]}`;
     if (!url.startsWith(`${SCHEMA}://rejoindre`)) return;
     const q = new URL(url.replace(/^[a-z.]+:\/\//, 'https://x/')).searchParams;
     const code = q.get('c') ?? '';
     // 📅 Lien d'un planning (§7.28) : on entre dans le groupe si besoin (rien si on y est déjà), puis le planning s'ouvre.
     const planning = q.get('p') ?? undefined;
-    rejoindre(code);
     onOuvrir(planning);
-    if (planning) { if (!connecte()) onToast('Connecte-toi (👤) pour voir le planning'); }
-    else onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
+    if (!connecte()) {
+      rejoindre(code);
+      onToast(planning ? 'Connecte-toi (👤) pour voir le planning' : 'Connecte-toi (👤) pour entrer dans le groupe');
+      return;
+    }
+    // Déjà dans le groupe (Seb, 27/11 : après une réinstallation, par exemple) : on le dit, plutôt que « tu entres ».
+    const groupeDuCode = () => appliquer(lire()).find((g) => g.invitations.some((i) => i.code === code));
+    void (async () => {
+      await synchroniser().catch(() => undefined);
+      const deja = groupeDuCode();
+      if (deja) { if (!planning) onToast(`${nomAffiche()}, tu es déjà dans « ${deja.nom} »`); return; }
+      rejoindre(code);
+      await envoyerAttente();
+      if (planning) return;
+      const g = groupeDuCode();
+      const demande = (lire().demandes ?? []).length > 0 && !g;
+      onToast(g ? `Bienvenue dans « ${g.nom} »` : demande ? 'Demande envoyée : un admin doit l’accepter' : 'Invitation reçue : tu entres dans le groupe');
+    })();
   };
   const subs: Promise<{ remove: () => Promise<void> }>[] = [];
   // Version web (ordinateur, iPhone) : rejoindre.html renvoie sur …/app/?rejoindre=CODE.
@@ -111,6 +130,16 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning
     u.searchParams.delete('rejoindre'); u.searchParams.delete('planning');
     window.history.replaceState(null, '', u.toString());
     traiter(`${SCHEMA}://rejoindre?c=${encodeURIComponent(web)}${webPlanning ? `&p=${encodeURIComponent(webPlanning)}` : ''}`);
+  }
+  // Première ouverture après une installation depuis la page d'invitation (Seb, 27/11) : « Télécharger l'appli » a
+  // copié le lien ; l'appli le retrouve et fait entrer dans le groupe sans revenir sur la page. Une seule fois.
+  if (Capacitor.isNativePlatform()) {
+    let vu = true;
+    try { vu = !!localStorage.getItem('invitation-presse-papiers'); localStorage.setItem('invitation-presse-papiers', '1'); } catch { /* rien */ }
+    if (!vu) void Natif.pressePapiers().then(({ texte }) => {
+      const m = /mountainbuddies\.silvaplana\.cloud\/api\/i\?c=([A-Za-z0-9_-]{16,32})(?:&p=([A-Za-z0-9-]+))?/.exec(texte ?? '');
+      if (m) traiter(`${SCHEMA}://rejoindre?c=${m[1]}${m[2] ? `&p=${m[2]}` : ''}`);
+    }).catch(() => undefined);
   }
   if (Capacitor.isNativePlatform()) {
     subs.push(CapApp.addListener('appUrlOpen', ({ url }) => traiter(url)));
@@ -438,13 +467,18 @@ type Formulaire = { canal: 'mail' | 'sms'; nom: string; contact: string };
  * connaît, jamais par recherche (spec §3.5). Le message part tout de suite, même sans réseau ; l'invitation
  * est enregistrée par `onInvite` (et envoyée au serveur au retour du réseau).
  */
-function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
-  nomGroupe: string; qrExistant?: string; onInvite: (i: NouvelleInvitation) => void; onToast: (m: string) => void;
+function Inviter({ nomGroupe, liens, onInvite, onToast, sortie = false }: {
+  nomGroupe: string; onInvite: (i: NouvelleInvitation) => void; onToast: (m: string) => void;
+  /** Les invitations déjà faites (on y prend les liens du groupe, canal « qr »). */
+  liens: { canal: Canal; code: string; approbation?: boolean }[];
   /** Invitation à une sortie (une sortie de Me Time) plutôt qu'à un groupe. */
   sortie?: boolean;
 }) {
   const [form, setForm] = useState<Formulaire | null>(null);
   const [qr, setQr] = useState<string | null>(null);
+  // Les deux liens du groupe (Seb, 27/11, §7.29) : « entrée directe » (30 jours) ou « un admin accepte » (sans fin).
+  const [approbation, setApprobation] = useState(false);
+  const [crees, setCrees] = useState<{ code: string; approbation: boolean }[]>([]);
   const texte = (code: string) => `${nomAffiche()} t'invite ${sortie ? 'à' : 'dans'} « ${nomGroupe} » sur Mountain Buddies, pour nos sorties montagne : ${lien(code)}`;
   const pret = () => { if (!nomGroupe.trim()) { onToast(`Donne d’abord un nom ${sortie ? 'à la sortie' : 'au groupe'}`); return false; } return true; };
 
@@ -468,12 +502,32 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
       await envoyer('contacts', c.nom, c.telephone);
     } catch { /* choix annulé */ }
   };
+  const lienDuType = (avecAccord: boolean) => {
+    const deja = [...liens.filter((i) => i.canal === 'qr'), ...crees].find((i) => !!i.approbation === avecAccord)?.code;
+    if (deja) return deja;
+    const code = nouveauCode();
+    onInvite({ canal: 'qr', nom: '', contact: '', code, approbation: avecAccord });
+    setCrees((l) => [...l, { code, approbation: avecAccord }]);
+    return code;
+  };
   const montrerQr = () => {
     if (!pret()) return;
-    if (qrExistant) { setQr(qrExistant); return; }
-    const code = nouveauCode();
-    onInvite({ canal: 'qr', nom: '', contact: '', code });
-    setQr(code);
+    setApprobation(false);
+    setQr(lienDuType(false));
+  };
+  const choisirType = (avecAccord: boolean) => { setApprobation(avecAccord); setQr(lienDuType(avecAccord)); };
+  // Le lien part dans WhatsApp (un groupe WhatsApp entier, Seb 27/11) ou ailleurs, une fois connu du serveur.
+  const texteLien = (code: string) => sortie ? texte(code)
+    : `Salut ! Je vous invite dans mon groupe Mountain Buddies « ${nomGroupe} » : sorties, traces, photos et dépenses au même endroit. ${lien(code)}`;
+  const partagerLien = async (code: string, whatsapp: boolean) => {
+    await Promise.race([envoyerAttente(), new Promise((r) => setTimeout(r, 4000))]);
+    const t = texteLien(code);
+    try {
+      if (whatsapp) window.open(`https://wa.me/?text=${encodeURIComponent(t)}`, '_system');
+      else if (Capacitor.isNativePlatform()) await Natif.partager({ titre: nomGroupe, texte: t });
+      else if (navigator.share) await navigator.share({ title: nomGroupe, text: t });
+      else { await navigator.clipboard.writeText(t); onToast('Copié : colle-le dans un message'); }
+    } catch { /* annulé */ }
   };
 
   return <>
@@ -481,7 +535,7 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
       <button onClick={() => void contacts()}><span>📇</span>Contacts</button>
       <button onClick={() => { if (pret()) setForm({ canal: 'mail', nom: '', contact: '' }); }}><span>✉️</span>Mail</button>
       <button onClick={() => { if (pret()) setForm({ canal: 'sms', nom: '', contact: '' }); }}><span>📱</span>Téléphone</button>
-      <button onClick={montrerQr}><span>🔳</span>QR code</button>
+      <button onClick={montrerQr}><span>🔳</span>Lien, QR</button>
     </div>
     {form && <div className="bd-voile" onClick={() => setForm(null)}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
       <h3>{form.canal === 'mail' ? 'Inviter par mail' : 'Inviter par SMS'}</h3>
@@ -496,8 +550,19 @@ function Inviter({ nomGroupe, qrExistant, onInvite, onToast, sortie = false }: {
     </div></div>}
     {qr && <div className="bd-voile" onClick={() => setQr(null)}><div className="bd-feuille bd-centre" onClick={(ev) => ev.stopPropagation()}>
       <h3>{nomGroupe}</h3>
+      {!sortie && <div className="bd-types-lien">
+        <button className={approbation ? '' : 'choisi'} onClick={() => choisirType(false)}><b>Entrée directe</b><small>valable 30 jours</small></button>
+        <button className={approbation ? 'choisi' : ''} onClick={() => choisirType(true)}><b>Un admin accepte</b><small>le lien ne périme pas</small></button>
+      </div>}
       <Qr texte={lien(qr)} />
-      <p className="hint">Tes copains visent ce code avec l'appareil photo de leur téléphone : il installe l'appli et les fait entrer {sortie ? 'dans la sortie' : 'dans le groupe'}.</p>
+      {/* Le lien en clair, avec « Copier » (Seb, 27/11). */}
+      <div className="bd-lien-copier">
+        <span>{lien(qr)}</span>
+        <button onClick={() => { void navigator.clipboard?.writeText(lien(qr)).then(() => onToast('Lien copié')).catch(() => onToast(lien(qr))); void envoyerAttente(); }}>Copier</button>
+      </div>
+      <p className="hint">Un seul lien pour tous tes copains, même dans un groupe WhatsApp. Il ouvre la page de Mountain Buddies, puis les fait entrer {sortie ? 'dans la sortie' : approbation ? 'quand un admin accepte leur demande' : 'dans le groupe'}. Ils peuvent aussi viser ce code avec l'appareil photo.</p>
+      <button className="primary" onClick={() => void partagerLien(qr, true)}>Envoyer dans WhatsApp</button>
+      <button onClick={() => void partagerLien(qr, false)}>Partager ailleurs</button>
       <button onClick={() => setQr(null)}>Fermer</button>
     </div></div>}
   </>;
@@ -967,6 +1032,7 @@ function Liste({ e, groupes, sorties, plannings, onRemplir, onOuvrir, onSortie, 
     {/* Pas de « à jour à … » (Seb, 26 novembre) : seulement ce qui attend le réseau. */}
     {enAttente > 0 && <p className="hint">🕓 {enAttente} changement{enAttente > 1 ? 's' : ''} partira au retour du réseau</p>}
     {rejointsEnAttente(e).length > 0 && <div className="acc-bandeau orange"><span>🕓</span><span>Invitation reçue : tu entreras dans le groupe au retour du réseau.</span></div>}
+    {(e.demandes ?? []).map((d) => <div key={d.groupe} className="acc-bandeau orange"><span>🕓</span><span>Demande envoyée pour « {d.nom} » : un admin doit l'accepter.</span></div>)}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     {haut && <Affiche x={haut} onClick={() => onSortie(haut)} />}
     <h3 className="bd-section">Groupes</h3>
@@ -1004,7 +1070,6 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
   const [membres, setMembres] = useState(false);
   const [nommer, setNommer] = useState(false);
   const me = g.nature === 'me_time';
-  const qr = g.invitations.find((i) => i.canal === 'qr')?.code;
   const auj = aujourdhui();
   const avenir = sorties.filter((x) => x.fin >= auj).sort((a, b) => a.debut.localeCompare(b.debut));
   const souvenirs = sorties.filter((x) => x.fin < auj).sort((a, b) => b.debut.localeCompare(a.debut));
@@ -1026,6 +1091,8 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
       {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <span key={i.id} className="bd-invite-visage"><Visage b={{ id: i.id, nom: i.nom, photo: null }} taille={34} /></span>)}
       <span className="bd-ajout">＋</span>
     </button>}
+    {!me && estAdmin(g, e) && (g.demandes ?? []).length > 0 && <div className="acc-bandeau orange" onClick={() => setMembres(true)}>
+      <span>👋</span><span>{(g.demandes ?? []).length === 1 ? `${g.demandes![0].pseudo} demande à entrer` : `${g.demandes!.length} demandes pour entrer`} : toucher pour répondre</span></div>}
     {!me && <LigneAppel dest={{ groupe: g.id }} nom={g.nom} onToast={onToast} />}
     {plannings.map((p) => <ARemplir key={p.id} p={p} avecNom onRemplir={() => onRemplir(p)} />)}
     <h3 className="bd-section">À venir</h3>
@@ -1043,12 +1110,12 @@ function UnGroupe({ g, plannings, onRemplir, sorties, traces, onToast, onOuvrir,
       <button className="primary" onClick={onNouvelle}>
         <span className="bd-plus-texte"><b>＋ Sortie</b></span></button>
     </div>
-    {membres && <Membres g={g} qr={qr} onToast={onToast} onFermer={() => setMembres(false)} onParti={onRetour} />}
+    {membres && <Membres g={g} onToast={onToast} onFermer={() => setMembres(false)} onParti={onRetour} />}
   </div>;
 }
 
 /** Les buddies d'un groupe (toucher les visages) : inviter, nommer admin, retirer, quitter (spec §5.3, rôles §7.17). */
-function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string; onToast: (m: string) => void; onFermer: () => void; onParti: () => void }) {
+function Membres({ g, onToast, onFermer, onParti }: { g: Groupe; onToast: (m: string) => void; onFermer: () => void; onParti: () => void }) {
   const e = lire();
   const admin = estAdmin(g, e);
   const principal = estAdminPrincipal(g, e);
@@ -1069,7 +1136,15 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
   const moi = (b: Buddy) => b.id === e.moi || b.id === 'moi';
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
     <h3>Inviter mes copains</h3>
-    <Inviter nomGroupe={g.nom} qrExistant={qr} onToast={onToast} onInvite={(i) => { inviter(g.id, i); if (i.canal !== 'qr') onToast(`Invitation envoyée à ${i.nom}`); }} />
+    <Inviter nomGroupe={g.nom} liens={g.invitations} onToast={onToast} onInvite={(i) => { inviter(g.id, i); if (i.canal !== 'qr') onToast(`Invitation envoyée à ${i.nom}`); }} />
+    {(g.demandes ?? []).length > 0 && <>
+      <h3>Demandent à entrer</h3>
+      {(g.demandes ?? []).map((d) => <div key={d.id} className="bd-ligne petite">
+        <Visage b={d} /><span className="bd-texte"><b>{d.pseudo}</b><small>{admin ? 'par le lien du groupe' : 'attend un admin'}</small></span>
+        {admin && <button className="bd-accepter" onClick={() => { accepterDemande(g.id, d.id, true); onToast(`${d.pseudo} entre dans le groupe`); }}>Accepter</button>}
+        {admin && <button aria-label={`Refuser ${d.pseudo}`} onClick={() => { accepterDemande(g.id, d.id, false); onToast(`Demande de ${d.pseudo} refusée`); }}>✕</button>}
+      </div>)}
+    </>}
     <h3>Dans le groupe</h3>
     {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m)} onClick={() => setChoisi(m)} {...appuiLong(m)}>
       <Visage b={m} /><span className="bd-texte"><b>{m.pseudo}{moi(m) ? ' (toi)' : ''}</b>{m.role === 'admin_principal' ? <small>admin principal</small> : m.role === 'admin' && <small>admin</small>}</span>
@@ -1147,7 +1222,7 @@ function Nouveau({ onToast, onFini, onRetour, onClose }: { onToast: (m: string) 
     <ChoixPhoto photo={photo} onPhoto={setPhoto} onToast={onToast} />
     <input className="bd-nom" value={nom} maxLength={80} placeholder="Nom du groupe" onChange={(ev) => setNom(ev.target.value)} />
     <h3 className="bd-section">Inviter mes copains</h3>
-    <Inviter nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast}
+    <Inviter nomGroupe={nom} liens={invites} onToast={onToast}
       onInvite={(i) => setInvites((l) => [...l, i])} />
     <h3 className="bd-section">Dans le groupe <small>{1 + invites.filter((i) => i.canal !== 'qr').length} buddies</small></h3>
     <div className="bd-ligne petite"><Visage b={{ id: 'moi', pseudo: nomAffiche(compte), photo: compte.profil?.photo ?? null }} />
@@ -1198,7 +1273,7 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
     </div>
     <h3 className="bd-section">Avec qui <small>{me ? 'Seul' : `${g.nom} · ${qui.size} sur ${g.membres.length}`}</small></h3>
     {me ? <>
-      <Inviter sortie nomGroupe={nom} qrExistant={invites.find((i) => i.canal === 'qr')?.code} onToast={onToast} onInvite={(i) => setInvites((l) => [...l, i])} />
+      <Inviter sortie nomGroupe={nom} liens={invites} onToast={onToast} onInvite={(i) => setInvites((l) => [...l, i])} />
       {invites.filter((i) => i.canal !== 'qr').map((i) => <div key={i.code} className="bd-ligne petite bd-invite">
         <Visage b={{ id: i.code, nom: i.nom, photo: null }} /><span className="bd-texte"><b>{i.nom}</b><small>{i.contact}</small></span>
         <small className="bd-etat">{i.canal === 'mail' ? '✉️ mail à envoyer' : CANAL[i.canal]}</small></div>)}

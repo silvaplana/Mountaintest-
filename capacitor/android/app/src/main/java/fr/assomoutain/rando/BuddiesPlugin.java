@@ -373,6 +373,21 @@ public class BuddiesPlugin extends Plugin {
     }
 
     @PluginMethod
+    /** Le texte du presse-papiers : l'invitation copiée par la page web avant le téléchargement (spec §7.29). */
+    public void pressePapiers(PluginCall call) {
+        JSObject r = new JSObject();
+        try {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) getContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = cm != null ? cm.getPrimaryClip() : null;
+            if (clip != null && clip.getItemCount() > 0) {
+                CharSequence t = clip.getItemAt(0).coerceToText(getContext());
+                if (t != null) r.put("texte", t.toString());
+            }
+        } catch (Exception ignored) { /* pas d'accès : rien */ }
+        call.resolve(r);
+    }
+
+    @PluginMethod
     public void partager(PluginCall call) {
         Intent i = new Intent(Intent.ACTION_SEND);
         i.setType("text/plain");

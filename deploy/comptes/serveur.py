@@ -21,6 +21,7 @@ Routes (préfixe /api, ou l ancien /mountaintest-api, retiré par le gateway Cad
   GET  /telecharger           compte un téléchargement puis renvoie vers l'APK (page publique)
   GET  /super/utilisateurs    Super User : téléchargements, comptes et leur usage
   GET  /invitations/{code}    aperçu d'une invitation pour la page du lien (sans connexion)
+  GET  /i?c=CODE              le lien d'invitation : aperçu pour WhatsApp, puis la page principale
   PUT  /buddies/photos/{id}/{petite|grande}   envoyer le JPEG d'une photo de l'album (annoncée par la synchro)
   GET  /buddies/photos/{id}/{petite|grande}   la lire (participants de la sortie)
   PUT  /buddies/photos/{id}/video             le film d'un survol 3D (MP4 ou WebM) ; GET : le lire
@@ -42,13 +43,15 @@ import time
 import uuid
 import urllib.parse
 import urllib.request
+from html import escape
+from urllib.parse import quote
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, func, inspect, select, text
@@ -96,6 +99,7 @@ COLONNES_AJOUTEES = [
     ("invitations", "acceptee_par", "UUID REFERENCES utilisateurs(id)"),
     ("invitations", "sortie_id", "UUID REFERENCES sorties(id) ON DELETE CASCADE"),
     ("invitations", "mail", "VARCHAR(10)"),
+    ("invitations", "approbation", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("messages_buddies", "bud", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("messages_buddies", "repond_a", "UUID"),
     ("messages_buddies", "edite_le", "TIMESTAMP WITH TIME ZONE"),
@@ -719,6 +723,30 @@ def invitation(code: str, s: Session = Depends(db)):
     if a is None:
         raise HTTPException(404, "Invitation inconnue ou expirée")
     return a
+
+
+SITE = os.environ.get("SITE_PUBLIC", "https://mountainbuddies.silvaplana.cloud")
+
+
+@app.get("/i", response_class=HTMLResponse)
+def lien_invitation(c: str = "", p: str = "", s: Session = Depends(db)):
+    """Le lien d'invitation (Seb, 27/11, §7.29). WhatsApp, SMS… lisent ici le titre et l'image de l'aperçu
+    (« Seb t'invite dans … ») ; le navigateur part aussitôt sur la page principale, qui montre l'invitation."""
+    code = c
+    a = buddies.apercu_invitation(s, code)
+    titre = "Mountain Buddies"
+    if a:
+        titre = f"{a['par']} t'invite {'à' if a.get('sortie') else 'dans'} « {a['groupe']} »"
+    cible = f"{SITE}/?c={quote(code)}" + (f"&p={quote(p)}" if p else "")
+    t, c = escape(titre), escape(cible)
+    texte = "La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies."
+    return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{t}</title>
+<meta property="og:title" content="{t}"><meta property="og:description" content="{texte}">
+<meta property="og:image" content="{SITE}/img/logo.png"><meta property="og:image:width" content="512"><meta property="og:image:height" content="512">
+<meta property="og:url" content="{c}"><meta property="og:type" content="website"><meta property="og:site_name" content="Mountain Buddies">
+<meta http-equiv="refresh" content="0;url={c}"></head>
+<body><script>location.replace({json.dumps(cible)})</script><a href="{c}">{t}</a></body></html>"""
 
 
 if __name__ == "__main__":

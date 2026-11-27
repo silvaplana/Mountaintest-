@@ -967,7 +967,7 @@ def test_invitation_par_mail(client, monkeypatch):
     r = sync(client, ops=[op, inv])
     (a, sujet, texte, k), = envoyes
     assert a == "julie@exemple.fr" and "« Crapahuteurs »" in sujet
-    assert "Salut Julie" in texte and "rejoindre.html?c=MailSecret0123456789" in texte and "le groupe" in texte
+    assert "Salut Julie" in texte and "/api/i?c=MailSecret0123456789" in texte and "le groupe" in texte
     assert "bande" not in texte
     r = sync(client)
     assert par_nom(r, "Crapahuteurs")["invitations"][0]["mail"] == "envoye"
@@ -1013,3 +1013,69 @@ def test_planning_dans_la_messagerie(client):
     sync(client, ops=[{"id": "x", "type": "retirer_message", "message": bon["message"]}])
     m = next(x for x in sync(client, sub="julie")["messages"] if x["id"] == bon["message"])
     assert m["supprime"] and m["planning"] is None
+
+
+def test_lien_avec_approbation(client):
+    """Seb, 27/11 (§7.29) : le lien « un admin accepte » ne périme pas ; celui qui le touche fait une demande."""
+    op = nouveau_groupe()
+    lien = {**invitation(op["groupe"], canal="qr", nom=""), "approbation": True}
+    g = par_nom(sync(client, ops=[op, lien]), "Ski du dimanche")
+    assert g["invitations"][0]["approbation"] is True
+    a = client.get("/invitations/CodeSecret0123456789").json()
+    assert a["approbation"] is True and a["membres"] == 1
+    r = sync(client, sub="julie", ops=[{"id": "j", "type": "rejoindre", "code": "CodeSecret0123456789"}])
+    assert r["groupes"] == [] and r["demandes"] == [{"groupe": op["groupe"], "nom": "Ski du dimanche"}]
+    julie = r["moi"]
+    g = par_nom(sync(client), "Ski du dimanche")
+    assert [d["id"] for d in g["demandes"]] == [julie] and len(g["membres"]) == 1
+    # Julie ne peut pas s'accepter elle-même ; Seb (admin) accepte.
+    assert sync(client, sub="julie", ops=[{"id": "x", "type": "accepter_demande", "groupe": op["groupe"], "buddy": julie, "oui": True}])["refus"]
+    g = par_nom(sync(client, ops=[{"id": "a", "type": "accepter_demande", "groupe": op["groupe"], "buddy": julie, "oui": True}]), "Ski du dimanche")
+    assert g["demandes"] == [] and len(g["membres"]) == 2
+    assert sync(client, sub="julie")["demandes"] == []
+    # Refuser : la demande disparaît, Luc n'entre pas.
+    sync(client, sub="luc", ops=[{"id": "l", "type": "rejoindre", "code": "CodeSecret0123456789"}])
+    luc = par_nom(sync(client), "Ski du dimanche")["demandes"][0]["id"]
+    g = par_nom(sync(client, ops=[{"id": "b", "type": "accepter_demande", "groupe": op["groupe"], "buddy": luc}]), "Ski du dimanche")
+    assert g["demandes"] == [] and len(g["membres"]) == 2
+
+
+def test_admin_qui_reinstalle_et_touche_son_lien(client):
+    """Le test de Seb (27/11) : il désinstalle, réinstalle depuis son lien direct : il retrouve son groupe, sans erreur."""
+    op = nouveau_groupe()
+    sync(client, ops=[op, invitation(op["groupe"], canal="qr", nom="")])
+    r = sync(client, ops=[{"id": "re", "type": "rejoindre", "code": "CodeSecret0123456789"}])
+    g = par_nom(r, "Ski du dimanche")
+    assert r["refus"] == [] and [m["role"] for m in g["membres"]] == ["admin_principal"]
+
+
+def test_page_du_lien_pour_whatsapp(client):
+    op = nouveau_groupe()
+    sync(client, ops=[op, invitation(op["groupe"], canal="qr", nom="")])
+    h = client.get("/i?c=CodeSecret0123456789&p=abc").text
+    assert 'og:title" content="seb t&#x27;invite dans « Ski du dimanche »"' in h
+    assert "/?c=CodeSecret0123456789&amp;p=abc" in h and "img/logo.png" in h
+    assert 'og:title" content="Mountain Buddies"' in client.get("/i?c=inconnu").text
+
+
+def test_notifications_arrivee_et_demande(client, monkeypatch):
+    """Seb, 27/11 : on est prévenu quand quelqu'un rejoint le groupe ; les admins, d'une demande ; le demandeur, de l'accord."""
+    import appels
+    sonne = []
+    monkeypatch.setattr(appels, "sonner", lambda S, qui, data, ttl="45s": sonne.append(([str(q) for q in qui], data["texte"])))
+    op = nouveau_groupe()
+    seb = sync(client, ops=[op, invitation(op["groupe"], canal="qr", nom="")])["moi"]
+    sonne.clear()
+    julie = sync(client, sub="julie", ops=[{"id": "j", "type": "rejoindre", "code": "CodeSecret0123456789"}])["moi"]
+    assert sonne == [([seb], "a rejoint le groupe")]
+    sonne.clear()
+    sync(client, sub="julie", ops=[{"id": "j2", "type": "rejoindre", "code": "CodeSecret0123456789"}])  # déjà dedans
+    assert sonne == []
+    lien = {**invitation(op["groupe"], code="CodeAccord0123456789", canal="qr", nom=""), "approbation": True}
+    sync(client, ops=[lien])
+    sonne.clear()
+    luc = sync(client, sub="luc", ops=[{"id": "l", "type": "rejoindre", "code": "CodeAccord0123456789"}])["moi"]
+    assert sonne == [([seb], "demande à entrer dans le groupe")]
+    sonne.clear()
+    sync(client, ops=[{"id": "a", "type": "accepter_demande", "groupe": op["groupe"], "buddy": luc, "oui": True}])
+    assert sonne == [([luc], "t'a fait entrer dans le groupe")]

@@ -5,6 +5,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta property="og:title" content="Mountain Buddies">
+<meta property="og:image" content="https://mountainbuddies.silvaplana.cloud/img/logo.png">
 <meta name="description" content="La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies.">
 <title>Mountain Buddies</title>
 <link rel="icon" href="img/logo.svg">
@@ -32,18 +34,114 @@
   .bande p { max-width: 680px; margin: 0 auto; color: var(--muted); }
   footer { padding: 28px 0 40px; text-align: center; color: var(--muted); font-size: 16px; }
   footer a { color: var(--accent); margin: 0 10px; display: inline-block; min-height: 48px; line-height: 48px; }
+
+  .b svg { width: 26px; height: 26px; margin-right: 10px; flex: none; }
+  .b { cursor: pointer; font-family: inherit; }
+  .voile { position: fixed; inset: 0; background: #0008; display: none; align-items: flex-end; justify-content: center; z-index: 9; }
+  .voile.ouvert { display: flex; }
+  .feuille { background: var(--card); color: var(--fg); width: 100%; max-width: 520px; border-radius: 24px 24px 0 0; padding: 10px 20px calc(env(safe-area-inset-bottom) + 20px); max-height: 92vh; overflow: auto; }
+  .poignee { width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+  .feuille h2 { font-size: 23px; margin: 4px 0 8px; text-align: center; }
+  .intro { margin: 0 0 6px; color: var(--muted); text-align: center; }
+  .etape { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 18px; }
+  .etape:last-of-type { border-bottom: 0; }
+  .num { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent); font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+  .etape svg { width: 30px; height: 30px; flex: none; color: var(--accent); margin-left: auto; }
+  .limites { margin: 10px 0 14px; background: var(--bg); border-radius: 16px; padding: 12px 16px; }
+  .limites h3 { font-size: 17px; margin: 0 0 6px; }
+  .limites li { font-size: 17px; color: var(--muted); margin: 2px 0; }
+  .limites ul { margin: 0; padding-left: 20px; }
+  .feuille .b { width: 100%; justify-content: center; }
 </style>
 </head>
 <body>
 <header class="hero wrap">
+  <!-- Invitation (Seb, 27/11, spec/buddies.md §7.29) : le lien d'invitation ouvre cette page avec ?c=CODE.
+       Bandeau « Seb t'invite dans … » et bouton « Rejoindre le groupe » ; rien sans ?c=. -->
+  <style>
+    .invit { display: none; margin: 0 max(16px, calc(50% - 260px)) 24px; background: var(--card); border: 2.5px solid var(--accent); border-radius: 24px; padding: 16px; text-align: left; }
+    .invit.ouvert { display: block; }
+    .invit-haut { display: flex; gap: 14px; align-items: center; }
+    .invit-rond { width: 64px; height: 64px; border-radius: 50%; flex: none; background: var(--bg) center/cover; display: grid; place-items: center; color: var(--accent); }
+    .invit-titre { font-weight: 800; font-size: 20px; line-height: 1.3; }
+    .invit-sous { color: var(--muted); font-size: 17px; }
+    .invit .b { width: 100%; justify-content: center; margin-top: 14px; border-width: 2.5px; border-color: var(--accent); }
+    .invit .b svg { width: 26px; height: 26px; margin-right: 10px; flex: none; }
+    .invit-etape { display: flex; gap: 10px; align-items: center; margin: 16px 0 0; color: var(--muted); font-size: 17px; }
+    .invit-num { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent); font-weight: 800; display: grid; place-items: center; flex: none; }
+    .invit #invitAndroid .b { border-width: 1.5px; border-color: var(--line); }
+  </style>
+  <div class="invit" id="invit">
+    <div class="invit-haut">
+      <div class="invit-rond" id="invitPhoto"><svg width="34" height="34" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 40 18 18l8 12 6-8 12 18z"/></svg></div>
+      <div><div class="invit-titre" id="invitTitre">Tu es invité dans un groupe</div><div class="invit-sous" id="invitSous">Sur Mountain Buddies</div></div>
+    </div>
+    <div id="invitAndroid" hidden>
+      <p class="invit-etape"><span class="invit-num">1</span>Pas encore l'appli sur ton téléphone ? Télécharge-la ici et installe-la.</p>
+      <a class="b" id="invitTelecharger" href="api/telecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>Télécharger l'appli</a>
+      <p class="invit-etape"><span class="invit-num">2</span>Ouvre l'appli : elle te fait entrer toute seule. Sinon, ou si tu l'avais déjà, touche :</p>
+    </div>
+    <a class="b" id="invitBouton" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-4 3-6.5 6.5-6.5s6.5 2.5 6.5 6.5"/><path d="M19 8v6M16 11h6"/></svg><span id="invitTexte">Rejoindre le groupe</span></a>
+    <p class="invit-sous" id="invitWeb" hidden>L'appli s'ouvre dans ton navigateur : connecte-toi et tu entres. Sur iPhone, tu pourras ensuite la mettre sur ton écran d'accueil.</p>
+  </div>
+  <script>
+  (function () {
+    const q = new URLSearchParams(location.search), code = q.get('c') || '', planning = q.get('p') || '';
+    if (!code) return;
+    const $ = (id) => document.getElementById(id);
+    $('invit').classList.add('ouvert');
+    const c = encodeURIComponent(code), pl = planning ? '&p=' + encodeURIComponent(planning) : '';
+    if (/android/i.test(navigator.userAgent)) {
+      // L'appli des copains (APK), par son adresse fr.assomoutain.rando:// : l'intent:// avec retour au navigateur ne
+      // réagissait pas dans Samsung Internet (Seb, 27/11). Sans l'appli, rien ne s'ouvre : d'où l'étape 1 au-dessus.
+      $('invitBouton').href = 'fr.assomoutain.rando://rejoindre?c=' + c + pl;
+      $('invitAndroid').hidden = false;
+      // L'invitation part dans le presse-papiers : l'appli tout juste installée la retrouve à sa 1re ouverture (§7.29).
+      $('invitTelecharger').addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const aller = () => { location.href = $('invitTelecharger').href; };
+        const lien = location.origin + '/api/i?c=' + c + pl;
+        (navigator.clipboard ? navigator.clipboard.writeText(lien) : Promise.reject()).then(aller, aller);
+      });
+      // Le téléchargement est déjà dans la carte (étape 1) : pas de second « Télécharger pour Android » plus bas (Seb, 27/11).
+      document.addEventListener('DOMContentLoaded', () => { for (const x of document.querySelectorAll('header.hero .boutons, header.hero .petit')) x.style.display = 'none'; });
+    } else {
+      // iPhone, ordinateur : la version web garde l'invitation jusqu'à la connexion.
+      $('invitBouton').href = 'app/?rejoindre=' + c + (planning ? '&planning=' + encodeURIComponent(planning) : '');
+      $('invitWeb').hidden = false;
+    }
+    const texte = (t) => { $('invitTexte').textContent = t; };
+    let essais = 0;
+    const lire = () => fetch('api/invitations/' + c).then((r) => r.ok ? r.json() : Promise.reject(r.status)).then((a) => {
+      if (planning) { $('invitTitre').textContent = 'Un planning à remplir'; $('invitSous').textContent = a.par + ' te demande tes dispos dans « ' + a.groupe + ' ».'; texte('Donner mes dispos'); }
+      else if (a.sortie) { $('invitTitre').textContent = a.par + ' t’invite à la sortie « ' + a.groupe + ' »'; $('invitSous').textContent = 'Sur Mountain Buddies'; texte('Rejoindre la sortie'); }
+      else {
+        $('invitTitre').textContent = a.par + ' t’invite dans « ' + a.groupe + ' »';
+        $('invitSous').textContent = (a.membres > 1 ? a.membres + ' buddies' : '') + (a.approbation ? (a.membres > 1 ? ' · ' : '') + 'un admin accepte ta demande' : '');
+        texte(a.approbation ? 'Demander à entrer' : 'Rejoindre le groupe');
+        if (a.approbation) $('invitWeb').textContent = 'L’appli s’ouvre dans ton navigateur : connecte-toi et ta demande part à l’admin. Sur iPhone, tu pourras ensuite la mettre sur ton écran d’accueil.';
+      }
+      if (a.photo) { const p = $('invitPhoto'); p.textContent = ''; p.style.backgroundImage = 'url("' + a.photo + '")'; }
+    }).catch((e) => {
+      // Un lien tout juste envoyé peut arriver avant l'invitation sur le serveur : on réessaie un peu.
+      if (e !== 404) return;
+      if (++essais < 6) { setTimeout(lire, 5000); return; }
+      $('invitTitre').textContent = 'Ce lien n’est pas reconnu'; $('invitSous').textContent = 'Demande à ton copain de te le renvoyer.';
+      $('invitBouton').style.display = 'none'; $('invitAndroid').hidden = true; $('invitWeb').hidden = true;
+    });
+    lire();
+  })();
+  </script>
   <img class="logo" src="img/logo.svg" alt="">
   <h1>Mountain Buddies</h1>
   <p class="accroche">La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies.</p>
   <div class="boutons">
-    <a class="b principal" href="https://mountainbuddies.silvaplana.cloud/api/telecharger">Télécharger pour Android</a>
-    <a class="b" href="app/">Ouvrir dans le navigateur</a>
+    <a class="b" id="bAndroid" href="https://mountainbuddies.silvaplana.cloud/api/telecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11a7 7 0 0 1 14 0v7H5z"/><path d="M8 4.5 9.5 6.5M16 4.5 14.5 6.5"/><circle cx="9.5" cy="9.5" r=".6" fill="currentColor"/><circle cx="14.5" cy="9.5" r=".6" fill="currentColor"/><path d="M5 13h14"/></svg>Télécharger pour Android</a>
+    <button class="b" id="bIphone" onclick="ouvrir()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 5h3"/><path d="M11 18.5h2"/></svg>Installer sur iPhone</button>
+    <a class="b" id="bWeb" href="app/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>Ouvrir dans le navigateur*</a>
   </div>
-  <p class="petit">Gratuit · <a href="app/apk/" style="color:inherit">Comment l'installer ?</a> · iPhone et ordinateur : version navigateur</p>
+  <p class="petit" id="noteWeb">* Pour l'instant, l'appli est faite pour le téléphone : sur ordinateur, l'affichage est à optimiser.</p>
+  <p class="petit">Gratuit · <a href="#" style="color:inherit" onclick="tous();return false">Autre appareil ?</a></p>
 </header>
 
 <main class="wrap">
@@ -64,5 +162,40 @@
   <a href="confidentialite">Confidentialité</a>
   <div>© 2026 silvaplana.cloud</div>
 </footer>
+
+<div class="voile" id="voile" onclick="if(event.target===this)fermer()">
+  <div class="feuille">
+    <div class="poignee"></div>
+    <h2>Installer sur iPhone</h2>
+    <p class="intro">Pour l'instant, c'est la <b>version web</b> de l'appli, avec quelques limites. La vraie appli iPhone arrive bientôt.</p>
+    <div class="etape"><span class="num">1</span><span>Ouvre cette page dans <b>Safari</b></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg></div>
+    <div class="etape"><span class="num">2</span><span>Touche <b>Partager</b></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6.5v11.5h11V9H16"/><path d="M12 14V3M8.5 6.5 12 3l3.5 3.5"/></svg></div>
+    <div class="etape"><span class="num">3</span><span><b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg></div>
+    <div class="limites">
+      <h3>Les limites de la version web :</h3>
+      <ul>
+        <li>pas de trace écran éteint ;</li>
+        <li>cartes hors ligne limitées ;</li>
+        <li>pas de notifications ;</li>
+        <li>pas de sonnerie d'appel appli fermée.</li>
+      </ul>
+    </div>
+    <button class="b principal" onclick="fermer()">J'ai compris</button>
+  </div>
+</div>
+<script>
+  // Un seul bouton : celui de l'appareil. « Autre appareil ? » montre les trois.
+  // L'iPad récent se présente comme un Mac : on le reconnaît à l'écran tactile.
+  const ua = navigator.userAgent;
+  const iphone = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  const bon = iphone ? 'bIphone' : android ? 'bAndroid' : 'bWeb';
+  for (const id of ['bAndroid','bIphone','bWeb']) if (id !== bon) document.getElementById(id).style.display = 'none';
+  document.getElementById(bon).classList.add('principal');
+  if (bon !== 'bWeb') document.getElementById('noteWeb').style.display = 'none';
+  function tous() { for (const id of ['bAndroid','bIphone','bWeb','noteWeb']) document.getElementById(id).style.display = ''; }
+  function ouvrir() { document.getElementById('voile').classList.add('ouvert'); }
+  function fermer() { document.getElementById('voile').classList.remove('ouvert'); }
+</script>
 </body>
 </html>
