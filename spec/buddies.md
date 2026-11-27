@@ -922,7 +922,10 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   - **Membre** : tout créer (Groupe, sortie, trace, photo, dépense, hébergement, planning, message), inviter,
     renommer le Groupe, retenir l'hébergement ✅ ; il ne retire que ce qu'il a apporté lui-même.
   - **Admin** : en plus, retirer un membre, supprimer la sortie, le message, la photo, la dépense ou l'hébergement
-    d'un autre.
+    d'un autre. Retirer (Seb, 27 novembre) : dans « Dans le groupe », un appui (ou un appui long, comme WhatsApp)
+    sur le buddy → « Retirer du groupe » → confirmation « Retirer X du groupe ? » ; le retiré ne voit plus le
+    Groupe ni ses sorties à sa synchro suivante. L'appli ne propose jamais de retirer l'admin principal. Chacun
+    peut aussi partir seul avec « Quitter le groupe ».
   - **Admin principal** (un seul : le créateur) : en plus, nommer un admin, retirer le rôle d'admin, retirer un
     admin du Groupe, passer son rôle à un autre (il reste admin). Personne ne le retire, sauf le Super User. S'il
     quitte le Groupe, le rôle passe à l'admin le plus ancien, sinon au membre le plus ancien.

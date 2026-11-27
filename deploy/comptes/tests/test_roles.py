@@ -177,3 +177,16 @@ def test_ecrire_au_support(client, monkeypatch):
     seb = sync(client, sub="seb")
     assert any(x["id"] == gid for x in seb["groupes"])
     assert sonne and sonne[-1][0] == [seb["moi"]] and sonne[-1][2] == "1"
+
+
+def test_retirer_un_membre_super_user_et_le_retire_ne_voit_plus_le_groupe(client):
+    """Seb, 27 novembre : un admin ou le Super User retire un buddy (appui long) ; le retiré ne voit plus le groupe."""
+    gid, julie, luc = bande_a_trois(client)
+    seb = sync(client)["moi"]
+    # Luc, simple membre, ne retire personne
+    assert sync(client, sub="luc", ops=[op("retirer", groupe=gid, buddy=julie)])["refus"]
+    # Luc devient Super User : il retire Julie
+    rendre_super_user("luc")
+    assert sync(client, sub="luc", ops=[op("retirer", groupe=gid, buddy=julie)])["refus"] == []
+    assert gid not in [g["id"] for g in sync(client, sub="julie")["groupes"]]
+    assert set(roles(client, gid)) == {seb, luc}
