@@ -32,7 +32,8 @@ const DES_GROUPES: Ligne[] = ['groupes', 'sorties', 'albums', 'conversations'];
 
 const fermer = () => changer({ nombres: {}, attente: false });
 
-export function Restauration() {
+/** cache : écran de connexion ou panneau d'accueil ouvert ; l'encart attend qu'ils se ferment pour se montrer 5 s. */
+export function Restauration({ cache = false }: { cache?: boolean }) {
   const [e, setE] = useState(etat);
   useEffect(() => {
     const ecoute = () => setE(etat);
@@ -42,11 +43,11 @@ export function Restauration() {
   const visible = Object.values(e.nombres).some((n) => (n ?? 0) > 0);
   // Tout est arrivé : l'encart s'efface seul 5 s après la dernière ligne.
   useEffect(() => {
-    if (!visible || e.attente) return;
+    if (!visible || e.attente || cache) return;
     const t = setTimeout(fermer, 5000);
     return () => clearTimeout(t);
-  }, [e, visible]);
-  if (!visible) return null;
+  }, [e, visible, cache]);
+  if (!visible || cache) return null;
 
   const lignes = NOMS.filter(([l]) => (e.nombres[l] ?? 0) > 0 || (e.attente && e.nombres[l] === undefined && DES_GROUPES.includes(l)));
   const arrivees = lignes.filter(([l]) => e.nombres[l] !== undefined).length;
