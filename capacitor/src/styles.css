@@ -1649,3 +1649,23 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .su-legende { display: block; margin-top: 14px; }
 .su-barres { display: flex; gap: 3px; align-items: flex-end; height: 56px; margin: 8px 0 4px; }
 .su-barres i { flex: 1; background: #4b6a88; border-radius: 2px; min-height: 2px; }
+
+/* « Je récupère tes affaires » : ce qui revient du serveur après une installation (Seb, 27/11, compte/Restauration.tsx). */
+.resto {
+  position: absolute; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + 12px); z-index: 9;
+  width: min(320px, calc(100% - 140px)); min-width: 240px; box-sizing: border-box; padding: 14px 16px;
+  background: var(--glass); border: 1px solid var(--glass-line); border-radius: 20px;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 4px 16px #0003; color: var(--fg);
+}
+.resto-icone { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.resto-titre { display: flex; align-items: center; gap: 8px; font-size: 17px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.resto-ligne { display: flex; align-items: center; gap: 12px; font-size: 17px; padding: 4px 0; }
+.resto-ligne > .resto-icone { color: var(--accent); }
+.resto-ligne.attente { color: var(--muted); }
+.resto-ligne b { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--accent); }
+.resto-ligne b .resto-icone { width: 18px; height: 18px; stroke-width: 2.4; }
+.resto-roue { width: 16px; height: 16px; border-radius: 50%; border: 2.4px solid #3e536830; border-top-color: var(--accent); animation: resto-tourne 0.9s linear infinite; }
+@keyframes resto-tourne { to { transform: rotate(360deg); } }
+.resto-barre { height: 4px; border-radius: 2px; background: #3e53682e; margin-top: 10px; overflow: hidden; }
+.resto-barre i { display: block; height: 100%; background: var(--accent); transition: width 0.4s; }
+.resto-pied { font-size: 14px; color: var(--muted); margin-top: 8px; }

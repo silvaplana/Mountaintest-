@@ -1128,3 +1128,18 @@ Le reste (groupes, sorties, albums et photos envoyées, carnets, Buddy counts, c
 - **📥 Ouvrir des fichiers** : plusieurs fichiers d'un coup, rangés directement dans Mes traces (même nom et même forme : pas en double).
 - **📁 Reprendre tout le dossier** (Android, caché : appui long sur « Mes traces ») : on choisit le dossier une fois, tous ses GPX/KML/GeoJSON vont dans Mes traces.
 - **Restent sur le téléphone seulement** : les tuiles (à retélécharger), les films de survol 🎥, les réglages.
+
+### 7.27 « Je récupère tes affaires » après une installation (Seb, 27 novembre 2026)
+
+Maquette : `maquettes/restauration/` (variante B choisie par Seb ; A notification et C fenêtre écartées).
+
+- À la **première synchro sur ce téléphone** (appli installée ou réinstallée, première connexion), un encart en verre
+  dépoli s'affiche en haut de la carte : « Je récupère tes affaires », une ligne au trait par chose qui revient :
+  Traces, Groupes, Sorties, Albums, Conversations, avec leur nombre. Chaque ligne se coche quand elle arrive (roue avant),
+  la barre avance, puis le titre devient « Tes affaires sont revenues » et l'encart s'efface seul 5 s après. Un toucher le ferme.
+- Traces : seulement si Mes traces était vide sur le téléphone. Groupes : sans les discussions à deux. Albums : sorties
+  qui ont des photos. Conversations : groupes et sorties qui ont des messages. Une ligne à 0 ne s'affiche pas ; rien
+  revenu, pas d'encart.
+- Les **photos** des albums ne sont pas retéléchargées d'un coup : seule leur liste revient, chaque photo se charge
+  quand on ouvre l'album ou qu'on la touche, puis reste sur le téléphone (comme WhatsApp).
+- Pas de notification Android : à la première ouverture, l'appli n'a pas encore le droit d'en envoyer.

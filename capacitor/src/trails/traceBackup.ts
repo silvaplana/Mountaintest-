@@ -2,6 +2,7 @@
 // À chaque changement (et au démarrage, et à la connexion), le téléphone envoie ses traces ; s'il lui en manque
 // (appli réinstallée, nouveau téléphone), il reprend celles du serveur. Sans compte ou sans réseau : rien, on réessaie plus tard.
 import { api, connecte, suivre } from '../compte/auth';
+import { annoncerRestauration } from '../compte/Restauration';
 import { deletedIds, forgetDeleted, listTraces, restoreTraces, TRACES_CHANGED, type SavedTrace } from './savedTraces';
 
 let enCours: Promise<void> | null = null;
@@ -10,7 +11,10 @@ let encore = false;
 async function synchro() {
   if (!connecte()) return;
   const r = await api<{ traces: unknown[] }>('GET', '/mes-traces');
-  await restoreTraces(r.traces ?? []);
+  const avant = (await listTraces()).length;
+  const revenues = await restoreTraces(r.traces ?? []);
+  // Mes traces vides (appli installée) et des traces reviennent : l'encart le dit (compte/Restauration.tsx).
+  if (!avant && revenues > 0) annoncerRestauration({ traces: revenues });
   const effacees = await deletedIds();
   // « fichier » ne vaut que pour ce téléphone : pas envoyé.
   const traces = (await listTraces()).map(({ fichier: _f, ...t }: SavedTrace) => t);
