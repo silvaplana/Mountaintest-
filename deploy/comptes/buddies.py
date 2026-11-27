@@ -23,11 +23,13 @@ import logging
 
 import droits
 import mails
-from modeles import (Blocage, BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
+from modeles import (Blocage, BuddyCount, Carnet, Coeur, DemandeEntree, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Signalement, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 log = logging.getLogger(__name__)
 DUREE_INVITATION = timedelta(days=30)
+# Lien « un admin accepte » (Seb, 27/11, §7.29) : il ne périme pas (on peut l'épingler dans un groupe WhatsApp).
+SANS_FIN = timedelta(days=36500)
 CANAUX = {"sms", "mail", "contacts", "qr", "lien"}
 # Groupe perso (ex-Me Time) : un par personne, même identifiant sur tous ses téléphones.
 ESPACE_ME_TIME = uuid.UUID("6f0c2f7e-5b8f-4a43-9a2e-0c1f6d2b7d11")
@@ -219,9 +221,12 @@ def inviter(s: Session, u: Utilisateur, op: dict) -> None:
         raise Refus("Code d'invitation invalide")
     canal = op.get("canal") if op.get("canal") in CANAUX else "lien"
     contact = propre(op.get("contact"), 320)
+    # Deux liens de groupe au choix (Seb, 27/11) : « un admin accepte » (sans fin) ou « entrée directe » (30 jours).
+    approbation = bool(op.get("approbation")) and canal == "qr" and sortie is None
     s.add(Invitation(id=iid, code=code, groupe_id=g.id, sortie_id=sortie.id if sortie else None, invite_par=u.id,
-                     canal=canal, nom=propre(op.get("nom"), 80), contact=contact,
-                     email=contact.lower() if canal == "mail" else None, expire_le=maintenant() + DUREE_INVITATION))
+                     canal=canal, nom=propre(op.get("nom"), 80), contact=contact, approbation=approbation,
+                     email=contact.lower() if canal == "mail" else None,
+                     expire_le=maintenant() + (SANS_FIN if approbation else DUREE_INVITATION)))
     toucher(sortie or g)
     if canal == "mail" and contact:
         s.info.setdefault("mails", []).append(iid)
@@ -270,6 +275,9 @@ def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
         return  # déjà dans le groupe (opération renvoyée)
     if date(iso(inv.expire_le)) < maintenant():
         raise Refus("Invitation expirée : demande un nouveau lien")
+    if inv.approbation and not inv.sortie_id:
+        demander(s, u, s.get(Groupe, inv.groupe_id))
+        return
     if inv.sortie_id:
         s.add(Participant(sortie_id=inv.sortie_id, utilisateur_id=u.id))
         cible = s.get(Sortie, inv.sortie_id)
@@ -279,6 +287,28 @@ def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
     if inv.acceptee_par is None and inv.canal != "qr":
         inv.acceptee_par = u.id
     toucher(cible)
+
+
+def demander(s: Session, u: Utilisateur, g: Groupe) -> None:
+    """Lien « un admin accepte » (§7.29) : une demande, que les admins voient dans le groupe ; ils sont prévenus."""
+    if s.get(DemandeEntree, (g.id, u.id)) is not None:
+        return
+    s.add(DemandeEntree(groupe_id=g.id, utilisateur_id=u.id))
+    toucher(g)
+    admins = s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id, Membre.role != droits.MEMBRE)).all()
+    prevenir(s, u, list(admins), g, g.nom, "demande à entrer dans le groupe")
+
+
+def accepter_demande(s: Session, u: Utilisateur, op: dict) -> None:
+    """Un admin accepte (ou refuse, `oui` faux) une demande pour entrer dans le groupe."""
+    g = groupe_de(s, u, op["groupe"], admin=True)
+    d = s.get(DemandeEntree, (g.id, uuid.UUID(str(op["buddy"]))))
+    if d is None:
+        return  # déjà traitée (par un autre admin, ou opération renvoyée)
+    if op.get("oui") and membre(s, g.id, d.utilisateur_id) is None:
+        s.add(Membre(groupe_id=g.id, utilisateur_id=d.utilisateur_id, role="membre"))
+    s.delete(d)
+    toucher(g)
 
 
 def quitter(s: Session, u: Utilisateur, op: dict) -> None:
@@ -1340,7 +1370,7 @@ def supprimer_compte(s: Session, u: Utilisateur) -> None:
         partir(s, g, m)
     for so in s.scalars(select(Sortie).join(Participant, Participant.sortie_id == Sortie.id).where(Participant.utilisateur_id == u.id)).all():
         toucher(so)
-    for table in (Participant, Position, PositionGroupe, Voiture, Dispo, Recit, ReactionBuddy, VoteBuddy, LectureBuddy, Coeur, MaTrace):
+    for table in (Participant, DemandeEntree, Position, PositionGroupe, Voiture, Dispo, Recit, ReactionBuddy, VoteBuddy, LectureBuddy, Coeur, MaTrace):
         s.execute(delete(table).where(table.utilisateur_id == u.id))
     s.execute(delete(Blocage).where(or_(Blocage.utilisateur_id == u.id, Blocage.bloque_id == u.id)))
     s.execute(delete(Invitation).where(Invitation.invite_par == u.id, Invitation.acceptee_par.is_(None)))
@@ -1353,7 +1383,7 @@ def supprimer_compte(s: Session, u: Utilisateur) -> None:
 OPERATIONS = {
     "creer_groupe": creer_groupe, "renommer_groupe": renommer_groupe, "inviter": inviter, "rejoindre": rejoindre, "quitter": quitter,
     "retirer": retirer, "nommer_admin": nommer_admin, "retirer_admin": retirer_admin, "transmettre": transmettre,
-    "annuler_invitation": annuler_invitation, "renvoyer_mail": renvoyer_mail,
+    "annuler_invitation": annuler_invitation, "renvoyer_mail": renvoyer_mail, "accepter_demande": accepter_demande,
     "creer_sortie": creer_sortie, "retirer_sortie": retirer_sortie,
     "supprimer_sortie": supprimer_sortie, "supprimer_groupe": supprimer_groupe, "remettre_sortie": remettre_sortie, "renommer_sortie": renommer_sortie, "partager_trace": partager_trace, "creer_planning": creer_planning, "dispo": dispo,
     "ajouter_photo": ajouter_photo, "etoile": etoile, "placer_photo": placer_photo, "retirer_photo": retirer_photo,
@@ -1383,8 +1413,17 @@ def vue_groupe(s: Session, g: Groupe) -> dict[str, Any]:
         "organisation": str(g.organisation_id) if g.organisation_id else None,
         "membres": [{**personne(u), "role": m.role} for m, u in membres],
         "invitations": [{"id": str(i.id), "code": i.code, "canal": i.canal, "nom": i.nom, "contact": i.contact, "mail": i.mail,
-                         "par": str(i.invite_par)} for i in invitations],
+                         "par": str(i.invite_par), "approbation": i.approbation} for i in invitations],
+        "demandes": [personne(x) for x in s.scalars(select(Utilisateur).join(DemandeEntree, DemandeEntree.utilisateur_id == Utilisateur.id)
+                                                    .where(DemandeEntree.groupe_id == g.id).order_by(DemandeEntree.cree_le))],
     }
+
+
+def mes_demandes(s: Session, u: Utilisateur) -> list[dict[str, Any]]:
+    """Mes demandes pour entrer dans un groupe, en attente d'un admin (« Demande envoyée » sur le téléphone)."""
+    return [{"groupe": str(g.id), "nom": g.nom} for g in s.scalars(
+        select(Groupe).join(DemandeEntree, DemandeEntree.groupe_id == Groupe.id)
+        .where(DemandeEntree.utilisateur_id == u.id, Groupe.supprime_le.is_(None)))]
 
 
 def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None) -> dict[str, Any]:
@@ -1475,7 +1514,7 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             # SCAN 25 de la version Play : le mien ; et pour le Super User, la liste de ceux qui l'ont.
             "scan25": u.scan25 or u.super_user,
             "scan25_ids": [str(x) for x in s.scalars(select(Utilisateur.id).where(Utilisateur.scan25))] if u.super_user else [],
-            "refus": refus}
+            "demandes": mes_demandes(s, u), "refus": refus}
 
 
 def soldes(depenses: list[Depense]) -> dict[uuid.UUID, float]:
@@ -1640,10 +1679,13 @@ def apercu_invitation(s: Session, code: str) -> dict[str, Any] | None:
     if inv is None or inv.groupe_id is None or date(iso(inv.expire_le)) < maintenant():
         return None
     g, par = s.get(Groupe, inv.groupe_id), s.get(Utilisateur, inv.invite_par)
+    if g is None or g.supprime_le is not None:
+        return None
     if inv.sortie_id:
         so = s.get(Sortie, inv.sortie_id)
         return {"groupe": so.nom, "sortie": True, "par": personne(par)["pseudo"], "photo": so.photo}
-    return {"groupe": g.nom, "par": personne(par)["pseudo"], "photo": g.photo}
+    n = len(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == g.id)).all())
+    return {"groupe": g.nom, "par": personne(par)["pseudo"], "photo": g.photo, "approbation": inv.approbation, "membres": n}
 
 
 def appels_en_cours(s: Session, gids: list, sids: list) -> list[dict[str, Any]]:

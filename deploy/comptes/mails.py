@@ -17,7 +17,7 @@ from html import escape
 
 log = logging.getLogger(__name__)
 LIEN_APPLI = os.environ.get("LIEN_APPLI", "https://mountainbuddies.silvaplana.cloud/app/apk/")
-LIEN_INVITATION = os.environ.get("LIEN_INVITATION", "https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=")
+LIEN_INVITATION = os.environ.get("LIEN_INVITATION", "https://mountainbuddies.silvaplana.cloud/api/i?c=")
 
 
 def actif() -> bool:

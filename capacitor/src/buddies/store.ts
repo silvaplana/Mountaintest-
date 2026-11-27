@@ -14,7 +14,8 @@ import { envoyer as envoyerFichierMessage, oublier as oublierFichierMessage } fr
 import { api, connecte, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
 import { annoncerRestauration, debutRestauration } from '../compte/Restauration';
 
-export const LIEN_INVITATION = 'https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=';
+// Le lien d'invitation (§7.29) : aperçu pour WhatsApp, puis la page principale avec le bandeau de l'invitation.
+export const LIEN_INVITATION = 'https://mountainbuddies.silvaplana.cloud/api/i?c=';
 const CLE = 'buddies';
 
 export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
@@ -22,11 +23,15 @@ export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
 export type Buddy = { id: string; pseudo: string; photo: string | null; role?: 'admin_principal' | 'admin' | 'membre' };
 export type Invitation = { id: string; code: string; canal: Canal; nom: string; contact: string; par: string; attente?: boolean;
   /** Invitation par mail, envoyée par le serveur : « envoye », « erreur », ou rien tant qu'il ne l'a pas envoyée. */
-  mail?: 'envoye' | 'erreur' | null };
+  mail?: 'envoye' | 'erreur' | null;
+  /** Lien du groupe « un admin accepte » (Seb, 27/11, §7.29) : il ne périme pas, chaque entrée est une demande. */
+  approbation?: boolean };
 export type Groupe = {
   /** duo : discussion à deux (§7.13), sans nom : on montre l'autre buddy. */
   id: string; nom: string; nature: 'bande' | 'me_time' | 'duo' | 'support'; photo: string | null; modifie_le: string;
   membres: Buddy[]; invitations: Invitation[]; attente?: boolean;
+  /** Demandes pour entrer, par le lien « un admin accepte » (§7.29). */
+  demandes?: Buddy[];
 };
 /** Carnet d'une sortie (spec §5.8) : le texte de chaque buddy, une fiche par jour (facultative), ce que la trace ne dit pas. */
 export type Recit = { par: Buddy; texte: string; modifie_le: string; attente?: boolean };
@@ -119,6 +124,8 @@ export type ActionBud =
 export type AppelBuddy = { id: string; groupe: string | null; sortie: string | null; par: string; en_ligne: string[]; debut: string; fini: boolean };
 
 export type Etat = {
+  /** Mes demandes pour entrer dans un groupe, en attente d'un admin (§7.29). */
+  demandes?: { groupe: string; nom: string }[];
   /** Dernière version reçue du serveur. */
   serveur: Groupe[];
   sorties: Sortie[];
@@ -449,7 +456,7 @@ export function appliquer(e: Etat): Groupe[] {
       case 'inviter':
         if (!op.sortie && g && !g.invitations.some((i) => i.id === op.invitation)) {
           g.invitations.push({ id: String(op.invitation), code: String(op.code), canal: op.canal as Canal, nom: String(op.nom ?? ''),
-            contact: String(op.contact ?? ''), par: e.moi ?? 'moi', attente: true });
+            contact: String(op.contact ?? ''), par: e.moi ?? 'moi', attente: true, approbation: !!op.approbation });
           g.modifie_le = quand(op);
         }
         break;
@@ -465,6 +472,9 @@ export function appliquer(e: Etat): Groupe[] {
         break;
       case 'retirer':
         if (g) g.membres = g.membres.filter((m) => m.id !== op.buddy);
+        break;
+      case 'accepter_demande':
+        if (g) g.demandes = (g.demandes ?? []).filter((d) => d.id !== op.buddy);
         break;
       case 'support':
         if (!g) gs.push({ id: String(op.groupe), nom: String(op.infos ?? ''), nature: 'support', photo: null, modifie_le: quand(op), invitations: [],
@@ -541,7 +551,7 @@ export async function envoyerAttente(): Promise<void> {
   if (lire().attente.length) await synchroniser().catch(() => undefined);
 }
 
-export type NouvelleInvitation = { canal: Canal; nom: string; contact: string; code: string };
+export type NouvelleInvitation = { canal: Canal; nom: string; contact: string; code: string; approbation?: boolean };
 
 /** Nouveau groupe avec ses premières invitations (déjà envoyées par SMS, mail ou QR). */
 export function creerGroupe(nom: string, photo: string | null, invitations: NouvelleInvitation[]): string {
@@ -902,6 +912,9 @@ export const nommerAdmin = (groupe: string, buddy: string) => ajouter({ type: 'n
 export const retirerAdmin = (groupe: string, buddy: string) => ajouter({ type: 'retirer_admin', groupe, buddy });
 /** L'admin principal passe son rôle (il reste admin). */
 export const transmettre = (groupe: string, buddy: string) => ajouter({ type: 'transmettre', groupe, buddy });
+/** Un admin accepte (ou refuse) une demande pour entrer dans le groupe (§7.29). */
+export const accepterDemande = (groupe: string, buddy: string, oui: boolean) => ajouter({ type: 'accepter_demande', groupe, buddy, oui });
+
 /** Lien d'invitation ouvert (fr.assomoutain.rando://rejoindre?c=…). */
 export function rejoindre(code: string) {
   if (!code || lire().attente.some((o) => o.type === 'rejoindre' && o.code === code)) return;
@@ -924,6 +937,7 @@ type Reponse = {
   bloques?: Buddy[];
   signalements?: Signalement[];
   scan25?: boolean; scan25_ids?: string[];
+  demandes?: Etat['demandes'];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -966,7 +980,7 @@ export function synchroniser(): Promise<string[]> {
         counts: r.counts ?? e.counts, positions: r.positions ?? e.positions, voitures: r.voitures ?? e.voitures, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
         lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],
         bloques: r.bloques ?? e.bloques, signalements: r.signalements ?? e.signalements,
-        scan25: r.scan25 ?? e.scan25, scan25_ids: r.scan25_ids ?? e.scan25_ids,
+        scan25: r.scan25 ?? e.scan25, scan25_ids: r.scan25_ids ?? e.scan25_ids, demandes: r.demandes ?? e.demandes,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       if (premiere) {

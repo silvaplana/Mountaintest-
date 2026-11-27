@@ -707,6 +707,12 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .bd-feuille .field { font-size: 15px; }
 .bd-centre { align-items: center; text-align: center; }
 .bd-qr { width: min(72vw, 300px); height: auto; }
+.bd-types-lien { display: flex; gap: 8px; width: 100%; }
+.bd-types-lien button { flex: 1; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 14px;
+  border: 1.5px solid var(--line, #b3c2cf); background: var(--card); color: inherit; font-size: 17px; }
+.bd-types-lien button.choisi { border: 2.5px solid var(--accent); }
+.bd-types-lien small { font-size: 14px; color: var(--muted); }
+.bd-accepter { min-height: 48px; padding: 0 14px; border-radius: 24px; border: 2px solid var(--accent); background: var(--card); color: var(--accent); font-weight: 700; }
 .bd-actions { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: var(--card); }
 .bd-actions .danger { color: var(--danger); }
 .bd-corps .hint { font-size: 15px; }
