@@ -1098,9 +1098,11 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   chaque voiture de la synchro porte `modele`, `forme`, `couleur` de son propriétaire.
 - **Voitures en 3D** (Seb, 27 novembre) : carte inclinée (relief allumé), chaque voiture garée devient une petite
   maquette posée sur le relief à sa position, de la silhouette et de la couleur du profil (citadine rouge si rien
-  n'est choisi). Huit maquettes stylisées faites de blocs (roues, caisse, vitres, toit) extrudés par la carte
-  (`buddies/voitures3d.ts`) : rien à télécharger, hors ligne. Toujours vue de profil, l'avant à droite comme en 2D,
-  à taille fixe à l'écran (~90 px). Le dessin à plat s'efface ; initiales, heure et appui pour le détail restent.
+  n'est choisi). Huit maquettes stylisées faites de blocs (roues, caisse, vitres en pente, toit, pare-chocs, phares,
+  feux) extrudés par la carte (`buddies/voitures3d.ts`) : rien à télécharger, hors ligne. Posée physiquement sur la
+  carte (Seb, 27/11, soir) : l'avant vers l'est, elle tourne et s'incline avec la carte, et sa taille suit le zoom
+  comme la carte (80 px de long au zoom 16, ×2 par cran), bornée à 34 px de loin et 180 px de près. Le dessin à plat
+  s'efface ; les initiales et l'appui pour le détail restent, face à l'écran.
 
 ### 7.20 Buddy counts de groupe et de sortie (Seb, 26 novembre 2026)
 
