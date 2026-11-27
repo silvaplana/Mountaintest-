@@ -19,7 +19,17 @@ export type EtatAppel = {
   de?: string; debut?: number; voix: Voix[]; parle: string[]; muet: boolean;
   /** « Julie a décroché » / « Luc a raccroché », affiché quelques secondes dans la barre. */
   annonce?: { texte: string; jusqua: number };
+  /** 🗺 « Suis ma carte » : je montre ma carte aux autres. */
+  jeMontre?: boolean;
+  /** Celui dont je suis la carte (une seule personne montre à la fois). */
+  suit?: Voix | null;
 };
+
+/** Ce qui passe entre les téléphones pour « Suis ma carte » (spec/buddies.md §7.10). */
+export type MsgCarte =
+  | { carte: { c: [number, number]; z: number; b: number; p: number; fond: string } }
+  | { traces: { id: number; nom: string; couleur: string; ligne: [number, number][] }[] }
+  | { carteFin: true };
 
 /** Sans réponse au bout d'une minute, l'appel s'arrête seul. */
 export const ATTENTE_MS = 60_000;
@@ -29,6 +39,8 @@ let salle: Room | null = null;
 let minuteur: ReturnType<typeof setTimeout> | undefined;
 const abonnes = new Set<(e: EtatAppel | null) => void>();
 const doigts = new Set<(p: { lon: number; lat: number; qui: string }) => void>();
+const cartes = new Set<(m: MsgCarte, de: Voix) => void>();
+const arrivees = new Set<() => void>();
 const sons: HTMLMediaElement[] = [];
 /** J'ai lancé l'appel : j'entends la tonalité tant que personne n'a décroché. */
 let jAppelle = false;
@@ -59,6 +71,11 @@ export const appelEnCours = () => etat;
 export function suivreAppel(f: (e: EtatAppel | null) => void) { abonnes.add(f); return () => { abonnes.delete(f); }; }
 /** 👉 Montrer du doigt : un point touché par un autre pendant l'appel. */
 export function suivreDoigts(f: (p: { lon: number; lat: number; qui: string }) => void) { doigts.add(f); return () => { doigts.delete(f); }; }
+/** 🗺 Les messages « Suis ma carte » reçus, et l'arrivée d'un buddy (pour lui renvoyer ma carte). */
+export function suivreCartes(f: (m: MsgCarte, de: Voix) => void, arrive: () => void) {
+  cartes.add(f); arrivees.add(arrive);
+  return () => { cartes.delete(f); arrivees.delete(arrive); };
+}
 function changer(e: EtatAppel | null) { etat = e; tonaliteSelon(e); abonnes.forEach((f) => f(e)); }
 
 /** « 3:12 » */
@@ -122,6 +139,7 @@ async function entrer(r: Reponse, nom: string) {
     const avant = new Set(etat.voix.map((x) => x.id)), apres = new Set(v.map((x) => x.id));
     const arrives = v.filter((x) => !avant.has(x.id)), partis = etat.voix.filter((x) => !apres.has(x.id));
     let annonce = etat.annonce;
+    if (arrives.length) arrivees.forEach((f) => f());
     if (!pret && !jAppelle) { /* rien à annoncer */ } else if (arrives.length) {
       bip([660, 880], 0.15); navigator.vibrate?.(200);
       annonce = { texte: `${arrives.map((x) => x.pseudo).join(' et ')} ${arrives.length > 1 ? 'ont' : 'a'} décroché`, jusqua: Date.now() + 4000 };
@@ -129,7 +147,7 @@ async function entrer(r: Reponse, nom: string) {
       bip([660, 440], 0.15);
       annonce = { texte: `${partis.map((x) => x.pseudo).join(' et ')} ${partis.length > 1 ? 'ont' : 'a'} raccroché`, jusqua: Date.now() + 4000 };
     }
-    changer({ ...etat, voix: v, annonce, phase: ensemble ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
+    changer({ ...etat, voix: v, annonce, suit: etat.suit && apres.has(etat.suit.id) ? etat.suit : null, phase: ensemble ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
       debut: etat.debut ?? (ensemble ? Date.now() : undefined) });
   };
   room.on(RoomEvent.ParticipantConnected, maj).on(RoomEvent.ParticipantDisconnected, maj)
@@ -138,8 +156,9 @@ async function entrer(r: Reponse, nom: string) {
     .on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack) => { t.detach().forEach((el) => el.remove()); })
     .on(RoomEvent.DataReceived, (data: Uint8Array, p?: Participant) => {
       try {
-        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] };
+        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] } & Partial<Record<'carte' | 'traces' | 'carteFin', unknown>>;
         if (m.doigt) doigts.forEach((f) => f({ lon: m.doigt![0], lat: m.doigt![1], qui: p?.name || '?' }));
+        if (p && (m.carte || m.traces || m.carteFin)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
       } catch { /* message inconnu : ignoré */ }
     })
     .on(RoomEvent.Disconnected, () => { if (salle === room) fini(); });
@@ -161,6 +180,7 @@ function fini() {
   sons.splice(0).forEach((el) => el.remove());
   salle = null;
   jAppelle = false;
+  ignore = null;
   changer(null);
   if (id) void api('POST', `/appels/${id}/presence`, { en_ligne: false }).catch(() => undefined);
 }
@@ -176,6 +196,35 @@ export async function couperMicro(muet: boolean) {
   if (!salle || !etat) return;
   await salle.localParticipant.setMicrophoneEnabled(!muet);
   changer({ ...etat, muet });
+}
+
+/** 🗺 J'allume ou j'éteins « Suis ma carte ». */
+export function montrerMaCarte(on: boolean) {
+  if (!salle || etat?.phase !== 'en_ligne') return;
+  changer({ ...etat, jeMontre: on, suit: on ? null : etat.suit });
+  if (!on) envoyerCarte({ carteFin: true });
+}
+export function envoyerCarte(m: MsgCarte) {
+  if (!salle || etat?.phase !== 'en_ligne') return;
+  void salle.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(m)), { reliable: true }).catch(() => undefined);
+}
+/** « Reprendre ma carte » : je ne suis plus personne (jusqu'à ce qu'un buddy rallume sa carte). */
+let ignore: string | null = null;
+export function reprendreMaCarte() {
+  if (!etat?.suit) return;
+  ignore = etat.suit.id;
+  changer({ ...etat, suit: null });
+}
+function recevoirCarte(m: MsgCarte, de: Voix) {
+  if (!etat) return;
+  if ('carteFin' in m) {
+    if (ignore === de.id) ignore = null;
+    if (etat.suit?.id === de.id) changer({ ...etat, suit: null });
+  } else if (ignore !== de.id) {
+    // Un autre montre sa carte : la mienne s'éteint, une seule à la fois.
+    if (etat.suit?.id !== de.id || etat.jeMontre) changer({ ...etat, suit: de, jeMontre: false });
+  }
+  if (ignore !== de.id) cartes.forEach((f) => f(m, de));
 }
 
 /** 👉 Montrer du doigt un endroit de la carte aux autres. */
