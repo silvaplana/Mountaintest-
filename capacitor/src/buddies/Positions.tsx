@@ -265,8 +265,6 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
     const ms = vs.map((v) => {
       const el = document.createElement('div');
       el.className = 'bd-voiture-carte';
-      const h = document.createElement('b');
-      h.textContent = heureCourte(v.garee_le);
       const auto = document.createElement('span');
       auto.className = 'bd-auto';
       const forme = FORMES.includes(v.forme as Forme) ? v.forme as Forme : null;
@@ -292,7 +290,13 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
         clearTimeout(minuterie);
         minuterie = window.setTimeout(() => el.classList.remove('ouvert'), 5000);
       });
-      el.append(info, h, auto);
+      // Une aiguille sous la voiture : son rond touche l'endroit exact où elle est garée (Seb, 27/11).
+      const pointe = document.createElement('span');
+      pointe.className = 'bd-pointe';
+      el.dataset.lon = String(v.lon);
+      el.dataset.lat = String(v.lat);
+      // Plus d'heure au-dessus (Seb, 27/11 : trop de choses superposées) : l'appui la montre, avec à qui elle est.
+      el.append(info, auto, pointe);
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([v.lon, v.lat]).addTo(map);
     });
     rangerEtiquettes(map);
