@@ -428,6 +428,19 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   Toute requête sans réponse est abandonnée au bout de 30 s (5 min pour un fichier) et les photos et fichiers
   partent à côté de la synchro : avant, une requête muette bloquait tout jusqu'à relancer l'appli (Seb, 27/11 :
   voiture garée jamais partie, impossible à enlever).
+  Cas limites corrigés après audit (27/11) : le délai de 30 s couvre aussi le corps de la réponse (sans un octet
+  pendant 30 s on abandonne ; tant que ça arrive on attend) ; la file part par envois de 200 opérations au plus (le
+  serveur en refuse plus de 500 : une longue file hors ligne ne partait plus jamais) ; une synchro demandée pendant
+  qu'une autre est en route en relance une juste derrière (sinon l'événement était perdu) ; un objet manquant est
+  redemandé tout de suite ; la file est gardée à part de la copie locale (elle survit si le stockage est plein).
+  Serveur : une opération que la base refuse revient dans `refus` au lieu d'une erreur 500 qui bloquait la file ;
+  un même envoi reçu deux fois en même temps est rejoué ; la marge du curseur passe de 5 à 30 s ; une heure du
+  téléphone dans le futur est ramenée à l'heure du serveur (épingle, voiture) ; une épingle plus ancienne, rejouée
+  en retard par un autre appareil, n'écrase plus la plus récente (comme la voiture).
+  « Suis ma carte » : chaque « j'allume » ouvre une époque (plus grande que toutes celles vues dans l'appel) et
+  chaque message porte un numéro ; celui qui reçoit jette un message d'une époque finie ou d'un numéro dépassé (une
+  vue arrivée après la fin faisait resuivre pour toujours). Deux buddies qui allument en même temps : la plus
+  grande époque garde la main (avant, les deux s'éteignaient).
 
 ### 7.2 Bloc 2 : ce qui est construit (23 novembre 2026)
 

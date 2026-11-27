@@ -17,6 +17,7 @@ import { annoncerRestauration, debutRestauration } from '../compte/Restauration'
 // Le lien d'invitation (§7.29) : aperçu pour WhatsApp, puis la page principale avec le bandeau de l'invitation.
 export const LIEN_INVITATION = 'https://mountainbuddies.silvaplana.cloud/api/i?c=';
 const CLE = 'buddies';
+const CLE_ATTENTE = 'buddies-attente';
 
 export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
 /** role : dans un groupe (spec §7.17) ; un seul admin_principal, le créateur, qui peut transmettre. */
@@ -185,10 +186,15 @@ const vide = (): Etat => ({ serveur: [], sorties: [], traces: [], plannings: [],
 export function lire(): Etat {
   if (memoire) return memoire;
   try { memoire = { ...vide(), ...JSON.parse(localStorage.getItem(CLE) ?? '{}') as Etat }; } catch { memoire = vide(); }
+  try { const a = localStorage.getItem(CLE_ATTENTE); if (a) memoire = { ...memoire, attente: JSON.parse(a) as Op[] }; } catch { /* file illisible */ }
   return memoire;
 }
 function ecrire(e: Etat) {
   memoire = e;
+  // La file d'abord, à part : elle est petite. Quand la copie locale ne tient plus dans le stockage (traces et
+  // messages qui s'accumulent), son écriture échoue sans bruit ; ce qu'on a fait hors ligne, lui, doit survivre
+  // à la fermeture de l'appli.
+  try { localStorage.setItem(CLE_ATTENTE, JSON.stringify(e.attente)); } catch { /* stockage plein ou bloqué */ }
   try { localStorage.setItem(CLE, JSON.stringify(e)); } catch { /* stockage plein ou bloqué */ }
   for (const f of abonnes) f(e);
 }
@@ -950,6 +956,19 @@ function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[])
   return { liste: ids.map((id) => parId.get(id)).filter((x): x is T => !!x), manque: ids.some((id) => !parId.has(id)) };
 }
 let enCours: Promise<string[]> | null = null;
+let suivante: Promise<string[]> | null = null;
+/** Un envoi : 200 opérations et 300 000 caractères au plus (le serveur en refuse plus de 500 d'un coup). */
+const MAX_OPS = 200, MAX_TAILLE = 300_000;
+/** Le début de la file qui tient dans un envoi (toujours au moins une opération), dans l'ordre. */
+export function lot(ops: Op[]): Op[] {
+  let taille = 0, n = 0;
+  while (n < ops.length && n < MAX_OPS) {
+    taille += JSON.stringify(ops[n]).length;
+    if (n && taille > MAX_TAILLE) break;
+    n++;
+  }
+  return n === ops.length ? ops : ops.slice(0, n);
+}
 
 /**
  * Envoie la file d'attente et reçoit les nouveautés. Rend les raisons des opérations refusées (à montrer).
@@ -957,13 +976,25 @@ let enCours: Promise<string[]> | null = null;
  */
 export function synchroniser(): Promise<string[]> {
   if (!connecte()) return Promise.resolve([]);
+  // Demandée pendant qu'une autre est en route (un événement du serveur, une action) : celle en route a peut-être
+  // déjà lu le serveur, elle ne verra pas ce changement. On en refait une juste derrière, une seule pour tous
+  // ceux qui demandent entre-temps ; sinon l'événement était perdu jusqu'au prochain passage (2 minutes).
+  if (enCours) {
+    suivante ??= enCours.catch(() => []).then(() => { suivante = null; return synchroniser(); });
+    return suivante;
+  }
   enCours ??= (async () => {
     // Première synchro sur ce téléphone (installation, connexion) : l'encart dit ce qui revient (compte/Restauration.tsx).
     const premiere = !lire().synchro;
     if (premiere) debutRestauration();
     try {
+     const raisons: string[] = [];
+     // Plusieurs envois à la suite si la file est longue (un week-end hors ligne, des centaines de photos) : au-delà
+     // de 500 opérations le serveur refusait tout l'envoi, à chaque fois, et plus rien ne partait jamais. Un second
+     // tour aussi quand il manque un objet (groupe que je viens de rejoindre) : son contenu arrive tout de suite.
+     for (let tour = 0, encore = true; encore && tour < 50; tour++) {
       const avant = lire();
-      const ops = avant.attente;
+      const ops = lot(avant.attente);
       const r = await api<Reponse>('POST', '/buddies/sync', { ops: ops.map(({ t: _t, ...o }) => o), depuis: avant.curseur ?? null });
       const e = lire();
       const g = fusion(e.serveur, r.groupes, r.ids);
@@ -996,7 +1027,10 @@ export function synchroniser(): Promise<string[]> {
       }
       // Photos et fichiers à côté : un gros envoi en 4G ne retarde plus les synchros suivantes (Seb, 27/11).
       void envoyerFichiersAttente(new Set(r.ids_photos ?? []));
-      return r.refus.map((x) => x.raison);
+      raisons.push(...r.refus.map((x) => x.raison));
+      encore = ops.length < avant.attente.length || (manque && !!avant.curseur);
+     }
+     return raisons;
     } finally {
       enCours = null;
       if (premiere) annoncerRestauration({}, true); // sans réseau : les lignes ne restent pas en attente
@@ -1045,4 +1079,4 @@ export function oublierTout() {
 }
 
 /** Pour les tests. */
-export function _reinitialiser() { memoire = null; abonnes.clear(); enCours = null; envoisEnCours = null; }
+export function _reinitialiser() { memoire = null; abonnes.clear(); enCours = null; suivante = null; envoisEnCours = null; }

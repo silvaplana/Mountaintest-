@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import delete, or_, select
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
 import logging
@@ -36,8 +37,10 @@ ESPACE_ME_TIME = uuid.UUID("6f0c2f7e-5b8f-4a43-9a2e-0c1f6d2b7d11")
 # Discussion à deux : toujours la même pour deux buddies (comme AppBase), même identifiant chez l'un et l'autre.
 ESPACE_DUO = uuid.UUID("0b6d8f4e-2c1a-4e57-9f3d-6a1e5c7b9d20")
 # Marge sur « depuis » : une écriture en cours au moment de la lecture n'est pas manquée (renvoyer deux fois
-# un groupe ne coûte rien, le téléphone le remplace).
-MARGE = timedelta(seconds=5)
+# un groupe ne coûte rien, le téléphone le remplace). L'heure d'un changement est posée quand l'opération passe,
+# mais il n'est visible qu'à la fin de l'envoi : la marge doit couvrir le plus long envoi (des centaines de photos
+# d'un coup, ou une attente derrière un autre envoi), sinon ce changement était manqué pour toujours.
+MARGE = timedelta(seconds=30)
 MAX_POINTS = 20_000
 MAX_DATES = 200
 ETATS = {"oui", "peut", "non"}
@@ -895,6 +898,12 @@ def ms(v: Any) -> int:
     return n
 
 
+def ms_passe(v: Any) -> int:
+    """Une heure du téléphone qui date un changement : jamais dans le futur. Un téléphone en avance de 10 minutes
+    garait sa voiture « dans 10 minutes » : invisible chez les buddies, et impossible à enlever d'un autre appareil."""
+    return min(ms(v), int(maintenant().timestamp() * 1000))
+
+
 def ma_position(s: Session, u: Utilisateur, op: dict) -> tuple[Any, Any]:
     """L'épingle visée : dans une sortie (`sortie`) ou, hors sortie, dans un groupe (`groupe`, §7.14).
     Rend la ligne existante (ou None) et de quoi la créer."""
@@ -924,17 +933,21 @@ def copains(s: Session, u: Utilisateur) -> list[uuid.UUID]:
 def epingle(s: Session, u: Utilisateur, op: dict) -> None:
     """Position des buddies (§5.9) : enfoncer l'épingle (« mes buddies me voient » jusqu'à ce soir) ou la relever."""
     p, nouvelle = ma_position(s, u, op)
-    t = ms(op["quand"])
+    t = ms_passe(op["quand"])
     if op.get("enfoncee"):
         jusqu = min(ms(op["jusqu"]), t + JOUR_MS)
         if jusqu <= t:
             raise Refus("Heure de fin avant le début")
         if p is None:
             s.add(nouvelle(depuis=t, jusqu=jusqu))
+        elif p.depuis > t or (p.depuis, p.jusqu) == (t, jusqu):
+            return  # renvoyée, ou plus ancienne que la dernière (comme la voiture) : un vieil envoi n'écrase rien
         else:
             p.depuis, p.jusqu, p.modifie_le = t, jusqu, maintenant()
         secouer(s)
-    elif p is not None and p.jusqu > t:
+    elif p is not None and p.depuis <= t < p.jusqu:
+        # `depuis <= t` : relever une épingle d'avant (file d'un autre téléphone, envoyée en retard) ne relève pas
+        # celle qu'on a enfoncée depuis.
         p.jusqu, p.modifie_le = t, maintenant()
         secouer(s)
 
@@ -958,12 +971,12 @@ def voiture(s: Session, u: Utilisateur, op: dict) -> None:
     """🚗 Garer ma voiture ici (appui long) ou l'enlever ; elle s'efface seule à minuit (`jusqu`, un jour au plus)."""
     v = s.get(Voiture, u.id)
     if not op.get("garee"):
-        t = ms(op["quand"])
+        t = ms_passe(op["quand"])
         if v is not None and v.garee_le <= t < v.jusqu:
             v.jusqu, v.modifie_le = t, maintenant()
             secouer(s)
         return
-    t = ms(op["garee_le"])
+    t = ms_passe(op["garee_le"])
     if v is not None and v.garee_le >= t:
         return  # renvoyée, ou plus ancienne que la dernière
     lat, lon = float(op["lat"]), float(op["lon"])
@@ -1475,11 +1488,21 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             if f is None:
                 raise Refus("Opération inconnue")
             neuf_msg = op.get("type") == "message" and s.get(MessageBuddy, uuid.UUID(str(op["message"]))) is None
-            with s.begin_nested():
-                f(s, u, op)
+            try:
+                with s.begin_nested():
+                    f(s, u, op)
+            except IntegrityError:
+                # Le même envoi arrivé deux fois en même temps (réponse trop lente, le téléphone a renvoyé) : l'autre
+                # a créé la ligne le premier. Rejouée, l'opération la trouve et ne fait rien.
+                with s.begin_nested():
+                    f(s, u, op)
             if neuf_msg:
                 nouveaux.append(uuid.UUID(str(op["message"])))
-        except (Refus, KeyError, ValueError, TypeError, IndexError) as e:
+        except (Refus, KeyError, ValueError, TypeError, IndexError, OverflowError, DataError, IntegrityError) as e:
+            # Une valeur que la base refuse (nombre démesuré, caractère nul) est refusée comme une opération mal
+            # formée : une erreur 500 ici ferait renvoyer la même file sans fin, et plus rien ne partirait du téléphone.
+            if not isinstance(e, (Refus, KeyError, ValueError, TypeError, IndexError)):
+                log.warning("Opération refusée par la base (%s) : %s", op.get("type"), e)
             refus.append({"id": op.get("id"), "raison": str(e) if isinstance(e, Refus) else "Opération mal formée"})
     # 🔔 Photos ajoutées à un album : une seule notification par sortie et par synchro.
     for sid, n in s.info.pop("photos_ajoutees", {}).items():

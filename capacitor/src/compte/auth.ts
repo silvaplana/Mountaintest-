@@ -107,8 +107,25 @@ export function claims(jwt: string): Record<string, unknown> {
  */
 async function requete(url: string, init?: RequestInit, ms = 30_000): Promise<Response> {
   const c = new AbortController();
-  const t = setTimeout(() => c.abort(), ms);
-  try { return await fetch(url, { ...init, signal: c.signal }); } catch { throw new HorsLigne(); } finally { clearTimeout(t); }
+  let t = setTimeout(() => c.abort(), ms);
+  try {
+    const r = await fetch(url, { ...init, signal: c.signal });
+    // Le corps aussi : fetch rend la main dès les en-têtes, et une réponse coupée au milieu (tunnel, réseau qui
+    // change) attendait la suite pour toujours. Sans un octet pendant `ms`, on abandonne ; tant que ça arrive, on
+    // attend (une grosse réponse sur un petit réseau de montagne finit par passer).
+    const lecteur = r.body?.getReader();
+    if (!lecteur) return r;
+    const morceaux: Uint8Array[] = [];
+    for (;;) {
+      const { done, value } = await lecteur.read();
+      if (done) break;
+      morceaux.push(value);
+      clearTimeout(t); t = setTimeout(() => c.abort(), ms);
+    }
+    const corps = new Uint8Array(morceaux.reduce((n, m) => n + m.length, 0));
+    morceaux.reduce((n, m) => { corps.set(m, n); return n + m.length; }, 0);
+    return new Response(corps.length ? corps : null, { status: r.status, statusText: r.statusText, headers: r.headers });
+  } catch { throw new HorsLigne(); } finally { clearTimeout(t); }
 }
 
 /** Adresse Logto et identifiant de l'appli, donnés par le serveur (gardés pour la suite). */
