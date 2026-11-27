@@ -1051,7 +1051,12 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .bd-pos-carte b { order: -1; margin-bottom: 3px; background: #16222fe0; color: #fff; font-size: 14px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
 .bd-pos-carte b.moi { background: var(--accent); }
 .bd-pos-carte b.vieux { background: #7a817e; }
-.bd-voiture-carte .bd-tete { color: #fff; }
+.bd-voiture-carte { display: flex; flex-direction: column; align-items: center; pointer-events: none; filter: drop-shadow(0 2px 3px #0006); }
+.bd-voiture-carte b { margin-bottom: 2px; background: #16222fe0; color: #fff; font-size: 14px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.bd-voiture-carte .bd-auto { position: relative; font-size: 52px; line-height: 1; }
+.bd-voiture-carte .bd-auto i { position: absolute; top: -6px; right: -14px; background: #3e5368; color: #fff; font: normal 800 14px/1.2 sans-serif;
+  border: 2px solid #fff; border-radius: 12px; padding: 2px 6px; }
+.bd-voiture-carte .bd-auto i.moi { background: #c94141; }
 .bd-pos-ligne { display: flex; align-items: center; gap: 12px; }
 .bd-pos-ligne > b { font-size: 17px; white-space: nowrap; }
 .bd-pos-ligne.vieux { opacity: 0.6; }
@@ -1118,17 +1123,18 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .bd-bulle-carte .bd-texte small { white-space: normal; }
 .bd-bulle-photo { border: 0; padding: 0; background: none; border-radius: 12px; overflow: hidden; }
 .bd-bulle-img { display: block; width: 200px; height: 150px; object-fit: cover; border-radius: 12px; }
-.bd-saisie { display: flex; align-items: center; gap: 8px; }
-.bd-saisie > button { width: 48px; height: 48px; flex: none; border-radius: 50%; border: 0; background: var(--card); font-size: 22px; padding: 0; }
-.bd-saisie > button.bd-envoyer { background: var(--accent); color: var(--on-accent); }
-.bd-saisie > button.bd-ecoute { background: #d0464f; color: #fff; }
-.bd-saisie > button.micro { background: var(--micro-bg); color: var(--micro-fg); }
-.bd-saisie input, .bd-saisie textarea { flex: 1; min-width: 0; min-height: 48px; border-radius: 24px; border: 1px solid var(--line); padding: 12px 16px; font-size: 17px;
-  background: var(--bg); color: var(--fg); font-family: inherit; line-height: 1.3; resize: none; box-sizing: border-box; }
-.bd-saisie { align-items: flex-end; }
-.bd-saisie textarea { height: 48px; overflow-y: auto; }
+/* Une seule bulle (Seb 27/11, maquettes/saisie-message version B) : 🙂 à gauche, 📎 et micro / ➤ à droite, toute la ligne pour le texte. */
+.bd-saisie { display: flex; align-items: flex-end; gap: 0; min-height: 48px; border-radius: 24px; border: 1px solid var(--line); background: var(--bg); padding: 0 2px; }
+.bd-saisie > button { width: 44px; height: 46px; flex: none; border-radius: 50%; border: 0; background: none; color: var(--muted); font-size: 20px; padding: 0;
+  display: flex; align-items: center; justify-content: center; }
+.bd-saisie > button.bd-envoyer { color: var(--accent); }
+.bd-saisie > button.bd-ecoute { background: #d0464f; color: #fff; width: 40px; height: 40px; margin: 3px; }
+.bd-saisie > button.micro { background: none; color: var(--fg); }
+.bd-saisie textarea { flex: 1; min-width: 0; height: 46px; border: 0; padding: 12px 4px; font-size: 17px; background: none; color: var(--fg); font-family: inherit;
+  line-height: 1.3; resize: none; box-sizing: border-box; overflow-y: auto; outline: none; }
 .bd-saisie textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bd-saisie > button.actif { background: color-mix(in srgb, var(--accent) 25%, var(--card)); }
+.bd-saisie .bd-onde { border: 0; background: none; padding: 6px 8px; }
 /* Comme la messagerie d'AppBase (§5.6) : appui long, réponses, réactions, coches, émojis, jours */
 .bd-selection { display: flex; align-items: center; gap: 4px; background: var(--card); border-radius: 16px; padding: 4px; flex: none; }
 .bd-selection > b { font-size: 18px; margin: 0 8px 0 2px; }

@@ -214,7 +214,7 @@ export function nouveauCode(): string {
 }
 export const lien = (code: string) => LIEN_INVITATION + code;
 
-function moiBuddy(e: Etat): Buddy {
+export function moiBuddy(e: Etat): Buddy {
   const c = lireCompte();
   return { id: e.moi ?? 'moi', pseudo: nomAffiche(c), photo: c.profil?.photo ?? null, role: 'admin_principal' };
 }
