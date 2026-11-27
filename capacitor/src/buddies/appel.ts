@@ -105,7 +105,7 @@ function changer(e: EtatAppel | null) {
   } else if (e && !e.muette && e.phase === 'en_ligne' && e.jeMontre && (!avant || avant.id !== e.id || avant.phase !== 'en_ligne')) {
     void api('POST', `/appels/${e.id}/carte`, { on: true }).catch(() => undefined);
   }
-  tonaliteSelon(e); abonnes.forEach((f) => f(e));
+  tonaliteSelon(e); garder(e); abonnes.forEach((f) => f(e));
 }
 
 /** « 3:12 » */
@@ -337,6 +337,22 @@ const enRoute = new Map<string, number>();
  * s'éteignait en recevant l'autre, et plus personne ne montrait). Un message sans `s` (ancienne version) passe comme avant.
  */
 let epoque = 0, epoqueVue = 0, numero = 0, suitEpoque = 0;
+/**
+ * Chien de garde (Seb, 27/11) : celui qui montre renvoie tout son état toutes les 4 s. Sans un message de lui pendant
+ * 15 s, sa carte est tenue pour finie, comme s'il l'avait éteinte : la fin a pu se perdre (reconnexion), ou son appli
+ * dort. S'il montre toujours, son prochain message fait resuivre tout seul.
+ */
+export const SILENCE_CARTE_MS = 15_000;
+let dernierMessageCarte = 0;
+let chien: ReturnType<typeof setInterval> | undefined;
+function garder(e: EtatAppel | null) {
+  if (e?.suit && !chien) {
+    dernierMessageCarte = Date.now();
+    chien = setInterval(() => {
+      if (etat?.suit && Date.now() - dernierMessageCarte > SILENCE_CARTE_MS) recevoirCarte({ carteFin: true }, etat.suit);
+    }, 3000);
+  } else if (!e?.suit && chien) { clearInterval(chien); chien = undefined; }
+}
 const finies = new Map<string, number>();
 const recus = new Map<string, { s: number; n: number }>();
 const natureCarte = (m: MsgCarte) => Object.keys(m)[0];
@@ -385,6 +401,7 @@ function recevoirCarte(m: MsgCarte, de: Voix) {
   if (!etat) return;
   const s = m.s ?? 0, n = m.n ?? 0;
   epoqueVue = Math.max(epoqueVue, s);
+  if (etat.suit?.id === de.id) dernierMessageCarte = Date.now();
   if ('carteFin' in m) {
     if (s && s < (etat.suit?.id === de.id ? suitEpoque : 0)) return; // la fin d'une carte d'avant : il a rallumé depuis
     if (s) finies.set(de.id, Math.max(s, finies.get(de.id) ?? 0));

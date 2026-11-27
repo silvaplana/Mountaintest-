@@ -1188,3 +1188,25 @@ def test_meme_envoi_arrive_deux_fois_en_meme_temps(client, monkeypatch):
     g = nouveau_groupe()
     r = sync(client, ops=[g])
     assert r["refus"] == [] and g["groupe"] in r["ids"] and len(fois) == 2
+
+
+def test_depense_retiree_ne_ressuscite_pas(client):
+    """Suppression douce (Seb, 27/11) : une dépense retirée, puis modifiée par un téléphone resté hors ligne, ne
+    revient pas ; un « J'ai payé » refusé (« Pas reçu ») puis renvoyé (réponse perdue) non plus."""
+    gid, julie = bande_avec_julie(client)
+    so = nouvelle_sortie(gid, participants=[julie])
+    seb = sync(client, ops=[so])["moi"]
+    gite = nouvelle_depense(so["sortie"], seb, [seb, julie])
+    sync(client, ops=[gite])
+    assert sync(client, ops=[op("retirer_depense", depense=gite["depense"])])["ids_depenses"] == []
+    # Julie, hors ligne pendant ce temps, avait corrigé le montant.
+    r = sync(client, sub="julie", ops=[nouvelle_depense(so["sortie"], seb, [seb, julie], montant=30000, did=gite["depense"])])
+    assert [x["raison"] for x in r["refus"]] == ["Cette dépense a été retirée"] and r["ids_depenses"] == []
+    # « J'ai payé » de Julie, « Pas reçu » de Seb, puis le téléphone de Julie renvoie son opération.
+    paye = op("paye", depense=str(uuid.uuid4()), sortie=so["sortie"], a=seb, montant=5000, moyen="wero", jour="2026-12-13")
+    assert sync(client, sub="julie", ops=[paye])["ids_depenses"] == [paye["depense"]]
+    assert sync(client, ops=[op("recu", depense=paye["depense"], ok=False)])["ids_depenses"] == []
+    r = sync(client, sub="julie", ops=[paye])
+    assert r["refus"] == [] and r["ids_depenses"] == []
+    # Retirer deux fois ne dit rien.
+    assert sync(client, ops=[op("retirer_depense", depense=gite["depense"])])["refus"] == []

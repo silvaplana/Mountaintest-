@@ -343,6 +343,9 @@ class Depense(Base):
     # équilibres) ; « recu » = confirmé par celui qui a reçu. `moyen` : virement, wero, especes, autre.
     remb: Mapped[str | None] = mapped_column(String(10))
     moyen: Mapped[str | None] = mapped_column(String(10))
+    # Retirée : la ligne reste, cachée de tous (comme un groupe ou une sortie supprimés). Effacée pour de bon, elle
+    # ressuscitait quand un téléphone resté hors ligne la modifiait, ou renvoyait son « J'ai payé » après un « Pas reçu ».
+    supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Position(Base):

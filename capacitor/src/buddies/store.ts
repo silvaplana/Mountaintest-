@@ -158,6 +158,8 @@ export type Etat = {
   /** Mes fichiers joints à des messages, pas encore partis (étape 3). */
   envoisFichiers?: string[];
   curseur?: string;
+  /** Heure du serveur moins heure du téléphone (ms), mesurée à la dernière synchro. */
+  decalage?: number;
   /** Mon identifiant côté serveur. */
   moi?: string;
   /** Opérations faites sur le téléphone, pas encore envoyées. */
@@ -394,11 +396,17 @@ export type CiblePosition = { sortie: string; groupe?: undefined } | { groupe: s
 const cible = (o: { [k: string]: unknown }): CiblePosition => (o.groupe ? { groupe: String(o.groupe) } : { sortie: String(o.sortie) });
 export const memeCible = (a: { sortie?: string; groupe?: string }, b: CiblePosition) => (b.groupe ? a.groupe === b.groupe : a.sortie === b.sortie);
 /** Là où mon épingle est enfoncée en ce moment : une sortie, ou un ou plusieurs groupes (même heure de fin). */
-export function mesEpingles(e: Etat = lire(), t = Date.now()): Position[] {
+/**
+ * L'heure du serveur, d'après la dernière synchro (Seb, 27/11). Les heures des voitures et des épingles sont
+ * celles du serveur ; comparées à l'horloge d'un téléphone qui retarde de quelques minutes, une voiture tout juste
+ * garée ou une position tout juste partagée restaient cachées chez lui. Hors ligne, le dernier décalage connu sert.
+ */
+export const heureServeur = (e: Etat = lire()) => Date.now() + (e.decalage ?? 0);
+export function mesEpingles(e: Etat = lire(), t = heureServeur(e)): Position[] {
   const moi = e.moi ?? 'moi';
   return positions(e).filter((p) => p.qui === moi && p.depuis <= t + 60_000 && p.jusqu > t).sort((a, b) => b.depuis - a.depuis);
 }
-export const monEpingle = (e: Etat = lire(), t = Date.now()): Position | undefined => mesEpingles(e, t)[0];
+export const monEpingle = (e: Etat = lire(), t = heureServeur(e)): Position | undefined => mesEpingles(e, t)[0];
 
 /** Aujourd'hui en AAAA-MM-JJ (heure du téléphone). */
 export function aujourdhui(d = new Date()) {
@@ -690,7 +698,7 @@ export function finEpingle(d = new Date()): number {
   return f.getTime();
 }
 /** 🚗 Les voitures garées en ce moment (la mienne en attente du réseau comprise). */
-export function voitures(e: Etat = lire(), t = Date.now()): Voiture[] {
+export function voitures(e: Etat = lire(), t = heureServeur(e)): Voiture[] {
   const moi = e.moi ?? 'moi';
   let l = (e.voitures ?? []).map((v) => ({ ...v }));
   for (const op of e.attente) {
@@ -701,23 +709,23 @@ export function voitures(e: Etat = lire(), t = Date.now()): Voiture[] {
   }
   return l.filter((v) => v.garee_le <= t + 60_000 && v.jusqu > t);
 }
-export const maVoiture = (e: Etat = lire(), t = Date.now()) => voitures(e, t).find((v) => v.qui === (e.moi ?? 'moi'));
+export const maVoiture = (e: Etat = lire(), t = heureServeur(e)) => voitures(e, t).find((v) => v.qui === (e.moi ?? 'moi'));
 /** Minuit ce soir : la voiture ne dure qu'une journée (Seb, 26/11). */
 const minuit = (t: number) => { const d = new Date(t); d.setHours(24, 0, 0, 0); return d.getTime(); };
 /** 🚗 Garer ma voiture ici (appui long) ; vue par mes buddies jusqu'à minuit. */
-export function garerVoiture(p: { lat: number; lon: number }, t = Date.now()) {
+export function garerVoiture(p: { lat: number; lon: number }, t = heureServeur()) {
   ajouter({ type: 'voiture', garee: true, lat: Math.round(p.lat * 1e6) / 1e6, lon: Math.round(p.lon * 1e6) / 1e6, garee_le: t, jusqu: minuit(t) });
 }
-export function enleverVoiture(t = Date.now()) { ajouter({ type: 'voiture', garee: false, quand: t }); }
+export function enleverVoiture(t = heureServeur()) { ajouter({ type: 'voiture', garee: false, quand: t }); }
 /** 📍 Enfoncer l'épingle dans cette sortie ou ces groupes (et la relever ailleurs : une seule épingle à la fois). */
-export function enfoncerEpingle(cibles: CiblePosition[], t = Date.now()) {
+export function enfoncerEpingle(cibles: CiblePosition[], t = heureServeur()) {
   const avant = mesEpingles(lire(), t).filter((p) => !cibles.some((c) => memeCible(p, c)));
   const dest = (p: { sortie?: string; groupe?: string }) => (p.groupe ? { groupe: p.groupe } : { sortie: p.sortie });
   ajouter(...avant.map((p) => ({ type: 'epingle', ...dest(p), enfoncee: false, quand: t })),
     ...cibles.map((c) => ({ type: 'epingle', ...dest(c), enfoncee: true, quand: t, jusqu: finEpingle(new Date(t)) })));
 }
 /** Relever l'épingle (partout si aucune cible n'est donnée). */
-export function releverEpingle(c?: CiblePosition, t = Date.now()) {
+export function releverEpingle(c?: CiblePosition, t = heureServeur()) {
   const l = c ? [c] : mesEpingles(lire(), t).map(cible);
   if (l.length) ajouter(...l.map((x) => ({ type: 'epingle', ...x, enfoncee: false, quand: t })));
 }
@@ -936,7 +944,7 @@ export function rejoindre(code: string) {
 // ------------------------------------------------------------------ synchro
 
 type Reponse = {
-  curseur: string; moi: string; ids: string[]; groupes: Groupe[]; refus: { id: string; raison: string }[];
+  curseur: string; maintenant?: number; moi: string; ids: string[]; groupes: Groupe[]; refus: { id: string; raison: string }[];
   ids_sorties: string[]; sorties: Sortie[]; ids_traces: string[]; traces: TraceBuddy[];
   ids_plannings: string[]; plannings: Planning[]; ids_photos: string[]; photos: PhotoBuddy[]; ids_depenses: string[]; depenses: Depense[];
   counts?: BuddyCountEtat[];
@@ -999,6 +1007,7 @@ export function synchroniser(): Promise<string[]> {
      for (let tour = 0, encore = true; encore && tour < 50; tour++) {
       const avant = lire();
       const ops = lot(avant.attente);
+      const parti = Date.now();
       const r = await api<Reponse>('POST', '/buddies/sync', { ops: ops.map(({ t: _t, ...o }) => o), depuis: avant.curseur ?? null, appareil: APPAREIL });
       const e = lire();
       const g = fusion(e.serveur, r.groupes, r.ids);
@@ -1015,6 +1024,8 @@ export function synchroniser(): Promise<string[]> {
       const manque = g.manque || so.manque || tr.manque || pl.manque || ph.manque || dp.manque || hb.manque || mg.manque;
       ecrire({
         ...e, moi: r.moi, curseur: manque ? undefined : r.curseur, synchro: Date.now(),
+        // Milieu de l'aller-retour : l'erreur est au plus la moitié de sa durée.
+        decalage: r.maintenant ? Math.round(r.maintenant - (parti + Date.now()) / 2) : e.decalage,
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
         counts: r.counts ?? e.counts, positions: r.positions ?? e.positions, voitures: r.voitures ?? e.voitures, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
         lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],

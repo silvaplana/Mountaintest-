@@ -116,6 +116,7 @@ COLONNES_AJOUTEES = [
     ("groupes", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
     ("depenses", "remb", "VARCHAR(10)"),
     ("depenses", "moyen", "VARCHAR(10)"),
+    ("depenses", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
     ("utilisateurs", "super_user", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("utilisateurs", "scan25", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("utilisateurs", "prenom", "VARCHAR(100) NOT NULL DEFAULT ''"),
