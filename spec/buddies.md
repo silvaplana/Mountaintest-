@@ -1225,3 +1225,10 @@ bouton « Rejoindre le groupe » (« Rejoindre la sortie », « Donner mes dispo
 Boutons « Envoyer dans WhatsApp » (message tout prêt) et « Partager ailleurs ». Les invitations à une personne (SMS,
 contacts, mail) ne changent pas. Toucher le lien quand on est déjà dans le groupe (réinstallation) ne fait rien de plus :
 on retrouve son groupe.
+🔔 Notifications (Seb, 27/11) : quand quelqu'un entre par une invitation, ceux qui y sont déjà reçoivent « Julie a
+rejoint le groupe » (ou « la sortie ») ; une demande par le lien « un admin accepte » prévient les admins ; l'admin qui
+accepte prévient le demandeur (« t'a fait entrer dans le groupe »).
+Lien touché par quelqu'un qui est déjà dans le groupe (Seb, 27/11) : l'appli ne dit pas « tu entres » mais
+« Sébastien, tu es déjà dans « groupe » » (après la synchro, réinstallation comprise). Sinon « Bienvenue dans « groupe » »,
+ou « Demande envoyée » pour un lien « un admin accepte ». La page web ne peut pas le savoir avant la connexion : elle
+garde son bouton.

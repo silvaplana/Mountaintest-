@@ -1056,3 +1056,26 @@ def test_page_du_lien_pour_whatsapp(client):
     assert 'og:title" content="seb t&#x27;invite dans « Ski du dimanche »"' in h
     assert "/?c=CodeSecret0123456789&amp;p=abc" in h and "img/logo.png" in h
     assert 'og:title" content="Mountain Buddies"' in client.get("/i?c=inconnu").text
+
+
+def test_notifications_arrivee_et_demande(client, monkeypatch):
+    """Seb, 27/11 : on est prévenu quand quelqu'un rejoint le groupe ; les admins, d'une demande ; le demandeur, de l'accord."""
+    import appels
+    sonne = []
+    monkeypatch.setattr(appels, "sonner", lambda S, qui, data, ttl="45s": sonne.append(([str(q) for q in qui], data["texte"])))
+    op = nouveau_groupe()
+    seb = sync(client, ops=[op, invitation(op["groupe"], canal="qr", nom="")])["moi"]
+    sonne.clear()
+    julie = sync(client, sub="julie", ops=[{"id": "j", "type": "rejoindre", "code": "CodeSecret0123456789"}])["moi"]
+    assert sonne == [([seb], "a rejoint le groupe")]
+    sonne.clear()
+    sync(client, sub="julie", ops=[{"id": "j2", "type": "rejoindre", "code": "CodeSecret0123456789"}])  # déjà dedans
+    assert sonne == []
+    lien = {**invitation(op["groupe"], code="CodeAccord0123456789", canal="qr", nom=""), "approbation": True}
+    sync(client, ops=[lien])
+    sonne.clear()
+    luc = sync(client, sub="luc", ops=[{"id": "l", "type": "rejoindre", "code": "CodeAccord0123456789"}])["moi"]
+    assert sonne == [([seb], "demande à entrer dans le groupe")]
+    sonne.clear()
+    sync(client, ops=[{"id": "a", "type": "accepter_demande", "groupe": op["groupe"], "buddy": luc, "oui": True}])
+    assert sonne == [([luc], "t'a fait entrer dans le groupe")]
