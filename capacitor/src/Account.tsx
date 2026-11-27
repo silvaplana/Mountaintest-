@@ -6,12 +6,13 @@ import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
 import {
-  api, changerInfos, changerPseudo, changerWero, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
+  api, changerInfos, changerPhoto, changerPseudo, changerWero, chargerConfig, connecte, debutConnexion, deconnecter, finConnexion, HorsLigne, lire,
   initiales, nomAffiche, nomComplet, retourWeb, retourWebEnAttente, SCHEMA, suivre, synchroniser, type Etat, type Fournisseur, type Infos,
 } from './compte/auth';
 import { lire as lireBuddies, oublierTout, suivre as suivreBuddies } from './buddies/store';
 import { BlockIcon, PersonnesBloquees } from './buddies/Moderation';
 import { TrashIcon } from './icones';
+import { reduire } from './buddies/Buddies';
 
 /** Pages publiques exigées par le Play Store (dans deploy/site, servies par le VPS). */
 const PAGES = 'https://mountainbuddies.silvaplana.cloud/app/';
@@ -269,9 +270,18 @@ export function Account({ onClose, onToast, onSupport }: { onClose: () => void; 
   return (
     <div className="expenses account">
       <div className="xp-head"><h2>Profil</h2><button onClick={onClose} aria-label="Fermer">✕</button></div>
-      <div className="acc-avatar acc-grand">{p?.photo ? <img src={p.photo} alt="" /> : initiales(e)}
+      {/* Ma photo (Seb, 27/11) : un appui sur le rond pour en prendre une ou la choisir ; elle prime sur celle de Google. */}
+      <label className="acc-avatar acc-grand acc-photo" aria-label={p?.photo ? 'Changer ma photo' : 'Choisir ma photo'}>
+        {p?.photo ? <img src={p.photo} alt="" referrerPolicy="no-referrer" /> : initiales(e)}
+        <input type="file" accept="image/*" hidden onChange={(ev) => {
+          const f = ev.target.files?.[0];
+          ev.target.value = '';
+          if (f) reduire(f).then(changerPhoto).catch(() => onToast('Cette image ne s’ouvre pas'));
+        }} />
         {/* Plus de point vert « connecté » : on le sait (Seb, 26/11) ; l'orange reste quand il faut se reconnecter. */}
-        {e.aReconnecter && <span className="acc-pastille orange" />}</div>
+        {e.aReconnecter && <span className="acc-pastille orange" />}</label>
+      {p?.photo ? <button className="acc-retirer-photo" onClick={() => { void changerPhoto(''); }}>Retirer ma photo</button>
+        : <p className="hint acc-centre">Touche le rond pour mettre ta photo.</p>}
       <p className="acc-nom">{nomComplet(e)}</p>
       <p className="acc-mail">{p?.email ?? e.email ?? ''}</p>
       <span className="acc-role">{p?.super_user ? 'Super User' : 'Membre'}</span>

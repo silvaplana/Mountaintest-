@@ -284,7 +284,8 @@ def utilisateur(s: Session, j: dict[str, Any]) -> Utilisateur:
         u.email = (fiche.get("primaryEmail") or "").lower() or None
         if not u.pseudo:
             u.pseudo = (fiche.get("name") or fiche.get("username") or (u.email or "").split("@")[0] or "")[:40]
-        u.photo = u.photo or fiche.get("avatar")
+        if u.photo is None:  # la photo Google par défaut ; retirée par la personne (""), elle ne revient pas
+            u.photo = fiche.get("avatar")
     u.vu_le = maintenant()
     if nouveau:
         s.flush()
@@ -417,7 +418,7 @@ def changer_moi(ch: Changement, j: dict = Depends(jeton_requis), s: Session = De
     if ch.photo is not None:
         if ch.photo and not ch.photo.startswith(("data:image/", "https://")):
             raise HTTPException(422, "Photo : data:image/… ou https://… attendu")
-        u.photo = ch.photo or None
+        u.photo = ch.photo  # "" = retirée
     if ch.prenom is not None:
         u.prenom = re.sub(r"\s+", " ", ch.prenom).strip()
     if ch.nom is not None:

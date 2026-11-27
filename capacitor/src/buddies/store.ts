@@ -11,7 +11,7 @@
  */
 import { envoyer as envoyerFichier, oublier as oublierFichier } from './album';
 import { envoyer as envoyerFichierMessage, oublier as oublierFichierMessage } from './fichiers';
-import { api, connecte, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
+import { api, connecte, initiales, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
 import { annoncerRestauration, debutRestauration } from '../compte/Restauration';
 
 // Le lien d'invitation (§7.29) : aperçu pour WhatsApp, puis la page principale avec le bandeau de l'invitation.
@@ -21,7 +21,7 @@ const CLE_ATTENTE = 'buddies-attente';
 
 export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
 /** role : dans un groupe (spec §7.17) ; un seul admin_principal, le créateur, qui peut transmettre. */
-export type Buddy = { id: string; pseudo: string; photo: string | null; role?: 'admin_principal' | 'admin' | 'membre' };
+export type Buddy = { id: string; pseudo: string; photo: string | null; initiales?: string; role?: 'admin_principal' | 'admin' | 'membre' };
 export type Invitation = { id: string; code: string; canal: Canal; nom: string; contact: string; par: string; attente?: boolean;
   /** Invitation par mail, envoyée par le serveur : « envoye », « erreur », ou rien tant qu'il ne l'a pas envoyée. */
   mail?: 'envoye' | 'erreur' | null;
@@ -285,7 +285,7 @@ export const lien = (code: string) => LIEN_INVITATION + code;
 
 export function moiBuddy(e: Etat): Buddy {
   const c = lireCompte();
-  return { id: e.moi ?? 'moi', pseudo: nomAffiche(c), photo: c.profil?.photo ?? null, role: 'admin_principal' };
+  return { id: e.moi ?? 'moi', pseudo: nomAffiche(c), photo: c.profil?.photo || null, initiales: initiales(c), role: 'admin_principal' };
 }
 
 /** Sorties et traces partagées tels qu'affichés (version du serveur + opérations en attente). */

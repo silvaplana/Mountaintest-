@@ -10,7 +10,7 @@ import { noterOuvert } from './recents';
 import { enBas, useCoulisse } from './coulisse';
 import { TracesAssociees } from './Associer';
 import qrcode from 'qrcode-generator';
-import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
+import { connecte, lire as lireCompte, initialesDe, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
 import { BlockIcon, FlagIcon, Signaler, Signalements } from './Moderation';
 import type { ConversationNotif } from './notifs';
@@ -165,13 +165,15 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning
 const COULEURS = ['#2f6f4f', '#3f6fb5', '#8a4fb0', '#c9862b', '#2c8c8c', '#b5534a'];
 export const couleur = (id: string) => COULEURS[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % COULEURS.length];
 
-export function Visage({ b, taille = 34 }: { b: { id: string; pseudo?: string; nom?: string; photo: string | null }; taille?: number }) {
+export function Visage({ b, taille = 34 }: { b: { id: string; pseudo?: string; nom?: string; photo: string | null; initiales?: string }; taille?: number }) {
   const nom = b.pseudo ?? b.nom ?? '?';
+  // « SR » pour Sébastien Richard (prénom et nom du profil), sinon les mots du pseudo (Seb, 27/11 : « S » ne suffit pas).
+  const ini = b.initiales || initialesDe(nom);
   // Une photo qui ne se charge pas (Seb, 27/11 : rond cassé) laisse place à l'initiale. Les photos Google refusent
   // souvent l'affichage quand la page dit d'où elle vient : on ne le dit pas.
   const [casse, setCasse] = useState<string | null>(null);
-  return <span className="bd-visage" style={{ width: taille, height: taille, fontSize: taille * 0.45, background: couleur(b.id) }}>
-    {b.photo && casse !== b.photo ? <img src={b.photo} alt="" referrerPolicy="no-referrer" onError={() => setCasse(b.photo)} /> : nom.slice(0, 1).toUpperCase()}</span>;
+  return <span className="bd-visage" style={{ width: taille, height: taille, fontSize: taille * (ini.length > 1 ? 0.38 : 0.45), background: couleur(b.id) }}>
+    {b.photo && casse !== b.photo ? <img src={b.photo} alt="" referrerPolicy="no-referrer" onError={() => setCasse(b.photo)} /> : ini}</span>;
 }
 
 function quand(iso: string) {
@@ -200,7 +202,7 @@ function EtatInvitation({ i }: { i: Invitation }) {
 }
 
 /** Photo choisie dans la galerie, réduite à 256 px (JPEG en data: URL, comme la photo du profil). */
-function reduire(f: File): Promise<string> {
+export function reduire(f: File): Promise<string> {
   return new Promise((ok, ko) => {
     const img = new Image();
     img.onload = () => {
