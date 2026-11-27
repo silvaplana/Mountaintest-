@@ -96,6 +96,16 @@ export function BarreAppel() {
     return () => clearInterval(t);
   }, [e]);
   if (!e || e.phase === 'sonne' || (e.phase === 'connexion' && e.de)) return null;
+  // 🗺 Carte montrée ou suivie depuis la messagerie (sans appel) : juste l'icône carte, ou le badge de celui qu'on suit.
+  if (e.muette) {
+    const g = e.suit ? appliquer(b).flatMap((x) => x.membres).find((m) => m.id === e.suit!.id) ?? { id: e.suit.id, pseudo: e.suit.pseudo, photo: null } : null;
+    return <div className="ap-pastille">
+      {g ? <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${g.pseudo}`} onClick={reprendreMaCarte}>
+        <Visage b={g} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>
+        : <button className={e.jeMontre ? 'allume' : 'attente'} aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Ne plus attendre la carte'}
+          onClick={() => (e.jeMontre ? montrerMaCarte(false) : void raccrocher())}><IconeSuisCarte /></button>}
+    </div>;
+  }
   const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
   const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte'
     : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';

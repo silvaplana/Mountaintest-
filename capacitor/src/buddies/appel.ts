@@ -23,6 +23,8 @@ export type EtatAppel = {
   jeMontre?: boolean;
   /** Celui dont je suis la carte (une seule personne montre à la fois). */
   suit?: Voix | null;
+  /** 🗺 Carte montrée depuis la messagerie : salle muette (pas de voix), `carte` = le message « carte » du fil. */
+  muette?: boolean; carte?: string;
 };
 
 /** Les calques de la carte, les mêmes chez ceux qui suivent. */
@@ -102,6 +104,7 @@ export function enLigne(e: EtatAppel): string {
 
 /** 📞 J'appelle un groupe ou une sortie (ou je rejoins l'appel déjà en cours). */
 export async function appeler(dest: Dest, nom: string) {
+  if (etat?.muette) await raccrocher(); // la carte montrée en s'écrivant s'arrête : on passe à l'appel
   if (etat) return;
   // Créé pendant le toucher sur 📞 : sinon Android refuse de jouer le son.
   try { audio ??= new AudioContext(); void audio.resume(); } catch { audio = null; }
@@ -115,6 +118,7 @@ export async function appeler(dest: Dest, nom: string) {
 
 /** L'écran 10 : un buddy m'appelle. */
 export function sonner(s: Sonnerie) {
+  if (etat?.muette) void raccrocher(); // une carte suivie en s'écrivant cède la place à l'appel
   if (etat) return; // déjà en appel : on ne coupe pas
   changer({ id: s.appel, nom: s.nom, dest: { groupe: s.groupe || undefined, sortie: s.sortie || undefined }, phase: 'sonne', de: s.de,
     voix: [], parle: [], muet: false });
@@ -135,7 +139,7 @@ export async function decrocher() {
   } catch (err) { changer(null); throw err; }
 }
 
-async function entrer(r: Reponse, nom: string) {
+async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre: boolean }) {
   const room = new Room({ adaptiveStream: false, dynacast: false });
   salle = room;
   const voix = () => [...room.remoteParticipants.values()].map((p) => ({ id: p.identity, pseudo: p.name || '?' }));
@@ -149,7 +153,7 @@ async function entrer(r: Reponse, nom: string) {
     const arrives = v.filter((x) => !avant.has(x.id)), partis = etat.voix.filter((x) => !apres.has(x.id));
     let annonce = etat.annonce;
     if (arrives.length) arrivees.forEach((f) => f());
-    if (!pret && !jAppelle) { /* rien à annoncer */ } else if (arrives.length) {
+    if (muette || (!pret && !jAppelle)) { /* rien à annoncer */ } else if (arrives.length) {
       bip([660, 880], 0.15); navigator.vibrate?.(200);
       annonce = { texte: `${arrives.map((x) => x.pseudo).join(' et ')} ${arrives.length > 1 ? 'ont' : 'a'} décroché`, jusqua: Date.now() + 4000 };
     } else if (partis.length) {
@@ -158,7 +162,10 @@ async function entrer(r: Reponse, nom: string) {
     }
     const montre = etat.jeMontre || (montrerDesQue && ensemble);
     if (montre) montrerDesQue = false;
-    changer({ ...etat, voix: v, annonce, jeMontre: montre, suit: etat.suit && apres.has(etat.suit.id) ? etat.suit : null, phase: ensemble ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
+    const suit = etat.suit && apres.has(etat.suit.id) ? etat.suit : null;
+    // Carte suivie depuis la messagerie : celui qui montrait est parti, on quitte la salle.
+    if (muette && etat.suit && !suit) { void raccrocher(); return; }
+    changer({ ...etat, voix: v, annonce, jeMontre: montre, suit, phase: ensemble || muette ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
       debut: etat.debut ?? (ensemble ? Date.now() : undefined) });
   };
   room.on(RoomEvent.ParticipantConnected, maj).on(RoomEvent.ParticipantDisconnected, maj)
@@ -173,6 +180,19 @@ async function entrer(r: Reponse, nom: string) {
       } catch { /* message inconnu : ignoré */ }
     })
     .on(RoomEvent.Disconnected, () => { if (salle === room) fini(); });
+  if (muette) {
+    changer({ id: r.id, nom, dest: { groupe: r.groupe ?? undefined, sortie: r.sortie ?? undefined }, phase: 'en_ligne', voix: [], parle: [], muet: true,
+      muette: true, carte: muette.carte, jeMontre: muette.montre });
+    await room.connect(r.url, r.jeton);
+    maj();
+    pret = true;
+    // Je suis une carte et personne ne la montre (plus) : on quitte au bout de 8 s.
+    if (!muette.montre) {
+      clearTimeout(minuteur);
+      minuteur = setTimeout(() => { if (etat?.muette && !etat.suit && salle === room) { void raccrocher(); carteAbsente.forEach((f) => f()); } }, 8000);
+    }
+    return;
+  }
   changer({ id: r.id, nom, dest: { groupe: r.groupe ?? undefined, sortie: r.sortie ?? undefined }, phase: 'appel', voix: [], parle: [], muet: false });
   await room.connect(r.url, r.jeton);
   await room.localParticipant.setMicrophoneEnabled(true);
@@ -186,7 +206,7 @@ async function entrer(r: Reponse, nom: string) {
 }
 
 function fini() {
-  const id = etat?.id;
+  const id = etat?.muette ? undefined : etat?.id;
   clearTimeout(minuteur);
   sons.splice(0).forEach((el) => el.remove());
   salle = null;
@@ -220,9 +240,33 @@ export async function montrerMaCarteA(dest: Dest, nom: string) {
   if (etat) montrerDesQue = true;
 }
 
+/**
+ * 🗺 Depuis la messagerie, sans appel (Seb, 27/11) : un message « carte » part dans le fil, j'entre dans sa salle muette
+ * et je montre ma carte ; ceux qui touchent « Suivre » sur le message entrent dans la même salle.
+ */
+export async function proposerMaCarte(dest: Dest, nom: string, creer: () => Promise<string>) {
+  if (etat) return;
+  const carte = await creer();
+  const r = await api<{ id: string; url: string; jeton: string }>('POST', `/cartes/${carte}`);
+  if (etat) return;
+  await entrer({ id: r.id, groupe: dest.groupe ?? null, sortie: dest.sortie ?? null, en_ligne: [], url: r.url, jeton: r.jeton }, nom, { carte, montre: true });
+}
+/** 🗺 « Suivre » sur un message « carte » du fil. */
+export async function suivreUneCarte(carte: string, dest: Dest, nom: string) {
+  if (etat?.carte === carte) return;
+  if (etat && !etat.muette) throw new Error('Tu es déjà en appel');
+  if (etat) await raccrocher();
+  const r = await api<{ id: string; url: string; jeton: string }>('POST', `/cartes/${carte}`);
+  await entrer({ id: r.id, groupe: dest.groupe ?? null, sortie: dest.sortie ?? null, en_ligne: [], url: r.url, jeton: r.jeton }, nom, { carte, montre: false });
+}
+const carteAbsente = new Set<() => void>();
+/** Prévenu quand on a touché Suivre mais que personne ne montre plus cette carte. */
+export function siCarteAbsente(f: () => void) { carteAbsente.add(f); return () => { carteAbsente.delete(f); }; }
+
 /** 🗺 J'allume ou j'éteins « Suis ma carte ». */
 export function montrerMaCarte(on: boolean) {
   if (!salle || etat?.phase !== 'en_ligne') return;
+  if (etat.muette && !on) { envoyerCarte({ carteFin: true }); void raccrocher(); return; }
   changer({ ...etat, jeMontre: on, suit: on ? null : etat.suit });
   if (!on) envoyerCarte({ carteFin: true });
 }
@@ -234,6 +278,7 @@ export function envoyerCarte(m: MsgCarte) {
 let ignore: string | null = null;
 export function reprendreMaCarte() {
   if (!etat?.suit) return;
+  if (etat.muette) { void raccrocher(); return; }
   ignore = etat.suit.id;
   changer({ ...etat, suit: null });
 }
@@ -242,6 +287,7 @@ function recevoirCarte(m: MsgCarte, de: Voix) {
   if ('carteFin' in m) {
     if (ignore === de.id) ignore = null;
     if (etat.suit?.id === de.id) changer({ ...etat, suit: null });
+    if (etat.muette && !etat.jeMontre && !etat.suit) { void raccrocher(); return; }
   } else if (ignore !== de.id) {
     // Un autre montre sa carte : la mienne s'éteint, une seule à la fois.
     if (etat.suit?.id !== de.id || etat.jeMontre) changer({ ...etat, suit: de, jeMontre: false });

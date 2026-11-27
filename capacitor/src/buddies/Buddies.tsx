@@ -23,7 +23,8 @@ import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosit
 import { Utilisateurs } from './Utilisateurs';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
-import { appelEnCours, appeler, montrerMaCarteA, type Dest, type Sonnerie } from './appel';
+import { appelEnCours, appeler, montrerMaCarte, proposerMaCarte, reprendreMaCarte, siCarteAbsente, type Dest, type Sonnerie } from './appel';
+import { useAppel } from './Appel';
 import { IconeSuisCarte } from './IconeSuisCarte';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
@@ -180,9 +181,37 @@ function reduire(f: File): Promise<string> {
   });
 }
 
+/**
+ * 🗺 L'icône carte en haut d'une conversation (Seb, 27/11). En appel : ma carte s'allume chez ceux qui sont en ligne.
+ * Sans appel : un message « carte » part dans le fil, les autres choisissent « Suivre ». Comme dans la barre d'appel,
+ * l'icône est exclusive : quand je suis la carte d'un buddy, elle devient son badge (un appui : j'arrête).
+ */
+function BoutonCarte({ dest, nom, onToast, onDescendre }: { dest: Dest; nom: string; onToast: (m: string) => void; onDescendre: () => void }) {
+  const a = useAppel();
+  const e = useBuddies();
+  const ici = a && (a.dest.groupe ?? null) === (dest.groupe ?? null) && (a.dest.sortie ?? null) === (dest.sortie ?? null);
+  if (ici && a.suit) {
+    const g = appliquer(e).flatMap((x) => x.membres).find((m) => m.id === a.suit!.id) ?? { id: a.suit.id, pseudo: a.suit.pseudo, photo: null };
+    return <button className="ap-guide bd-mc-guide" aria-label={`Arrêter de suivre la carte de ${g.pseudo}`} onClick={reprendreMaCarte}>
+      <Visage b={g} taille={40} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>;
+  }
+  const allume = !!(ici && a.jeMontre);
+  return <button className={`bd-mc-bouton${allume ? ' allume' : ''}`} aria-label={allume ? 'Arrêter de montrer ma carte' : 'Montrer ma carte'} onClick={() => {
+    if (allume) { montrerMaCarte(false); return; }
+    if (a && !a.muette && a.phase === 'en_ligne') { montrerMaCarte(true); onToast('Tes buddies suivent ta carte'); return; }
+    if (a) { onToast('Tu es déjà en appel'); return; }
+    onDescendre();
+    void proposerMaCarte(dest, nom, async () => {
+      const m = envoyerMessage(dest, { nature: 'carte', texte: '' });
+      await synchroniser();
+      return m;
+    }).catch((err: Error) => onToast(err.message || 'Impossible de montrer ta carte'));
+  }}><IconeSuisCarte /></button>;
+}
+
 /** 📞 Appeler toute la bande (ou rejoindre l'appel déjà en cours) ; la barre d'appel s'affiche sur la carte. */
 function appelerBande(dest: Dest, nom: string, onToast: (m: string) => void) {
-  if (appelEnCours()) { onToast('Tu es déjà en appel'); return; }
+  if (appelEnCours() && !appelEnCours()!.muette) { onToast('Tu es déjà en appel'); return; }
   void appeler(dest, nom).catch((e: Error) => onToast(e.message || 'Appel impossible'));
 }
 
@@ -190,7 +219,7 @@ function appelerBande(dest: Dest, nom: string, onToast: (m: string) => void) {
 function LigneAppel({ dest, nom, onToast }: { dest: Dest; nom: string; onToast: (m: string) => void }) {
   const e = useBuddies();
   const a = (e.appels ?? []).find((x) => !x.fini && (dest.sortie ? x.sortie === dest.sortie : x.groupe === dest.groupe));
-  if (!a || appelEnCours() || a.en_ligne.includes(e.moi ?? '')) return null;
+  if (!a || (appelEnCours() && !appelEnCours()!.muette) || a.en_ligne.includes(e.moi ?? '')) return null;
   return <button className="bd-ligne bd-pos-acces ap-rejoindre" onClick={() => appelerBande(dest, nom, onToast)}>
     <span className="bd-icone">📞</span>
     <span className="bd-texte"><b>Appel en cours · rejoindre</b><small>{a.en_ligne.length} en ligne</small></span>
@@ -678,6 +707,11 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const compte = useCompte();
   // La messagerie coulisse sur la carte (Seb, 27/11).
   const cl = useCoulisse();
+  // 🗺 Carte montrée ou suivie en s'écrivant : la conversation descend pour laisser voir la carte.
+  const ap = useAppel();
+  const carteMuette = ap?.muette && (ap.jeMontre || ap.suit) ? ap.carte : null;
+  useEffect(() => { if (carteMuette) cl.descendre(); }, [carteMuette]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => siCarteAbsente(() => onToast('Sa carte n’est plus montrée')), [onToast]);
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
     : depart && 'sortie' in depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : depart ?? { ecran: 'liste' });
   // Plus de ‹ à l'écran (Seb, 26/11) : le retour du téléphone, comme ✕, revient à l'écran d'avant.
@@ -820,12 +854,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
           <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: ('retour' in vue && vue.retour) || 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
             {aDeux(gc) && <Visage b={gc.nature === 'support' && !superUser() ? { id: gc.id, nom: 'Support', photo: null } : autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
             <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? relireAppareil(gc.nom) : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
-            {gc.nature !== 'support' && <button aria-label="Montrer ma carte" onClick={() => {
-              const enAppel = appelEnCours()?.phase === 'en_ligne';
-              onToast(enAppel ? 'Tes buddies suivent ta carte' : 'Appel… ta carte s\'affichera chez eux quand ils décrochent');
-              void montrerMaCarteA({ groupe: gc.id }, nomDiscussion(gc, e)).catch((err: Error) => onToast(err.message || 'Appel impossible'));
-              onClose();
-            }}><IconeSuisCarte /></button>}
+            {gc.nature !== 'support' && <BoutonCarte dest={{ groupe: gc.id }} nom={nomDiscussion(gc, e)} onToast={onToast} onDescendre={cl.descendre} />}
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
             onPlanning={(id, remplir) => setVue({ ecran: remplir ? 'dispos' : 'planning', id, groupe: gc.id, conv: gc.id })}
@@ -1252,7 +1281,7 @@ export function BandeauSortie({ x, traces, parler, onRetour, onFermer, onAlbum, 
       <button onClick={() => setTitre(nom)} aria-label="Changer le nom"><PencilIcon size={18} /></button>
       {peutSupprimer(x, eb) && <button onClick={supprimer} aria-label="Supprimer la sortie"><TrashIcon size={18} /></button>}
     </div>
-    <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-carte-msg' : ''}${sheet.classe}`}>
+    <div className={`bd-carte-bas${replie && !msg ? ' replie' : ''}${msg ? ' bd-mc-msg' : ''}${sheet.classe}`}>
       <div {...sheet.prise} aria-label="Régler la hauteur du bandeau"><div className="handle" /></div>
       {msg && <>
         {!replie && <div className="bd-entre"><b className="bd-gros">💬 Messagerie</b><button className="bd-lien" onClick={() => { setMsg(false); setPoint(null); }}>Retour</button></div>}
