@@ -796,6 +796,22 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   pendant un appel, ceux qui n'y sont pas ont **Rejoindre**. Appli fermée : une notification simple qui ouvre l'appli
   sur cette fenêtre. Technique inchangée : message `carte` (caché du fil et des non-lus), salle muette, push `carte`
   et `carte_appel`.
+- **Trait en direct** (Seb, 27 novembre : « ça s'écroule quand on trace ») : chez celui qui suit, le trait a son
+  propre petit calque (seule sa ligne est redessinée) ; les traces reçues ne sont redessinées que si elles changent.
+  Chez celui qui dessine, seul le nouveau point est converti à chaque mouvement.
+- **📓 Journal** (Seb, 27 novembre : « qu'il ne soit pas trop lourd, qu'il s'active seulement si on le demande ») :
+  - par défaut, léger : seulement les événements marquants (début et fin de salle, partage et suivi de carte,
+    blocages, reconnexions, échecs), en mémoire (1 000 lignes), rien sur le téléphone, rien envoyé tout seul ;
+  - **mode diagnostic**, allumé par le Super User dans Utilisateurs › « Journaux pour Claude » pour TOUS les
+    téléphones, s'éteint seul après une heure (`POST /journaux/mode`, lu par chaque téléphone à l'entrée d'une salle
+    puis chaque minute par `GET /journaux/mode`) : en plus chaque message de carte envoyé ou reçu (nature, taille,
+    délai), toutes les 15 s la route réseau (UDP direct ou TCP / relais), l'aller-retour, les paquets de voix perdus
+    et la gigue ; 4 000 lignes gardées sur le téléphone ; envoyé au serveur toutes les 2 minutes et à la fin de la salle ;
+  - « Envoyer le journal », sous « Partager ma carte avec qui ? », l'envoie en entier à tout moment (sans réseau : en
+    fichier texte).
+  Serveur : `POST /journaux` (fichiers dans /data/journaux, 7 jours, 200 au plus) ; Claude les lit par `GET /journaux`
+  avec l'en-tête `X-Journal-Jeton`. Le jeton est tiré au hasard par le serveur (/data/journaux-jeton), jamais dans le
+  dépôt ; le Super User le voit et le copie au même endroit.
 - **Montrer du doigt** (Seb, 27 novembre) : pendant l'appel ou la carte partagée, un appui long sur la carte pose MON
   repère : une épingle fine, de ma couleur, dont la pointe est l'endroit exact, sous « ✋ Sébastien montre » (même
   texte chez tous). Un seul repère par buddy : un nouvel appui long le déplace. Appui long sur mon repère puis glisser : il

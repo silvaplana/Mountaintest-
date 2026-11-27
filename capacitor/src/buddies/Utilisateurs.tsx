@@ -73,6 +73,33 @@ export function Utilisateurs() {
     </button>)}
     <h3 className="bd-section">Journal</h3>
     <Journal lignes={r.journal ?? []} avecNom />
+    <JetonJournaux />
+  </>;
+}
+
+/**
+ * 📓 Le jeton qui permet à Claude de lire les journaux de diagnostic sur le serveur (Seb, 27/11). Tiré au hasard par le
+ * serveur, jamais dans le dépôt ; le Super User le copie dans les réglages de l'environnement de Claude.
+ */
+function JetonJournaux() {
+  const [j, setJ] = useState('');
+  const [copie, setCopie] = useState(false);
+  const voir = () => { void api<{ jeton: string }>('GET', '/super/jeton-journaux').then((r) => setJ(r.jeton)).catch(() => setJ('')); };
+  const copier = () => { void navigator.clipboard?.writeText(j).then(() => setCopie(true)).catch(() => undefined); };
+  // Mode diagnostic (Seb, 27/11 : « qu'il s'active seulement si on le demande ») : une heure, pour tous les téléphones.
+  const [jusqua, setJusqua] = useState(0);
+  useEffect(() => { api<{ diagnostic_jusqua: number }>('GET', '/journaux/mode').then((r) => setJusqua(r.diagnostic_jusqua)).catch(() => undefined); }, []);
+  const allume = jusqua * 1000 > Date.now();
+  const basculer = () => { void api<{ diagnostic_jusqua: number }>('POST', '/journaux/mode', { on: !allume }).then((r) => setJusqua(r.diagnostic_jusqua)).catch(() => undefined); };
+  return <>
+    <h3 className="bd-section">Journaux pour Claude</h3>
+    <button className="bd-ligne" onClick={basculer}><span className="bd-texte">
+      <b>{allume ? 'Arrêter le mode diagnostic' : 'Allumer le mode diagnostic (1 h)'}</b>
+      <small>{allume ? `Allumé jusqu'à ${new Date(jusqua * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} : chaque téléphone note tout et l'envoie`
+        : 'Chaque téléphone note tout pendant une heure et l\'envoie au serveur'}</small></span></button>
+    {!j ? <button className="bd-ligne" onClick={voir}><span className="bd-texte"><b>Voir le jeton des journaux</b>
+      <small>Pour que Claude lise lui-même les journaux de diagnostic</small></span></button>
+      : <div className="su-jeton"><code>{j}</code><button className="bd-bouton" onClick={copier}>{copie ? 'Copié' : 'Copier'}</button></div>}
   </>;
 }
 

@@ -36,9 +36,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hmac
 import json
 import os
 import re
+import secrets
 import threading
 import time
 import uuid
@@ -52,7 +54,7 @@ from typing import Any
 
 import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, func, inspect, select, text
@@ -815,6 +817,108 @@ def super_utilisateurs(u: Utilisateur = Depends(moi_requis), s: Session = Depend
                for x in s.scalars(select(Journal).order_by(Journal.quand.desc(), Journal.id.desc()).limit(500))]
     return {"telechargements": tel, "comptes": comptes, "journal": journal,
             "semaine": sum(1 for c in comptes if c["vu_le"] and c["vu_le"][:10] >= semaine.isoformat())}
+
+
+# 📓 Journaux de diagnostic des téléphones (Seb, 27/11 : « que tu puisses toi-même voir les logs »). Les téléphones
+# déposent leur journal (appels, « Suis ma carte » : tailles, délais, route réseau ; ni messages ni positions) ;
+# Claude le lit avec un jeton tiré au hasard ici, gardé dans /data, jamais dans le dépôt (public). Le Super User le
+# voit dans l'appli pour le copier dans les réglages de Claude. 7 jours, 200 fichiers de 400 Ko au plus.
+DOSSIER_JOURNAUX = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "journaux")
+
+
+def jeton_journaux() -> str:
+    f = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "journaux-jeton")
+    try:
+        with open(f, encoding="utf-8") as x:
+            j = x.read().strip()
+        if j:
+            return j
+    except OSError:
+        pass
+    j = secrets.token_urlsafe(32)
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    with open(os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w", encoding="utf-8") as x:
+        x.write(j)
+    return j
+
+
+class JournalAppareil(BaseModel):
+    texte: str = Field(max_length=400_000)
+    raison: str = Field("", max_length=60)
+
+
+@app.post("/journaux")
+def deposer_journal(j: JournalAppareil, u: Utilisateur = Depends(moi_requis)):
+    os.makedirs(DOSSIER_JOURNAUX, exist_ok=True)
+    qui = re.sub(r"[^A-Za-z0-9_-]", "", (u.pseudo or "")[:20]) or "x"
+    nom = f"{maintenant():%Y%m%d-%H%M%S}-{qui}-{uuid.uuid4().hex[:6]}.txt"
+    with open(os.path.join(DOSSIER_JOURNAUX, nom), "w", encoding="utf-8") as f:
+        f.write(f"# {u.pseudo} · {u.plateforme or '?'} {u.version or ''} · {j.raison}\n{j.texte}\n")
+    fichiers = sorted(os.listdir(DOSSIER_JOURNAUX), reverse=True)
+    limite = time.time() - 7 * 86400
+    for i, x in enumerate(fichiers):
+        p = os.path.join(DOSSIER_JOURNAUX, x)
+        if i >= 200 or os.path.getmtime(p) < limite:
+            os.remove(p)
+    return {"ok": True}
+
+
+@app.get("/journaux", response_class=PlainTextResponse)
+def lire_journaux(x_journal_jeton: str = Header(""), n: int = 6, qui: str = ""):
+    """Les `n` derniers journaux déposés (d'un pseudo si `qui`), en texte. Jeton faux ou absent : 404."""
+    if not x_journal_jeton or not hmac.compare_digest(x_journal_jeton, jeton_journaux()):
+        raise HTTPException(404, "Not Found")
+    try:
+        fichiers = sorted(os.listdir(DOSSIER_JOURNAUX), reverse=True)
+    except OSError:
+        fichiers = []
+    if qui:
+        fichiers = [x for x in fichiers if f"-{qui}-" in x]
+    morceaux = []
+    for x in fichiers[:max(1, min(n, 40))]:
+        with open(os.path.join(DOSSIER_JOURNAUX, x), encoding="utf-8") as f:
+            morceaux.append(f"===== {x} =====\n{f.read()}")
+    return "\n".join(morceaux)[-3_000_000:] or "(aucun journal)"
+
+
+# Mode diagnostic (Seb, 27/11 : « que le journal s'active seulement si on le demande ») : le Super User l'allume pour
+# une heure, pour tous les téléphones ; ils écrivent alors le journal détaillé et l'envoient ici.
+FICHIER_DIAGNOSTIC = os.path.join(os.environ.get("COMPTES_DOSSIER", "/data"), "journaux-diagnostic")
+
+
+def diagnostic_jusqua() -> float:
+    try:
+        with open(FICHIER_DIAGNOSTIC, encoding="utf-8") as f:
+            t = float(f.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+    return t if t > time.time() else 0
+
+
+@app.get("/journaux/mode")
+def mode_journal(u: Utilisateur = Depends(moi_requis)):
+    return {"diagnostic_jusqua": diagnostic_jusqua()}
+
+
+class ModeJournal(BaseModel):
+    on: bool
+
+
+@app.post("/journaux/mode")
+def changer_mode_journal(m: ModeJournal, u: Utilisateur = Depends(moi_requis)):
+    if not droits.est_super_user(u):
+        raise HTTPException(403, "Réservé au Super User")
+    os.makedirs(os.path.dirname(FICHIER_DIAGNOSTIC), exist_ok=True)
+    with open(FICHIER_DIAGNOSTIC, "w", encoding="utf-8") as f:
+        f.write(str(time.time() + 3600 if m.on else 0))
+    return {"diagnostic_jusqua": diagnostic_jusqua()}
+
+
+@app.get("/super/jeton-journaux")
+def super_jeton_journaux(u: Utilisateur = Depends(moi_requis)):
+    if not droits.est_super_user(u):
+        raise HTTPException(403, "Réservé au Super User")
+    return {"jeton": jeton_journaux()}
 
 
 @app.get("/invitations/{code}")
