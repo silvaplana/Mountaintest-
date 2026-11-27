@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { api, connecte } from '../compte/auth';
 import { Natif, useBuddies, Visage } from './Buddies';
 import {
-  appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, reprendreMaCarte, refuser, sonner, suivreAppel, suivreDoigts,
-  type EtatAppel, type Sonnerie,
-} from './appel';
+  ATTENTE_MS, appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, reprendreMaCarte, refuser, sonner, suivreAppel, suivreDoigts,
+  montrerMaCarteDesQue, type EtatAppel, type Sonnerie } from './appel';
 import { appliquer, vue } from './store';
 import { IconeSuisCarte } from './IconeSuisCarte';
 
@@ -89,6 +88,10 @@ export function EcranSonnerie({ onToast }: { onToast: (m: string) => void }) {
 export function BarreAppel() {
   const e = useAppel();
   const b = useBuddies();
+  const qui = useQui(e);
+  // Depuis quand on attend qu'ils décrochent (au-delà d'une minute : « pas répondu »).
+  const depuis = useRef<{ id: string; t: number }>({ id: '', t: 0 });
+  if (e && e.id && depuis.current.id !== e.id) depuis.current = { id: e.id, t: Date.now() };
   const [, tic] = useState(0);
   useEffect(() => {
     if (!e || e.phase === 'sonne') return;
@@ -108,16 +111,29 @@ export function BarreAppel() {
   }
   const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
   const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte'
-    : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';
+    : e.phase === 'connexion' ? 'Connexion…' : `Appel pour ${e.nom}`; // Seb, 27/11 : « Appel pour La Ciotat ski club », pas « Ça sonne… »
+  // 👥 Qui a décroché (Seb, 27/11, maquette B) : petits visages dans la barre ; couleur + point vert = en ligne,
+  // grisé = ça sonne, barré = pas répondu (après une minute, ou parti). Ceux en ligne d'abord, 6 au plus puis « +N ».
+  const moi = b.moi;
+  const enLigneIds = new Set(e.voix.map((v) => v.id));
+  const attend = Date.now() - depuis.current.t < ATTENTE_MS;
+  const visages = qui.filter((m) => m.id !== moi && m.id !== 'moi')
+    .map((m) => ({ m, etat: enLigneIds.has(m.id) ? 'on' : attend ? 'sonne' : 'non' }))
+    .sort((x, y) => (x.etat === 'on' ? 0 : x.etat === 'sonne' ? 1 : 2) - (y.etat === 'on' ? 0 : y.etat === 'sonne' ? 1 : 2));
   // 🗺 Une seule personne montre sa carte : chez les autres, l'icône carte devient son badge (un appui : on arrête de suivre).
   const suit = e.suit;
   const guide = suit ? appliquer(b).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null } : null;
   return <div className={`ap-barre${annonce || e.jeMontre || suit ? ' ap-annonce' : ''}`}>
     <span className="ap-icone">📞</span>
-    <span className="bd-texte"><b>{titre}</b><small>{e.phase === 'en_ligne' ? enLigne(e) : e.nom}</small>
+    <span className="bd-texte"><b>{titre}</b><span className="ap-visages" aria-label={enLigne(e)}>
+        {visages.slice(0, 6).map(({ m, etat }) => <span key={m.id} className={`ap-v ${etat}`}><Visage b={m} taille={26} /></span>)}
+        {visages.length > 6 && <small>+{visages.length - 6}</small>}
+        {e.phase === 'en_ligne' && <small>{duree(Date.now() - (e.debut ?? Date.now()))}</small>}</span>
       {e.phase === 'en_ligne' && !e.jeMontre && !suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
     {e.phase === 'en_ligne' && guide && <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${guide.pseudo}`} onClick={reprendreMaCarte}>
       <Visage b={guide} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>}
+    {e.phase !== 'en_ligne' && <button aria-label={e.carteDesQue ? 'Ne pas montrer ma carte' : 'Montrer ma carte dès qu\'ils décrochent'}
+      className={e.carteDesQue ? 'allume' : ''} onClick={montrerMaCarteDesQue}><IconeSuisCarte /></button>}
     {e.phase === 'en_ligne' && !guide && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
       className={e.jeMontre ? 'allume' : ''} onClick={() => montrerMaCarte(!e.jeMontre)}>
       <IconeSuisCarte /></button>}

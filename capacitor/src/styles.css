@@ -1733,6 +1733,14 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .bd-mc-choix button { flex: 1; min-height: 48px; border-radius: 12px; font-size: 17px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
 .bd-mc-choix .bd-mc-oui { background: #2e8b57; border-color: #2e8b57; color: #fff; font-weight: 600; }
 
+/* 👥 Qui a décroché (Seb, 27/11, maquette B) : petits visages dans la barre d'appel. */
+.ap-visages { display: flex; align-items: center; gap: 3px; margin-top: 3px; }
+.ap-visages small { margin-left: 4px; }
+.ap-v { position: relative; display: inline-flex; border-radius: 50%; }
+.ap-v.on::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 9px; height: 9px; border-radius: 50%; background: #2fbf6a; border: 2px solid #3e5368; }
+.ap-v.sonne { filter: grayscale(1); opacity: 0.55; outline: 1.5px dashed #fff; outline-offset: 1px; }
+.ap-v.non { filter: grayscale(1); opacity: 0.45; }
+.ap-v.non::before { content: ""; position: absolute; z-index: 1; left: -2px; right: -2px; top: 50%; height: 2px; background: #ff6b6b; transform: rotate(-40deg); }
 /* Ma position partagée avec mes buddies (Seb 27/11, maquette A) : des ondes de chaque côté de mon point bleu, à la
    place de la pulsation. */
 .position-partagee .maplibregl-user-location-dot::before { animation: none; border-radius: 0; background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120' fill='none' stroke='%231d72d9' stroke-linecap='round'><path stroke-width='7' d='M38 38a31 31 0 0 0 0 44M82 38a31 31 0 0 1 0 44'/><path stroke-width='6' opacity='.6' d='M24 24a50 50 0 0 0 0 72M96 24a50 50 0 0 1 0 72'/></svg>") center / contain no-repeat;

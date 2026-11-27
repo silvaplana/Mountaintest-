@@ -25,7 +25,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from buddies import Refus, groupe_de, iso, message_de, participants, personne, sortie_de
-from modeles import Appareil, Appel, Groupe, Membre, Utilisateur, maintenant
+from modeles import Appareil, Appel, Groupe, Membre, MessageBuddy, Utilisateur, maintenant
 
 LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "")
 LIVEKIT_CLE = os.environ.get("LIVEKIT_CLE", "")
@@ -55,6 +55,8 @@ def salle_carte(s: Session, u: Utilisateur, mid: str) -> dict[str, Any]:
         m = None
     if m is None or m.nature != "carte" or m.supprime:
         raise Refus("Carte inconnue")
+    if s.scalar(select(MessageBuddy.id).where(MessageBuddy.nature == "carte_fin", MessageBuddy.texte == str(m.id)).limit(1)):
+        raise Refus("Sa carte n'est plus partagée")
     return {"id": str(m.id), "par": str(m.par), "url": LIVEKIT_URL, "jeton": jeton_salle(f"carte-{m.id}", u, 4 * 3600, voix=False)}
 
 
@@ -210,6 +212,22 @@ def presence(s: Session, Sessions, u: Utilisateur, aid: str, en_ligne: bool) -> 
         sonner(Sessions, [x for x in qui if x != u.id], {"type": "fin", "appel": str(a.id)})
     s.commit()
     return vue_appel(s, a)
+
+
+def carte_en_appel(s: Session, Sessions, u: Utilisateur, aid: str, on: bool) -> dict[str, Any]:
+    """🗺 Pendant l'appel, je montre (ou n'affiche plus) ma carte : ceux qui sont en ligne reçoivent une notification
+    « Seb a partagé sa carte dans <groupe> » / « … a arrêté de partager sa carte » (Seb, 27/11)."""
+    a, qui = appel_de(s, u, aid)
+    g, so, _, nom = destinataires(s, u, str(a.groupe_id) if a.groupe_id else None, str(a.sortie_id) if a.sortie_id else None)
+    a_deux = bool(g and g.nature in ("duo", "support"))
+    de = personne(u)["pseudo"]
+    fait = "a partagé sa carte" if on else "a arrêté de partager sa carte"
+    en_ligne = [uuid.UUID(x) for x in json.loads(a.en_ligne) if x != str(u.id)]
+    sonner(Sessions, [x for x in en_ligne if x in qui], {
+        "type": "message", "cle": str(a.sortie_id or a.groupe_id), "groupe": str(a.groupe_id or ""), "sortie": str(a.sortie_id or ""),
+        "titre": de if a_deux else nom, "de": de, "texte": "🗺 " + fait, "duo": "1" if a_deux else "",
+        "ligne": f"{de} {fait} {'avec toi' if a_deux else 'dans ' + nom}", "envoye_le": str(int(time.time() * 1000))})
+    return {"ok": True}
 
 
 def appels_en_cours(s: Session, gids: list[uuid.UUID], sids: list[uuid.UUID]) -> list[dict[str, Any]]:
