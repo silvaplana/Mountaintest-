@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _reinitialiser as reinitCompte, ecrire as ecrireCompte, HorsLigne } from '../src/compte/auth';
 import {
-  _reinitialiser, aRemplir, appliquer, deposerPhotos, mettreEtoile, parJour, retirerPhoto, creerGroupe, creerPlanning, creerSortie, datesPlanning, inviter, joursAvant, lire, nouveauCode,
+  _ecouterCompte, _reinitialiser, aRemplir, appliquer, deposerPhotos, mettreEtoile, parJour, retirerPhoto, creerGroupe, creerPlanning, creerSortie, datesPlanning, inviter, joursAvant, lire, nouveauCode,
   enregistrerCarnet, enregistrerDepense, nouveautes, retirerDepense, partagerTrace, prochaine, quitter, rejoindre, repondre, sortieDeLigne, synchroniser, vue, type Groupe, type PhotoBuddy, type Planning, type Sortie, type TraceBuddy,
 } from '../src/buddies/store';
 import { exif } from '../src/buddies/album';
@@ -103,6 +103,17 @@ describe('Buddies : copie locale et file d’attente', () => {
     expect(appliquer(lire()).find((g) => g.id === 'a')!.invitations[0].nom).toBe('Luc');
     quitter('a');
     expect(appliquer(lire()).some((g) => g.id === 'a')).toBe(false);
+  });
+
+  it("garde l'invitation pendant la connexion, l'oublie à la déconnexion (Seb, 27/11 : Jacqueline pas entrée)", () => {
+    _ecouterCompte();
+    ecrireCompte({});                       // pas connecté : l'appli vient d'être installée
+    rejoindre('CodeSecret0123456789');      // lien d'invitation (ou presse-papiers) lu avant la connexion
+    ecrireCompte({ pkce: { verifier: 'v', state: 's', redirect: 'r' } } as never); // la connexion commence
+    expect(lire().attente.map((o) => o.type)).toEqual(['rejoindre']);
+    ecrireCompte({ refresh: 'R', access: 'A', accessExp: Date.now() + 3600e3 } as never);
+    ecrireCompte({});                       // déconnexion
+    expect(lire().attente).toEqual([]);
   });
 
   it('un lien d’invitation ouvert deux fois ne fait qu’une demande', () => {
