@@ -1050,6 +1050,9 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   vidéos, vidéos 3D, dépenses communes, positions et messagerie, partagées avec ta bande. » Puis l'aide : appui long
   sur la flèche, sur la carte comme dans le second écran (👥), celui des « buddies ». Un bouton « C'est parti ».
 - Case « Afficher l'aide à l'ouverture » dans Mon compte : le panneau revient à chaque ouverture.
+- **Ordre à la première ouverture** (Seb, 27/11) : écran de connexion d'abord, puis le panneau d'accueil (jamais
+  par-dessus la connexion). Une connexion réussie ferme l'écran du compte : on n'arrive plus sur le profil. Après
+  « C'est parti », la première fois seulement : la carte vue de haut (zoom 6), centrée sur ma position, aucun panneau ouvert.
 - **Aide** : appui long sur la flèche, une bulle par bouton, sur la carte et dans la colonne des buddies. Une seule
   bulle pour les calques et pour l'activité (sous-icônes cachées) ; pas de bulle pour les 4 réglages du suivi de
   trace ni pour la clé du Super User. « Touche n'importe où pour fermer l'aide » en haut, côté opposé aux icônes.

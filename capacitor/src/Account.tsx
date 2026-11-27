@@ -57,7 +57,7 @@ export function useCompte(): Etat {
  * Retour de la page de connexion Logto (fr.assomoutain.rando://callback) : à brancher une fois au démarrage.
  * Synchronise aussi au démarrage et au retour du réseau, sans jamais bloquer l'appli.
  */
-export function ecouterCompte(onToast: (m: string) => void, onOuvrir: () => void) {
+export function ecouterCompte(onToast: (m: string) => void, onOuvrir: () => void, onConnecte?: () => void) {
   const traiter = async (url: string) => {
     if (!url.startsWith(`${SCHEMA}://callback`)) return;
     void Browser.close().catch(() => undefined);
@@ -65,6 +65,7 @@ export function ecouterCompte(onToast: (m: string) => void, onOuvrir: () => void
     try {
       await finConnexion(url);
       onToast(`Connecté : ${nomAffiche()}`);
+      onConnecte?.();
     } catch (err) {
       onToast(err instanceof HorsLigne ? 'Pas de réseau pour finir la connexion : réessaie' : String((err as Error).message));
     }
@@ -76,7 +77,7 @@ export function ecouterCompte(onToast: (m: string) => void, onOuvrir: () => void
     history.replaceState(null, '', retourWeb());
     onOuvrir();
     void finConnexion(href)
-      .then(() => onToast(`Connecté : ${nomAffiche()}`))
+      .then(() => { onToast(`Connecté : ${nomAffiche()}`); onConnecte?.(); })
       .catch((err) => onToast(err instanceof HorsLigne ? 'Pas de réseau pour finir la connexion : réessaie' : String((err as Error).message)));
   }
   if (Capacitor.isNativePlatform()) {

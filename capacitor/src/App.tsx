@@ -121,6 +121,8 @@ function openLink(url: string) {
 const MAX_ZONE_TILES = 6000;
 /** Taille moyenne d'une tuile IGN 256 px (JPEG SCAN 25 / PNG Plan IGN), pour l'estimation avant téléchargement. */
 const TILE_BYTES_ESTIMATE = 25_000;
+/** Zoom de la carte après « C'est parti » à la 1re ouverture : vue de haut, toute la France ou presque (Seb, 27/11). */
+const VUE_DE_HAUT = 6;
 
 function formatMo(bytes: number) { return `${(bytes / 1e6).toFixed(1).replace('.', ',')} Mo`; }
 
@@ -443,7 +445,8 @@ export function App() {
   const [offVibrate, setOffVibrate] = useState(true);
   useEffect(() => { void offTrackVibrateEnabled().then(setOffVibrate); }, []);
   // 👥 Retour de la page de connexion (fr.assomoutain.rando://callback) et synchro du compte au retour du réseau.
-  useEffect(() => ecouterCompte(setToast, () => setAccount(true)), []);
+  // Connexion réussie : on ferme l'écran pour arriver sur la carte, pas sur le profil (Seb, 27/11).
+  useEffect(() => ecouterCompte(setToast, () => setAccount(true), () => setAccount(false)), []);
   useEffect(() => appliquerIcones(), []);
   // 👥 Liens d'invitation (fr.assomoutain.rando://rejoindre?c=…) et synchro des Buddies.
   useEffect(() => ecouterBuddies(setToast, () => setBuddies(true)), []);
@@ -1581,8 +1584,13 @@ export function App() {
           </div>
         </div>
       )}
-      {/* Panneau d'accueil : une seule fois, à la première ouverture (Seb, 26/11). */}
-      <Accueil />
+      {/* Panneau d'accueil : une seule fois, à la première ouverture (Seb, 26/11), après l'écran de connexion (Seb, 27/11) ;
+          « C'est parti » la 1re fois mène à la carte vue de haut, centrée sur ma position. */}
+      {!account && <Accueil onPremiereFois={() => {
+        map?.easeTo({ zoom: VUE_DE_HAUT, duration: 800 });
+        navigator.geolocation?.getCurrentPosition((p) => map?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: VUE_DE_HAUT, duration: 800 }),
+          () => undefined, { enableHighAccuracy: false, timeout: 20_000, maximumAge: 600_000 });
+      }} />}
       {arrivees.length > 0 && !maj.build && (
         <div className="maj-voile" onClick={vuArrivees}>
           <div className="maj-fenetre notifs-fenetre" role="dialog" aria-label="Pendant ton absence" onClick={(ev) => ev.stopPropagation()}>
