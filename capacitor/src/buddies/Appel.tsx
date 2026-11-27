@@ -88,6 +88,7 @@ export function EcranSonnerie({ onToast }: { onToast: (m: string) => void }) {
 /** Écran 24 : la barre d'appel en haut, la carte reste à l'écran. */
 export function BarreAppel() {
   const e = useAppel();
+  const b = useBuddies();
   const [, tic] = useState(0);
   useEffect(() => {
     if (!e || e.phase === 'sonne') return;
@@ -95,34 +96,21 @@ export function BarreAppel() {
     return () => clearInterval(t);
   }, [e]);
   if (!e || e.phase === 'sonne' || (e.phase === 'connexion' && e.de)) return null;
-  if (e.suit) return <BarreSuivie e={e} />;
   const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
   const titre = annonce ? annonce : e.jeMontre ? 'Tu montres ta carte'
     : e.phase === 'en_ligne' ? `En ligne · ${duree(Date.now() - (e.debut ?? Date.now()))}` : e.phase === 'connexion' ? 'Connexion…' : 'Ça sonne…';
-  return <div className={`ap-barre${annonce || e.jeMontre ? ' ap-annonce' : ''}`}>
+  // 🗺 Une seule personne montre sa carte : chez les autres, l'icône carte devient son badge (un appui : on arrête de suivre).
+  const suit = e.suit;
+  const guide = suit ? appliquer(b).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null } : null;
+  return <div className={`ap-barre${annonce || e.jeMontre || suit ? ' ap-annonce' : ''}`}>
     <span className="ap-icone">📞</span>
     <span className="bd-texte"><b>{titre}</b><small>{e.phase === 'en_ligne' ? enLigne(e) : e.nom}</small>
-      {e.phase === 'en_ligne' && !e.jeMontre && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
-    {e.phase === 'en_ligne' && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
+      {e.phase === 'en_ligne' && !e.jeMontre && !suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
+    {e.phase === 'en_ligne' && guide && <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${guide.pseudo}`} onClick={reprendreMaCarte}>
+      <Visage b={guide} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>}
+    {e.phase === 'en_ligne' && !guide && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
       className={e.jeMontre ? 'allume' : ''} onClick={() => montrerMaCarte(!e.jeMontre)}>
       <IconeSuisCarte /></button>}
-    <button aria-label={e.muet ? 'Remettre le micro' : 'Couper le micro'} className={e.muet ? 'muet' : ''} onClick={() => void couperMicro(!e.muet)}>{e.muet ? '🔇' : '🎙'}</button>
-    <button className="ap-rouge" aria-label="Raccrocher" onClick={() => void raccrocher()}>✕</button>
-  </div>;
-}
-
-/**
- * 🗺 Ma carte suit celle d'un buddy (Seb, 27/11) : à gauche son badge avec l'icône carte dessus, et Stop ; à droite,
- * les boutons du téléphone comme d'habitude (micro, raccrocher).
- */
-function BarreSuivie({ e }: { e: EtatAppel }) {
-  const b = useBuddies();
-  const suit = e.suit!;
-  const lui = appliquer(b).flatMap((g) => g.membres).find((m) => m.id === suit.id) ?? { id: suit.id, pseudo: suit.pseudo, photo: null };
-  return <div className="ap-barre ap-annonce ap-suivie">
-    <span className="ap-guide" aria-label={`Carte de ${suit.pseudo}`}><Visage b={lui} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></span>
-    <button className="ap-stop" onClick={reprendreMaCarte}>Stop</button>
-    <span className="bd-texte"><small>{duree(Date.now() - (e.debut ?? Date.now()))}</small></span>
     <button aria-label={e.muet ? 'Remettre le micro' : 'Couper le micro'} className={e.muet ? 'muet' : ''} onClick={() => void couperMicro(!e.muet)}>{e.muet ? '🔇' : '🎙'}</button>
     <button className="ap-rouge" aria-label="Raccrocher" onClick={() => void raccrocher()}>✕</button>
   </div>;
