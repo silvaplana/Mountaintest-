@@ -44,21 +44,38 @@ export function epingleSurCarte(map: MlMap, lon: number, lat: number, texte: str
 }
 
 const rangees = new WeakSet<MlMap>();
+type Boite = { l: number; r: number; t: number; b: number };
+const boite = (x: Element): Boite => { const r = x.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
+const touche = (a: Boite, b: Boite, m = 3) => a.l < b.r + m && a.r > b.l - m && a.t < b.b + m && a.b > b.t - m;
+const decale = (a: Boite, dx: number): Boite => ({ ...a, l: a.l + dx, r: a.r + dx });
+
 /**
- * Étiquettes des épingles et des voitures au même endroit (Seb, 27/11 : illisibles l'une sur l'autre) : on les
- * empile vers le haut, sans bouger les épingles. Refait après chaque zoom et à chaque nouvelle épingle.
+ * Rien ne se superpose (Seb, 27/11 : noms et voitures illisibles l'un sur l'autre) : 1. les épingles et les
+ * voitures au même endroit s'écartent côte à côte (propriété CSS `translate`, qui s'ajoute au placement de
+ * MapLibre), sans couvrir mon point bleu ; 2. leurs étiquettes s'empilent vers le haut, au-dessus des icônes.
+ * Refait après chaque zoom et à chaque nouvelle épingle ou voiture.
  */
 export function rangerEtiquettes(map: MlMap) {
   if (!rangees.has(map)) { rangees.add(map); map.on('zoomend', () => rangerEtiquettes(map)); }
   requestAnimationFrame(() => {
+    const c = map.getContainer();
+    const marques = [...c.querySelectorAll<HTMLElement>('.bd-pin, .bd-voiture-carte')];
+    marques.forEach((m) => { m.style.translate = ''; });
+    const icone = (m: HTMLElement) => m.querySelector('svg, .bd-auto') ?? m;
+    const fixes = [...c.querySelectorAll('.maplibregl-user-location-dot')].map(boite);
+    const placees: Boite[] = [...fixes];
+    for (const m of marques.map((m) => ({ m, x: boite(icone(m)) })).sort((a, b) => a.x.l - b.x.l)) {
+      const pas = m.x.r - m.x.l + 6;
+      let dx = 0;
+      for (let k = 1; k < 20 && placees.some((p) => touche(decale(m.x, dx), p)); k++) dx = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * pas;
+      if (dx) m.m.style.translate = `${dx}px 0`;
+      placees.push(decale(m.x, dx));
+    }
     const ls = [...map.getContainer().querySelectorAll<HTMLElement>('.bd-pin b, .bd-voiture-carte b')];
     ls.forEach((b) => b.style.setProperty('--dy', '0px'));
     const rs = ls.map((b) => ({ b, r: b.getBoundingClientRect() })).sort((x, y) => y.r.bottom - x.r.bottom);
-    // Les épingles et les voitures ne bougent pas : les étiquettes passent au-dessus d'elles, sans les cacher.
-    const poses = [...map.getContainer().querySelectorAll('.bd-pin svg, .bd-voiture-carte .bd-auto')].map((x) => {
-      const r = x.getBoundingClientRect();
-      return { l: r.left, r: r.right, t: r.top, b: r.bottom };
-    });
+    // Les étiquettes passent au-dessus des icônes (déjà écartées) et de mon point, sans les cacher.
+    const poses = [...placees];
     for (const { b, r } of rs) {
       let dy = 0;
       for (let n = 0; n < 12; n++) {
