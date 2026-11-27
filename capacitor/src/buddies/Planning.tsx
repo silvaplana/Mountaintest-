@@ -5,7 +5,7 @@ import {
   type Buddy, type Etat3, type Groupe, type Planning, type Sortie,
 } from './store';
 import { couleur, lienReutilisable, Natif, PartagerIcon, Visage } from './Buddies';
-import { nomAffiche } from '../compte/auth';
+import { initialesDe, nomAffiche } from '../compte/auth';
 
 /**
  * Planning de saison (spec/buddies.md §5.5, écrans 16 à 19) : une bande propose des dates sur quelques mois,
@@ -285,7 +285,7 @@ export function MesDispos({ p, g, onRetour, onClose }: { p: Planning; g?: Groupe
           <span className="bd-texte"><b>{ligneCourte(dt)}</b><small>{dt[0] === dt[1] ? '' : `${jourSemaine(dt[0])} – ${jourSemaine(dt[1])}`}</small></span>
           <span className="bd-dispo-autres">{autres.map(({ b, x }) =>
             <span key={b.id} className={`bd-dispo-autre ${x!.etat}`} title={x!.mot || undefined}>
-              <i style={{ background: couleur(b.id) }}>{(b.pseudo || '?').slice(0, 1).toUpperCase()}</i>{SIGNE[x!.etat]}{x!.mot ? ' 💬' : ''}</span>)}</span>
+              <i style={{ background: couleur(b.id) }}>{b.initiales || initialesDe(b.pseudo || '?')}</i>{SIGNE[x!.etat]}{x!.mot ? ' 💬' : ''}</span>)}</span>
           <button {...long} className={`bd-case bd-case-seule ${r?.etat ?? ''}`} aria-label={r ? `Ma réponse : ${r.etat}` : 'Répondre'} onClick={toucher}>
             {r ? SIGNE[r.etat] : '·'}</button>
         </div>

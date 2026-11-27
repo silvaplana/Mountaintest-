@@ -53,7 +53,7 @@ export type Etat = {
   email?: string | null;
   profil?: Profil;
   /** Changements faits hors ligne, envoyés au retour du réseau. */
-  attente?: { pseudo?: string; wero?: boolean } & Infos & Partial<MaVoitureInfos>;
+  attente?: { pseudo?: string; wero?: boolean; photo?: string } & Infos & Partial<MaVoitureInfos>;
   /** Dernier échange réussi avec le serveur (ms). */
   synchro?: number;
   /** Logto a refusé le jeton : se reconnecter (quand il y aura du réseau). */
@@ -273,6 +273,13 @@ export async function changerPseudo(pseudo: string): Promise<Etat> {
   if (!p) throw new Error('Le pseudo ne peut pas être vide');
   const e = lire();
   ecrire({ ...e, profil: e.profil ? { ...e.profil, pseudo: p } : e.profil, attente: { ...e.attente, pseudo: p } });
+  try { return await synchroniser(); } catch { return lire(); }
+}
+
+/** Ma photo (Seb, 27/11) : JPEG réduit en data: URL, ou "" pour la retirer. Elle prime sur celle de Google. */
+export async function changerPhoto(photo: string): Promise<Etat> {
+  const e = lire();
+  ecrire({ ...e, profil: e.profil ? { ...e.profil, photo: photo || null } : e.profil, attente: { ...e.attente, photo } });
   try { return await synchroniser(); } catch { return lire(); }
 }
 

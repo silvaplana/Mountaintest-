@@ -1476,7 +1476,9 @@ OPERATIONS = {
 # ------------------------------------------------------------------ synchro
 
 def personne(u: Utilisateur) -> dict[str, Any]:
-    return {"id": str(u.id), "pseudo": u.pseudo or (u.email or "").split("@")[0], "photo": u.photo}
+    # Initiales du rond (« SR » pour Sébastien Richard) ; le prénom et le nom eux-mêmes ne partent pas chez les buddies.
+    initiales = (u.prenom[:1] + u.nom[:1]).upper() if u.prenom and u.nom else ""
+    return {"id": str(u.id), "pseudo": u.pseudo or (u.email or "").split("@")[0], "photo": u.photo, "initiales": initiales}
 
 
 def vue_groupe(s: Session, g: Groupe) -> dict[str, Any]:

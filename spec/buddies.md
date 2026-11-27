@@ -926,9 +926,12 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   voient ces positions (pas le Me Time) ; oubliées après 48 h comme les autres.
 - **Sur la carte principale, toujours** (Seb, 27/11 : la position partagée depuis le PC ne se voyait pas sur le
   téléphone) : les buddies qui me montrent leur position en ce moment y ont une simple épingle rouge (même dessin
-  que les épingles des traces, Seb 27/11 : pas de rond aux initiales), avec l'étiquette « pseudo · heure », comme
+  que les épingles des traces, Seb 27/11 : pas de gros rond aux initiales), avec l'étiquette « pseudo · heure »
+  précédée d'une petite photo, sinon des initiales « SR » (Seb, 27/11), comme
   les voitures, sans passer par la liste. Rien ne se superpose (Seb, 27/11) : épingles et voitures au même endroit
-  s'écartent côte à côte, sans couvrir mon point bleu, et leurs étiquettes s'empilent vers le haut, au-dessus des
+  s'écartent juste autour de leur endroit (cercles de plus en plus grands), reliées à leur vrai point par un fin trait
+  terminé par un rond, sans couvrir mon point bleu, à chaque image du zoom ; la voiture a une aiguille dont le rond
+  touche l'endroit exact, et plus d'heure au-dessus (l'appui la montre), et leurs étiquettes s'empilent vers le haut, au-dessus des
   icônes ; refait à chaque zoom. Synchro toutes les 2 minutes, appli ouverte, pour recevoir positions et voitures garées.
 - **Push silencieux** (Seb, 27/11) : garer ou enlever sa voiture, allumer ou éteindre sa position envoie aux membres
   de mes groupes un message Firebase `type: synchro`, sans rien afficher ; appli à l'écran, elle se synchronise
@@ -1033,6 +1036,11 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   l'e-mail, le rôle (« Super User » ou « Membre »). Rubriques : **Mes infos** (Prénom, Nom, Pseudo vu par les amis,
   Téléphone facultatif), **Remboursements** (« Mon IBAN (facultatif, pour les remboursements) », « J'ai Wero »),
   **Paramètres** (synchro, point décalé du doigt, côté des icônes), puis Se déconnecter.
+- **Ma photo** (Seb, 27/11) : un appui sur la pastille pour prendre une photo ou la choisir (réduite à 256 px),
+  « Retirer ma photo » dessous. Par défaut, la photo du compte Google ; celle choisie prime, et une photo retirée
+  ne revient pas (`""` en base). **Initiales partout** (ronds du planning, groupes, messagerie, voitures, étiquettes
+  des positions) : prénom + nom du profil (« SR » pour Sébastien Richard), sinon une lettre par mot du pseudo ; le
+  serveur envoie seulement `initiales` aux buddies, pas le prénom ni le nom.
 - **Hors ligne** : chaque champ s'enregistre quand on le quitte, tout de suite sur le téléphone, et part au serveur au
   retour du réseau (même file que le pseudo, `attente` de `compte/auth.ts`). L'e-mail vient de la connexion (Logto).
 - **Serveur** : colonnes `prenom`, `nom`, `telephone`, `iban` de `utilisateurs`, `GET/PUT /moi`. L'IBAN est vérifié

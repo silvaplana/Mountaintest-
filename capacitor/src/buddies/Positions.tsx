@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
 import { initialesDe, lire as lireCompte } from '../compte/auth';
 import { epingleSurCarte, rangerEtiquettes } from '../PinLayer';
-import { Natif, useBuddies, Visage } from './Buddies';
+import { couleur, Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
 import { voitures3d } from './voitures3d';
 import { COULEURS, dessinVoiture, FORMES, NOMS_COULEURS, type Couleur, type Forme } from './voitureDessin';
@@ -35,13 +35,14 @@ export function PositionsSurCarte({ map, x }: { map: MlMap | null; x: Sortie }) 
 }
 
 function VisagesSurCarte({ map, rs }: { map: MlMap | null; rs: Repere[] }) {
-  const cle = rs.map((r) => `${r.b.id}${r.b.pseudo}${r.p.lat}${r.p.lon}${etiquette(r)}${r.actif}`).join();
+  const cle = rs.map((r) => `${r.b.id}${r.b.pseudo}${r.b.photo}${r.b.initiales}${r.p.lat}${r.p.lon}${etiquette(r)}${r.actif}`).join();
   useEffect(() => {
     if (!map || !rs.length) return;
     const ms = rs.map((r) => {
       // Une épingle toute simple, et le pseudo en entier avec l'heure (Seb, 27/11).
       const mk = epingleSurCarte(map, r.p.lon, r.p.lat, r.moi ? 'toi' : `${r.b.pseudo} · ${heureCourte(r.p.prise_le)}`,
-        r.moi ? 'moi' : r.actif ? '' : 'vieux');
+        r.moi ? 'moi' : r.actif ? '' : 'vieux',
+        r.moi ? undefined : { photo: r.b.photo, initiales: r.b.initiales || initialesDe(r.b.pseudo), couleur: couleur(r.b.id) });
       mk.getElement().style.opacity = String(opacite(r));
       return mk;
     });
@@ -256,7 +257,7 @@ export async function basculerVoiture(onToast: (m: string) => void) {
 export function VoituresSurCarte({ map }: { map: MlMap | null }) {
   const e = useBuddies();
   const moi = e.moi ?? 'moi';
-  const gens = new Map([...appliquer(e).flatMap((g) => g.membres), ...vue(e).sorties.flatMap((x) => x.participants)].map((b) => [b.id, b.pseudo]));
+  const gens = new Map([...appliquer(e).flatMap((g) => g.membres), ...vue(e).sorties.flatMap((x) => x.participants)].map((b) => [b.id, b]));
   // Ma voiture : celle de mon profil sur ce téléphone, sans attendre le serveur.
   const p = lireCompte().profil;
   const vs = voitures(e).map((v) => v.qui === moi && p ? { ...v, modele: p.voiture_modele, forme: p.voiture_forme, couleur: p.voiture_couleur } : v);
@@ -266,8 +267,6 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
     const ms = vs.map((v) => {
       const el = document.createElement('div');
       el.className = 'bd-voiture-carte';
-      const h = document.createElement('b');
-      h.textContent = heureCourte(v.garee_le);
       const auto = document.createElement('span');
       auto.className = 'bd-auto';
       const forme = FORMES.includes(v.forme as Forme) ? v.forme as Forme : null;
@@ -276,8 +275,9 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
       if (forme) { auto.classList.add('dessin'); auto.innerHTML = dessinVoiture(forme, couleur, 96); } else auto.textContent = '🚗';
       const badge = document.createElement('i');
       if (v.qui === moi) badge.className = 'moi';
-      const pseudo = gens.get(v.qui) ?? (v.qui === moi ? moiBuddy(e).pseudo : '?');
-      badge.textContent = initiales(pseudo);
+      const b = gens.get(v.qui) ?? (v.qui === moi ? moiBuddy(e) : undefined);
+      const pseudo = b?.pseudo ?? '?';
+      badge.textContent = b?.initiales || initiales(pseudo);
       auto.append(badge);
       // Un appui : « Julie · garée à 9 h 05 » et « Dacia Duster bleue », quelques secondes.
       const info = document.createElement('em');
@@ -293,7 +293,13 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
         clearTimeout(minuterie);
         minuterie = window.setTimeout(() => el.classList.remove('ouvert'), 5000);
       });
-      el.append(info, h, auto);
+      // Une aiguille sous la voiture : son rond touche l'endroit exact où elle est garée (Seb, 27/11).
+      const pointe = document.createElement('span');
+      pointe.className = 'bd-pointe';
+      el.dataset.lon = String(v.lon);
+      el.dataset.lat = String(v.lat);
+      // Plus d'heure au-dessus (Seb, 27/11 : trop de choses superposées) : l'appui la montre, avec à qui elle est.
+      el.append(info, auto, pointe);
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([v.lon, v.lat]).addTo(map);
     });
     rangerEtiquettes(map);
