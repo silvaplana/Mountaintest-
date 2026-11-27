@@ -9,6 +9,7 @@ import type { PluginListenerHandle } from '@capacitor/core';
 type Opened = { name?: string; text?: string; error?: string };
 const TraceFile = registerPlugin<{
   pick(): Promise<{ cancelled?: boolean; files?: Opened[] }>;
+  pickFolder(): Promise<{ cancelled?: boolean; files?: Opened[] }>;
   addListener(e: 'opened', cb: (r: Opened) => void): Promise<PluginListenerHandle>;
 }>('TraceFile');
 
@@ -37,4 +38,11 @@ export async function pickTraceFiles(): Promise<Opened[]> {
     };
     input.click();
   });
+}
+
+/** 📁 Tous les fichiers de trace d'un dossier choisi (Android seulement ; vide si annulé). */
+export const canPickFolder = () => Capacitor.getPlatform() === 'android';
+export async function pickTraceFolder(): Promise<Opened[]> {
+  const r = await TraceFile.pickFolder();
+  return r.cancelled ? [] : r.files ?? [];
 }

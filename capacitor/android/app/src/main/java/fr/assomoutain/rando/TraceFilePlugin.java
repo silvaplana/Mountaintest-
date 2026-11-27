@@ -139,6 +139,56 @@ public class TraceFilePlugin extends Plugin {
         }).start();
     }
 
+    /**
+     * 📁 Reprendre tout un dossier (Seb, 27/11 : après une réinstallation, les GPX de Téléchargements/Mountain Buddies
+     * d'un coup). Android demande de choisir le dossier (ouvert sur Mountain Buddies) : c'est ce choix qui donne le droit de le lire.
+     */
+    @PluginMethod
+    public void pickFolder(PluginCall call) {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        if (Build.VERSION.SDK_INT >= 26) i.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
+                DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Download/" + TraceShare.FOLDER));
+        startActivityForResult(call, i, "folderPicked");
+    }
+
+    @ActivityCallback
+    private void folderPicked(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        Uri tree = result.getData() != null ? result.getData().getData() : null;
+        if (result.getResultCode() != Activity.RESULT_OK || tree == null) {
+            JSObject r = new JSObject();
+            r.put("cancelled", true);
+            call.resolve(r);
+            return;
+        }
+        Context ctx = getContext();
+        new Thread(() -> {
+            JSArray files = new JSArray();
+            Uri enfants = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
+            try (Cursor c = ctx.getContentResolver().query(enfants, new String[]{
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME}, null, null, null)) {
+                while (c != null && c.moveToNext()) {
+                    String nom = c.getString(1);
+                    if (nom == null || !nom.toLowerCase().matches(".*\\.(gpx|kml|geojson|json)$")) continue;
+                    JSObject f = new JSObject();
+                    f.put("name", nom);
+                    try {
+                        f.put("text", readText(ctx, DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0))));
+                    } catch (Exception e) {
+                        f.put("error", String.valueOf(e.getMessage()));
+                    }
+                    files.put(f);
+                }
+            } catch (Exception e) {
+                call.reject("Lecture du dossier impossible : " + e.getMessage());
+                return;
+            }
+            JSObject r = new JSObject();
+            r.put("files", files);
+            call.resolve(r);
+        }).start();
+    }
+
     /** Dossier du dernier fichier choisi, sinon Téléchargements. */
     static Uri initialUri(Context ctx) {
         SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
