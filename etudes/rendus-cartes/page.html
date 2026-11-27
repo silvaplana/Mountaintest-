@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8">
+<!-- Page d'étude : un fond de carte par appel (?map=scan25|plan|piste1|otm|hd&zone=...&z=...). -->
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/maplibre-contour@0.0.7/dist/index.min.js"></script>
+<style>html,body,#m{margin:0;height:100%}</style></head><body><div id="m"></div><script>
+const q = new URLSearchParams(location.search);
+const zones = { ailefroide: [6.445, 44.885], laciotat: [5.615, 43.19] };
+const wmts = (layer, fmt, priv) => `https://data.geopf.fr/${priv ? 'private/' : ''}wmts?${priv ? 'apikey=ign_scan_ws&' : ''}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer}&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=${fmt}`;
+const raster = (url, max) => ({ type: 'raster', tiles: [url], tileSize: 256, maxzoom: max || 18 });
+const style = { version: 8, glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf', sources: {}, layers: [] };
+const add = (id, src, paint) => { style.sources[id] = src; style.layers.push({ id, type: 'raster', source: id, paint: paint || {} }); };
+const m = q.get('map');
+if (m === 'scan25') add('s', raster(wmts('GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR', 'image/jpeg', true), 16));
+if (m === 'plan' || m === 'piste1') add('p', raster(wmts('GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', 'image/png'), 19));
+if (m === 'hd') add('h', raster(wmts(q.get('layer'), q.get('fmt') || 'image/png'), 19));
+if (m === 'otm') add('o', raster('https://tile.opentopomap.org/{z}/{x}/{y}.png', 17));
+if (m === 'piste1') {
+  // Relief ombré + courbes de niveau calculés depuis un modèle de terrain, sentiers balisés OSM par-dessus.
+  const dem = new mlcontour.DemSource({ url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png', encoding: 'terrarium', maxzoom: 13, worker: false });
+  dem.setupMaplibre(maplibregl);
+  style.sources.dem = { type: 'raster-dem', encoding: 'terrarium', tiles: [dem.sharedDemProtocolUrl], maxzoom: 13, tileSize: 256 };
+  style.layers.push({ id: 'ombre', type: 'hillshade', source: 'dem', paint: { 'hillshade-exaggeration': 0.45, 'hillshade-shadow-color': '#3a3f4a', 'hillshade-highlight-color': '#ffffff' } });
+  style.sources.courbes = { type: 'vector', maxzoom: 15, tiles: [dem.contourProtocolUrl({ multiplier: 1, thresholds: { 11: [100, 500], 12: [50, 250], 13: [20, 100], 14: [10, 50], 15: [10, 50] }, elevationKey: 'ele', levelKey: 'level', contourLayer: 'contours' })] };
+  style.layers.push({ id: 'courbes', type: 'line', source: 'courbes', 'source-layer': 'contours', paint: { 'line-color': '#a0703c', 'line-opacity': ['match', ['get', 'level'], 1, 0.75, 0.4], 'line-width': ['match', ['get', 'level'], 1, 1.1, 0.5] } });
+  style.layers.push({ id: 'cotes', type: 'symbol', source: 'courbes', 'source-layer': 'contours', filter: ['>', ['get', 'level'], 0], layout: { 'symbol-placement': 'line', 'text-field': ['to-string', ['get', 'ele']], 'text-font': ['Noto Sans Regular'], 'text-size': 10 }, paint: { 'text-color': '#8a5a2a', 'text-halo-color': '#fff', 'text-halo-width': 1.2 } });
+  add('sentiers', raster('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', 17), { 'raster-opacity': 0.9 });
+}
+const map = new maplibregl.Map({ container: 'm', style, center: zones[q.get('zone')], zoom: +q.get('z') || 14, attributionControl: false, fadeDuration: 0 });
+map.on('idle', () => setTimeout(() => { window.pret = true; }, 1500));
+setTimeout(() => { window.pret = true; }, 40000);
+</script></body></html>

@@ -1,0 +1,23 @@
+# Étude ponctuelle (fil Play Store, accord de Seb le 27/11) : captures des fonds de carte gratuits.
+# Ne tourne que sur la branche d'étude, jamais sur main.
+name: Rendus des fonds de carte (étude)
+on:
+  push:
+    branches: [claude/project-thread-w7pboi]
+    paths: ['etudes/rendus-cartes/page.html', 'etudes/rendus-cartes/rendre.mjs', '.github/workflows/rendus-cartes.yml']
+permissions:
+  contents: write
+jobs:
+  rendre:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: etudes/rendus-cartes } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm init -y >/dev/null && npm i playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: node rendre.mjs
+      - name: Garder les captures sur la branche d'étude
+        run: |
+          git config user.name "github-actions" && git config user.email "actions@github.com"
+          git add out && git commit -m "Map renders for the free basemap study" && git push
