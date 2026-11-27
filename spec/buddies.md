@@ -1084,4 +1084,4 @@ validées par Seb le 27/11).
   (« Message d'une personne bloquée · Afficher »), elle ne voit plus ma position ni ma voiture, et ses messages ne
   me notifient plus.
 - **Pages publiques** (`capacitor/public/`) : `conditions.html` et `confidentialite.html` (liens dans Profil › Mon
-  compte), à compléter par Seb (responsable et contact).
+  compte) ; responsable Sébastien Richard, contact mountainbuddies@silvaplana.cloud (renvoi vers son Gmail).
