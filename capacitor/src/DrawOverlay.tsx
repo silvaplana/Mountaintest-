@@ -25,6 +25,8 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
 }) {
   const el = useRef<HTMLDivElement>(null);
   const pts = useRef<[number, number][]>([]);
+  /** Les mêmes points en lon/lat, pour le trait partagé en direct. */
+  const geo = useRef<LonLat[]>([]);
   const [path, setPath] = useState('');
   /** ⊕ Viseur : là où le trait se pose, 1 cm au-dessus du doigt. */
   const [vis, setVis] = useState<[number, number] | null>(null);
@@ -60,14 +62,15 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
       if (Math.hypot(p[0] - last[0], p[1] - last[1]) < 6) return;
       pts.current.push(p);
       setPath(toD(pts.current));
-      cb.current.onTrait?.(lonlat(pts.current));
+      // La carte ne bouge pas pendant le geste : seul le nouveau point est converti (avant : tous, à chaque point).
+      if (cb.current.onTrait) { geo.current.push(...lonlat([p])); cb.current.onTrait(geo.current); }
     };
     const up = () => {
       if (!trace) return;
       annuleTresLong();
       trace = false; fin(); setVis(null);
       const p = pts.current;
-      pts.current = [];
+      pts.current = []; geo.current = [];
       cb.current.onTrait?.([]);
       let len = 0;
       for (let i = 1; i < p.length; i++) len += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
@@ -88,14 +91,14 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
         trace = true;
         map.dragPan.disable(); map.touchZoomRotate.disable();
         navigator.vibrate?.(30);
-        pts.current = [local(depart)]; setVis(local(depart)); setPath('');
+        pts.current = [local(depart)]; geo.current = lonlat(pts.current); setVis(local(depart)); setPath('');
         window.addEventListener('pointermove', move, true);
         window.addEventListener('pointerup', up, true);
         window.addEventListener('pointercancel', up, true);
         // Encore immobile un moment : c'est le rectangle de sélection, pas un trait (deuxième vibration).
         tresLong = setTimeout(() => {
           tresLong = null;
-          trace = false; fin(); setVis(null); setPath(''); pts.current = [];
+          trace = false; fin(); setVis(null); setPath(''); pts.current = []; geo.current = [];
           navigator.vibrate?.([30, 60, 30]);
           const r = zone.getBoundingClientRect();
           cb.current.onSelect({ x: depart.clientX - r.left, y: depart.clientY - r.top });

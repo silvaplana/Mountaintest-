@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Map as MlMap } from 'maplibre-gl';
+import type { GeoJSONSource, Map as MlMap } from 'maplibre-gl';
 import type { BaseMode } from '../config';
 import type { Trail } from '../trails/osmTrails';
 import { saveTrace } from '../trails/savedTraces';
@@ -8,10 +8,12 @@ import type { LonLat } from '../trails/osmTrails';
 import { useAppel } from './Appel';
 import { tracesAEnvoyer, tracesAMontrer, tracesInvitees, type TraceEnvoyee } from './carteSuivie';
 import { isMine } from '../trails/route';
+import { noter } from './journal';
 
 const FONDS: string[] = ['auto', 'scan25', 'planign'];
 /** Identifiants des traces invitées à part : le trait en direct et la trace du profil. */
 const ID_TRAIT = 9e12 + 500, ID_PROFIL = 9e12 + 900;
+const CALQUE_TRAIT = 'suivie-trait';
 const r5 = (l: LonLat[]) => l.map((p) => [+p.lon.toFixed(5), +p.lat.toFixed(5)] as [number, number]);
 
 /** ✏ Le trait que je dessine part en direct (4 fois par seconde au plus) quand je montre ma carte. */
@@ -50,6 +52,7 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
   /** Quand je ne suis plus (« Reprendre ma carte », fin d'appel) : garder ses traces ? */
   const [proposer, setProposer] = useState<{ de: string; traces: TraceEnvoyee[] } | null>(null);
   const recuesRef = useRef(recues); recuesRef.current = recues;
+  const tracesRecuesCle = useRef('');
   const suitRef = useRef(suit);
   const fondRef = useRef(fond); fondRef.current = fond;
   const mesRef = useRef(mes); mesRef.current = mes;
@@ -102,7 +105,11 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
         if (k.fond !== fondRef.current && FONDS.includes(k.fond)) onFondRef.current(k.fond as BaseMode);
         const cq = k.cq, mien = calquesRef.current;
         if (cq && (cq.pente !== mien.pente || cq.ombres !== mien.ombres || cq.drones !== mien.drones || cq.meteo !== mien.meteo)) onCalquesRef.current(cq);
-      } else if ('traces' in m) setRecues(m.traces);
+      } else if ('traces' in m) {
+        // Le rattrapage renvoie les mêmes traces toutes les 4 s : ne tout redessiner que si elles ont changé.
+        const k = JSON.stringify(m.traces);
+        if (k !== tracesRecuesCle.current) { tracesRecuesCle.current = k; setRecues(m.traces); noter('traces reçues changées', m.traces.length, `${m.traces.reduce((a, t) => a + t.ligne.length, 0)} pts`); }
+      }
       else if ('trait' in m) setTrait(m.trait);
       else if ('profil' in m) {
         const p = m.profil;
@@ -117,16 +124,32 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
     if (avant && avant.id !== suit?.id) {
       const ts = recuesRef.current.filter((t) => t.ligne.length >= 2);
       if (ts.length) setProposer({ de: avant.pseudo, traces: ts });
-      setRecues([]); setTrait([]);
+      setRecues([]); setTrait([]); tracesRecuesCle.current = '';
       if (profilRef.current?.id === ID_PROFIL) onProfilRef.current(null);
     }
   }, [suit?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!suit) { onInvitees([]); return; }
-    const ts = tracesInvitees(recues, suit.pseudo);
-    if (trait.length >= 2) ts.push({ ...tracesInvitees([{ id: 0, nom: '✏', couleur: '#e8590c', ligne: trait }], suit.pseudo)[0], id: ID_TRAIT });
-    onInvitees(ts);
-  }, [recues, trait, suit?.pseudo]); // eslint-disable-line react-hooks/exhaustive-deps
+    onInvitees(tracesInvitees(recues, suit.pseudo));
+  }, [recues, suit?.pseudo]); // eslint-disable-line react-hooks/exhaustive-deps
+  /**
+   * ✏ Le trait en direct (Seb, 27/11 : « ça s'écroule quand on trace ») : il arrivait 4 fois par seconde dans les
+   * traces de l'appli, qui redessinait alors TOUTES les traces de la carte (flèches, départs, arrivées) et tout
+   * l'écran. Il a maintenant son propre petit calque : seule sa ligne change.
+   */
+  useEffect(() => {
+    if (!map) return;
+    const data: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: trait.length >= 2
+      ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: trait } }] : [] };
+    try {
+      const src = map.getSource(CALQUE_TRAIT) as GeoJSONSource | undefined;
+      if (src) { src.setData(data); return; }
+      if (!trait.length) return;
+      map.addSource(CALQUE_TRAIT, { type: 'geojson', data });
+      map.addLayer({ id: CALQUE_TRAIT, type: 'line', source: CALQUE_TRAIT, layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#e8590c', 'line-width': 5, 'line-opacity': 0.9 } });
+    } catch { /* style en cours de chargement : le prochain envoi (4 s au plus) le pose */ }
+  }, [map, trait]);
 
   if (proposer) {
     const garder = async () => {

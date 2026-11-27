@@ -24,9 +24,11 @@ type Ligne = { cle: string; nom: string; sous: string; visage: { id: string; nom
  * La même feuille sert à « Partager ma carte avec qui ? » (Seb, 27/11) : `choix` remplace l'appel, `memoire` garde
  * ses propres derniers choix, `icone` remplace le téléphone au bout des lignes.
  */
-export function AppelerQui({ onClose, onToast, titre = 'Appeler qui ?', verbe = 'Appeler', choix, memoire = CLE, icone }: {
+export function AppelerQui({ onClose, onToast, titre = 'Appeler qui ?', verbe = 'Appeler', choix, memoire = CLE, icone, pied }: {
   onClose: () => void; onToast: (m: string) => void;
   titre?: string; verbe?: string; choix?: (dest: Dest, nom: string) => void; memoire?: string; icone?: ReactNode;
+  /** Sous la liste (le partage de carte : « Envoyer le journal »). */
+  pied?: ReactNode;
 }) {
   const e = useBuddies();
   const [q, setQ] = useState('');
@@ -71,6 +73,7 @@ export function AppelerQui({ onClose, onToast, titre = 'Appeler qui ?', verbe = 
         {gs.map(ligne)}
         {bs.length > 0 && <div className="aq-titre">BUDDIES</div>}
         {bs.map(ligne)}
+        {pied}
         {!gs.length && !bs.length && <div className="aq-vide">{q.trim() ? `Personne ne s'appelle « ${q.trim()} »` : `Pas encore de buddies${choix ? '' : ' à appeler'}`}</div>}
       </div>
     </div>

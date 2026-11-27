@@ -26,6 +26,7 @@ import { BarreAppel, DoigtsSurCarte, EcranSonnerie, PropositionCarteAppli, useAp
 import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
 import { appelEnCours, montrer, montrerMaCarte, montrerMaCarteDesQue, raccrocher, reprendreMaCarte, suivreUneCarte } from './buddies/appel';
 import { AppelerQui } from './buddies/AppelerQui';
+import { envoyerJournal } from './buddies/journalEnvoi';
 import { partagerMaCarteAvec } from './buddies/Buddies';
 import { IconeSuisCarte } from './buddies/IconeSuisCarte';
 import { appliquer as groupesBuddies, lire as lireBuddies, mesEpingles, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
@@ -1648,7 +1649,8 @@ export function App() {
       <DoigtsSurCarte map={map} onToast={setToast} />
       <PropositionCarteAppli onToast={setToast} />
       {partageQui && <AppelerQui titre="Partager ma carte avec qui ?" verbe="Partager ma carte avec" memoire="cartes-recentes" icone={<IconeSuisCarte />}
-        choix={(dest, nom) => partagerMaCarteAvec(dest, nom, setToast)} onClose={() => setPartageQui(false)} onToast={setToast} />}
+        choix={(dest, nom) => partagerMaCarteAvec(dest, nom, setToast)} onClose={() => setPartageQui(false)} onToast={setToast}
+        pied={<button className="aq-journal" onClick={() => void envoyerJournal(setToast)}>Envoyer le journal (quand ça a coincé)</button>} />}
       <BarreAppel />
       <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={trails} onInvitees={setInvitees} onToast={setToast}
         calques={{ pente: showSlopes, ombres: showShade, drones: showDrones, meteo: showWeather }}

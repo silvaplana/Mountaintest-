@@ -4,6 +4,7 @@
  * Même rôle côté Kotlin (Appel.kt).
  */
 import { Room, RoomEvent, Track, type Participant, type RemoteTrack } from 'livekit-client';
+import { noter } from './journal';
 import { api } from '../compte/auth';
 import { envoyerMessage, synchroniser } from './store';
 
@@ -55,6 +56,8 @@ const abonnes = new Set<(e: EtatAppel | null) => void>();
 /** 📍 Le repère d'un buddy (`pos` null : enlevé ; `id` '*' : tous enlevés, fin de l'appel). */
 export type Doigt = { id: string; qui: string; pos: [number, number] | null; moi?: boolean };
 const doigts = new Set<(d: Doigt) => void>();
+/** 📓 Nature d'un message reçu ou envoyé, pour le journal. */
+const natureDe = (m: object) => Object.keys(m).filter((k) => k !== 's' && k !== 'n' && k !== 'dn')[0] ?? '?';
 const cartes = new Set<(m: MsgCarte, de: Voix) => void>();
 const arrivees = new Set<() => void>();
 const sons: HTMLMediaElement[] = [];
@@ -209,11 +212,18 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     .on(RoomEvent.DataReceived, (data: Uint8Array, p?: Participant) => {
       try {
         const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] | null; dn?: number } & Partial<Record<'carte' | 'traces' | 'carteFin' | 'trait' | 'profil', unknown>>;
+        const k = natureDe(m);
+        if (k !== 'carte' || ((m as { n?: number }).n ?? 0) % 4 === 0) noter('←', k, `${data.length}o`, p?.name, `n${(m as { n?: number }).n ?? ''}`);
         if (p && 'doigt' in m) recevoirDoigt(m.doigt ?? null, m.dn ?? 0, { id: p.identity, pseudo: p.name || '?' });
         if (p && (m.carte || m.traces || m.carteFin || m.trait || 'profil' in m)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
       } catch { /* message inconnu : ignoré */ }
     })
-    .on(RoomEvent.Disconnected, () => { if (salle === room) fini(); });
+    .on(RoomEvent.Disconnected, (r?: unknown) => { noter('salle déconnectée', String(r ?? '')); if (salle === room) fini(); })
+    .on(RoomEvent.Reconnecting, () => noter('⚠ reconnexion…'))
+    .on(RoomEvent.Reconnected, () => noter('reconnecté'))
+    .on(RoomEvent.ConnectionQualityChanged, (q: unknown, p?: Participant) => noter('qualité', String(q), p?.name));
+  noter(muette ? (muette.montre ? 'salle carte : je montre' : 'salle carte : je suis') : 'salle appel', r.id);
+  surveiller(room);
   if (muette) {
     changer({ id: r.id, nom, dest: { groupe: r.groupe ?? undefined, sortie: r.sortie ?? undefined }, phase: 'en_ligne', voix: [], parle: [], muet: true,
       muette: true, carte: muette.carte, jeMontre: muette.montre });
@@ -243,7 +253,35 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
   minuteur = setTimeout(() => { if (etat?.phase === 'appel' && salle === room) void raccrocher(); }, ATTENTE_MS);
 }
 
+/**
+ * 📓 Toutes les 15 s tant qu'on est dans une salle : par où passe le son (UDP direct, ou TCP / relais quand les ports
+ * UDP sont fermés : ça rame), l'aller-retour, et pour la voix reçue les paquets perdus et la gigue.
+ */
+function surveiller(room: Room) {
+  const pcs = () => {
+    const m = (room as unknown as { engine?: { pcManager?: Record<'publisher' | 'subscriber', { _pc?: RTCPeerConnection } | undefined> } }).engine?.pcManager;
+    return [m?.subscriber?._pc, m?.publisher?._pc].filter((x): x is RTCPeerConnection => !!x);
+  };
+  const t = setInterval(() => {
+    if (salle !== room) { clearInterval(t); return; }
+    for (const pc of pcs()) void pc.getStats().then((r) => {
+      const par = new Map<string, Record<string, unknown>>();
+      r.forEach((v: Record<string, unknown>) => par.set(v.id as string, v));
+      let paire: Record<string, unknown> | undefined;
+      const voix: string[] = [];
+      par.forEach((v) => {
+        if (v.type === 'transport' && v.selectedCandidatePairId) paire = par.get(v.selectedCandidatePairId as string);
+        if (v.type === 'inbound-rtp' && v.kind === 'audio') voix.push(`voix reçue perdus=${v.packetsLost} gigue=${Math.round(Number(v.jitter ?? 0) * 1000)}ms`);
+      });
+      const l = paire && par.get(paire.localCandidateId as string), d = paire && par.get(paire.remoteCandidateId as string);
+      noter('réseau', l ? `${l.candidateType}/${l.protocol}→${d?.candidateType}/${d?.port}` : 'pas de route',
+        paire ? `rtt=${Math.round(Number(paire.currentRoundTripTime ?? 0) * 1000)}ms` : '', ...voix);
+    }).catch(() => undefined);
+  }, 15_000);
+}
+
 function fini() {
+  noter('fin de la salle');
   // 🗺 Je partageais ma carte en s'écrivant : « Seb a arrêté de partager sa carte » part dans le fil (Seb, 27/11).
   if (etat?.muette && etat.jeMontre && etat.carte) {
     envoyerMessage(etat.dest, { nature: 'carte_fin', texte: etat.carte });
@@ -298,6 +336,7 @@ export async function montrerMaCarteA(dest: Dest, nom: string) {
  * et je montre ma carte ; ceux qui touchent « Suivre » sur le message entrent dans la même salle.
  */
 export async function proposerMaCarte(dest: Dest, nom: string, creer: () => Promise<string>) {
+  noter('je partage ma carte avec', nom, etat ? '(déjà dans une salle)' : '');
   if (etat) return;
   const carte = await creer();
   const r = await api<{ id: string; url: string; jeton: string }>('POST', `/cartes/${carte}`);
@@ -306,6 +345,7 @@ export async function proposerMaCarte(dest: Dest, nom: string, creer: () => Prom
 }
 /** 🗺 « Suivre » sur un message « carte » du fil. */
 export async function suivreUneCarte(carte: string, dest: Dest, nom: string) {
+  noter('Suivre la carte de', nom, carte, etat ? `(salle ${etat.muette ? 'carte' : 'appel'} déjà ouverte)` : '');
   if (etat?.carte === carte) return;
   if (etat && !etat.muette) throw new Error('Tu es déjà en appel');
   if (etat) await raccrocher();
@@ -318,6 +358,7 @@ export function siCarteAbsente(f: () => void) { carteAbsente.add(f); return () =
 
 /** 🗺 J'allume ou j'éteins « Suis ma carte ». */
 export function montrerMaCarte(on: boolean) {
+  noter(on ? 'je montre ma carte' : 'je ne montre plus ma carte', etat?.phase);
   if (!salle || etat?.phase !== 'en_ligne') return;
   if (etat.muette && !on) { envoyerCarte({ carteFin: true }); void raccrocher(); return; }
   changer({ ...etat, jeMontre: on, suit: on ? null : etat.suit });
@@ -363,7 +404,12 @@ const recus = new Map<string, { s: number; n: number }>();
 const natureCarte = (m: MsgCarte) => Object.keys(m)[0];
 function publier(m: MsgCarte, reliable: boolean) {
   if (!salle) return Promise.resolve();
-  return salle.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(m)), { reliable }).catch(() => undefined);
+  const d = new TextEncoder().encode(JSON.stringify(m)), t = Date.now(), k = natureDe(m);
+  // 📓 La vue part 4 fois par seconde : une ligne sur 4 suffit.
+  const bavard = k === 'carte' && (m.n ?? 0) % 4 !== 0;
+  return salle.localParticipant.publishData(d, { reliable })
+    .then(() => { if (!bavard) noter('→', k, reliable ? 'sûr' : 'rapide', `${d.length}o`, `n${m.n ?? ''}`, `${Date.now() - t}ms`); })
+    .catch((err: Error) => noter('→ ÉCHEC', k, `${d.length}o`, err?.message));
 }
 function pousser(k: string) {
   const m = enAttente.get(k);
@@ -371,7 +417,7 @@ function pousser(k: string) {
   enAttente.delete(k);
   const debut = Date.now();
   enRoute.set(k, debut);
-  const bouchon = setTimeout(() => { void publier(m, false); }, 6000);
+  const bouchon = setTimeout(() => { noter('⚠ bloqué 6 s, repart en rapide', k); void publier(m, false); }, 6000);
   void publier(m, true).finally(() => {
     clearTimeout(bouchon);
     if (enRoute.get(k) === debut) enRoute.delete(k);
@@ -414,9 +460,9 @@ function recevoirCarte(m: MsgCarte, de: Voix) {
     if (etat.suit?.id === de.id) changer({ ...etat, suit: null });
     if (etat.muette && !etat.jeMontre && !etat.suit) { void raccrocher(); return; }
   } else {
-    if (s && s <= (finies.get(de.id) ?? 0)) return; // en retard : cette carte est finie
+    if (s && s <= (finies.get(de.id) ?? 0)) { noter('jeté (carte finie)', natureCarte(m), de.pseudo); return; } // en retard : cette carte est finie
     const k = `${de.id} ${natureCarte(m)}`, d = recus.get(k);
-    if (s && n && d && d.s === s && n <= d.n) return; // doublon, ou plus vieux que le dernier reçu
+    if (s && n && d && d.s === s && n <= d.n) { if (natureCarte(m) !== 'carte') noter('jeté (vieux)', natureCarte(m), `n${n}≤${d.n}`); return; } // doublon, ou plus vieux que le dernier reçu
     if (s && n) recus.set(k, { s, n });
     // J'ai allumé après lui : je garde la main, c'est lui qui s'éteindra en recevant la mienne.
     const moi = String(salle?.localParticipant.identity ?? '');

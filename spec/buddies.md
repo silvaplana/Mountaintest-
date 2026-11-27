@@ -796,6 +796,13 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   pendant un appel, ceux qui n'y sont pas ont **Rejoindre**. Appli fermée : une notification simple qui ouvre l'appli
   sur cette fenêtre. Technique inchangée : message `carte` (caché du fil et des non-lus), salle muette, push `carte`
   et `carte_appel`.
+- **Trait en direct** (Seb, 27 novembre : « ça s'écroule quand on trace ») : chez celui qui suit, le trait a son
+  propre petit calque (seule sa ligne est redessinée) ; les traces reçues ne sont redessinées que si elles changent.
+  Chez celui qui dessine, seul le nouveau point est converti à chaque mouvement.
+- **📓 Journal** (Seb, 27 novembre) : les appareils notent en mémoire (4 000 lignes, gardées sur le téléphone) les
+  messages de carte envoyés et reçus (nature, taille, délai), les blocages, les reconnexions, et toutes les 15 s la
+  route réseau (UDP direct ou TCP / relais), l'aller-retour, les paquets de voix perdus et la gigue. « Envoyer le
+  journal », sous « Partager ma carte avec qui ? », le partage en fichier texte.
 - **Montrer du doigt** (Seb, 27 novembre) : pendant l'appel ou la carte partagée, un appui long sur la carte pose MON
   repère : une épingle fine, de ma couleur, dont la pointe est l'endroit exact, sous « ✋ Sébastien montre » (même
   texte chez tous). Un seul repère par buddy : un nouvel appui long le déplace. Appui long sur mon repère puis glisser : il
