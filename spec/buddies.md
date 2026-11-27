@@ -882,9 +882,10 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   `epingle` et `position` prennent `groupe` à la place de `sortie`. Seuls les membres du groupe s'y épinglent et
   voient ces positions (pas le Me Time) ; oubliées après 48 h comme les autres.
 - **Sur la carte principale, toujours** (Seb, 27/11 : la position partagée depuis le PC ne se voyait pas sur le
-  téléphone) : les buddies qui me montrent leur position en ce moment y ont leur épingle aux initiales, avec
-  l'étiquette « pseudo · heure » (Seb : « S » seul, pas parlant), comme les voitures, sans passer par la liste.
-  Tant que quelqu'un se montre (ou moi), synchro toutes les 2 minutes, appli au premier plan.
+  téléphone) : les buddies qui me montrent leur position en ce moment y ont une simple épingle rouge (même dessin
+  que les épingles des traces, Seb 27/11 : pas de rond aux initiales), avec l'étiquette « pseudo · heure », comme
+  les voitures, sans passer par la liste. Étiquettes au même endroit (épingles, voitures) : empilées vers le haut,
+  au-dessus des icônes. Synchro toutes les 2 minutes, appli ouverte, pour recevoir positions et voitures garées.
 
 ### 7.15 👥 Associer une trace à une sortie (Seb, 25 novembre 2026)
 

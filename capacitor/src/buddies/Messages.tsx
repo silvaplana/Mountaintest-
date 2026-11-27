@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import * as maplibregl from 'maplibre-gl';
 import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
@@ -22,7 +21,7 @@ import { CartePlanning, ChoisirPlanning, PlanningIcon } from './Planning';
 import { montrerMaCarte, reprendreMaCarte, suivreUneCarte } from './appel';
 import { useAppel } from './Appel';
 import { IconeSuisCarte } from './IconeSuisCarte';
-import { initialesDe } from '../compte/auth';
+import { epingleSurCarte, rangerEtiquettes } from '../PinLayer';
 
 /**
  * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par groupe et par sortie.
@@ -566,15 +565,8 @@ function cercle(lon: number, lat: number, r: number): [number, number][] {
 export function PointSurCarte({ map, p }: { map: MlMap | null; p: (PointCarte & { cache?: number }) | null }) {
   useEffect(() => {
     if (!map || !p) return;
-    const el = document.createElement('div');
-    el.className = 'bd-pos-carte bd-point-carte';
-    const t = document.createElement('span');
-    t.className = 'bd-tete';
-    if (p.qui) t.textContent = initialesDe(p.qui);
-    const b = document.createElement('b');
-    b.textContent = p.nom;
-    el.append(t, document.createElement('i'), b);
-    const mk = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lon, p.lat]).addTo(map);
+    const mk = epingleSurCarte(map, p.lon, p.lat, p.nom);
+    rangerEtiquettes(map);
     const id = 'bd-point-precision';
     const rond = () => {
       if (!p.precision || p.precision < 30 || map.getSource(id)) return;
