@@ -324,7 +324,7 @@ export function Defile({ titre, l, i, onFermer }: { titre: string; l: PhotoBuddy
   }, []);
   const nPhotos = l.filter((p) => !p.video).length, nFilms = l.length - nPhotos;
   const jours = [...new Set(l.filter((p) => !p.video).map((p) => p.prise_le.slice(0, 10)))].sort();
-  return <div className="bd-defile">
+  return <div className="bd-defile-ecran">
     <div className="bd-defile-haut">
       <button aria-label="Retour" onClick={onFermer}>‹</button>
       <span className="bd-texte"><b>{titre}</b>
