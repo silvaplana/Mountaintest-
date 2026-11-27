@@ -73,6 +73,24 @@ export function Utilisateurs() {
     </button>)}
     <h3 className="bd-section">Journal</h3>
     <Journal lignes={r.journal ?? []} avecNom />
+    <JetonJournaux />
+  </>;
+}
+
+/**
+ * 📓 Le jeton qui permet à Claude de lire les journaux de diagnostic sur le serveur (Seb, 27/11). Tiré au hasard par le
+ * serveur, jamais dans le dépôt ; le Super User le copie dans les réglages de l'environnement de Claude.
+ */
+function JetonJournaux() {
+  const [j, setJ] = useState('');
+  const [copie, setCopie] = useState(false);
+  const voir = () => { void api<{ jeton: string }>('GET', '/super/jeton-journaux').then((r) => setJ(r.jeton)).catch(() => setJ('')); };
+  const copier = () => { void navigator.clipboard?.writeText(j).then(() => setCopie(true)).catch(() => undefined); };
+  return <>
+    <h3 className="bd-section">Journaux pour Claude</h3>
+    {!j ? <button className="bd-ligne" onClick={voir}><span className="bd-texte"><b>Voir le jeton des journaux</b>
+      <small>Pour que Claude lise lui-même les journaux de diagnostic</small></span></button>
+      : <div className="su-jeton"><code>{j}</code><button className="bd-bouton" onClick={copier}>{copie ? 'Copié' : 'Copier'}</button></div>}
   </>;
 }
 

@@ -801,8 +801,12 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   Chez celui qui dessine, seul le nouveau point est converti à chaque mouvement.
 - **📓 Journal** (Seb, 27 novembre) : les appareils notent en mémoire (4 000 lignes, gardées sur le téléphone) les
   messages de carte envoyés et reçus (nature, taille, délai), les blocages, les reconnexions, et toutes les 15 s la
-  route réseau (UDP direct ou TCP / relais), l'aller-retour, les paquets de voix perdus et la gigue. « Envoyer le
-  journal », sous « Partager ma carte avec qui ? », le partage en fichier texte.
+  route réseau (UDP direct ou TCP / relais), l'aller-retour, les paquets de voix perdus et la gigue. Le journal part
+  au serveur tout seul à la fin d'une salle (les lignes nouvelles) et en entier sur « Envoyer le journal », sous
+  « Partager ma carte avec qui ? » (sans réseau : en fichier texte). Serveur : `POST /journaux` (fichiers dans
+  /data/journaux, 7 jours, 200 au plus) ; Claude les lit par `GET /journaux` avec l'en-tête `X-Journal-Jeton`. Le
+  jeton est tiré au hasard par le serveur (/data/journaux-jeton), jamais dans le dépôt ; le Super User le voit et le
+  copie dans Utilisateurs › « Journaux pour Claude ».
 - **Montrer du doigt** (Seb, 27 novembre) : pendant l'appel ou la carte partagée, un appui long sur la carte pose MON
   repère : une épingle fine, de ma couleur, dont la pointe est l'endroit exact, sous « ✋ Sébastien montre » (même
   texte chez tous). Un seul repère par buddy : un nouvel appui long le déplace. Appui long sur mon repère puis glisser : il

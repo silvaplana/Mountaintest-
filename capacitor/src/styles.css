@@ -1849,3 +1849,8 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 
 /* 📓 Sous « Partager ma carte avec qui ? » : le journal de diagnostic, discret. */
 .aq-journal { display: block; margin: 18px auto 8px; min-height: 48px; padding: 0 16px; border: 0; background: none; color: #3e5368; font-size: 16px; text-decoration: underline; }
+
+/* 📓 Jeton des journaux (Super User). */
+.su-jeton { display: flex; gap: 10px; align-items: center; padding: 8px 16px; }
+.su-jeton code { flex: 1; min-width: 0; word-break: break-all; font-size: 15px; background: #eef1f4; padding: 8px; border-radius: 8px; }
+.su-jeton button { min-height: 48px; padding: 0 16px; border-radius: 24px; border: 0; background: #2f7d4f; color: #fff; font-size: 17px; }

@@ -1,14 +1,16 @@
 import { Capacitor } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
-import { journal, noter } from './journal';
+import { envoyerAuServeur, journal, noter } from './journal';
 import { Natif } from './Buddies';
 
 /**
- * 📓 « Envoyer le journal » : un fichier texte partagé avec le menu du téléphone (WhatsApp, mail, Drive…), à joindre
- * dans la conversation avec Claude quand quelque chose a coincé (Seb, 27/11).
+ * 📓 « Envoyer le journal » (Seb, 27/11) : au serveur, où Claude le lit ; sans réseau, un fichier texte partagé avec le
+ * menu du téléphone, à joindre dans la conversation.
  */
 export async function envoyerJournal(onToast: (m: string) => void) {
   noter('journal envoyé', navigator.userAgent);
+  // Au serveur d'abord : Claude le lit de là. Sans réseau, en fichier par le menu du téléphone.
+  try { await envoyerAuServeur('bouton', true); onToast('Journal envoyé'); return; } catch { /* sans réseau : en fichier */ }
   const nom = `journal-carte-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.txt`;
   try {
     if (Capacitor.isNativePlatform()) {

@@ -4,7 +4,7 @@
  * Même rôle côté Kotlin (Appel.kt).
  */
 import { Room, RoomEvent, Track, type Participant, type RemoteTrack } from 'livekit-client';
-import { noter } from './journal';
+import { envoyerAuServeur, noter } from './journal';
 import { api } from '../compte/auth';
 import { envoyerMessage, synchroniser } from './store';
 
@@ -282,6 +282,7 @@ function surveiller(room: Room) {
 
 function fini() {
   noter('fin de la salle');
+  void envoyerAuServeur(etat?.muette ? 'fin de carte partagée' : 'fin d\'appel').catch(() => undefined);
   // 🗺 Je partageais ma carte en s'écrivant : « Seb a arrêté de partager sa carte » part dans le fil (Seb, 27/11).
   if (etat?.muette && etat.jeMontre && etat.carte) {
     envoyerMessage(etat.dest, { nature: 'carte_fin', texte: etat.carte });
