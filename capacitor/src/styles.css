@@ -1814,13 +1814,14 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .mv-apercu span { display: flex; flex-direction: column; font-size: 17px; }
 .mv-apercu small { color: var(--muted); font-size: 14px; }
 
-/* 🗺 Carte partagée reçue appli à l'écran : bandeau par-dessus l'écran en cours (rien ne se ferme). */
-.ap-propose { position: fixed; z-index: 3000; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 10px; right: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 14px; background: #3e5368; color: #fff; border-radius: 18px; box-shadow: 0 6px 20px #0006; font-size: 17px; }
-.ap-propose-icone { width: 40px; height: 40px; display: grid; place-items: center; background: #fff; color: #2f7d4f; border-radius: 20px; flex: none; }
-.ap-propose-icone svg { width: 26px; height: 26px; }
+/* 🗺 « Sébastien partage sa carte » : fenêtre dans l'appli, par-dessus l'écran en cours (rien ne se ferme). */
+.ap-propose-voile { position: fixed; inset: 0; z-index: 3000; background: #0006; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ap-propose { width: 100%; max-width: 420px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; padding: 18px; background: #fff; color: #22303d; border-radius: 20px; box-shadow: 0 8px 28px #0006; font-size: 17px; }
+.ap-propose-icone { width: 52px; height: 52px; display: grid; place-items: center; background: #e7f3ec; color: #2f7d4f; border-radius: 26px; flex: none; }
+.ap-propose-icone svg { width: 32px; height: 32px; }
 .ap-propose-texte { flex: 1; min-width: 0; }
-.ap-propose-titre { font-weight: 700; }
+.ap-propose-texte b { font-size: 19px; }
 .ap-propose-boutons { display: flex; gap: 10px; width: 100%; justify-content: flex-end; }
-.ap-propose-boutons button { min-height: 48px; padding: 0 18px; border-radius: 24px; border: 0; font-size: 17px; font-weight: 600; }
-.ap-propose-non { background: transparent; color: #fff; }
+.ap-propose-boutons button { min-height: 48px; padding: 0 20px; border-radius: 24px; border: 0; font-size: 17px; font-weight: 600; }
+.ap-propose-non { background: transparent; color: #3e5368; }
 .ap-propose-oui { background: #2f7d4f; color: #fff; }

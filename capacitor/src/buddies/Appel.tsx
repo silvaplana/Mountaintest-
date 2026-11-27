@@ -4,10 +4,9 @@ import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { api, connecte } from '../compte/auth';
 import { Natif, useBuddies, Visage, type PropositionCarte } from './Buddies';
-import type { ConversationNotif } from './notifs';
 import {
-  ATTENTE_MS, appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, montrerMaCarte, raccrocher, reprendreMaCarte, refuser, sonner, suivreAppel, suivreDoigts, effacerDoigt,
-  montrerMaCarteDesQue, montrer, type Doigt, type EtatAppel, type Sonnerie } from './appel';
+  ATTENTE_MS, appelEnCours, couperMicro, decrocher, duree, enLigne, finSonnerie, raccrocher, reprendreMaCarte, refuser, sonner, suivreAppel, suivreDoigts, effacerDoigt,
+  montrer, suivreUneCarte, type Doigt, type EtatAppel, type Sonnerie } from './appel';
 import { appliquer, vue } from './store';
 import { IconeSuisCarte } from './IconeSuisCarte';
 
@@ -101,13 +100,14 @@ export function BarreAppel() {
   }, [e]);
   if (!e || e.phase === 'sonne' || (e.phase === 'connexion' && e.de)) return null;
   // 🗺 Carte montrée ou suivie depuis la messagerie (sans appel) : juste l'icône carte, ou le badge de celui qu'on suit.
+  // Je montre ma carte : c'est l'icône sous la loupe qui est verte (Seb, 27/11), rien d'autre à l'écran.
+  if (e.muette && e.jeMontre) return null;
   if (e.muette) {
     const g = e.suit ? appliquer(b).flatMap((x) => x.membres).find((m) => m.id === e.suit!.id) ?? { id: e.suit.id, pseudo: e.suit.pseudo, photo: null } : null;
     return <div className="ap-pastille">
       {g ? <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${g.pseudo}`} onClick={reprendreMaCarte}>
         <Visage b={g} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>
-        : <button className={e.jeMontre ? 'allume' : 'attente'} aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Ne plus attendre la carte'}
-          onClick={() => (e.jeMontre ? montrerMaCarte(false) : void raccrocher())}><IconeSuisCarte /></button>}
+        : <button className="attente" aria-label="Ne plus attendre la carte" onClick={() => void raccrocher()}><IconeSuisCarte /></button>}
     </div>;
   }
   const annonce = e.annonce && e.annonce.jusqua > Date.now() ? e.annonce.texte : '';
@@ -130,50 +130,49 @@ export function BarreAppel() {
         {visages.slice(0, 6).map(({ m, etat }) => <span key={m.id} className={`ap-v ${etat}`}><Visage b={m} taille={26} /></span>)}
         {visages.length > 6 && <small>+{visages.length - 6}</small>}
         {e.phase === 'en_ligne' && <small>{duree(Date.now() - (e.debut ?? Date.now()))}</small>}</span>
-      {e.phase === 'en_ligne' && !e.jeMontre && !suit && <small className="ap-astuce">Appui long sur la carte : tu la montres aux autres 👉</small>}</span>
+      {e.phase === 'en_ligne' && !e.jeMontre && !suit && <small className="ap-astuce">Appui long sur la carte : tu montres un endroit</small>}</span>
     {e.phase === 'en_ligne' && guide && <button className="ap-guide" aria-label={`Arrêter de suivre la carte de ${guide.pseudo}`} onClick={reprendreMaCarte}>
       <Visage b={guide} taille={44} /><span className="ap-guide-carte"><IconeSuisCarte /></span></button>}
-    {e.phase !== 'en_ligne' && <button aria-label={e.carteDesQue ? 'Ne pas montrer ma carte' : 'Montrer ma carte dès qu\'ils décrochent'}
-      className={e.carteDesQue ? 'allume' : ''} onClick={montrerMaCarteDesQue}><IconeSuisCarte /></button>}
-    {e.phase === 'en_ligne' && !guide && <button aria-label={e.jeMontre ? 'Arrêter de montrer ma carte' : 'Montrer ma carte aux autres'}
-      className={e.jeMontre ? 'allume' : ''} onClick={() => montrerMaCarte(!e.jeMontre)}>
-      <IconeSuisCarte /></button>}
     <button aria-label={e.muet ? 'Remettre le micro' : 'Couper le micro'} className={e.muet ? 'muet' : ''} onClick={() => void couperMicro(!e.muet)}>{e.muet ? '🔇' : '🎙'}</button>
     <button className="ap-rouge" aria-label="Raccrocher" onClick={() => void raccrocher()}>✕</button>
   </div>;
 }
 
 /**
- * 🗺 Carte partagée reçue appli à l'écran (Seb, 27/11 : « il faut pas que l'écran se ferme ») : la même proposition que
- * la notification, en bandeau par-dessus l'écran en cours, sans rien fermer. Suivre ouvre la conversation et suit la
- * carte ; Rejoindre (pendant un appel) entre dans l'appel, la carte suit d'elle-même.
+ * 🗺 « Sébastien partage sa carte » (Seb, 27/11) : la seule proposition, une fenêtre dans l'appli par-dessus l'écran en
+ * cours, sans rien fermer (appli fermée : la notification ouvre l'appli sur cette fenêtre). Suivre fait exactement ce
+ * que faisait le Suivre de la messagerie : la carte suivie s'affiche. Pendant un appel : Rejoindre entre dans l'appel.
  */
-export function PropositionCarteAppli({ onSuivre, onToast }: { onSuivre: (c: ConversationNotif) => void; onToast: (m: string) => void }) {
+export function PropositionCarteAppli({ onToast }: { onToast: (m: string) => void }) {
   const [p, setP] = useState<PropositionCarte | null>(null);
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     let h: { remove: () => Promise<void> } | null = null, fini = false;
+    void Natif.carteEnAttente().then((r) => { if (!fini && r.carte) setP(r.carte); }).catch(() => undefined);
     void Natif.addListener('carte', (x) => setP(x)).then((r) => { if (fini) void r.remove(); else h = r; }).catch(() => undefined);
     return () => { fini = true; void h?.remove(); };
   }, []);
   const appel = p?.type === 'carte_appel';
-  // Comme la notification : 4 h pour la messagerie, 10 min pendant un appel.
+  // Comme avant : 4 h pour une carte partagée, 10 min pendant un appel.
   useEffect(() => { if (!p) return; const t = setTimeout(() => setP(null), appel ? 600_000 : 4 * 3_600_000); return () => clearTimeout(t); }, [p, appel]);
   if (!p) return null;
+  const dest = { groupe: p.groupe || undefined, sortie: p.sortie || undefined };
   const oui = () => {
     setP(null);
     if (appel) {
-      sonner({ appel: p.appel ?? '', de: p.de ?? '', nom: p.nom ?? '', groupe: p.groupe || undefined, sortie: p.sortie || undefined });
+      sonner({ appel: p.appel ?? '', de: p.de ?? '', nom: p.nom ?? '', ...dest });
       void decrocher().catch((e: Error) => onToast(e.message));
-    } else onSuivre({ cle: p.cle ?? '', groupe: p.groupe || undefined, sortie: p.sortie || undefined, carte: p.message, carteDe: p.de });
+    } else void suivreUneCarte(p.message ?? '', dest, p.de ?? '').catch((e: Error) => onToast(e.message || 'Impossible de suivre sa carte'));
   };
-  return <div className="ap-propose" role="dialog" aria-label="Carte partagée">
-    <span className="ap-propose-icone"><IconeSuisCarte /></span>
-    <div className="ap-propose-texte"><div className="ap-propose-titre">{p.titre}</div>
-      <div>{p.de} partage sa carte{appel ? ' pendant l\'appel' : ''}</div></div>
-    <div className="ap-propose-boutons">
-      <button className="ap-propose-non" onClick={() => setP(null)}>Non merci</button>
-      <button className="ap-propose-oui" onClick={oui}>{appel ? 'Rejoindre' : 'Suivre'}</button>
+  return <div className="ap-propose-voile">
+    <div className="ap-propose" role="dialog" aria-label="Carte partagée">
+      <span className="ap-propose-icone"><IconeSuisCarte /></span>
+      <div className="ap-propose-texte"><b>{p.de} partage sa carte</b>
+        <div>{appel ? `pendant l'appel · ${p.titre ?? ''}` : p.titre}</div></div>
+      <div className="ap-propose-boutons">
+        <button className="ap-propose-non" onClick={() => setP(null)}>Non merci</button>
+        <button className="ap-propose-oui" onClick={oui}>{appel ? 'Rejoindre' : 'Suivre'}</button>
+      </div>
     </div>
   </div>;
 }

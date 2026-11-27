@@ -3,12 +3,13 @@
  */
 export type IconKey =
   | 'close' | 'locate' | 'search' | 'photo' | 'layer' | 'avion' | 'poche' | 'reglages' | 'carrefours' | 'vibre' | 'doubletap' | 'draw'
-  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi' | 'drones' | 'layers' | 'offline';
+  | 'slopes' | 'view3d' | 'compass' | 'shade' | 'forests' | 'ski' | 'skiText' | 'weatherMountain' | 'travel' | 'lodging' | 'expenses' | 'groups' | 'moi' | 'drones' | 'layers' | 'offline' | 'carte';
 
 export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
   locate: { title: 'Me localiser', text: 'Centre la carte sur toi. Encore : coupe le GPS.' },
   search: { title: '🔍 Chercher un lieu', text: 'Cherche une ville, un sommet, un col… Tape ou dis le nom avec 🎤.' },
+  carte: { title: 'Partager ma carte', text: 'Tes buddies voient ta carte bouger en direct, tes traces et ce que tu dessines. Verte : tu partages ; un appui arrête.' },
   photo: { title: '📷 Appareil photo', text: 'Ouvre l’appareil photo.' },
   layer: { title: '🗺 Fond de carte', text: 'SCAN 25, Plan IGN ou auto.' },
   avion: { title: '✈ Mode avion', text: 'Ouvre le réglage. Le GPS marche toujours.' },

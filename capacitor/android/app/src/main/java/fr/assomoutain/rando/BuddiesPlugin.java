@@ -75,6 +75,25 @@ public class BuddiesPlugin extends Plugin {
         if (a != null) notifyListeners("appel", a);
         JSObject c = conversationDe(i);
         if (c != null) notifyListeners("ouvrirConversation", c);
+        JSObject k = carteDe(i);
+        if (k != null) notifyListeners("carte", k);
+    }
+
+    /** 🗺 Ouverte depuis la notification d'une carte partagée : la proposition à montrer dans l'appli. */
+    private JSObject carteDe(Intent i) {
+        String s = i != null ? i.getStringExtra("carteProposee") : null;
+        if (s == null) return null;
+        CarteNotif.effacer(getContext(), i.getIntExtra("carteNotif", 0));
+        i.removeExtra("carteProposee"); i.removeExtra("carteNotif");
+        try { return JSObject.fromJSONObject(new org.json.JSONObject(s)); } catch (Exception e) { return null; }
+    }
+
+    @PluginMethod
+    public void carteEnAttente(PluginCall call) {
+        JSObject r = new JSObject();
+        JSObject k = carteDe(getActivity().getIntent());
+        if (k != null) r.put("carte", k);
+        call.resolve(r);
     }
 
     /** 🔔 Ouverte depuis la notification d'un message : la conversation à ouvrir. */

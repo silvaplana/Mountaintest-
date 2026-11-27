@@ -52,7 +52,7 @@ public class AppelService extends FirebaseMessagingService {
             return;
         }
         if ("carte".equals(type) || "carte_appel".equals(type)) {
-            // 🗺 Carte partagée, tout de suite (Seb, 27/11). Appli fermée : la notification Non merci / Suivre.
+            // 🗺 Carte partagée, tout de suite (Seb, 27/11). Appli fermée : une notification qui ouvre la même fenêtre.
             // Appli à l'écran : rien ne se ferme, l'appli montre la même proposition par-dessus l'écran en cours.
             Ecouteur e = ecouteur;
             if (premierPlan && e != null) {
