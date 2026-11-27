@@ -96,12 +96,14 @@ for cle, (nom, schema) in APPLIS.items():
     ids[cle] = a["id"]
     print(f"Appli {nom} : {a['id']} (retour {schema}://callback)")
 
-# 2 bis. Version web (iPhone en PWA, https://silvaplana.cloud/mountaintest/) : appli « page web » (SPA),
-# retour sur la page elle-même. Même jeton de renouvellement de 180 jours, gardé par le navigateur.
-SITE = os.environ.get("SITE_URL", "https://silvaplana.cloud/mountaintest/")
-oidc = {"redirectUris": [SITE, SITE + "index.html"], "postLogoutRedirectUris": [SITE]}
+# 2 bis. Version web (iPhone en PWA) : appli « page web » (SPA), retour sur la page elle-même.
+# Deux adresses : https://mountainbuddies.silvaplana.cloud/app/ et l'ancienne https://silvaplana.cloud/mountaintest/.
+# Même jeton de renouvellement de 180 jours, gardé par le navigateur.
+SITES = os.environ.get("SITE_URL", "https://mountainbuddies.silvaplana.cloud/app/ https://silvaplana.cloud/mountaintest/").split()
+SITE = SITES[0]
+oidc = {"redirectUris": [u for s in SITES for u in (s, s + "index.html")], "postLogoutRedirectUris": SITES}
 perso = {"alwaysIssueRefreshToken": True, "rotateRefreshToken": False, "refreshTokenTtlInDays": 180,
-         "corsAllowedOrigins": [SITE.split("/", 3)[0] + "//" + SITE.split("/", 3)[2]]}
+         "corsAllowedOrigins": [s.split("/", 3)[0] + "//" + s.split("/", 3)[2] for s in SITES]}
 a = existantes.get("Mountain Buddies Web")
 if a is None:
     a = appel("POST", "/applications", {"name": "Mountain Buddies Web", "type": "SPA", "oidcClientMetadata": oidc,
