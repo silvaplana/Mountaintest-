@@ -740,6 +740,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   verte en haut de la carte reprend l'icône ou le badge quand la messagerie est fermée. Un vrai appel (passé ou
   reçu) remplace la carte montrée. Technique : une salle LiveKit muette par message (`carte-<id>`, sans micro, 4 h),
   jeton par `POST /cartes/{message}` (seulement les membres de la conversation).
+- **📞 « Appeler qui ? »** (Seb, 27 novembre, maquette `maquettes/appeler-qui/`) : le 📞 de la colonne, quand aucun
+  groupe ni sortie n'est ouvert, ouvre une feuille par-dessus la carte : « Chercher un nom » en haut (sans accents ni
+  majuscules), puis les groupes et sorties en cours ou à venir (derniers appelés d'abord, gardés sur le téléphone,
+  puis dernière activité), puis les buddies un par un (l'appel passe par la discussion à deux). Un appui = appel.
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
