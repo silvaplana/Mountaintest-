@@ -44,6 +44,14 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="${applicationId}" android:host="rejoindre" />
             </intent-filter>
+            <!-- 🔗 Lien d'application (spec §7.29) : le lien d'invitation https://mountainbuddies.silvaplana.cloud/api/i?c=…
+                 ouvre directement l'appli si elle est installée ; vérifié par /.well-known/assetlinks.json (deploy/vitrine). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="mountainbuddies.silvaplana.cloud" android:path="/api/i" />
+            </intent-filter>
             <!-- 📥 « Ouvrir avec » / « Partager » un fichier de trace (GPX, KML, GeoJSON), depuis Gmail, Fichiers… -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
