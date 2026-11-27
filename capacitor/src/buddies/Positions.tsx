@@ -8,7 +8,7 @@ import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
-  aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, voitures, vue,
+  aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, synchroniser, voitures, vue,
   type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
@@ -190,6 +190,23 @@ export function PositionsBuddiesSurCarte({ map, centre }: { map: MlMap | null; c
     fait.current = true;
     map.flyTo({ center: [r.p.lon, r.p.lat], zoom: Math.max(map.getZoom(), 14), duration: 600 });
   }, [map, r]);
+  return <VisagesSurCarte map={map} rs={rs} />;
+}
+
+/**
+ * Sur la carte principale, toujours (comme les voitures) : les buddies qui me montrent leur position en ce moment
+ * (Seb, 27/11 : partagée depuis le PC, il ne la voyait pas sur le téléphone sans passer par la liste).
+ */
+export function BuddiesVisiblesSurCarte({ map }: { map: MlMap | null }) {
+  const e = useBuddies();
+  const rs = useTous().filter((r) => r.actif && !r.moi);
+  // Tant que quelqu'un se montre (lui ou moi), on va chercher ses nouvelles positions toutes les 2 minutes.
+  const suivre = rs.length > 0 || mesEpingles(e).length > 0;
+  useEffect(() => {
+    if (!suivre) return;
+    const t = setInterval(() => { if (document.visibilityState === 'visible') void synchroniser().catch(() => undefined); }, 2 * 60_000);
+    return () => clearInterval(t);
+  }, [suivre]);
   return <VisagesSurCarte map={map} rs={rs} />;
 }
 

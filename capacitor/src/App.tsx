@@ -21,7 +21,7 @@ import { appliquerIcones } from './doigt';
 import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
-import { PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
+import { BuddiesVisiblesSurCarte, PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
 import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
 import { montrer } from './buddies/appel';
@@ -1593,6 +1593,7 @@ export function App() {
       {pointBuddy && (!buddies || !!pointBuddy.cache) && <PointSurCarte map={map} p={pointBuddy} />}
       <VoituresSurCarte map={map} />
       {positionsBuddy && !buddies && <PositionsBuddiesSurCarte key={positionsBuddy} map={map} centre={positionsBuddy} />}
+      {!positionsBuddy && !carteSortie && <BuddiesVisiblesSurCarte map={map} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}
         onRetour={retourSortie} onFermer={() => setCarteSortie(null)}
         onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
