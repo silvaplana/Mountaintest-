@@ -214,6 +214,22 @@ def presence(s: Session, Sessions, u: Utilisateur, aid: str, en_ligne: bool) -> 
     return vue_appel(s, a)
 
 
+def carte_en_appel(s: Session, Sessions, u: Utilisateur, aid: str, on: bool) -> dict[str, Any]:
+    """🗺 Pendant l'appel, je montre (ou n'affiche plus) ma carte : ceux qui sont en ligne reçoivent une notification
+    « Seb a partagé sa carte dans <groupe> » / « … a arrêté de partager sa carte » (Seb, 27/11)."""
+    a, qui = appel_de(s, u, aid)
+    g, so, _, nom = destinataires(s, u, str(a.groupe_id) if a.groupe_id else None, str(a.sortie_id) if a.sortie_id else None)
+    a_deux = bool(g and g.nature in ("duo", "support"))
+    de = personne(u)["pseudo"]
+    fait = "a partagé sa carte" if on else "a arrêté de partager sa carte"
+    en_ligne = [uuid.UUID(x) for x in json.loads(a.en_ligne) if x != str(u.id)]
+    sonner(Sessions, [x for x in en_ligne if x in qui], {
+        "type": "message", "cle": str(a.sortie_id or a.groupe_id), "groupe": str(a.groupe_id or ""), "sortie": str(a.sortie_id or ""),
+        "titre": de if a_deux else nom, "de": de, "texte": "🗺 " + fait, "duo": "1" if a_deux else "",
+        "ligne": f"{de} {fait} {'avec toi' if a_deux else 'dans ' + nom}", "envoye_le": str(int(time.time() * 1000))})
+    return {"ok": True}
+
+
 def appels_en_cours(s: Session, gids: list[uuid.UUID], sids: list[uuid.UUID]) -> list[dict[str, Any]]:
     """Pour la synchro : les appels en cours dans mes groupes et sorties (« rejoindre l'appel »)."""
     l = s.scalars(select(Appel).where(Appel.fin.is_(None), Appel.debut > maintenant() - DUREE_MAX,

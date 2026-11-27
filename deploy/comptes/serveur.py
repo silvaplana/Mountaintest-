@@ -28,6 +28,7 @@ Routes (préfixe /api, ou l ancien /mountaintest-api, retiré par le gateway Cad
   POST /appareils             📞 le jeton Firebase de ce téléphone (pour sonner)
   POST /appels                📞 appeler un groupe ou une sortie (ou rejoindre l'appel en cours) (appels.py)
   POST /appels/{id}/rejoindre décrocher ; POST /appels/{id}/presence  entrer / raccrocher
+  POST /appels/{id}/carte       🗺 je montre ma carte pendant l'appel (notification)
   POST /cartes/{message}       🗺 salle muette d'un message « carte » (Suis ma carte dans la messagerie)
 """
 from __future__ import annotations
@@ -636,6 +637,17 @@ def salle_carte(mid: str, j: dict = Depends(jeton_requis), s: Session = Depends(
     """🗺 Entrer dans la salle muette d'un message « carte » (montrer ou suivre une carte en s'écrivant)."""
     u = utilisateur(s, j)
     return refus(lambda: appels.salle_carte(s, u, mid))
+
+
+class CarteAppel(BaseModel):
+    on: bool
+
+
+@app.post("/appels/{aid}/carte")
+def carte_appel(aid: str, c: CarteAppel, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """🗺 Je montre ma carte pendant l'appel (ou j'arrête) : notification à ceux qui sont en ligne."""
+    u = utilisateur(s, j)
+    return refus(lambda: appels.carte_en_appel(s, Sessions, u, aid, c.on))
 
 
 @app.post("/appels/{aid}/presence")

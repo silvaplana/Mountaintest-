@@ -95,3 +95,17 @@ def test_carte_debut_et_fin_notifies(client, livekit):
     d = livekit[-1][1]
     assert d["ligne"].endswith("a arrêté de partager sa carte dans " + d["titre"])
     assert client.post(f"/cartes/{op['message']}", headers=entete(sub="julie")).status_code == 409
+
+
+def test_carte_imposee_pendant_l_appel_notifiee(client, livekit):
+    """🗺 Seb, 27/11 : en appel, ceux qui sont en ligne reçoivent « Seb a partagé sa carte dans … » puis « … a arrêté ». """
+    gid, julie = bande_avec_julie(client)
+    a = client.post("/appels", headers=entete(sub="seb"), json={"groupe": gid}).json()
+    for sub in ("seb", "julie"):
+        client.post(f"/appels/{a['id']}/presence", headers=entete(sub=sub), json={"en_ligne": True})
+    assert client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": True}).status_code == 200
+    qui, d = livekit[-1]
+    assert qui == [julie] and d["ligne"].endswith("a partagé sa carte dans Ski du dimanche") and d["ligne"].startswith(d["de"])
+    client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": False})
+    assert livekit[-1][1]["ligne"].endswith("a arrêté de partager sa carte dans Ski du dimanche")
+    assert client.post(f"/appels/{a['id']}/carte", headers=entete(sub="luc"), json={"on": True}).status_code == 409

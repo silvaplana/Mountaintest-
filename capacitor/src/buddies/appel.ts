@@ -88,7 +88,17 @@ export function suivreCartes(f: (m: MsgCarte, de: Voix) => void, arrive: () => v
   cartes.add(f); arrivees.add(arrive);
   return () => { cartes.delete(f); arrivees.delete(arrive); };
 }
-function changer(e: EtatAppel | null) { etat = e; tonaliteSelon(e); abonnes.forEach((f) => f(e)); }
+function changer(e: EtatAppel | null) {
+  const avant = etat;
+  etat = e;
+  // 🗺 En appel, j'allume ou j'éteins ma carte : ceux qui sont en ligne reçoivent une notification (Seb, 27/11).
+  if (avant && !avant.muette && avant.phase === 'en_ligne' && !!avant.jeMontre !== !!(e && e.id === avant.id && e.jeMontre)) {
+    void api('POST', `/appels/${avant.id}/carte`, { on: !avant.jeMontre }).catch(() => undefined);
+  } else if (e && !e.muette && e.phase === 'en_ligne' && e.jeMontre && (!avant || avant.id !== e.id || avant.phase !== 'en_ligne')) {
+    void api('POST', `/appels/${e.id}/carte`, { on: true }).catch(() => undefined);
+  }
+  tonaliteSelon(e); abonnes.forEach((f) => f(e));
+}
 
 /** « 3:12 » */
 export function duree(ms: number) {
