@@ -94,6 +94,8 @@ export function useBuddies(): Etat {
 export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning?: string) => void) {
   const sync = () => { if (connecte()) void synchroniser().then((r) => r.forEach(onToast)).catch(() => undefined); };
   const traiter = (url: string) => {
+    // 🔗 Lien d'application (§7.29) : le lien d'invitation lui-même ouvre l'appli.
+    if (url.startsWith('https://mountainbuddies.silvaplana.cloud/api/i?')) url = `${SCHEMA}://rejoindre?${url.split('?')[1]}`;
     if (!url.startsWith(`${SCHEMA}://rejoindre`)) return;
     const q = new URL(url.replace(/^[a-z.]+:\/\//, 'https://x/')).searchParams;
     const code = q.get('c') ?? '';

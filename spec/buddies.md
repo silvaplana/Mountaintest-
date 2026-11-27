@@ -1239,3 +1239,6 @@ installée : d'où les deux étapes.
 Après une installation depuis la page (Seb, 27/11, « l'appli le propose seule ») : « Télécharger l'appli » copie le lien
 d'invitation dans le presse-papiers ; à sa toute première ouverture, l'appli le lit (une seule fois) et fait entrer dans
 le groupe (« Bienvenue dans … », ou après la connexion). Le bouton ② « Rejoindre le groupe » reste en secours.
+🔗 Lien d'application (Seb, 27/11) : sur Android, le lien d'invitation `…/api/i?c=` ouvre directement l'appli quand elle
+est installée (intent-filter `autoVerify`, fichier `deploy/vitrine/.well-known/assetlinks.json` avec l'empreinte de la clé
+des APK). Sans l'appli, ou si Android n'a pas pu vérifier, le lien ouvre la page comme avant.
