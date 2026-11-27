@@ -803,6 +803,9 @@ body:has(.sel-barre, .sel-panneau) .draw-banner { display: none; }
 .bd-carte-bas { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; background: var(--bg); border-radius: 18px 18px 0 0; box-shadow: 0 -2px 12px #0003;
   padding: 4px 16px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 8px; font-size: 17px; }
 .bd-carte-quand { font-size: 20px; }
+/* ✕ du panneau d'une sortie, comme « Charger des traces » (Seb 27/11). */
+.bd-carte-titre { align-items: center; }
+.bd-carte-titre .bd-fermer { width: 48px; height: 48px; min-height: 0; padding: 0; border-radius: 50%; border: 0; background: var(--card); font-size: 20px; flex: none; }
 .bd-carte-qui { display: flex; align-items: center; gap: 2px; }
 .bd-carte-qui > .bd-visage { margin-right: -6px; border: 2px solid var(--bg); }
 .bd-carte-qui small { margin-left: 14px; color: var(--muted); font-size: 15px; }
