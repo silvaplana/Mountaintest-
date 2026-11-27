@@ -1577,7 +1577,7 @@ export function App() {
       <VoituresSurCarte map={map} />
       {positionsBuddy && !buddies && <PositionsBuddiesSurCarte key={positionsBuddy} map={map} centre={positionsBuddy} />}
       {carteSortie && !buddies && !drawing && <BandeauSortie key={`${carteSortie.sortie.id}${carteSortie.parler}`} x={carteSortie.sortie} traces={carteSortie.traces} parler={carteSortie.parler}
-        onRetour={retourSortie}
+        onRetour={retourSortie} onFermer={() => setCarteSortie(null)}
         onAlbum={() => { setBuddiesDepart({ ecran: 'album', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCarnet={() => { setBuddiesDepart({ ecran: 'carnet', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onCount={() => { setBuddiesDepart({ ecran: 'count', sortie: carteSortie.sortie.id, groupe: carteSortie.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}

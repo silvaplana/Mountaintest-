@@ -1143,7 +1143,9 @@ function NouvelleSortie({ g, onToast, onFini, onRetour, onClose }: {
 // ------------------------------------------------------------------ sur la carte (écran 4)
 
 /** Haut et bas de la carte d'une sortie : ‹ nom et dates en haut, bandeau rabattable en bas. */
-export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, onCount, onDodo, onToast, map }: {
+export function BandeauSortie({ x, traces, parler, onRetour, onFermer, onAlbum, onCarnet, onCount, onDodo, onToast, map }: {
+  /** ✕ du panneau (Seb, 27/11) : le panneau disparaît, on reste sur la carte. */
+  onFermer: () => void;
   x: Sortie; traces: TraceBuddy[]; parler?: boolean; onRetour: () => void; onAlbum: () => void; onCarnet: () => void; onCount: () => void; onDodo: () => void;
   onToast: (m: string) => void; map: MlMap | null;
 }) {
@@ -1231,7 +1233,8 @@ export function BandeauSortie({ x, traces, parler, onRetour, onAlbum, onCarnet, 
         <BandePositions x={x} onToast={onToast} />
       </>}
       {!replie && !pos && !msg && <>
-        <b className="bd-carte-quand">{quandSortie(x)}</b>
+        <div className="bd-entre bd-carte-titre"><b className="bd-carte-quand">{quandSortie(x)}</b>
+          <button className="bd-fermer" onClick={onFermer} aria-label="Fermer le panneau de la sortie">✕</button></div>
         <div className="bd-carte-qui">
           {x.participants.map((p) => <Visage key={p.id} b={p} taille={30} />)}
           <small>{x.participants.length} partant{x.participants.length > 1 ? 's' : ''}{x.invitations.length ? ` · ${x.invitations.filter((i) => i.canal !== 'qr').map((i) => `${i.nom} ?`).join(' · ')}` : ''}</small>
