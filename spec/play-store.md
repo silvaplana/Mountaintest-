@@ -16,8 +16,8 @@ Deux applis Android sortent du même code (`capacitor/android/app/build.gradle`,
 - Les deux s'installent côte à côte. Web : `VITE_PLAY=1` (`PLAY` dans `config.ts`) au moment de `vite build`.
 - Retour de connexion Logto : `<identifiant>://callback` ; `configurer-logto.py` déclare les deux (relancer
   l'installeur des comptes). Lien d'invitation (`rejoindre.html`) : ouvre la version Play si elle est là, sinon l'APK.
-- Firebase : la version Play demande sa propre appli Android dans le projet mountain-buddies-941fa
-  (`src/play/google-services.json`). Sans elle, elle se construit, sans notifications ni sonnerie.
+- Firebase : la version Play a sa propre appli Android « Mountain Buddies Play » dans le projet mountain-buddies-941fa
+  (`src/play/google-services.json`, ajoutée le 27/11). Même projet que l'APK : la clé Firebase du VPS sert aux deux.
 - Signature : la clé des APK sert de clé d'envoi ; Google signe ensuite l'appli lui-même (Play App Signing).
 - Exigences déjà faites : supprimer mon compte (appli + `compte.html`), signaler, bloquer, conditions et
   confidentialité (spec/buddies.md §7.24).
