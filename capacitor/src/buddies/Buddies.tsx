@@ -855,13 +855,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onPositionLong={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
     // Un appui : la sortie ouverte, sinon le groupe ouvert, sinon tous mes groupes (Seb, 26/11).
     onPosition={() => void basculerPosition(e, ciblesIci(e, groupes, sorties, sortieIci, ici), onToast).then((on) => { if (on) onMaPosition(); })}
-    onMessages={() => {
-      // 💬 : la conversation de la sortie ouverte (sur sa carte), sinon celle du groupe ouvert, sinon toutes.
-      const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;
-      if (x) ouvrir(x, true);
-      else if (vue.ecran === 'groupe' && vue.id !== meTime?.id) setVue({ ecran: 'conv', id: vue.id });
-      else setVue({ ecran: 'messages', groupe: ici });
-    }}
+    // 💬 : toujours la liste « Messages », même depuis un groupe ou une sortie (Seb, 27/11).
+    onMessages={() => setVue({ ecran: 'messages', groupe: ici })}
     onAppel={() => {
       // 📞 : toute la bande de la sortie ouverte, sinon du groupe ouvert (spec §5.7).
       const x = sortieIci ? sorties.find((y) => y.id === sortieIci) : undefined;

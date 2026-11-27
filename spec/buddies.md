@@ -663,7 +663,7 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   message porte un identifiant choisi par le téléphone, il part dans la même file d'attente que le reste (§3.1) et
   n'arrive qu'une fois même s'il est renvoyé. Sans réseau : « 🕓 partira au retour du réseau » sous le message.
 - **Écran 6** : la conversation d'une sortie s'ouvre sur sa carte, dans le bandeau du bas (ligne « 💬 Messagerie ·
-  2 nouveaux » du bandeau, ou 💬 de la colonne depuis le carnet, l'album, le Buddy count…). Mes messages à droite en
+  2 nouveaux » du bandeau). Mes messages à droite en
   vert, ceux des autres à gauche avec leur prénom en couleur. En bas : [📷] [📍] [Message] [🎤], 🎤 devient ➤ dès
   qu'on écrit. Ouverte, elle regarde les nouveaux messages toutes les 10 s.
 - **Écran 24** : on replie le bandeau (poignée) ou on touche « voir sur la carte » : il ne reste que les deux derniers
@@ -678,8 +678,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   pointillés ; au-delà de 500 m, celui qui envoie est prévenu (un ordinateur se repère par le réseau) ; 📷 (dans une sortie) dépose les photos dans l'album et les envoie aussi en message ;
   🎤 dicte le texte dans le champ (on relit avant d'envoyer). Appui long (ou toucher) sur un de mes messages :
   « Retirer ce message ».
-- **💬 de la colonne** : dans une sortie, sa conversation ; dans un groupe, la sienne (dans le panneau) ;
-  ailleurs, la liste de mes conversations, la plus récente en haut, avec le dernier mot et le nombre de non lus.
+- **💬 de la colonne** : toujours la liste de mes conversations, même depuis un groupe ou une sortie (Seb, 27/11),
+  la plus récente en haut, avec le dernier mot et le nombre de non lus.
 - **Pas encore** : le vrai message vocal (🎤 dicte pour l'instant), « Julie te montre… » en direct sur la carte de
   l'autre pendant un appel (avec le bloc 10), le partage à un buddy seul (une conversation à deux) et les
   notifications.
