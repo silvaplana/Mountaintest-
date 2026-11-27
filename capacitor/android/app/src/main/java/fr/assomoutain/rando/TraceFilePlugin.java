@@ -69,7 +69,12 @@ public class TraceFilePlugin extends Plugin {
 
     @SuppressWarnings("deprecation")
     static Uri sharedUri(Intent intent) {
-        if (Intent.ACTION_VIEW.equals(intent.getAction())) return intent.getData();
+        if (Intent.ACTION_VIEW.equals(intent.getAction())) {
+            // Un lien (invitation https://…/api/i, fr.assomoutain.rando://rejoindre) n'est pas un fichier.
+            Uri u = intent.getData();
+            String s = u == null ? null : u.getScheme();
+            return "content".equals(s) || "file".equals(s) ? u : null;
+        }
         if (Intent.ACTION_SEND.equals(intent.getAction())) {
             Object o = intent.getParcelableExtra(Intent.EXTRA_STREAM);
             return o instanceof Uri ? (Uri) o : null;
