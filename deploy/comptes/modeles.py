@@ -7,9 +7,9 @@ hors ligne et les renvoyer au retour du réseau sans risque de doublon.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -59,6 +59,10 @@ class Utilisateur(Base):
     # Compte supprimé par son propriétaire (Play Store) : la fiche reste pour que les messages et les dépenses
     # gardent un auteur, mais vidée de tout ce qui identifie la personne (pseudo « Ancien buddy »).
     supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Onglet Utilisateurs du Super User (Seb, 27/11) : d'où vient la personne (apk, play, web) et sa version,
+    # redits par l'appli à chaque ouverture.
+    plateforme: Mapped[str | None] = mapped_column(String(10))
+    version: Mapped[str | None] = mapped_column(String(20))
 
 
 class Organisation(Base):
@@ -535,3 +539,23 @@ class Signalement(Base):
     lieu: Mapped[str] = mapped_column(String(80), nullable=False, default="")
     suite: Mapped[str | None] = mapped_column(String(8))
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+
+
+class Usage(Base):
+    """Ouvertures de l'appli par personne et par jour (onglet Utilisateurs du Super User, Seb 27/11) :
+    une ligne par jour d'utilisation, donc jours = nombre de lignes, ouvertures = leur somme."""
+
+    __tablename__ = "usages"
+
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    jour: Mapped[date] = mapped_column(Date, primary_key=True)
+    ouvertures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class Telechargement(Base):
+    """Téléchargements de l'APK par jour, comptés par le bouton de la page publique (anonymes : on ne sait pas qui)."""
+
+    __tablename__ = "telechargements"
+
+    jour: Mapped[date] = mapped_column(Date, primary_key=True)
+    nombre: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
