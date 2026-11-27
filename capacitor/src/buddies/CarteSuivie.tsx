@@ -6,7 +6,8 @@ import { saveTrace } from '../trails/savedTraces';
 import { appelEnCours, envoyerCarte, suivreCartes, type Calques } from './appel';
 import type { LonLat } from '../trails/osmTrails';
 import { useAppel } from './Appel';
-import { tracesAEnvoyer, tracesInvitees, type TraceEnvoyee } from './carteSuivie';
+import { tracesAEnvoyer, tracesAMontrer, tracesInvitees, type TraceEnvoyee } from './carteSuivie';
+import { isMine } from '../trails/route';
 
 const FONDS: string[] = ['auto', 'scan25', 'planign'];
 /** Identifiants des traces invitées à part : le trait en direct et la trace du profil. */
@@ -38,6 +39,7 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
   calques: Calques; onCalques: (c: Calques) => void;
   /** La trace dont le profil est ouvert ; chez ceux qui suivent, le même profil s'ouvre (null : fermé). */
   profil: Trail | null; onProfil: (t: Trail | null) => void;
+  /** Les traces affichées sur ma carte (les miennes et les randos) : celles de l'écran partent chez ceux qui suivent. */
   mes: Trail[];
   onInvitees: (t: Trail[]) => void; onToast: (m: string) => void;
 }) {
@@ -57,6 +59,11 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
   const profilRef = useRef(profil); profilRef.current = profil;
   const onProfilRef = useRef(onProfil); onProfilRef.current = onProfil;
   const [trait, setTrait] = useState<[number, number][]>([]);
+  const ecran = (): [number, number, number, number] => {
+    const b = map?.getBounds();
+    return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : [-180, -90, 180, 90];
+  };
+  const tracesEnvoyees = () => tracesAEnvoyer(tracesAMontrer(mesRef.current, ecran(), isMine));
   const profilEnvoye = (t: Trail | null) => (t && t.id < ID_TRAIT - 1 ? tracesAEnvoyer([t], 400)[0] : null);
 
   // Je montre : ma vue à chaque mouvement (4 fois par seconde au plus), mes traces au début et quand un buddy arrive.
@@ -67,7 +74,7 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
       envoyerCarte({ carte: { c: [+c.lng.toFixed(5), +c.lat.toFixed(5)], z: +map.getZoom().toFixed(2),
         b: Math.round(map.getBearing()), p: Math.round(map.getPitch()), fond: fondRef.current, cq: calquesRef.current } });
     };
-    const tout = () => { vue(); envoyerCarte({ traces: tracesAEnvoyer(mesRef.current) }); envoyerCarte({ profil: profilEnvoye(profilRef.current) }); };
+    const tout = () => { vue(); envoyerCarte({ traces: tracesEnvoyees() }); envoyerCarte({ profil: profilEnvoye(profilRef.current) }); };
     let t = 0;
     const bouge = () => { const n = Date.now(); if (n - t > 250) { t = n; vue(); } };
     tout();
@@ -83,7 +90,7 @@ export function CarteSuivie({ map, fond, onFond, calques, onCalques, profil, onP
     envoyerCarte({ carte: { c: [c.lng, c.lat], z: map.getZoom(), b: map.getBearing(), p: map.getPitch(), fond, cq: calques } });
   }, [fond, calques.pente, calques.ombres, calques.drones, calques.meteo]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (jeMontre) envoyerCarte({ profil: profilEnvoye(profil) }); }, [profil?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (jeMontre) envoyerCarte({ traces: tracesAEnvoyer(mes) }); }, [mes]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (jeMontre) envoyerCarte({ traces: tracesEnvoyees() }); }, [mes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Je suis : ma carte va où va la sienne.
   useEffect(() => {

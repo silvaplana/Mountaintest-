@@ -386,7 +386,6 @@ export function App() {
   const [selected, setSelected] = useState<Trail | null>(null);
   /** 🗺 Traces d'un buddy qui me montre sa carte pendant un appel. */
   const [invitees, setInvitees] = useState<Trail[]>([]);
-  const mesAffichees = useMemo(() => trails.filter((t) => isMine(t.id)), [trails]);
   const [elevated, setElevated] = useState<ElevatedTrail | 'loading' | 'error' | null>(null);
   /** Tracé au doigt en cours, et recalage sur les chemins (IGN) ou ligne libre. */
   const [drawing, setDrawing] = useState(false);
@@ -1628,7 +1627,7 @@ export function App() {
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       <DoigtsSurCarte map={map} onToast={setToast} />
       <BarreAppel />
-      <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={mesAffichees} onInvitees={setInvitees} onToast={setToast}
+      <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={trails} onInvitees={setInvitees} onToast={setToast}
         calques={{ pente: showSlopes, ombres: showShade, drones: showDrones, meteo: showWeather }}
         onCalques={(c) => { setShowSlopes(c.pente); setShowShade(c.ombres); setShowDrones(c.drones); setShowWeather(c.meteo); }}
         profil={selected} onProfil={(t) => void selectTrail(t)} />

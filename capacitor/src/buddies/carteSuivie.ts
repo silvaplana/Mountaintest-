@@ -20,6 +20,16 @@ export function tracesAEnvoyer(traces: Trail[], max = 500): TraceEnvoyee[] {
   });
 }
 
+/**
+ * Ce qui part chez ceux qui suivent (Seb, 27/11 : « tout ce qui est dans mon écran ») : toutes mes traces affichées,
+ * puis les autres traces (randos…) qui passent dans l'écran ; au plus `max` traces, pour qu'un message reste petit.
+ */
+export function tracesAMontrer(traces: Trail[], ecran: [number, number, number, number], mien: (id: number) => boolean, max = 15): Trail[] {
+  const [o, s, e, n] = ecran;
+  const dedans = (t: Trail) => t.segments.some((seg) => seg.some((p) => p.lon >= o && p.lon <= e && p.lat >= s && p.lat <= n));
+  return [...traces.filter((t) => mien(t.id)), ...traces.filter((t) => !mien(t.id) && dedans(t))].slice(0, max);
+}
+
 /** Les traces reçues, affichées comme des randos (identifiants positifs : jamais rangées dans Mes traces). */
 export function tracesInvitees(traces: TraceEnvoyee[], de: string): Trail[] {
   return traces.filter((t) => t.ligne.length >= 2).map((t, i) => {

@@ -747,6 +747,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   groupe ni sortie n'est ouvert, ouvre une feuille par-dessus la carte : « Chercher un nom » en haut (sans accents ni
   majuscules), puis les groupes et sorties en cours ou à venir (derniers appelés d'abord, gardés sur le téléphone,
   puis dernière activité), puis les buddies un par un (l'appel passe par la discussion à deux). Un appui = appel.
+- **Ce qui part chez ceux qui suivent** (Seb, 27 novembre : « tout ce qui est dans mon écran ») : toutes mes traces
+  affichées, puis les autres traces (randos…) qui passent dans l'écran, 15 au plus, allégées à 500 points en tout
+  (30 au moins par trace). Le contenu part, pas seulement l'identifiant : l'autre ne les a pas.
 - **🔔 Notification d'une carte partagée** (Seb, 27 novembre, maquette `maquettes/notif-carte/`) : où qu'ils
   soient, appli fermée comprise, les autres reçoivent une notification avec deux boutons. Depuis la messagerie :
   « 🗺 <groupe> · Seb partage sa carte », **Non merci** / **Suivre** ; Suivre ouvre l'appli sur la carte de Seb,
