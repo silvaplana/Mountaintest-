@@ -50,7 +50,7 @@ let etat: EtatAppel | null = null;
 let salle: Room | null = null;
 let minuteur: ReturnType<typeof setTimeout> | undefined;
 const abonnes = new Set<(e: EtatAppel | null) => void>();
-const doigts = new Set<(p: { lon: number; lat: number; qui: string }) => void>();
+const doigts = new Set<(p: { lon: number; lat: number; qui: string; moi?: boolean }) => void>();
 const cartes = new Set<(m: MsgCarte, de: Voix) => void>();
 const arrivees = new Set<() => void>();
 const sons: HTMLMediaElement[] = [];
@@ -88,7 +88,7 @@ function tonaliteSelon(e: EtatAppel | null) {
 export const appelEnCours = () => etat;
 export function suivreAppel(f: (e: EtatAppel | null) => void) { abonnes.add(f); return () => { abonnes.delete(f); }; }
 /** 👉 Montrer du doigt : un point touché par un autre pendant l'appel. */
-export function suivreDoigts(f: (p: { lon: number; lat: number; qui: string }) => void) { doigts.add(f); return () => { doigts.delete(f); }; }
+export function suivreDoigts(f: (p: { lon: number; lat: number; qui: string; moi?: boolean }) => void) { doigts.add(f); return () => { doigts.delete(f); }; }
 /** 🗺 Les messages « Suis ma carte » reçus, et l'arrivée d'un buddy (pour lui renvoyer ma carte). */
 export function suivreCartes(f: (m: MsgCarte, de: Voix) => void, arrive: () => void) {
   cartes.add(f); arrivees.add(arrive);
@@ -378,6 +378,6 @@ export function montrer(lon: number, lat: number) {
   if (!salle || etat?.phase !== 'en_ligne') return false;
   const d = new TextEncoder().encode(JSON.stringify({ doigt: [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5] }));
   void salle.localParticipant.publishData(d, { reliable: true });
-  doigts.forEach((f) => f({ lon, lat, qui: '' }));
+  doigts.forEach((f) => f({ lon, lat, qui: salle!.localParticipant.name || 'Moi', moi: true }));
   return true;
 }

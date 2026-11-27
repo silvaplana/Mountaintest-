@@ -12,7 +12,7 @@ import { IconeSuisCarte } from './IconeSuisCarte';
 
 /**
  * 📞 Appels (spec/buddies.md §5.7) : l'écran 10 (un buddy m'appelle), la barre d'appel en haut de la carte
- * (écran 24) et 👉 « Julie te montre » sur la carte. Mêmes écrans côté Kotlin (AppelVue.kt).
+ * (écran 24) et « Julie montre » (doigt au trait) sur la carte. Mêmes écrans côté Kotlin (AppelVue.kt).
  */
 
 export function useAppel(): EtatAppel | null {
@@ -142,16 +142,27 @@ export function BarreAppel() {
   </div>;
 }
 
-/** 👉 Les endroits montrés du doigt pendant l'appel, quelques secondes : « Julie te montre ». */
+/** Main au trait, index vers le bas : le bout du doigt est au milieu du bas de l'image. */
+const DOIGT = '<svg class="ap-doigt-main" viewBox="0 0 34 52" width="40" height="61" aria-hidden="true" fill="#fff" stroke="#22303d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M9 3 H28 V12 H9 Z"/><path d="M7 14 a3 3 0 0 1 3 -2 H28 a3 3 0 0 1 3 3 V28 a3 3 0 0 1 -3 3 H7 Z"/>'
+  + '<path d="M13.5 28 V47 a3.5 3.5 0 0 0 7 0 V28"/><path d="M20.5 31 V35 a2.5 2.5 0 0 0 5 0 V31 M25.5 31 V34 a2.5 2.5 0 0 0 5 0 V30"/>'
+  + '<path d="M7 14 V24 Q12 25 16 21"/></svg>';
+
+/** 👉 Les endroits montrés du doigt pendant l'appel, quelques secondes : « Julie montre » et un doigt. */
 export function DoigtsSurCarte({ map, onToast }: { map: MlMap | null; onToast: (m: string) => void }) {
   useEffect(() => {
     if (!map) return;
     return suivreDoigts((p) => {
       const el = document.createElement('div');
       el.className = 'ap-doigt';
-      el.textContent = p.qui ? `👉 ${p.qui} te montre` : '👉 Tu montres';
+      // « Sébastien montre » des deux côtés, et un doigt au trait dont le bout touche l'endroit (Seb, 27/11).
+      const t = document.createElement('div');
+      t.className = 'ap-doigt-nom';
+      t.textContent = `${p.qui} montre`;
+      el.append(t);
+      el.insertAdjacentHTML('beforeend', DOIGT);
       const m = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lon, p.lat]).addTo(map);
-      if (p.qui) { map.easeTo({ center: [p.lon, p.lat], duration: 600 }); onToast(`${p.qui} te montre un endroit`); }
+      if (!p.moi) { map.easeTo({ center: [p.lon, p.lat], duration: 600 }); onToast(`${p.qui} te montre un endroit`); }
       setTimeout(() => m.remove(), 10_000);
     });
   }, [map, onToast]);

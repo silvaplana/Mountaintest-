@@ -761,7 +761,8 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   carte suit toute seule (valable 10 min). Ceux déjà dans l'appel gardent la simple ligne « Seb a partagé sa
   carte ». Technique : push Firebase `carte` (message) et `carte_appel` (appel), canal Android « Cartes ».
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
-  allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
+  allume l'endroit chez les autres : un doigt au trait dont le bout touche l'endroit, sous « Julie montre » (même
+  texte chez celui qui montre, Seb 27/11), 10 s ; chez les autres, la carte s'y centre.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
   « Appel en cours ».
 - **Serveur** : tables `appareils` (jeton Firebase de chaque téléphone) et `appels` (Groupe ou sortie, qui

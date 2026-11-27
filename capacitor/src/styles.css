@@ -1239,7 +1239,9 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .cs-choix { justify-content: flex-end; }
 .ap-barre button.ap-rouge { background: #d93a3a; }
 .ap-icone { font-size: 22px; }
-.ap-doigt { background: #3e5368; color: #fff; padding: 6px 10px; border-radius: 16px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 8px #0005; white-space: nowrap; }
+.ap-doigt { display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; }
+.ap-doigt-nom { background: #3e5368; color: #fff; padding: 6px 10px; border-radius: 16px; font-size: 17px; font-weight: 600; box-shadow: 0 2px 8px #0005; white-space: nowrap; }
+.ap-doigt-main { display: block; filter: drop-shadow(0 1px 2px #0006); }
 .ap-rejoindre { background: #2fae5c26; }
 
 /* 🐻 Bud (spec/buddies.md §5.12, écran 25) : sa bulle à part, sombre, à gauche chez tout le monde */
