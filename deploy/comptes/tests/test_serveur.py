@@ -96,3 +96,19 @@ def test_fiche_du_membre_comme_appbase(client):
     assert client.put("/moi", headers=entete(), json={"iban": "FR76 3000 6000 0112 3456 7890 188"}).status_code == 422
     r = client.put("/moi", headers=entete(), json={"iban": "", "telephone": ""}).json()
     assert (r["iban"], r["telephone"], r["nom"]) == (None, None, "Richard")
+
+
+def test_mes_traces_sauvees_et_rendues(client):
+    t1 = {"id": 1, "name": "Col", "onPaths": False, "line": [[6.3, 45.0], [6.31, 45.01]], "pins": [{"lon": 6.3, "lat": 45.0, "txt": "source"}]}
+    t2 = {"id": 2, "name": "Lac", "onPaths": True, "line": [[6.4, 45.0], [6.41, 45.01]]}
+    assert client.put("/mes-traces", json={"traces": [t1, t2]}, headers=entete()).status_code == 200
+    # Téléphone réinstallé : il n'envoie rien, la sauvegarde reste entière.
+    assert client.put("/mes-traces", json={"traces": []}, headers=entete()).status_code == 200
+    assert client.get("/mes-traces", headers=entete()).json()["traces"] == [t2, t1]
+    # Renommée puis effacée.
+    client.put("/mes-traces", json={"traces": [{**t1, "name": "Col du Lautaret"}]}, headers=entete())
+    client.put("/mes-traces", json={"supprimees": [2]}, headers=entete())
+    assert [t["name"] for t in client.get("/mes-traces", headers=entete()).json()["traces"]] == ["Col du Lautaret"]
+    # Chacun les siennes.
+    assert client.get("/mes-traces", headers=entete(sub="u2")).json()["traces"] == []
+    assert client.put("/mes-traces", json={"traces": [{"id": "x"}]}, headers=entete()).status_code == 422

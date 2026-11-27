@@ -23,7 +23,7 @@ import logging
 
 import droits
 import mails
-from modeles import (Blocage, BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, Membre, MessageBuddy, Participant, Photo, Planning,
+from modeles import (Blocage, BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Signalement, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 log = logging.getLogger(__name__)
@@ -1330,7 +1330,7 @@ def supprimer_compte(s: Session, u: Utilisateur) -> None:
         partir(s, g, m)
     for so in s.scalars(select(Sortie).join(Participant, Participant.sortie_id == Sortie.id).where(Participant.utilisateur_id == u.id)).all():
         toucher(so)
-    for table in (Participant, Position, PositionGroupe, Voiture, Dispo, Recit, ReactionBuddy, VoteBuddy, LectureBuddy, Coeur):
+    for table in (Participant, Position, PositionGroupe, Voiture, Dispo, Recit, ReactionBuddy, VoteBuddy, LectureBuddy, Coeur, MaTrace):
         s.execute(delete(table).where(table.utilisateur_id == u.id))
     s.execute(delete(Blocage).where(or_(Blocage.utilisateur_id == u.id, Blocage.bloque_id == u.id)))
     s.execute(delete(Invitation).where(Invitation.invite_par == u.id, Invitation.acceptee_par.is_(None)))

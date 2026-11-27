@@ -559,3 +559,17 @@ class Telechargement(Base):
 
     jour: Mapped[date] = mapped_column(Date, primary_key=True)
     nombre: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
+class MaTrace(Base):
+    """💾 Copie d'une de « Mes traces » du téléphone (Seb, 27/11 : retrouvée après une réinstallation).
+    `id_tel` = l'identifiant choisi par le téléphone ; `donnees` = la trace telle que le téléphone la garde (JSON).
+    Une trace effacée sur le téléphone est marquée `supprime_le` (pas rendue au téléphone)."""
+
+    __tablename__ = "mes_traces"
+
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    id_tel: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
+    donnees: Mapped[str] = mapped_column(Text, nullable=False)
+    modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

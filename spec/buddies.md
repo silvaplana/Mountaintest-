@@ -1112,3 +1112,17 @@ messagerie pour l'instant, Seb 27/11).
 - Descendue, toucher un point (« Nico est ici ») ou une trace dans le fil la montre sur la carte au-dessus, sans fermer
   la conversation ; la carte se cadre dans la partie visible.
 - Code : `capacitor/src/buddies/coulisse.ts` (clé `buddies:coulisse`), champ `cache` de `CarteBuddies`.
+
+### 7.26 Mes traces sauvegardées sur le serveur (Seb, 27 novembre 2026)
+
+Seb a désinstallé puis réinstallé l'appli : Mes traces et les tuiles, gardées seulement sur le téléphone, ont disparu.
+Le reste (groupes, sorties, albums et photos envoyées, carnets, Buddy counts, conversations) était sur le serveur et est revenu.
+
+- **Mes traces** (nom, forme, épingles 📍, lien avec un groupe ou une sortie) sont copiées sur le serveur à chaque changement,
+  au démarrage et à la connexion (`PUT /mes-traces`, table `mes_traces`). Sans réseau : au prochain réseau.
+- Au démarrage et à la connexion, il reprend celles du serveur qui lui manquent (`GET /mes-traces`) : après une réinstallation,
+  elles reviennent seules dès qu'on se reconnecte.
+- Une trace absente du téléphone n'est jamais effacée du serveur : seul un effacement fait sur le téléphone l'efface
+  (gardé en attente hors ligne). Chacun ne voit que les siennes ; « Supprimer mon compte » les efface.
+- **📥 Ouvrir des fichiers** : plusieurs fichiers d'un coup, rangés directement dans Mes traces (même nom et même forme : pas en double).
+- **Restent sur le téléphone seulement** : les tuiles (à retélécharger), les films de survol 🎥, les réglages.

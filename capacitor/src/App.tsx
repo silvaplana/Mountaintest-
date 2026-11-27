@@ -53,6 +53,7 @@ import { clearPlaceNames, savePlaceNames } from './places/placeNames';
 import { coverageGeoJson, offlineVeil, ownedSquares, squareBbox, squareTileKeys } from './tiles/coverage';
 import { PhoneSpacePanel } from './offline/PhoneSpacePanel';
 import { reportPhoneDaily } from './offline/phoneSpace';
+import { suivreSauvegardeTraces } from './trails/traceBackup';
 import { suivreOuvertures } from './compte/ouverture';
 import { clearDroneZones, localDroneZones, saveDroneZones } from './drones/droneZones';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
@@ -154,6 +155,8 @@ export function App() {
   useEffect(() => { const t = setTimeout(() => void reportPhoneDaily().catch(() => {}), 30_000); return () => clearTimeout(t); }, []);
   // Ouvertures de l'appli, vues par le Super User dans son onglet Utilisateurs (Seb, 27/11).
   useEffect(() => suivreOuvertures(), []);
+  // 💾 Mes traces aussi sur le serveur : retrouvées après une réinstallation (Seb, 27/11).
+  useEffect(() => suivreSauvegardeTraces(), []);
   // Mes traces lues à l'allumage du calque, puis à chaque changement (plus besoin de l'éteindre et le rallumer).
   useEffect(() => {
     if (!showOffline) return;
