@@ -4,82 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mountain Buddies : invitation</title>
-<!-- Page du lien d'invitation à un groupe ou une sortie (SMS, mail, QR code) : spec/buddies.md §5.3.
-     Servie sur https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=CODE
-     Couleurs de l'appli (Seb, 26/11 : ciel breton, ardoise, verre dépoli ; un seul bouton, plus de vert). -->
-<style>
-  :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --card: #f6f8fa; --glass: #f6f8fab3; --line: #b3c2cf; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --card: #1d2834; --glass: #1d2834cc; --line: #38495b; } }
-  body { margin: 0; font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
-  main { max-width: 440px; margin: 0 auto; padding: 28px 16px 40px; text-align: center; }
-  .logo { width: 72px; height: 72px; border-radius: 18px; }
-  .rond { width: 112px; height: 112px; border-radius: 50%; margin: 14px auto; background: var(--card) center/cover; display: grid; place-items: center;
-    color: var(--accent); box-shadow: 0 2px 10px #0002; }
-  h1 { font-size: 26px; margin: 0 0 4px; }
-  p { color: var(--muted); margin: 8px 0; }
-  a.b { display: block; margin: 18px 0; padding: 15px; border-radius: 26px; text-decoration: none; font-weight: 800; min-height: 52px; box-sizing: border-box;
-    background: var(--glass); color: var(--accent); border: 1.5px solid var(--line); box-shadow: 0 2px 8px #0002; font-size: 19px; }
-  ol { text-align: left; color: var(--muted); padding-left: 22px; }
-  ol a { color: var(--accent); font-weight: 700; }
-  small { color: var(--muted); }
-</style>
+<!-- Anciens liens d'invitation (…/app/rejoindre.html?c=CODE) : l'invitation s'ouvre maintenant sur la page
+     principale, avec son bandeau (Seb, 27/11, spec/buddies.md §7.29). -->
+<script>location.replace('../' + location.search);</script>
 </head>
-<body>
-<main>
-  <img class="logo" src="logo.svg" alt="">
-  <div class="rond" id="photo"><svg width="60" height="60" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
-    <circle cx="18" cy="17" r="6"/><path d="M6 38c0-7 5-12 12-12s12 5 12 12"/><circle cx="32" cy="15" r="5"/><path d="M30 24c7 0 12 4 12 11"/></svg></div>
-  <h1 id="titre">Tu es invité dans un groupe</h1>
-  <p id="par">Sur Mountain Buddies, l'appli des sorties montagne entre copains.</p>
-
-  <a class="b" id="ouvrir" href="#">Ouvrir dans Mountain Buddies</a>
-
-  <div id="android">
-  <p><b>Pas encore l'appli ?</b></p>
-  <ol>
-    <li>Installe-la sur ton téléphone Android : <a href="apk/">page de téléchargement</a>.</li>
-    <li>Ouvre-la et connecte-toi (avec Google ou ton adresse e-mail).</li>
-    <li>Reviens sur cette page et touche « Ouvrir dans Mountain Buddies ».</li>
-  </ol>
-  </div>
-  <p id="web" hidden>L'appli s'ouvre dans ton navigateur : connecte-toi (avec Google ou ton adresse e-mail) et tu entres dans le groupe.</p>
-</main>
-<script>
-  const code = new URLSearchParams(location.search).get('c') || '';
-  // 📅 Lien d'un planning (Seb, 27/11, §7.28) : le même lien d'invitation au groupe, plus le planning à ouvrir.
-  const planning = new URLSearchParams(location.search).get('p') || '';
-  const pl = planning ? '&p=' + encodeURIComponent(planning) : '';
-  if (planning) document.getElementById('titre').textContent = 'Un planning à remplir';
-  // Android : l'appli installée. Ordinateur, iPhone : la version web, qui garde l'invitation jusqu'à la connexion (Seb, 26/11).
-  if (/android/i.test(navigator.userAgent)) {
-    // Deux applis possibles : la version du Play Store d'abord ; si elle n'est pas installée, Chrome revient sur
-    // cette page avec apk=1 et le bouton ouvre l'APK des copains.
-    const c = encodeURIComponent(code);
-    const apk = new URLSearchParams(location.search).get('apk');
-    const retour = location.origin + location.pathname + '?c=' + c + pl + '&apk=1';
-    document.getElementById('ouvrir').href = apk ? 'fr.assomoutain.rando://rejoindre?c=' + c + pl
-      : 'intent://rejoindre?c=' + c + pl + '#Intent;scheme=cloud.silvaplana.mountainbuddies;package=cloud.silvaplana.mountainbuddies;S.browser_fallback_url=' + encodeURIComponent(retour) + ';end';
-  } else {
-    document.getElementById('ouvrir').href = './?rejoindre=' + encodeURIComponent(code) + (planning ? '&planning=' + encodeURIComponent(planning) : '');
-    document.getElementById('android').hidden = true;
-    document.getElementById('web').hidden = false;
-  }
-  // Un lien tout juste envoyé peut arriver avant l'invitation sur le serveur (réseau lent chez celui qui invite) :
-  // on réessaie quelques fois avant de dire qu'il n'est pas reconnu (Seb, 26/11 : « Ce lien a expiré » à tort).
-  let essais = 0;
-  const lire = () => fetch('https://mountainbuddies.silvaplana.cloud/api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
-    .then((a) => {
-      document.getElementById('titre').textContent = planning ? 'Un planning à remplir' : a.groupe;
-      document.getElementById('par').textContent = planning ? a.par + ' te demande tes dispos dans « ' + a.groupe + ' ».'
-        : a.par + (a.sortie ? ' t’invite à cette sortie.' : ' t’invite dans ce groupe.');
-      if (a.photo) { const p = document.getElementById('photo'); p.textContent = ''; p.style.backgroundImage = 'url("' + a.photo + '")'; }
-    })
-    .catch((e) => {
-      if (e !== 404) return;
-      if (++essais < 6) { setTimeout(lire, 5000); return; }
-      document.getElementById('par').textContent = 'Ce lien n’est pas reconnu : demande à ton copain de te le renvoyer.';
-    });
-  if (code) lire();
-</script>
-</body>
+<body><p><a href="../">Mountain Buddies</a></p></body>
 </html>

@@ -1207,3 +1207,43 @@ Maquette : `maquettes/planning-messagerie/` (validée par Seb) ; captures `captu
 
 Dans Buddies, un appui sur l'icône de ma position qui l'allume ferme Buddies et centre la carte sur moi (le message
 « Ta position est partagée… » reste affiché). L'éteindre ne change pas d'écran.
+Tant que ma position est partagée, mon point bleu sur la carte a des ondes de chaque côté à la place de la pulsation
+(maquette A de `maquettes/position-partagee/`, Seb 27/11).
+
+### 7.29 Inviter par la page principale, deux liens de groupe (Seb, 27 novembre 2026)
+
+Le lien d'invitation (SMS, mail, QR, WhatsApp) est `https://mountainbuddies.silvaplana.cloud/api/i?c=CODE` (`&p=` pour un
+planning). Le serveur y sert l'aperçu que lit WhatsApp (« Seb t'invite dans « groupe » », logo) et renvoie aussitôt sur
+la page principale `/?c=CODE` : les copains découvrent le site, avec en haut un bandeau « Seb t'invite dans … » et un
+bouton « Rejoindre le groupe » (« Rejoindre la sortie », « Donner mes dispos »).
+- Android : le bouton ouvre l'appli sur l'invitation ; sans l'appli, on la télécharge avec le bouton de la page, puis
+  on revient toucher « Rejoindre le groupe ».
+- iPhone, ordinateur : la version web s'ouvre (`/app/?rejoindre=CODE`), on se connecte et on entre ; sur iPhone, on met
+  ensuite l'appli sur l'écran d'accueil (il faut s'y reconnecter une fois).
+- Les anciens liens `…/app/rejoindre.html?c=` mènent à la même page.
+
+« Inviter mes copains » › « Lien, QR » : un seul lien pour tout le monde (même un groupe WhatsApp entier), au choix :
+- **Entrée directe** : on entre tout de suite ; le lien vaut 30 jours.
+- **Un admin accepte** : le lien ne périme pas ; celui qui le touche fait une demande (table `demandes_entree`), les
+  admins sont prévenus et répondent dans les buddies du groupe (Accepter, ✕) ; le demandeur voit « Demande envoyée ».
+
+Boutons « Envoyer dans WhatsApp » (message tout prêt) et « Partager ailleurs ». Les invitations à une personne (SMS,
+contacts, mail) ne changent pas. Toucher le lien quand on est déjà dans le groupe (réinstallation) ne fait rien de plus :
+on retrouve son groupe.
+🔔 Notifications (Seb, 27/11) : quand quelqu'un entre par une invitation, ceux qui y sont déjà reçoivent « Julie a
+rejoint le groupe » (ou « la sortie ») ; une demande par le lien « un admin accepte » prévient les admins ; l'admin qui
+accepte prévient le demandeur (« t'a fait entrer dans le groupe »).
+Lien touché par quelqu'un qui est déjà dans le groupe (Seb, 27/11) : l'appli ne dit pas « tu entres » mais
+« Sébastien, tu es déjà dans « groupe » » (après la synchro, réinstallation comprise). Sinon « Bienvenue dans « groupe » »,
+ou « Demande envoyée » pour un lien « un admin accepte ». La page web ne peut pas le savoir avant la connexion : elle
+garde son bouton.
+Page d'invitation sur Android (Seb, 27/11) : deux étapes dans l'ordre, 1 « Télécharger l'appli » (le bouton est dans le
+bandeau), 2 « Rejoindre le groupe », qui ouvre l'appli par `fr.assomoutain.rando://rejoindre` (l'`intent://` avec retour
+au navigateur ne réagissait pas dans Samsung Internet). Une page web ne peut pas savoir de façon sûre si l'appli est
+installée : d'où les deux étapes.
+Après une installation depuis la page (Seb, 27/11, « l'appli le propose seule ») : « Télécharger l'appli » copie le lien
+d'invitation dans le presse-papiers ; à sa toute première ouverture, l'appli le lit (une seule fois) et fait entrer dans
+le groupe (« Bienvenue dans … », ou après la connexion). Le bouton ② « Rejoindre le groupe » reste en secours.
+🔗 Lien d'application (Seb, 27/11) : sur Android, le lien d'invitation `…/api/i?c=` ouvre directement l'appli quand elle
+est installée (intent-filter `autoVerify`, fichier `deploy/vitrine/.well-known/assetlinks.json` avec l'empreinte de la clé
+des APK). Sans l'appli, ou si Android n'a pas pu vérifier, le lien ouvre la page comme avant.

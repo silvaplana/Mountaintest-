@@ -146,6 +146,18 @@ class Invitation(Base):
     mail: Mapped[str | None] = mapped_column(String(10))
     expire_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
+    # Lien du groupe « un admin accepte » (Seb, 27/11, §7.29) : sans fin ; celui qui le touche fait une demande.
+    approbation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class DemandeEntree(Base):
+    """Demande pour entrer dans un groupe, faite par son lien « un admin accepte » (§7.29)."""
+
+    __tablename__ = "demandes_entree"
+
+    groupe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("groupes.id", ondelete="CASCADE"), primary_key=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True, index=True)
+    cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 
 
 class Sortie(Base):
