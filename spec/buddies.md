@@ -1125,5 +1125,5 @@ Le reste (groupes, sorties, albums et photos envoyées, carnets, Buddy counts, c
 - Une trace absente du téléphone n'est jamais effacée du serveur : seul un effacement fait sur le téléphone l'efface
   (gardé en attente hors ligne). Chacun ne voit que les siennes ; « Supprimer mon compte » les efface.
 - **📥 Ouvrir des fichiers** : plusieurs fichiers d'un coup, rangés directement dans Mes traces (même nom et même forme : pas en double).
-- **📁 Reprendre tout le dossier Mountain Buddies** (Android) : on choisit le dossier une fois, tous ses GPX/KML/GeoJSON vont dans Mes traces.
+- **📁 Reprendre tout le dossier** (Android, caché : appui long sur « Mes traces ») : on choisit le dossier une fois, tous ses GPX/KML/GeoJSON vont dans Mes traces.
 - **Restent sur le téléphone seulement** : les tuiles (à retélécharger), les films de survol 🎥, les réglages.
