@@ -32,6 +32,24 @@
   .bande p { max-width: 680px; margin: 0 auto; color: var(--muted); }
   footer { padding: 28px 0 40px; text-align: center; color: var(--muted); font-size: 16px; }
   footer a { color: var(--accent); margin: 0 10px; display: inline-block; min-height: 48px; line-height: 48px; }
+
+  .b svg { width: 26px; height: 26px; margin-right: 10px; flex: none; }
+  .b { cursor: pointer; font-family: inherit; }
+  .voile { position: fixed; inset: 0; background: #0008; display: none; align-items: flex-end; justify-content: center; z-index: 9; }
+  .voile.ouvert { display: flex; }
+  .feuille { background: var(--card); color: var(--fg); width: 100%; max-width: 520px; border-radius: 24px 24px 0 0; padding: 10px 20px calc(env(safe-area-inset-bottom) + 20px); max-height: 92vh; overflow: auto; }
+  .poignee { width: 44px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+  .feuille h2 { font-size: 23px; margin: 4px 0 8px; text-align: center; }
+  .intro { margin: 0 0 6px; color: var(--muted); text-align: center; }
+  .etape { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 18px; }
+  .etape:last-of-type { border-bottom: 0; }
+  .num { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent); font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+  .etape svg { width: 30px; height: 30px; flex: none; color: var(--accent); margin-left: auto; }
+  .limites { margin: 12px 0 16px; background: var(--bg); border-radius: 16px; padding: 12px 16px; }
+  .limites h3 { font-size: 17px; margin: 0 0 6px; }
+  .limites li { font-size: 17px; color: var(--muted); margin: 4px 0; }
+  .limites ul { margin: 0; padding-left: 20px; }
+  .feuille .b { width: 100%; justify-content: center; }
 </style>
 </head>
 <body>
@@ -40,10 +58,11 @@
   <h1>Mountain Buddies</h1>
   <p class="accroche">La carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor avec tes buddies.</p>
   <div class="boutons">
-    <a class="b principal" href="https://mountainbuddies.silvaplana.cloud/api/telecharger">Télécharger pour Android</a>
-    <a class="b" href="app/">Ouvrir dans le navigateur</a>
+    <a class="b" id="bAndroid" href="https://mountainbuddies.silvaplana.cloud/api/telecharger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11a7 7 0 0 1 14 0v7H5z"/><path d="M8 4.5 9.5 6.5M16 4.5 14.5 6.5"/><circle cx="9.5" cy="9.5" r=".6" fill="currentColor"/><circle cx="14.5" cy="9.5" r=".6" fill="currentColor"/><path d="M5 13h14"/></svg>Télécharger pour Android</a>
+    <button class="b" id="bIphone" onclick="ouvrir()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 5h3"/><path d="M11 18.5h2"/></svg>Installer sur iPhone</button>
+    <a class="b" id="bWeb" href="app/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>Ouvrir dans le navigateur</a>
   </div>
-  <p class="petit">Gratuit · <a href="app/apk/" style="color:inherit">Comment l'installer ?</a> · iPhone et ordinateur : version navigateur</p>
+  <p class="petit">Gratuit · <a href="#" style="color:inherit" onclick="tous();return false">Autre appareil ?</a></p>
 </header>
 
 <main class="wrap">
@@ -64,5 +83,38 @@
   <a href="confidentialite">Confidentialité</a>
   <div>© 2026 silvaplana.cloud</div>
 </footer>
+
+<div class="voile" id="voile" onclick="if(event.target===this)fermer()">
+  <div class="feuille">
+    <div class="poignee"></div>
+    <h2>Installer sur iPhone</h2>
+    <p class="intro">Pour l'instant, c'est la <b>version web</b> de l'appli, avec quelques limites. La vraie appli iPhone arrive bientôt.</p>
+    <div class="etape"><span class="num">1</span><span>Ouvre cette page dans <b>Safari</b></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/></svg></div>
+    <div class="etape"><span class="num">2</span><span>Touche <b>Partager</b></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6.5v11.5h11V9H16"/><path d="M12 14V3M8.5 6.5 12 3l3.5 3.5"/></svg></div>
+    <div class="etape"><span class="num">3</span><span><b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M12 8v8M8 12h8"/></svg></div>
+    <div class="limites">
+      <h3>Les limites de la version web :</h3>
+      <ul>
+        <li>pas de trace écran éteint ;</li>
+        <li>cartes hors ligne limitées ;</li>
+        <li>pas de sonnerie d'appel appli fermée.</li>
+      </ul>
+    </div>
+    <button class="b principal" onclick="fermer()">J'ai compris</button>
+  </div>
+</div>
+<script>
+  // Un seul bouton : celui de l'appareil. « Autre appareil ? » montre les trois.
+  // L'iPad récent se présente comme un Mac : on le reconnaît à l'écran tactile.
+  const ua = navigator.userAgent;
+  const iphone = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  const bon = iphone ? 'bIphone' : android ? 'bAndroid' : 'bWeb';
+  for (const id of ['bAndroid','bIphone','bWeb']) if (id !== bon) document.getElementById(id).style.display = 'none';
+  document.getElementById(bon).classList.add('principal');
+  function tous() { for (const id of ['bAndroid','bIphone','bWeb']) document.getElementById(id).style.display = ''; }
+  function ouvrir() { document.getElementById('voile').classList.add('ouvert'); }
+  function fermer() { document.getElementById('voile').classList.remove('ouvert'); }
+</script>
 </body>
 </html>
