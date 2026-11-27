@@ -1190,6 +1190,17 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .ap-barre .ap-astuce { font-size: 13px; }
 .ap-barre button { width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0; font-size: 22px; background: #ffffff25; color: #fff; flex: none; }
 .ap-barre button.muet { background: #fff; }
+.ap-barre button.allume { background: #fff; color: #2e8b57; }
+/* 🗺 « Suis ma carte » : sous la barre d'appel, chez ceux qui suivent. */
+.cs-bandeau { position: absolute; z-index: 12; top: calc(env(safe-area-inset-top) + 72px); left: 8px; right: 8px; background: #fff; color: #23313f;
+  border-radius: 18px; box-shadow: 0 2px 10px #0004; padding: 4px 8px 4px 14px; font-size: 17px; }
+.cs-ligne { display: flex; align-items: center; gap: 10px; min-height: 52px; }
+.cs-ligne + .cs-ligne { border-top: 1px solid #e3e8ed; }
+.cs-nom { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-trait { width: 22px; height: 5px; border-radius: 3px; flex: none; }
+.cs-bandeau button { min-height: 44px; border: 0; border-radius: 22px; padding: 0 16px; font-size: 16px; color: #fff; flex: none; }
+.cs-garder { background: #2e8b57; }
+.cs-reprendre { background: #3e5368; }
 .ap-barre button.ap-rouge { background: #d93a3a; }
 .ap-icone { font-size: 22px; }
 .ap-doigt { background: #3e5368; color: #fff; padding: 6px 10px; border-radius: 16px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 8px #0005; white-space: nowrap; }

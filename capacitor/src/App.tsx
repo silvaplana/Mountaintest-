@@ -23,6 +23,7 @@ import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type 
 import { PointSurCarte } from './buddies/Messages';
 import { PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, useAppel, useSonnerie } from './buddies/Appel';
+import { CarteSuivie } from './buddies/CarteSuivie';
 import { montrer } from './buddies/appel';
 import { appliquer as groupesBuddies, lire as lireBuddies, nouveautes, ouvrirSupport, partagerTrace, vue as vueBuddies, type Sortie, type TraceBuddy } from './buddies/store';
 import { AssocierPanel } from './buddies/Associer';
@@ -376,6 +377,9 @@ export function App() {
   const [trails, setTrails] = useState<Trail[]>([]);
   const [trailsMsg, setTrailsMsg] = useState('');
   const [selected, setSelected] = useState<Trail | null>(null);
+  /** 🗺 Traces d'un buddy qui me montre sa carte pendant un appel. */
+  const [invitees, setInvitees] = useState<Trail[]>([]);
+  const mesAffichees = useMemo(() => trails.filter((t) => isMine(t.id)), [trails]);
   const [elevated, setElevated] = useState<ElevatedTrail | 'loading' | 'error' | null>(null);
   /** Tracé au doigt en cours, et recalage sur les chemins (IGN) ou ligne libre. */
   const [drawing, setDrawing] = useState(false);
@@ -1403,12 +1407,12 @@ export function App() {
         offlineCover={(open && tab === 'horsligne') || (framing && framingFor === 'horsligne') ? cover : null}
         offlineLayer={offlineLayer} recorded={recorded} imported={imported}
         position={position} follow={follow && camBench !== 'running'} visible={visible}
-        onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={trails} selectedTrail={selected} frame={frame}
+        onMapReady={setMap} onGeolocate={setGeo} onTilt={setTilted} trails={invitees.length ? [...trails, ...invitees] : trails} selectedTrail={selected} frame={frame}
         onTrailClick={(id, at) => {
           // Toucher le tracé déjà ouvert : pente à cet endroit ; sinon, ouvrir cette rando.
           if (isMine(id) && selected?.id === id) { if (profile) setProfCursor(nearestD(profile, at.lon, at.lat)); setTraceList(null); setTraceMenu(true); return; }
           if (selected?.id === id && profile) { setProfCursor(nearestD(profile, at.lon, at.lat)); setOpen(true); return; }
-          void selectTrail(trails.find((t) => t.id === id) ?? null);
+          void selectTrail(trails.find((t) => t.id === id) ?? invitees.find((t) => t.id === id) ?? null);
         }}
         slopeTags={slopeTags} wayLines={wayLines}
         c2cPoints={c2c ? c2cRoutes : []} c2cLines={c2c && c2cMap ? c2cLines : []}
@@ -1611,6 +1615,7 @@ export function App() {
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       <DoigtsSurCarte map={map} onToast={setToast} />
       <BarreAppel />
+      <CarteSuivie map={map} fond={baseLayer} onFond={setBaseLayer} mes={mesAffichees} onInvitees={setInvitees} onToast={setToast} />
       <EcranSonnerie onToast={setToast} />
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
       <Restauration cache={account || accueilOuvert} />

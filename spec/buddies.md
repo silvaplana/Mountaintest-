@@ -703,6 +703,16 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   française (440 Hz, 1,5 s toutes les 5 s) et la barre « Ça sonne… ». Quand quelqu'un décroche : deux bips montants,
   une vibration et la barre passe au vert « Julie a décroché » 4 s ; quand quelqu'un raccroche : deux bips
   descendants et « Luc a raccroché ». Celui qui rejoint un appel déjà en cours ne se fait pas annoncer ceux déjà là.
+- **🗺 Suis ma carte** (Seb, 27 novembre, maquette `maquettes/partage-carte-appel/`, option A choisie ; ni vidéo de
+  l'écran ni prise de contrôle) : en ligne, une icône carte au trait dans la barre d'appel. Allumée (fond blanc),
+  « Tu montres ta carte » : les autres suivent ma vue (centre, zoom, orientation, inclinaison, 4 fois par seconde
+  au plus) et mon fond de carte (SCAN 25, Plan IGN… s'ils y ont droit). Mes traces affichées partent aussi, allégées
+  (500 points en tout), et arrivent chez eux en invitées « nom (de Julie) », sans aller dans Mes traces. Chez eux :
+  barre verte « Julie te montre sa carte » et, dessous, « Tu suis la carte de Julie · Reprendre ma carte » et une
+  ligne « Garder » par trace (3 au plus), qui la range dans Mes traces. Une seule personne montre à la fois : si Luc
+  allume la sienne, celle de Julie s'éteint. Un buddy qui arrive en cours reçoit tout de suite la vue et les traces.
+  Les tuiles ne voyagent pas : chacun charge la même zone (un appel demande du réseau). Messages de données LiveKit
+  `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
