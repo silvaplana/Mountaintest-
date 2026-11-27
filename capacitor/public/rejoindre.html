@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mountain Buddies : invitation</title>
 <!-- Page du lien d'invitation à un groupe ou une sortie (SMS, mail, QR code) : spec/buddies.md §5.3.
-     Servie sur https://silvaplana.cloud/mountaintest/rejoindre.html?c=CODE
+     Servie sur https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=CODE (et l'ancienne adresse silvaplana.cloud/mountaintest/)
      Couleurs de l'appli (Seb, 26/11 : ciel breton, ardoise, verre dépoli ; un seul bouton, plus de vert). -->
 <style>
   :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --card: #f6f8fa; --glass: #f6f8fab3; --line: #b3c2cf; }
@@ -63,7 +63,7 @@
   // Un lien tout juste envoyé peut arriver avant l'invitation sur le serveur (réseau lent chez celui qui invite) :
   // on réessaie quelques fois avant de dire qu'il n'est pas reconnu (Seb, 26/11 : « Ce lien a expiré » à tort).
   let essais = 0;
-  const lire = () => fetch('/mountaintest-api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
+  const lire = () => fetch('https://silvaplana.cloud/mountaintest-api/invitations/' + encodeURIComponent(code)).then((r) => r.ok ? r.json() : Promise.reject(r.status))
     .then((a) => {
       document.getElementById('titre').textContent = a.groupe;
       document.getElementById('par').textContent = a.par + (a.sortie ? ' t’invite à cette sortie.' : ' t’invite dans ce groupe.');
