@@ -1005,8 +1005,9 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   épingle posée dessus, sur fond ardoise. Message : « Ta voiture est garée ici. Tes buddies la voient aussi, jusqu'à
   minuit. ». Un nouvel appui long l'enlève (« Ta voiture n'est plus sur la carte. ») ; l'appui court ouvre toujours le
   voyage en voiture.
-- **Sur la carte** (la mienne et celles des buddies de mes groupes) : une tête d'épingle avec la voiture, et
-  « ma voiture · 8 h 40 » ou les initiales du buddy et l'heure.
+- **Sur la carte** (la mienne et celles des buddies de mes groupes) : la petite voiture rouge 🚗 en gros, posée là
+  où elle est garée, avec un badge aux initiales du propriétaire (rouge pour la mienne, ardoise pour un buddy) et
+  l'heure au-dessus (Seb, 27 novembre, version A de maquettes/voiture-carte/).
 - **Une journée** : elle s'efface seule à minuit (heure du téléphone).
 - **Serveur** : table `voitures` (une par buddy : lat, lon, `garee_le`, `jusqu` en ms) ; opération `voiture`
   `{garee: true, lat, lon, garee_le, jusqu}` ou `{garee: false, quand}` ; la synchro rend `voitures` (la mienne et

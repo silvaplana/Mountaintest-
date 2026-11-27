@@ -8,7 +8,7 @@ import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
 import {
-  aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, monEpingle, positions, releverEpingle, synchroniser, voitures, vue,
+  aDeux, appliquer, nomDiscussion, enfoncerEpingle, enleverVoiture, envoyerPosition, finEpingle, garerVoiture, maVoiture, mesEpingles, moiBuddy, monEpingle, positions, releverEpingle, synchroniser, voitures, vue,
   type CiblePosition, type Etat, type Groupe, type Sortie,
 } from './store';
 
@@ -266,14 +266,19 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
   useEffect(() => {
     if (!map || !vs.length) return;
     const ms = vs.map((v) => {
+      // La petite voiture rouge posée sur la carte, badge aux initiales, heure au-dessus (Seb, 27/11, version A).
       const el = document.createElement('div');
-      el.className = 'bd-pos-carte bd-voiture-carte';
-      const t = document.createElement('span');
-      t.className = 'bd-tete';
-      t.innerHTML = VOITURE_SVG;
-      const b = document.createElement('b');
-      b.textContent = `${v.qui === moi ? 'ma voiture' : initiales(gens.get(v.qui) ?? '?')} · ${heureCourte(v.garee_le)}`;
-      el.append(t, document.createElement('i'), b);
+      el.className = 'bd-voiture-carte';
+      const h = document.createElement('b');
+      h.textContent = heureCourte(v.garee_le);
+      const auto = document.createElement('span');
+      auto.className = 'bd-auto';
+      auto.textContent = '🚗';
+      const badge = document.createElement('i');
+      if (v.qui === moi) badge.className = 'moi';
+      badge.textContent = initiales(gens.get(v.qui) ?? (v.qui === moi ? moiBuddy(e).pseudo : '?'));
+      auto.append(badge);
+      el.append(h, auto);
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([v.lon, v.lat]).addTo(map);
     });
     return () => ms.forEach((m) => m.remove());
@@ -282,5 +287,3 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
   return null;
 }
 
-const VOITURE_SVG = '<svg width="26" height="26" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
-  + '<path d="M8 36v-7l4-9a4 4 0 0 1 3.7-2.5h16.6A4 4 0 0 1 36 20l4 9v7a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1H14v1a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2zM11 29h26"/></svg>';
