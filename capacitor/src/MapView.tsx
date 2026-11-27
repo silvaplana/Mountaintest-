@@ -436,7 +436,9 @@ export function MapView(props: MapViewProps) {
       const b = new maplibregl.LngLatBounds();
       t.segments.forEach((s) => s.forEach((p) => b.extend([p.lon, p.lat])));
       // Haut : barres « fond de carte » et « Y aller » ; bas : le panneau ouvert.
-      const sheet = document.querySelector('.sheet')?.getBoundingClientRect().height ?? 0;
+      // La messagerie descendue sur la carte (Seb, 27/11) cache le bas comme un panneau.
+      const sheet = Math.max(document.querySelector('.sheet')?.getBoundingClientRect().height ?? 0,
+        document.querySelector('.buddies.coulisse')?.getBoundingClientRect().height ?? 0);
       const h = m.getContainer().clientHeight;
       // Mes traces (id négatif) : leur menu du bas mesure environ 300 px.
       const bottom = Math.min(Math.max(sheet, t.id < 0 ? 300 : 0) + 20, h - 200);

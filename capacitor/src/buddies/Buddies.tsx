@@ -6,6 +6,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { useSheet } from '../useSheet';
 import { PencilIcon, TrashIcon } from '../icones';
 import { noterOuvert } from './recents';
+import { enBas, useCoulisse } from './coulisse';
 import { TracesAssociees } from './Associer';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
@@ -649,7 +650,9 @@ export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'do
 
 /** Ce qu'on montre sur la carte : une sortie (sa conversation ouverte si `parler`), des traces, un point d'un message,
  * ou les buddies visibles (📍 de la colonne) centrés sur l'un d'eux (`positions` = son identifiant). */
-export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string };
+export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string;
+  /** Messagerie descendue sur la carte (Seb, 27/11) : elle reste ouverte et cache ces pixels du bas ; on montre au-dessus. */
+  cache?: number };
 
 export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, depart }: {
   onClose: () => void; onToast: (m: string, ms?: number) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
@@ -659,6 +662,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
 }) {
   const e = useBuddies();
   const compte = useCompte();
+  // La messagerie coulisse sur la carte (Seb, 27/11).
+  const cl = useCoulisse();
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
     : depart?.ecran === 'conv' ? depart : depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : { ecran: 'liste' });
   // Plus de ‹ à l'écran (Seb, 26/11) : le retour du téléphone, comme ✕, revient à l'écran d'avant.
@@ -682,6 +687,16 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     const t = setInterval(sync, 60_000);
     return () => { clearInterval(t); marquerVu(); };
   }, [onToast]);
+
+  // Descendue, la messagerie reste ouverte quand on montre un point ou une trace : la carte est au-dessus.
+  const cache = () => (cl.bas ? document.querySelector<HTMLElement>('.buddies')?.offsetHeight : undefined);
+  // Rouverte en bas de l'écran, la conversation montre ses derniers messages.
+  const convOuverte = vue.ecran === 'conv' || vue.ecran === 'groupe' ? vue.id : '';
+  useEffect(() => {
+    if (!cl.bas || !convOuverte) return;
+    const t = setTimeout(() => enBas(document.querySelector<HTMLElement>('.buddies')), 300);
+    return () => clearTimeout(t);
+  }, [vue.ecran, convOuverte, cl.bas]);
 
   if (!connecte(compte)) {
     const colonne = <Colonne onClose={onClose} onToast={onToast} onExpenses={onExpenses} onLodging={onLodging} onTravel={onTravel} onAccount={onAccount} />;
@@ -744,7 +759,8 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const retourPlannings = (gid?: string) => setVue({ ecran: 'plannings', groupe: gid });
   const pl = 'id' in vue && (vue.ecran === 'planning' || vue.ecran === 'dispos') ? plannings.find((x) => x.id === vue.id) : undefined;
   const remplir = (x: Planning) => setVue({ ecran: 'dispos', id: x.id, groupe: x.groupe });
-  return <div className="buddies">
+  return <div className={`buddies${enConv ? ` bd-avec-poignee${cl.classe}` : ''}`} style={enConv ? cl.style : undefined}>
+    {enConv && <div {...cl.prise} />}
     {colonne}
     {vue.ecran === 'position' ? <MaPosition onToast={onToast} onClose={onClose} ici={ciblesIci(e, groupes, sorties, vue.sortie, vue.groupe)}
       onVoir={(r) => onCarte({ traces: [], positions: r.b.id })}
@@ -790,7 +806,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
             <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? gc.nom : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
-            onPoint={(p) => onCarte({ traces: [], point: p })} onTrace={(t) => onCarte({ traces: [t] })} />
+            onPoint={(p) => onCarte({ traces: [], point: p, cache: cache() })} onTrace={(t) => onCarte({ traces: [t], cache: cache() })} />
         </div>;
       })()
       : vue.ecran === 'dodo' && album ? <OuOnDort x={album} hebergements={hebergements} onToast={onToast} onClose={onClose} onChercher={onLodging}

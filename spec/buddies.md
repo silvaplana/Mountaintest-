@@ -1095,3 +1095,17 @@ validées par Seb le 27/11).
   me notifient plus.
 - **Pages publiques** (`capacitor/public/`) : `conditions.html` et `confidentialite.html` (liens dans Profil › Mon
   compte) ; responsable Sébastien Richard, contact mountainbuddies@silvaplana.cloud (renvoi vers son Gmail).
+
+### 7.25 La messagerie coulisse sur la carte (Seb, 27 novembre 2026)
+
+« Chatter tout en regardant la carte » (maquette `maquettes/buddies-coulisse/`, validée par Seb ; seulement la
+messagerie pour l'instant, Seb 27/11).
+
+- Une conversation (groupe, à deux, support) s'ouvre toujours tout en haut, avec une poignée en haut au milieu.
+- On tire la poignée vers le bas : la conversation devient un panneau du bas et la carte apparaît au-dessus, utilisable
+  (bouger, zoomer). Elle reste à la hauteur où on la lâche (au moins le titre, le dernier message et la case Écrire),
+  et s'y rouvre la fois suivante ; lâchée tout près du haut, elle remonte en plein écran. Un appui sur la poignée passe
+  de l'un à l'autre. Les derniers messages restent en vue.
+- Descendue, toucher un point (« Nico est ici ») ou une trace dans le fil la montre sur la carte au-dessus, sans fermer
+  la conversation ; la carte se cadre dans la partie visible.
+- Code : `capacitor/src/buddies/coulisse.ts` (clé `buddies:coulisse`), champ `cache` de `CarteBuddies`.
