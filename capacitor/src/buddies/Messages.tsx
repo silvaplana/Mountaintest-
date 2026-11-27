@@ -22,6 +22,7 @@ import { CartePlanning, ChoisirPlanning, PlanningIcon } from './Planning';
 import { montrerMaCarte, reprendreMaCarte, suivreUneCarte } from './appel';
 import { useAppel } from './Appel';
 import { IconeSuisCarte } from './IconeSuisCarte';
+import { initialesDe } from '../compte/auth';
 
 /**
  * Messagerie (spec/buddies.md §5.6, écrans 6 et 24) : une conversation par groupe et par sortie.
@@ -30,17 +31,18 @@ import { IconeSuisCarte } from './IconeSuisCarte';
  */
 
 /** Ma position du moment, pour « je suis ici ». */
-export function maPosition(): Promise<{ lon: number; lat: number }> {
+/** `precision` : rayon en mètres où je suis sûrement (sur ordinateur, repéré par le réseau : souvent plusieurs km). */
+export function maPosition(): Promise<{ lon: number; lat: number; precision: number }> {
   return new Promise((ok, ko) => {
     // getCurrentPosition ne rend rien : sans test à part, `?? ko(...)` rejetait toujours tout de suite.
-    const lire = () => (navigator.geolocation ? navigator.geolocation.getCurrentPosition((p) => ok({ lon: p.coords.longitude, lat: p.coords.latitude }), ko,
+    const lire = () => (navigator.geolocation ? navigator.geolocation.getCurrentPosition((p) => ok({ lon: p.coords.longitude, lat: p.coords.latitude, precision: p.coords.accuracy }), ko,
       { maximumAge: 60_000, timeout: 20_000, enableHighAccuracy: true }) : ko(new Error('gps')));
     if (Capacitor.isNativePlatform()) void EcoLocation.requestPermissions().then(lire, ko); else lire();
   });
 }
 
 export type Actions = {
-  onPoint: (p: { lon: number; lat: number; nom: string }) => void;
+  onPoint: (p: PointCarte) => void;
   onTrace: (t: TraceBuddy) => void;
   onHebergement?: (h: Hebergement) => void;
   onPhoto?: () => void;
@@ -152,7 +154,12 @@ export function Conversation({ dest, membres, sortie, court, onToast, ...a }: Ac
   };
   const point = async () => {
     setOccupe(true);
-    try { envoyerMessage(dest, { nature: 'point', ...await maPosition() }); } catch { onToast('Position introuvable : le GPS est-il allumé ?'); }
+    try {
+      const { lon, lat, precision } = await maPosition();
+      // La précision voyage dans le texte du message (« ±3000 m ») : un ordinateur se repère mal (Seb, 27/11).
+      envoyerMessage(dest, { nature: 'point', lon, lat, texte: `±${Math.round(precision)} m` });
+      if (precision > 500) onToast(`Position approximative, à ${distancePrecision(precision)} près : le téléphone est plus précis qu'un ordinateur.`);
+    } catch { onToast('Position introuvable : le GPS est-il allumé ?'); }
     setOccupe(false);
   };
   // 📎 et 📷 (hors sortie) : photos, vidéos, documents, gardés sur le téléphone puis envoyés au retour du réseau.
@@ -388,8 +395,9 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }
       {heure}</div>;
   } else if (m.nature === 'point') {
     const n = mien ? 'Je suis ici' : `${nom(m.par)} est ici`;
-    corps = <button className={`bd-bulle-carte${classe}`} {...appui} onClick={() => m.lon != null && m.lat != null && onPoint({ lon: m.lon, lat: m.lat, nom: n })}>
-      <span className="bd-icone">📍</span><span className="bd-texte"><b>{n}</b><small>{heureMessage(m.cree_le)} · voir sur la carte{mien && <Coches m={m} c={c} />}</small></span>
+    const precision = precisionDuTexte(m.texte);
+    corps = <button className={`bd-bulle-carte${classe}`} {...appui} onClick={() => m.lon != null && m.lat != null && onPoint({ lon: m.lon, lat: m.lat, nom: n, qui: nom(m.par), precision })}>
+      <span className="bd-icone">📍</span><span className="bd-texte"><b>{n}</b><small>{heureMessage(m.cree_le)}{precision && precision > 100 ? ` · à ${distancePrecision(precision)} près` : ''} · voir sur la carte{mien && <Coches m={m} c={c} />}</small></span>
     </button>;
   } else if (m.nature === 'photo') {
     const p = c.photos.find((x) => x.id === m.photo);
@@ -401,6 +409,9 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }
   } else if (m.fichier) {
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} fichier${classe}`} {...appui}>{qui}{transfere}{rappel}
       <Piece f={m.fichier} attente={!!m.attente || (mien && !m.fichier.envoye)} onErreur={c.toast} />{m.texte && <Texte t={m.texte} />}{heure}</div>;
+  } else if (m.nature === 'carte_fin') {
+    corps = <div className={`bd-bulle${mien ? ' mien' : ''} carte${classe}`} {...appui}><span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
+      {mien ? 'Tu as arrêté de partager ta carte' : `${nom(m.par)} a arrêté de partager sa carte`}</span>{heure}</div>;
   } else if (m.nature === 'carte') {
     corps = <div className={`bd-bulle${mien ? ' mien' : ''} carte${classe}`} {...appui}><BulleCarte m={m} c={c} mien={mien} />{heure}</div>;
   } else if (m.nature === 'planning') {
@@ -417,7 +428,7 @@ function UneBulle({ b, c, onPoint, onTrace, onHebergement, onPhoto, onPlanning }
 }
 
 /**
- * 🗺 « Seb veut te montrer sa carte » (spec/buddies.md §7.10) : on s'écrit, sans se parler. « Suivre » : la conversation
+ * 🗺 « Seb partage sa carte » (spec/buddies.md §7.10) : on s'écrit, sans se parler. « Suivre » : la conversation
  * descend et ma carte suit la sienne ; « Non merci » cache les boutons. Au-delà de 4 h, la demande est passée.
  */
 const cartesRefusees = new Set<string>();
@@ -425,15 +436,15 @@ function BulleCarte({ m, c, mien }: { m: MessageBuddy; c: Contexte; mien: boolea
   const a = useAppel();
   const [, maj] = useState(0);
   const active = a?.muette && a.carte === m.id;
-  const vieille = Date.now() - new Date(m.cree_le).getTime() > 4 * 3600e3;
+  const vieille = Date.now() - new Date(m.cree_le).getTime() > 4 * 3600e3 || c.messages.some((x) => x.nature === 'carte_fin' && x.texte === m.id);
   if (mien) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
-    {active ? <>Tu montres ta carte <button className="bd-lien" onClick={() => montrerMaCarte(false)}>Arrêter</button></> : 'Tu as montré ta carte'}</span>;
+    {active ? <>Tu partages ta carte <button className="bd-lien" onClick={() => montrerMaCarte(false)}>Arrêter</button></> : 'Tu as partagé ta carte'}</span>;
   const qui = c.nom(m.par);
   if (active) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>
     Tu suis la carte de {qui} <button className="bd-lien" onClick={reprendreMaCarte}>Arrêter</button></span>;
-  if (vieille || cartesRefusees.has(m.id)) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>{qui} a montré sa carte</span>;
+  if (vieille || cartesRefusees.has(m.id)) return <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span>{qui} a partagé sa carte</span>;
   return <div className="bd-mc-demande">
-    <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span><b>{qui} veut te montrer sa carte</b></span>
+    <span className="bd-msg bd-mc-msg"><span className="bd-mc-ic"><IconeSuisCarte /></span><b>{qui} partage sa carte</b></span>
     <div className="bd-mc-choix">
       <button className="bd-mc-non" onClick={() => { cartesRefusees.add(m.id); maj((n) => n + 1); }}>Non merci</button>
       <button className="bd-mc-oui" onClick={() => void suivreUneCarte(m.id, c.dest, qui).catch((err: Error) => c.toast(err.message || 'Impossible de suivre sa carte'))}>Suivre</button>
@@ -534,16 +545,54 @@ function Transferer({ ms, ici, onFermer, onFait }: { ms: MessageBuddy[]; ici: st
   </div></div>;
 }
 
-/** Le point montré sur la carte (« Julie est ici »), le temps de le regarder. */
-export function PointSurCarte({ map, p }: { map: MlMap | null; p: { lon: number; lat: number; nom: string; cache?: number } | null }) {
+/** Un point d'un message : `qui` (initiales sur la tête d'épingle) et `precision` (mètres) pour une position partagée. */
+export type PointCarte = { lon: number; lat: number; nom: string; qui?: string; precision?: number };
+
+/** « ±3000 m » (texte d'un message point) → 3000. */
+export const precisionDuTexte = (t?: string | null) => { const r = /^±(\d+) m$/.exec(t ?? ''); return r ? Number(r[1]) : undefined; };
+export const distancePrecision = (m: number) => m >= 1000 ? `${Math.round(m / 1000)} km` : `${Math.round(m / 10) * 10} m`;
+
+/** Un cercle de `r` mètres autour d'un point, en polygone (pour la précision d'une position). */
+function cercle(lon: number, lat: number, r: number): [number, number][] {
+  const dLat = r / 111_320, dLon = dLat / Math.cos(lat * Math.PI / 180);
+  return Array.from({ length: 65 }, (_, i) => { const a = i / 64 * 2 * Math.PI; return [lon + dLon * Math.cos(a), lat + dLat * Math.sin(a)]; });
+}
+
+/**
+ * Le point montré sur la carte (« Julie est ici »), le temps de le regarder : une épingle piquée au sol, comme les
+ * positions des buddies (sa pointe est le point exact, l'étiquette au-dessus), et le cercle de précision quand la
+ * position est approximative (ordinateur) (Seb, 27/11 : l'ancienne bulle semblait glisser quand on bougeait la carte).
+ */
+export function PointSurCarte({ map, p }: { map: MlMap | null; p: (PointCarte & { cache?: number }) | null }) {
   useEffect(() => {
     if (!map || !p) return;
     const el = document.createElement('div');
-    el.className = 'bd-point-carte';
-    el.textContent = `📍 ${p.nom}`;
+    el.className = 'bd-pos-carte bd-point-carte';
+    const t = document.createElement('span');
+    t.className = 'bd-tete';
+    if (p.qui) t.textContent = initialesDe(p.qui);
+    const b = document.createElement('b');
+    b.textContent = p.nom;
+    el.append(t, document.createElement('i'), b);
     const mk = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lon, p.lat]).addTo(map);
-    map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 14), duration: 600, offset: [0, -(p.cache ?? 0) / 2] });
-    return () => { mk.remove(); };
+    const id = 'bd-point-precision';
+    const rond = () => {
+      if (!p.precision || p.precision < 30 || map.getSource(id)) return;
+      map.addSource(id, { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [cercle(p.lon, p.lat, p.precision)] } } });
+      map.addLayer({ id: `${id}-f`, type: 'fill', source: id, paint: { 'fill-color': '#3e5368', 'fill-opacity': 0.12 } });
+      map.addLayer({ id: `${id}-l`, type: 'line', source: id, paint: { 'line-color': '#3e5368', 'line-width': 2, 'line-dasharray': [2, 2] } });
+    };
+    const ok = () => { try { rond(); } catch { /* style en cours de chargement : on réessaie au prochain */ } };
+    ok();
+    map.on('styledata', ok);
+    // Un point approximatif : on recule pour voir tout le cercle.
+    const z = p.precision && p.precision > 300 ? Math.min(14, Math.log2(40_075_016 * Math.cos(p.lat * Math.PI / 180) / (p.precision * 6))) : Math.max(map.getZoom(), 14);
+    map.flyTo({ center: [p.lon, p.lat], zoom: z, duration: 600, offset: [0, -(p.cache ?? 0) / 2] });
+    return () => {
+      mk.remove();
+      map.off('styledata', ok);
+      try { for (const l of [`${id}-l`, `${id}-f`]) if (map.getLayer(l)) map.removeLayer(l); if (map.getSource(id)) map.removeSource(id); } catch { /* carte fermée */ }
+    };
   }, [map, p]);
   return null;
 }

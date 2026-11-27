@@ -5,6 +5,7 @@
  */
 import { Room, RoomEvent, Track, type Participant, type RemoteTrack } from 'livekit-client';
 import { api } from '../compte/auth';
+import { envoyerMessage, synchroniser } from './store';
 
 export type Dest = { groupe?: string; sortie?: string };
 type Reponse = { id: string; groupe: string | null; sortie: string | null; en_ligne: string[]; url: string; jeton: string; nouveau?: boolean };
@@ -25,6 +26,8 @@ export type EtatAppel = {
   suit?: Voix | null;
   /** 🗺 Carte montrée depuis la messagerie : salle muette (pas de voix), `carte` = le message « carte » du fil. */
   muette?: boolean; carte?: string;
+  /** Ma carte s'allumera dès que quelqu'un décroche (touchée pendant « Appel pour… »). */
+  carteDesQue?: boolean;
 };
 
 /** Les calques de la carte, les mêmes chez ceux qui suivent. */
@@ -72,8 +75,12 @@ function bip(freqs: number[], d: number, volume = 0.25) {
   });
 }
 /** Tonalité de retour d'appel à la française : 440 Hz, 1,5 s toutes les 5 s. */
+export function tonaliteDoitSonner(jappelle: boolean, e: EtatAppel | null) {
+  return jappelle && !!e && !e.muette && (e.phase === 'connexion' || e.phase === 'appel') && !e.voix.length;
+}
 function tonaliteSelon(e: EtatAppel | null) {
-  const faut = jAppelle && !!e && (e.phase === 'connexion' || e.phase === 'appel');
+  // Dès que quelqu'un est là, plus de tonalité (Seb, 27/11 : elle continuait parfois après le décroché).
+  const faut = tonaliteDoitSonner(jAppelle, e);
   if (faut && !tonalite) { bip([440], 1.5, 0.15); tonalite = setInterval(() => bip([440], 1.5, 0.15), 5000); }
   if (!faut && tonalite) { clearInterval(tonalite); tonalite = undefined; }
 }
@@ -87,7 +94,17 @@ export function suivreCartes(f: (m: MsgCarte, de: Voix) => void, arrive: () => v
   cartes.add(f); arrivees.add(arrive);
   return () => { cartes.delete(f); arrivees.delete(arrive); };
 }
-function changer(e: EtatAppel | null) { etat = e; tonaliteSelon(e); abonnes.forEach((f) => f(e)); }
+function changer(e: EtatAppel | null) {
+  const avant = etat;
+  etat = e;
+  // 🗺 En appel, j'allume ou j'éteins ma carte : ceux qui sont en ligne reçoivent une notification (Seb, 27/11).
+  if (avant && !avant.muette && avant.phase === 'en_ligne' && !!avant.jeMontre !== !!(e && e.id === avant.id && e.jeMontre)) {
+    void api('POST', `/appels/${avant.id}/carte`, { on: !avant.jeMontre }).catch(() => undefined);
+  } else if (e && !e.muette && e.phase === 'en_ligne' && e.jeMontre && (!avant || avant.id !== e.id || avant.phase !== 'en_ligne')) {
+    void api('POST', `/appels/${e.id}/carte`, { on: true }).catch(() => undefined);
+  }
+  tonaliteSelon(e); abonnes.forEach((f) => f(e));
+}
 
 /** « 3:12 » */
 export function duree(ms: number) {
@@ -132,6 +149,7 @@ export const refuser = () => { if (etat?.phase === 'sonne') changer(null); };
 export async function decrocher() {
   const e = etat;
   if (!e || e.phase !== 'sonne') return;
+  jAppelle = false; // je réponds : pas de tonalité chez moi
   changer({ ...e, phase: 'connexion' });
   try {
     const r = await api<Reponse>('POST', `/appels/${e.id}/rejoindre`);
@@ -144,6 +162,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
   salle = room;
   const voix = () => [...room.remoteParticipants.values()].map((p) => ({ id: p.identity, pseudo: p.name || '?' }));
   let pret = false; // celui qui rejoint ne se fait pas annoncer ceux déjà là
+  const annonces = new Set<string>(); // ceux dont l'arrivée a déjà été annoncée dans cet appel
   const maj = () => {
     if (!etat || salle !== room) return;
     const v = voix();
@@ -153,12 +172,21 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     const arrives = v.filter((x) => !avant.has(x.id)), partis = etat.voix.filter((x) => !apres.has(x.id));
     let annonce = etat.annonce;
     if (arrives.length) arrivees.forEach((f) => f());
-    if (muette || (!pret && !jAppelle)) { /* rien à annoncer */ } else if (arrives.length) {
+    // Un buddy dont la connexion saute (PC, réseau faible) repart et revient sans cesse : « tou-dou, tou-dou… » en boucle
+    // (Seb, 27/11). On n'annonce une arrivée qu'une fois, et un départ seulement s'il dure 5 s.
+    const nouveaux = arrives.filter((x) => !annonces.has(x.id));
+    arrives.forEach((x) => annonces.add(x.id));
+    if (muette || (!pret && !jAppelle)) { /* rien à annoncer */ } else if (nouveaux.length) {
       bip([660, 880], 0.15); navigator.vibrate?.(200);
-      annonce = { texte: `${arrives.map((x) => x.pseudo).join(' et ')} ${arrives.length > 1 ? 'ont' : 'a'} décroché`, jusqua: Date.now() + 4000 };
+      annonce = { texte: `${nouveaux.map((x) => x.pseudo).join(' et ')} ${nouveaux.length > 1 ? 'ont' : 'a'} décroché`, jusqua: Date.now() + 4000 };
     } else if (partis.length) {
-      bip([660, 440], 0.15);
-      annonce = { texte: `${partis.map((x) => x.pseudo).join(' et ')} ${partis.length > 1 ? 'ont' : 'a'} raccroché`, jusqua: Date.now() + 4000 };
+      setTimeout(() => {
+        const vraiment = partis.filter((x) => !voix().some((y) => y.id === x.id) && annonces.has(x.id));
+        if (!vraiment.length || !etat || salle !== room) return;
+        vraiment.forEach((x) => annonces.delete(x.id));
+        bip([660, 440], 0.15);
+        changer({ ...etat, annonce: { texte: `${vraiment.map((x) => x.pseudo).join(' et ')} ${vraiment.length > 1 ? 'ont' : 'a'} raccroché`, jusqua: Date.now() + 4000 } });
+      }, 5000);
     }
     const montre = etat.jeMontre || (montrerDesQue && ensemble);
     if (montre) montrerDesQue = false;
@@ -184,6 +212,7 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
     changer({ id: r.id, nom, dest: { groupe: r.groupe ?? undefined, sortie: r.sortie ?? undefined }, phase: 'en_ligne', voix: [], parle: [], muet: true,
       muette: true, carte: muette.carte, jeMontre: muette.montre });
     await room.connect(r.url, r.jeton);
+    if (salle !== room) { void room.disconnect().catch(() => undefined); return; }
     maj();
     pret = true;
     // Je suis une carte et personne ne la montre (plus) : on quitte au bout de 8 s.
@@ -195,7 +224,10 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
   }
   changer({ id: r.id, nom, dest: { groupe: r.groupe ?? undefined, sortie: r.sortie ?? undefined }, phase: 'appel', voix: [], parle: [], muet: false });
   await room.connect(r.url, r.jeton);
+  // Raccroché pendant la connexion (« Appel pour… », Seb 27/11) : surtout ne pas allumer le micro après coup.
+  if (salle !== room) { void room.disconnect().catch(() => undefined); return; }
   await room.localParticipant.setMicrophoneEnabled(true);
+  if (salle !== room) { void room.disconnect().catch(() => undefined); return; }
   void room.startAudio().catch(() => undefined);
   void api('POST', `/appels/${r.id}/presence`, { en_ligne: true }).catch(() => undefined);
   maj();
@@ -206,6 +238,11 @@ async function entrer(r: Reponse, nom: string, muette?: { carte: string; montre:
 }
 
 function fini() {
+  // 🗺 Je partageais ma carte en s'écrivant : « Seb a arrêté de partager sa carte » part dans le fil (Seb, 27/11).
+  if (etat?.muette && etat.jeMontre && etat.carte) {
+    envoyerMessage(etat.dest, { nature: 'carte_fin', texte: etat.carte });
+    void synchroniser().catch(() => undefined);
+  }
   const id = etat?.muette ? undefined : etat?.id;
   clearTimeout(minuteur);
   sons.splice(0).forEach((el) => el.remove());
@@ -219,7 +256,7 @@ function fini() {
 
 export async function raccrocher() {
   const room = salle;
-  if (!room) { changer(null); return; }
+  if (!room) { jAppelle = false; changer(null); return; } // raccroché avant la salle : la prochaine sonnerie reçue n'aura pas la tonalité
   fini(); // salle oubliée d'abord : la déconnexion qui suit ne refait pas fini()
   await room.disconnect().catch(() => undefined);
 }
@@ -234,10 +271,17 @@ export async function couperMicro(muet: boolean) {
  * 🗺 Depuis la messagerie : en appel, j'allume ma carte ; sinon j'appelle la bande et ma carte s'allume dès que
  * quelqu'un décroche (« Suis ma carte » passe par l'appel).
  */
+/** 🗺 Pendant « Appel pour… » (Seb, 27/11) : ma carte s'allumera chez eux dès qu'ils décrochent ; un 2e appui annule. */
+export function montrerMaCarteDesQue() {
+  if (!etat || etat.phase === 'en_ligne' || etat.muette) return;
+  montrerDesQue = !montrerDesQue;
+  changer({ ...etat, carteDesQue: montrerDesQue });
+}
+
 export async function montrerMaCarteA(dest: Dest, nom: string) {
-  if (etat) { if (etat.phase === 'en_ligne') montrerMaCarte(true); else montrerDesQue = true; return; }
+  if (etat) { if (etat.phase === 'en_ligne') montrerMaCarte(true); else { montrerDesQue = true; changer({ ...etat, carteDesQue: true }); } return; }
   await appeler(dest, nom);
-  if (etat) montrerDesQue = true;
+  const e = etat as EtatAppel | null; if (e) { montrerDesQue = true; changer({ ...e, carteDesQue: true }); }
 }
 
 /**

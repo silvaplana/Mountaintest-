@@ -11,6 +11,7 @@
  *   demande de se reconnecter, et le profil local reste affiché.
  */
 
+import { Capacitor } from '@capacitor/core';
 import { PLAY } from '../config';
 
 export const API_URL = 'https://mountainbuddies.silvaplana.cloud/api';
@@ -292,9 +293,15 @@ export function initialesDe(texte: string) {
   return mots.slice(0, 2).map((m) => m[0]).join('').toUpperCase() || texte.trim().slice(0, 1).toUpperCase();
 }
 
+/** D'où vient l'appli, pour l'onglet Utilisateurs du Super User. */
+export const plateformeAppli = () => PLAY ? 'play' : Capacitor.isNativePlatform() ? 'apk' : 'web';
+
 /** Se déconnecter : oublie la session (les traces et le reste de l'appli ne bougent pas). */
 export async function deconnecter() {
   const e = lire();
+  // Journal du Super User (Seb, 27/11) : dit avant d'oublier le jeton, 2 s au plus (sans réseau : rien).
+  await Promise.race([api('POST', '/ouverture', { plateforme: plateformeAppli(), evenement: 'deconnexion' }),
+    new Promise((ok) => setTimeout(ok, 2000))]).catch(() => undefined);
   ecrire({ config: e.config });
   if (e.refresh && e.config) {
     // Révocation côté Logto si le réseau est là ; sinon le jeton expirera tout seul.

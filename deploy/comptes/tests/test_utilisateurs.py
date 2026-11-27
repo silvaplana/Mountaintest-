@@ -32,3 +32,19 @@ def test_jours_ouvertures_plateforme_et_groupes(client):
 
 def test_reserve_au_super_user(client):
     assert client.get("/super/utilisateurs", headers=entete()).status_code == 403
+
+
+def test_journal_sans_le_super_user(client):
+    gid, julie = bande_avec_julie(client)  # Seb crée le groupe, Julie s'inscrit et le rejoint
+    client.post("/ouverture", json={"plateforme": "apk", "evenement": "connexion"}, headers=entete(sub="julie"))
+    client.post("/ouverture", json={"plateforme": "apk"}, headers=entete(sub="julie"))
+    client.post("/ouverture", json={"plateforme": "apk", "evenement": "deconnexion"}, headers=entete(sub="julie"))
+    rendre_super_user("seb")
+    client.post("/ouverture", json={"plateforme": "apk", "evenement": "connexion"}, headers=entete(sub="seb"))
+    r = client.get("/super/utilisateurs", headers=entete(sub="seb")).json()
+    j = [x for x in r["journal"] if x["qui"] == julie]
+    assert [x["quoi"] for x in j] == ["deconnexion", "ouverture", "connexion", "rejoint", "inscription"]
+    assert j[3]["detail"] == "Ski du dimanche" and j[0]["detail"] == "Android"
+    seb = next(c["id"] for c in r["comptes"] if c["id"] != julie)
+    assert [x["quoi"] for x in r["journal"] if x["qui"] == seb] == ["inscription"]  # pas encore Super User à son inscription
+    assert next(c for c in r["comptes"] if c["id"] == julie)["ouvertures"] == 2  # la déconnexion ne compte pas

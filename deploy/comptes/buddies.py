@@ -23,7 +23,7 @@ import logging
 
 import droits
 import mails
-from modeles import (Blocage, BuddyCount, Carnet, Coeur, DemandeEntree, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
+from modeles import (Blocage, BuddyCount, Carnet, Coeur, DemandeEntree, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, Journal, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Signalement, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 log = logging.getLogger(__name__)
@@ -264,6 +264,12 @@ def envoyer_mails(Sessions, ids: list[uuid.UUID]) -> None:
             s.commit()
 
 
+def noter(s: Session, u: Utilisateur, quoi: str, detail: str = "") -> None:
+    """Une ligne du journal du Super User (jamais pour le Super User lui-même, Seb 27/11)."""
+    if not u.super_user:
+        s.add(Journal(utilisateur_id=u.id, quoi=quoi, detail=detail[:120]))
+
+
 def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
     inv = s.scalar(select(Invitation).where(Invitation.code == str(op.get("code") or "")))
     if inv is None or inv.groupe_id is None or s.get(Groupe, inv.groupe_id).supprime_le is not None:
@@ -286,6 +292,7 @@ def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
         cible = s.get(Groupe, inv.groupe_id)
         deja = list(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == cible.id)))
         s.add(Membre(groupe_id=inv.groupe_id, utilisateur_id=u.id, role="membre"))
+    noter(s, u, "rejoint", cible.nom)
     if inv.acceptee_par is None and inv.canal != "qr":
         inv.acceptee_par = u.id
     toucher(cible)
@@ -312,6 +319,7 @@ def accepter_demande(s: Session, u: Utilisateur, op: dict) -> None:
     if op.get("oui") and membre(s, g.id, d.utilisateur_id) is None:
         s.add(Membre(groupe_id=g.id, utilisateur_id=d.utilisateur_id, role="membre"))
         prevenir(s, u, [d.utilisateur_id], g, g.nom, "t'a fait entrer dans le groupe")
+        noter(s, s.get(Utilisateur, d.utilisateur_id), "rejoint", g.nom)
     s.delete(d)
     toucher(g)
 
@@ -1014,7 +1022,7 @@ def retirer_hebergement(s: Session, u: Utilisateur, op: dict) -> None:
     toucher(so)
 
 
-NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage", "planning", "carte"}
+NATURES_MESSAGE = {"texte", "point", "photo", "fichier", "sondage", "planning", "carte", "carte_fin"}
 # Comme AppBase (§7.13) : 25 Mo par fichier ou photo, 100 Mo par vidéo ; un sondage a 2 à 10 réponses.
 MAX_FICHIER, MAX_VIDEO = 25 * 1024 * 1024, 100 * 1024 * 1024
 MAX_REPONSES = 10
@@ -1121,7 +1129,9 @@ def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
     if m.nature == "planning":
         return "📅 Planning : " + m.texte
     if m.nature == "carte":
-        return "🗺 veut te montrer sa carte"
+        return "🗺 a partagé sa carte"
+    if m.nature == "carte_fin":
+        return "🗺 a arrêté de partager sa carte"
     return m.texte[:200]
 
 
@@ -1143,10 +1153,15 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
             titre = personne(u)["pseudo"] if a_deux else g.nom
         de = "🐻 Bud" if m.bud else personne(u)["pseudo"]
         texte = resume_message(m, s.get(FichierBuddy, m.fichier_id) if m.fichier_id else None)
+        # 🗺 Carte partagée (Seb, 27/11) : une phrase entière, « Seb a partagé sa carte dans <groupe> ».
+        ligne = ""
+        if m.nature in ("carte", "carte_fin"):
+            fait = "a partagé sa carte" if m.nature == "carte" else "a arrêté de partager sa carte"
+            ligne = f"{de} {fait} {'avec toi' if a_deux else 'dans ' + titre}"
         bloque = set(s.scalars(select(Blocage.utilisateur_id).where(Blocage.bloque_id == u.id)))
         l.append(([x for x in qui if x != u.id and x not in bloque], {
             "type": "message", "cle": str(m.sortie_id or m.groupe_id), "groupe": str(m.groupe_id or ""), "sortie": str(m.sortie_id or ""),
-            "titre": titre, "de": de, "texte": texte, "duo": "1" if a_deux else "",
+            "titre": titre, "de": de, "texte": texte, "duo": "1" if a_deux else "", "ligne": ligne,
             "envoye_le": str(int(datetime.now(timezone.utc).timestamp() * 1000))}))
     return l
 

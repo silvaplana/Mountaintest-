@@ -672,7 +672,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   groupe (« Col Girardin · Julie · 14 km · voir sur la carte ») et les hébergements proposés (« Gîte Les Baladins ·
   Seb · 60 € / nuit »). On les retrouve donc plus tard dans la conversation.
 - **Envoyer d'un geste** : 📍 envoie ma position du moment (« Nico est ici · voir sur la carte » : un toucher centre
-  la carte sur le point) ; 📷 (dans une sortie) dépose les photos dans l'album et les envoie aussi en message ;
+  la carte sur le point, montré par une épingle piquée au sol, aux initiales, comme les positions des buddies ; Seb
+  27/11 : l'ancienne bulle semblait glisser quand on bougeait la carte). La précision du téléphone voyage avec le
+  message (texte « ±3000 m ») : au-delà de 100 m, la bulle dit « à 3 km près » et la carte montre un cercle en
+  pointillés ; au-delà de 500 m, celui qui envoie est prévenu (un ordinateur se repère par le réseau) ; 📷 (dans une sortie) dépose les photos dans l'album et les envoie aussi en message ;
   🎤 dicte le texte dans le champ (on relit avant d'envoyer). Appui long (ou toucher) sur un de mes messages :
   « Retirer ce message ».
 - **💬 de la colonne** : dans une sortie, sa conversation ; dans un groupe, la sienne (dans le panneau) ;
@@ -700,7 +703,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 24** : la carte reste à l'écran, barre verte en haut « En ligne · 3:12 / Julie parle… · Luc », 🎙/🔇 et
   ✕ raccrocher. Celui qui appelle et que personne ne rejoint raccroche seul au bout d'une minute.
 - **Ce que l'appelant entend** (Seb, 27 novembre) : tant que personne n'a décroché, la tonalité de retour d'appel à la
-  française (440 Hz, 1,5 s toutes les 5 s) et la barre « Ça sonne… ». Quand quelqu'un décroche : deux bips montants,
+  française (440 Hz, 1,5 s toutes les 5 s, coupée dès que quelqu'un est dans l'appel) et la barre « Appel pour <groupe> » (Seb, 27/11). Dessous, les petits visages de ceux qu'on appelle (maquette
+  `maquettes/qui-decroche/`, choix B) : en couleur avec un point vert = en ligne, grisé en pointillé = ça sonne,
+  barré = pas répondu (après une minute, ou parti) ; en ligne d'abord, 6 au plus puis « +N », et la durée. Quand quelqu'un décroche : deux bips montants (une seule fois par buddy et par appel ; un départ n'est annoncé que s'il dure 5 s, pour une connexion qui saute),
   une vibration et la barre passe au vert « Julie a décroché » 4 s ; quand quelqu'un raccroche : deux bips
   descendants et « Luc a raccroché ». Celui qui rejoint un appel déjà en cours ne se fait pas annoncer ceux déjà là.
 - **🗺 Suis ma carte** (Seb, 27 novembre, maquette `maquettes/partage-carte-appel/`, option A choisie ; ni vidéo de
@@ -721,7 +726,13 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).
 - **🗺 Montrer sa carte en s'écrivant, sans appel** (Seb, 27 novembre, maquette `messagerie.png`) : hors appel, l'icône
   carte en haut de la conversation envoie un message « carte » dans le fil (nature `carte`, notification comme un
-  message : « 🗺 veut te montrer sa carte »). Chez les autres, la bulle dit « Seb veut te montrer sa carte » avec
+  message, phrase entière : « Seb a partagé sa carte dans <groupe> », « … avec toi » à deux ; Seb, 27/11). Quand Seb
+  arrête (ou qu'un appel prend la place), un message `carte_fin` part aussi : « Seb a arrêté de partager sa carte
+  dans <groupe> », et la bulle de départ n'offre plus Suivre. En appel aussi (Seb, 27/11), ceux qui sont en ligne reçoivent
+  « Seb a partagé sa carte dans <groupe> » quand j'allume ma carte, et « … a arrêté de partager sa carte » quand je
+  l'éteins ou raccroche (`POST /appels/{id}/carte`, notification seule, rien dans le fil). L'icône carte est dans la
+  barre dès « Appel pour <groupe>… » (Seb, 27/11) : touchée avant qu'ils décrochent, elle s'allume et ma carte part dès que
+  quelqu'un décroche (un 2e appui annule). Chez les autres, la bulle dit « Seb partage sa carte » avec
   Non merci / Suivre (la demande vaut 4 h). Suivre : la conversation descend et la carte suit celle de Seb, comme
   en appel (vue, fond, traces, calques, trait, profil) ; on continue de s'écrire, on ne se parle pas. L'icône du haut
   devient le badge de Seb avec la petite carte, un appui arrête ; Seb arrête en touchant l'icône (allumée) ou
@@ -729,6 +740,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   verte en haut de la carte reprend l'icône ou le badge quand la messagerie est fermée. Un vrai appel (passé ou
   reçu) remplace la carte montrée. Technique : une salle LiveKit muette par message (`carte-<id>`, sans micro, 4 h),
   jeton par `POST /cartes/{message}` (seulement les membres de la conversation).
+- **📞 « Appeler qui ? »** (Seb, 27 novembre, maquette `maquettes/appeler-qui/`) : le 📞 de la colonne, quand aucun
+  groupe ni sortie n'est ouvert, ouvre une feuille par-dessus la carte : « Chercher un nom » en haut (sans accents ni
+  majuscules), puis les groupes et sorties en cours ou à venir (derniers appelés d'abord, gardés sur le téléphone,
+  puis dernière activité), puis les buddies un par un (l'appel passe par la discussion à deux). Un appui = appel.
 - **Montrer du doigt** : pendant l'appel, l'appui long sur la carte (qui d'habitude choisit un lieu où aller)
   allume l'endroit chez les autres : « 👉 Julie te montre », la carte s'y centre 10 s.
 - **iPhone** : pas encore de sonnerie (il faudra CallKit et un compte Apple Developer) ; on rejoint par la ligne
@@ -1077,6 +1092,11 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   - Ouverture = lancement de l'appli, ou retour à l'écran après 30 min ailleurs, connecté (`POST /ouverture
     {plateforme, version}`, table `usages` : une ligne par personne et par jour). Compté à partir du 27/11.
   - `GET /super/utilisateurs` : Super User seul (403 sinon), comptes supprimés exclus.
+  - **Journal** (Seb, 27/11), sous la liste et dans la fiche d'une personne, le plus récent en haut : « Toto a créé
+    son compte », « s'est connecté (Android) », « a ouvert l'appli », « a rejoint « groupe » », « s'est déconnecté ».
+    Rien d'anonyme (pas de « un visiteur a téléchargé » : on ne sait pas qui), rien pour le Super User lui-même.
+    Table `journal`, gardée 90 jours, 500 lignes renvoyées. Connexion et déconnexion : `POST /ouverture` avec
+    `evenement` (la déconnexion attend 2 s au plus la réponse avant d'oublier le jeton).
 
 ### Accueil et aide (Seb, 26/11)
 

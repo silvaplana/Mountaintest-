@@ -29,6 +29,7 @@ Routes (préfixe /api, ou l ancien /mountaintest-api, retiré par le gateway Cad
   POST /appareils             📞 le jeton Firebase de ce téléphone (pour sonner)
   POST /appels                📞 appeler un groupe ou une sortie (ou rejoindre l'appel en cours) (appels.py)
   POST /appels/{id}/rejoindre décrocher ; POST /appels/{id}/presence  entrer / raccrocher
+  POST /appels/{id}/carte       🗺 je montre ma carte pendant l'appel (notification)
   POST /cartes/{message}       🗺 salle muette d'un message « carte » (Suis ma carte dans la messagerie)
 """
 from __future__ import annotations
@@ -60,7 +61,7 @@ import appels
 import buddies
 import droits
 import mails
-from modeles import Base, Groupe, MaTrace, Membre, Telechargement, Usage, Utilisateur, maintenant
+from modeles import Base, Groupe, Journal, MaTrace, Membre, Telechargement, Usage, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
 LOGTO_INTERNE = os.environ.get("LOGTO_INTERNE", LOGTO).rstrip("/")
@@ -266,7 +267,8 @@ def config():
 def utilisateur(s: Session, j: dict[str, Any]) -> Utilisateur:
     """Le compte de l'appelant, créé à sa première visite (e-mail et nom repris de Logto)."""
     u = s.scalar(select(Utilisateur).where(Utilisateur.logto_id == j["sub"]))
-    if u is None:
+    nouveau = u is None
+    if nouveau:
         u = Utilisateur(logto_id=j["sub"])
         s.add(u)
     if not u.email:
@@ -276,6 +278,9 @@ def utilisateur(s: Session, j: dict[str, Any]) -> Utilisateur:
             u.pseudo = (fiche.get("name") or fiche.get("username") or (u.email or "").split("@")[0] or "")[:40]
         u.photo = u.photo or fiche.get("avatar")
     u.vu_le = maintenant()
+    if nouveau:
+        s.flush()
+        buddies.noter(s, u, "inscription")
     s.commit()
     return u
 
@@ -642,6 +647,17 @@ def salle_carte(mid: str, j: dict = Depends(jeton_requis), s: Session = Depends(
     return refus(lambda: appels.salle_carte(s, u, mid))
 
 
+class CarteAppel(BaseModel):
+    on: bool
+
+
+@app.post("/appels/{aid}/carte")
+def carte_appel(aid: str, c: CarteAppel, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """🗺 Je montre ma carte pendant l'appel (ou j'arrête) : notification à ceux qui sont en ligne."""
+    u = utilisateur(s, j)
+    return refus(lambda: appels.carte_en_appel(s, Sessions, u, aid, c.on))
+
+
 @app.post("/appels/{aid}/presence")
 def presence_appel(aid: str, p: Presence, j: dict = Depends(jeton_requis), s: Session = Depends(db)):
     u = utilisateur(s, j)
@@ -651,16 +667,21 @@ def presence_appel(aid: str, p: Presence, j: dict = Depends(jeton_requis), s: Se
 class Ouverture(BaseModel):
     plateforme: str = Field("web", pattern="^(apk|play|web)$")
     version: str | None = Field(None, max_length=20)
+    # Pour le journal du Super User : ouverture de l'appli, connexion (compte une ouverture), déconnexion (non).
+    evenement: str = Field("ouverture", pattern="^(ouverture|connexion|deconnexion)$")
 
 
 @app.post("/ouverture")
 def ouverture(o: Ouverture, u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
-    """L'appli vient d'être ouverte (ou rouverte après un long moment) : +1 ouverture aujourd'hui."""
+    """L'appli vient d'être ouverte (ou rouverte après un long moment), ou on s'y connecte : +1 ouverture
+    aujourd'hui. Une déconnexion n'est notée que dans le journal."""
     u = s.merge(u)
     u.plateforme, u.version = o.plateforme, o.version
-    jour = maintenant().date()
-    us = s.get(Usage, (u.id, jour)) or s.merge(Usage(utilisateur_id=u.id, jour=jour, ouvertures=0))
-    us.ouvertures += 1
+    buddies.noter(s, u, o.evenement, {"apk": "Android", "play": "Play Store", "web": "navigateur"}[o.plateforme])
+    if o.evenement != "deconnexion":
+        jour = maintenant().date()
+        us = s.get(Usage, (u.id, jour)) or s.merge(Usage(utilisateur_id=u.id, jour=jour, ouvertures=0))
+        us.ouvertures += 1
     s.commit()
     return {"ok": True}
 
@@ -701,7 +722,13 @@ def super_utilisateurs(u: Utilisateur = Depends(moi_requis), s: Session = Depend
                         "cree_le": iso(x.cree_le), "vu_le": iso(x.vu_le), "plateforme": x.plateforme, "version": x.version,
                         "jours": len(l), "ouvertures": sum(y.ouvertures for y in l), "groupes": sorted(groupes.get(x.id, [])),
                         "par_jour": {y.jour.isoformat(): y.ouvertures for y in l if y.jour >= mois}})
-    return {"telechargements": tel, "comptes": comptes,
+    s.execute(Journal.__table__.delete().where(Journal.quand < maintenant() - timedelta(days=90)))
+    s.commit()
+    noms = {c["id"]: c["pseudo"] for c in comptes}
+    journal = [{"quand": iso(x.quand), "qui": str(x.utilisateur_id), "pseudo": noms.get(str(x.utilisateur_id), "?"),
+                "quoi": x.quoi, "detail": x.detail}
+               for x in s.scalars(select(Journal).order_by(Journal.quand.desc(), Journal.id.desc()).limit(500))]
+    return {"telechargements": tel, "comptes": comptes, "journal": journal,
             "semaine": sum(1 for c in comptes if c["vu_le"] and c["vu_le"][:10] >= semaine.isoformat())}
 
 

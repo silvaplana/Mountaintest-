@@ -21,11 +21,12 @@ import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Heb
 import type { Lodging } from '../Lodging';
 import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosition, basculerVoiture, ciblesIci, PositionsSurCarte, useReperes } from './Positions';
 import { Utilisateurs } from './Utilisateurs';
-import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
+import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre, type PointCarte } from './Messages';
 import { apercu, fil } from './messages';
 import { appelEnCours, appeler, montrerMaCarte, proposerMaCarte, reprendreMaCarte, siCarteAbsente, type Dest, type Sonnerie } from './appel';
 import { useAppel } from './Appel';
 import { IconeSuisCarte } from './IconeSuisCarte';
+import { AppelerQui, noterAppel } from './AppelerQui';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
@@ -241,6 +242,7 @@ function BoutonCarte({ dest, nom, onToast, onDescendre }: { dest: Dest; nom: str
 /** 📞 Appeler toute la bande (ou rejoindre l'appel déjà en cours) ; la barre d'appel s'affiche sur la carte. */
 function appelerBande(dest: Dest, nom: string, onToast: (m: string) => void) {
   if (appelEnCours() && !appelEnCours()!.muette) { onToast('Tu es déjà en appel'); return; }
+  noterAppel(dest.sortie ? `s:${dest.sortie}` : `g:${dest.groupe}`);
   void appeler(dest, nom).catch((e: Error) => onToast(e.message || 'Appel impossible'));
 }
 
@@ -756,7 +758,7 @@ export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'do
 
 /** Ce qu'on montre sur la carte : une sortie (sa conversation ouverte si `parler`), des traces, un point d'un message,
  * ou les buddies visibles (📍 de la colonne) centrés sur l'un d'eux (`positions` = son identifiant). */
-export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: { lon: number; lat: number; nom: string }; positions?: string;
+export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boolean; point?: PointCarte; positions?: string;
   /** Messagerie descendue sur la carte (Seb, 27/11) : elle reste ouverte et cache ces pixels du bas ; on montre au-dessus. */
   cache?: number };
 
@@ -772,6 +774,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   const compte = useCompte();
   // La messagerie coulisse sur la carte (Seb, 27/11).
   const cl = useCoulisse();
+  const [appelerQui, setAppelerQui] = useState(false);
   // 🗺 Carte montrée ou suivie en s'écrivant : la conversation descend pour laisser voir la carte.
   const ap = useAppel();
   const carteMuette = ap?.muette && (ap.jeMontre || ap.suit) ? ap.carte : null;
@@ -865,7 +868,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
       const gr = vue.ecran === 'groupe' || vue.ecran === 'conv' ? groupes.find((y) => y.id === vue.id) : undefined;
       if (x) appelerBande({ sortie: x.id }, x.nom, onToast);
       else if (gr && gr.nature !== 'me_time') appelerBande({ groupe: gr.id }, gr.nom, onToast);
-      else onToast('Ouvre un groupe ou une sortie pour appeler toute la bande');
+      else setAppelerQui(true); // « Appeler qui ? » (Seb, 27/11)
     }} />;
   const album = sortieIci ? sorties.find((x) => x.id === sortieIci) : undefined;
   const caisse = album ?? (cg && gcg ? sortieDuCount(cg, gcg) : undefined);
@@ -877,6 +880,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   return <div className={`buddies${coulisse ? ` bd-avec-poignee${cl.classe}` : ''}`} style={coulisse ? cl.style : undefined}>
     {coulisse && <div {...cl.prise} />}
     {colonne}
+    {appelerQui && <AppelerQui onClose={() => setAppelerQui(false)} onToast={onToast} />}
     {vue.ecran === 'position' ? <MaPosition onToast={onToast} onClose={onClose} ici={ciblesIci(e, groupes, sorties, vue.sortie, vue.groupe)}
       onVoir={(r) => onCarte({ traces: [], positions: r.b.id })}
       onRetour={() => setVue(vue.groupe ? { ecran: 'groupe', id: vue.groupe } : { ecran: 'liste' })} />
