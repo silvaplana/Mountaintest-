@@ -97,10 +97,25 @@ export function ecouterBuddies(onToast: (m: string) => void, onOuvrir: (planning
     const code = q.get('c') ?? '';
     // 📅 Lien d'un planning (§7.28) : on entre dans le groupe si besoin (rien si on y est déjà), puis le planning s'ouvre.
     const planning = q.get('p') ?? undefined;
-    rejoindre(code);
     onOuvrir(planning);
-    if (planning) { if (!connecte()) onToast('Connecte-toi (👤) pour voir le planning'); }
-    else onToast(connecte() ? 'Invitation reçue : tu entres dans le groupe' : 'Connecte-toi (👤) pour entrer dans le groupe');
+    if (!connecte()) {
+      rejoindre(code);
+      onToast(planning ? 'Connecte-toi (👤) pour voir le planning' : 'Connecte-toi (👤) pour entrer dans le groupe');
+      return;
+    }
+    // Déjà dans le groupe (Seb, 27/11 : après une réinstallation, par exemple) : on le dit, plutôt que « tu entres ».
+    const groupeDuCode = () => appliquer(lire()).find((g) => g.invitations.some((i) => i.code === code));
+    void (async () => {
+      await synchroniser().catch(() => undefined);
+      const deja = groupeDuCode();
+      if (deja) { if (!planning) onToast(`${nomAffiche()}, tu es déjà dans « ${deja.nom} »`); return; }
+      rejoindre(code);
+      await envoyerAttente();
+      if (planning) return;
+      const g = groupeDuCode();
+      const demande = (lire().demandes ?? []).length > 0 && !g;
+      onToast(g ? `Bienvenue dans « ${g.nom} »` : demande ? 'Demande envoyée : un admin doit l’accepter' : 'Invitation reçue : tu entres dans le groupe');
+    })();
   };
   const subs: Promise<{ remove: () => Promise<void> }>[] = [];
   // Version web (ordinateur, iPhone) : rejoindre.html renvoie sur …/app/?rejoindre=CODE.

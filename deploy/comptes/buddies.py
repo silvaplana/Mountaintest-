@@ -279,14 +279,18 @@ def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
         demander(s, u, s.get(Groupe, inv.groupe_id))
         return
     if inv.sortie_id:
-        s.add(Participant(sortie_id=inv.sortie_id, utilisateur_id=u.id))
         cible = s.get(Sortie, inv.sortie_id)
+        deja = list(participants(s, cible))
+        s.add(Participant(sortie_id=inv.sortie_id, utilisateur_id=u.id))
     else:
-        s.add(Membre(groupe_id=inv.groupe_id, utilisateur_id=u.id, role="membre"))
         cible = s.get(Groupe, inv.groupe_id)
+        deja = list(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id == cible.id)))
+        s.add(Membre(groupe_id=inv.groupe_id, utilisateur_id=u.id, role="membre"))
     if inv.acceptee_par is None and inv.canal != "qr":
         inv.acceptee_par = u.id
     toucher(cible)
+    # 🔔 Seb, 27/11 : ceux qui y sont déjà sont prévenus de l'arrivée.
+    prevenir(s, u, deja, cible, cible.nom, "a rejoint la sortie" if inv.sortie_id else "a rejoint le groupe")
 
 
 def demander(s: Session, u: Utilisateur, g: Groupe) -> None:
@@ -307,6 +311,7 @@ def accepter_demande(s: Session, u: Utilisateur, op: dict) -> None:
         return  # déjà traitée (par un autre admin, ou opération renvoyée)
     if op.get("oui") and membre(s, g.id, d.utilisateur_id) is None:
         s.add(Membre(groupe_id=g.id, utilisateur_id=d.utilisateur_id, role="membre"))
+        prevenir(s, u, [d.utilisateur_id], g, g.nom, "t'a fait entrer dans le groupe")
     s.delete(d)
     toucher(g)
 
