@@ -13,7 +13,7 @@ import { BlockIcon, PersonnesBloquees } from './buddies/Moderation';
 import { TrashIcon } from './icones';
 
 /** Pages publiques exigées par le Play Store (dans deploy/site, servies par le VPS). */
-const PAGES = 'https://silvaplana.cloud/mountaintest/';
+const PAGES = 'https://mountainbuddies.silvaplana.cloud/app/';
 const ouvrirPage = (page: string) => void Browser.open({ url: PAGES + page });
 
 /**

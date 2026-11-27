@@ -1,7 +1,7 @@
 # Mise en ligne sur le VPS
 
-Adresse : **https://silvaplana.cloud/mountaintest/** (version web du proto React)
-et **https://silvaplana.cloud/mountaintest/apk/** (les deux APK à installer).
+Adresse : **https://mountainbuddies.silvaplana.cloud/** (page publique), **…/app/** (version web)
+et **…/app/apk/** (l'APK à installer). Mêmes fichiers aussi sur l'ancienne adresse https://silvaplana.cloud/mountaintest/.
 
 ```
 push sur main ─▶ GitHub Actions : tests, build web, APK Capacitor

@@ -1036,7 +1036,7 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
 ### Accueil et aide (Seb, 26/11)
 
 - **Panneau d'accueil** (Accueil.tsx) à la première ouverture : « Mountain Buddies, c'est la carte magique dans ta
-  poche, même sans réseau, pour préparer et vivre tes sorties outdoor. Et c'est collaboratif : traces, topos, photos,
+  poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor. Et c'est collaboratif : traces, topos, photos,
   vidéos, vidéos 3D, dépenses communes, positions et messagerie, partagées avec ta bande. » Puis l'aide : appui long
   sur la flèche, sur la carte comme dans le second écran (👥), celui des « buddies ». Un bouton « C'est parti ».
 - Case « Afficher l'aide à l'ouverture » dans Mon compte : le panneau revient à chaque ouverture.

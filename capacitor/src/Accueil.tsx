@@ -21,7 +21,7 @@ export default function Accueil() {
     <div className="accueil" role="dialog" aria-label="Bienvenue">
       <img src="logo.svg" alt="" />
       <h2>Bienvenue !</h2>
-      <p>Mountain Buddies, c'est la carte magique dans ta poche, même sans réseau, pour préparer et vivre tes sorties outdoor.</p>
+      <p>Mountain Buddies, c'est la carte magique dans ta poche, même sans réseau, pour préparer, vivre et revivre tes sorties outdoor.</p>
       <p>Et c'est collaboratif : traces, topos, photos, vidéos, vidéos 3D, dépenses communes, positions et messagerie, partagées avec ta bande.</p>
       <div className="accueil-aide">
         <span className="accueil-fleche">{iconesAGauche() ? '▶' : '◀'}</span>

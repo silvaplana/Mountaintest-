@@ -13,7 +13,7 @@ import { envoyer as envoyerFichier, oublier as oublierFichier } from './album';
 import { envoyer as envoyerFichierMessage, oublier as oublierFichierMessage } from './fichiers';
 import { api, connecte, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
 
-export const LIEN_INVITATION = 'https://silvaplana.cloud/mountaintest/rejoindre.html?c=';
+export const LIEN_INVITATION = 'https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=';
 const CLE = 'buddies';
 
 export type Canal = 'sms' | 'mail' | 'contacts' | 'qr' | 'lien';
