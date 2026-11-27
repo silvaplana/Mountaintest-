@@ -30,6 +30,19 @@ android {
             }
         }
     }
+    // Deux applis (spec/play-store.md) : « apk », l'APK des copains (mise à jour par GitHub, SCAN 25) ;
+    // « play », la version du Play Store (cloud.silvaplana.mountainbuddies : nom définitif une fois publiée,
+    // sans mise à jour maison ni SCAN 25). Les deux peuvent être installées côte à côte.
+    flavorDimensions = ["canal"]
+    productFlavors {
+        apk {
+            dimension "canal"
+        }
+        play {
+            dimension "canal"
+            applicationId "cloud.silvaplana.mountainbuddies"
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
@@ -64,11 +77,10 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+// Firebase (sonnerie des appels, notifications) : src/apk/google-services.json pour l'APK. La version Play
+// demande sa propre appli dans la console Firebase (src/play/google-services.json) ; sans elle, elle se construit
+// quand même, sans notifications (BuddiesPlugin le vérifie).
+if (file('src/apk/google-services.json').exists() || file('src/play/google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+    googleServices { missingGoogleServicesStrategy = 'WARN' }
 }

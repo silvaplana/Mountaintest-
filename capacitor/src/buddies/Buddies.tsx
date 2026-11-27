@@ -10,6 +10,7 @@ import { TracesAssociees } from './Associer';
 import qrcode from 'qrcode-generator';
 import { connecte, lire as lireCompte, nomAffiche, SCHEMA } from '../compte/auth';
 import { useCompte } from '../Account';
+import { BlockIcon, FlagIcon, Signaler, Signalements } from './Moderation';
 import type { ConversationNotif } from './notifs';
 import { Albums, BoutonDeposer, Image as PhotoImage, PhotosSurCarte, UnAlbum } from './Album';
 import { BuddyCount, Comptes, NouveauCount, NouveauCountSortie, sortieDuCount, sortiesAvecCount, UneDepense } from './BuddyCount';
@@ -25,7 +26,7 @@ import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
   aDeux, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
-  inviterSortie, supprimerGroupe, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
+  inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
 
@@ -276,7 +277,8 @@ function CleIcon() {
   </svg>;
 }
 /** Messages de support pas encore lus (pastille de la clé). */
-const supportNonLus = (e: Etat) => { const v = vueSorties(e); return demandesSupport(e).reduce((n, g) => n + nonLus(e, g.id, v.messages), 0); };
+const supportNonLus = (e: Etat) => { const v = vueSorties(e); return demandesSupport(e).reduce((n, g) => n + nonLus(e, g.id, v.messages), 0)
+  + (e.signalements ?? []).filter((x) => !x.suite).length; };
 
 /** Espace du Super User (Seb, 26/11) : les demandes de support ; plus tard la place serveur, les comptes… */
 function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir: (id: string) => void; onRetour: () => void; onClose: () => void }) {
@@ -298,6 +300,8 @@ function EspaceSuperUser({ e, onOuvrir, onRetour, onClose }: { e: Etat; onOuvrir
         {n > 0 && <span className="bd-nonlu">{n}</span>}
       </button>;
     }) : <p className="bd-vide">Pas encore de demande</p>}
+    <h3 className="bd-section">Signalements</h3>
+    <Signalements e={e} />
     <h3 className="bd-section">Plus tard</h3>
     <p className="hint">La place sur le serveur de chacun, les comptes, les chiffres d'usage…</p>
   </div>;
@@ -967,12 +971,13 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
   // Un admin retire un membre ; un admin, seul l'admin principal le retire ; l'admin principal, personne.
   const retirable = (b: Buddy) => b.role === 'admin_principal' ? false : b.role === 'admin' ? principal : admin;
   const [choisi, setChoisi] = useState<Buddy | null>(null);
+  const [aSignaler, setASignaler] = useState<Buddy | null>(null);
   const moi = (b: Buddy) => b.id === e.moi || b.id === 'moi';
   return <div className="bd-voile" onClick={onFermer}><div className="bd-feuille" onClick={(ev) => ev.stopPropagation()}>
     <h3>Inviter mes copains</h3>
     <Inviter nomGroupe={g.nom} qrExistant={qr} onToast={onToast} onInvite={(i) => { inviter(g.id, i); if (i.canal !== 'qr') onToast(`Invitation envoyée à ${i.nom}`); }} />
     <h3>Dans le groupe</h3>
-    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m) || !(principal || retirable(m))} onClick={() => setChoisi(m)}>
+    {g.membres.map((m) => <button key={m.id} className="bd-ligne petite" disabled={moi(m)} onClick={() => setChoisi(m)}>
       <Visage b={m} /><span className="bd-texte"><b>{m.pseudo}{moi(m) ? ' (toi)' : ''}</b>{m.role === 'admin_principal' ? <small>admin principal</small> : m.role === 'admin' && <small>admin</small>}</span>
     </button>)}
     {g.invitations.filter((i) => i.canal !== 'qr').map((i) => <div key={i.id} className="bd-ligne petite bd-invite">
@@ -987,8 +992,19 @@ function Membres({ g, qr, onToast, onFermer, onParti }: { g: Groupe; qr?: string
       {principal && <button onClick={() => { transmettre(g.id, choisi.id); setChoisi(null); onToast(`${choisi.pseudo} devient admin principal`); }}>
         Lui passer mon rôle d'admin principal</button>}
       {retirable(choisi) && <button className="danger" onClick={() => { retirer(g.id, choisi.id); setChoisi(null); }}>Retirer du groupe</button>}
+      {/* 🚩🚫 Pour tout le monde (Play Store) : signaler ou bloquer un buddy sans passer par un message. */}
+      <button onClick={() => { setASignaler(choisi); setChoisi(null); }}><FlagIcon size={20} /> Signaler {choisi.pseudo}</button>
+      {estBloque(choisi.id, e)
+        ? <button onClick={() => { debloquer(choisi.id); setChoisi(null); onToast(`${choisi.pseudo} est débloqué`); }}><BlockIcon size={20} /> Débloquer {choisi.pseudo}</button>
+        : <button className="danger" onClick={() => { bloquer(choisi); setChoisi(null); void synchroniser().catch(() => undefined); onToast(`${choisi.pseudo} est bloqué`); }}>
+          <BlockIcon size={20} /> Bloquer {choisi.pseudo}</button>}
+      {/* Super User : SCAN 25 dans la version Play Store, pour les membres de l'asso une fois l'accord de l'IGN reçu. */}
+      {superUser() && (e.scan25_ids ?? []).includes(choisi.id)
+        ? <button onClick={() => { donnerScan25(choisi.id, false); void synchroniser().catch(() => undefined); setChoisi(null); onToast(`${choisi.pseudo} n'a plus le SCAN 25`); }}>Retirer le SCAN 25</button>
+        : superUser() && <button onClick={() => { donnerScan25(choisi.id, true); void synchroniser().catch(() => undefined); setChoisi(null); onToast(`${choisi.pseudo} a le SCAN 25`); }}>Donner le SCAN 25</button>}
       <button onClick={() => setChoisi(null)}>Annuler</button>
     </div>}
+    {aSignaler && <Signaler buddy={aSignaler} onFermer={() => setASignaler(null)} onFait={(t) => { setASignaler(null); onToast(t); }} />}
     <button className="acc-deco" onClick={() => {
       if (!confirm(`Quitter « ${g.nom} » ?`)) return;
       quitter(g.id); onToast(`Tu as quitté « ${g.nom} »`); onParti();

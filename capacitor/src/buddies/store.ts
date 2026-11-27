@@ -153,6 +153,19 @@ export type Etat = {
   synchro?: number;
   /** Dernière ouverture de Buddies (ms) : pastille de 👥. */
   vu?: number;
+  /** 🚫 Les buddies que j'ai bloqués (leurs messages se replient). */
+  bloques?: Buddy[];
+  /** 🚩 Signalements à traiter (Super User seulement). */
+  signalements?: Signalement[];
+  /** SCAN 25 débloqué pour moi dans la version du Play Store ; et, pour le Super User, qui l'a. */
+  scan25?: boolean;
+  scan25_ids?: string[];
+};
+
+export type Motif = 'insulte' | 'choquant' | 'pub' | 'autre';
+export type Signalement = {
+  id: string; par: string; cible: string; cible_id: string | null; message: string | null; motif: Motif; mot: string;
+  extrait: string; lieu: string; suite: 'ignore' | 'efface' | 'retire' | null; le: string;
 };
 
 // ------------------------------------------------------------------ stockage
@@ -755,6 +768,31 @@ export function transferer(ms: MessageBuddy[], dests: { groupe?: string; sortie?
   }
 }
 /** Réagir (une émoji par buddy ; null la retire). */
+// ------------------------------------------------------------------ 🚩 signaler, 🚫 bloquer (Play Store)
+
+export function bloquer(b: Buddy) {
+  const e = lire();
+  if (!(e.bloques ?? []).some((x) => x.id === b.id)) ecrire({ ...e, bloques: [...(e.bloques ?? []), { id: b.id, pseudo: b.pseudo, photo: b.photo }] });
+  ajouter({ type: 'bloquer', buddy: b.id });
+}
+export function debloquer(id: string) {
+  ecrire({ ...lire(), bloques: (lire().bloques ?? []).filter((x) => x.id !== id) });
+  ajouter({ type: 'debloquer', buddy: id });
+}
+export const estBloque = (id: string, e: Etat = lire()) => (e.bloques ?? []).some((x) => x.id === id);
+export const signaler = (s: { message?: string; buddy?: string; motif: Motif; mot: string }) =>
+  ajouter({ type: 'signaler', signalement: uuid(), ...s, mot: s.mot.trim().slice(0, 300) });
+export function traiterSignalement(id: string, suite: 'ignore' | 'efface' | 'retire') {
+  ecrire({ ...lire(), signalements: (lire().signalements ?? []).map((x) => (x.id === id ? { ...x, suite } : x)) });
+  ajouter({ type: 'traiter_signalement', signalement: id, suite });
+}
+/** Super User : donner ou retirer le SCAN 25 à un buddy dans la version du Play Store. */
+export function donnerScan25(buddy: string, oui: boolean) {
+  const e = lire(), ids = (e.scan25_ids ?? []).filter((x) => x !== buddy);
+  ecrire({ ...e, scan25_ids: oui ? [...ids, buddy] : ids });
+  ajouter({ type: 'scan25', buddy, oui });
+}
+
 export const reagir = (message: string, emoji: string | null) => ajouter({ type: 'reagir', message, emoji: emoji ?? '' });
 /** Conversation lue jusqu'à maintenant ; `jusqu` (heure du serveur du dernier message) part aussi aux autres : ✓✓ bleues. */
 export function marquerLu(cle: string, jusqu?: string) {
@@ -880,6 +918,9 @@ type Reponse = {
   ids_messages?: string[]; messages?: MessageBuddy[]; lectures?: Lecture[]; ecrivent?: { cle: string; qui: string }[];
   appels?: AppelBuddy[];
   paiements?: Etat['paiements'];
+  bloques?: Buddy[];
+  signalements?: Signalement[];
+  scan25?: boolean; scan25_ids?: string[];
 };
 /** Garde la version reçue de chaque objet encore visible ; `manque` si un objet n'a jamais été reçu. */
 function fusion<T extends { id: string }>(avant: T[], recus: T[], ids: string[]) {
@@ -918,6 +959,8 @@ export function synchroniser(): Promise<string[]> {
         serveur: g.liste, sorties: so.liste, traces: tr.liste, plannings: pl.liste, photos: ph.liste, depenses: dp.liste,
         counts: r.counts ?? e.counts, positions: r.positions ?? e.positions, voitures: r.voitures ?? e.voitures, hebergements: hb.liste, messages: mg.liste, appels: r.appels ?? [], paiements: r.paiements ?? e.paiements,
         lectures: r.lectures ?? e.lectures, ecrivent: r.ecrivent ?? [],
+        bloques: r.bloques ?? e.bloques, signalements: r.signalements ?? e.signalements,
+        scan25: r.scan25 ?? e.scan25, scan25_ids: r.scan25_ids ?? e.scan25_ids,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
@@ -947,6 +990,12 @@ async function envoyerPhotos(connues: Set<string>) {
     else if (annoncee) continue;
     ecrire({ ...lire(), envois: (lire().envois ?? []).filter((x) => x !== id) });
   }
+}
+
+/** Après « Supprimer mon compte » : on oublie les groupes, sorties et messages gardés sur le téléphone. */
+export function oublierTout() {
+  try { localStorage.removeItem(CLE); } catch { /* stockage bloqué */ }
+  ecrire(vide());
 }
 
 /** Pour les tests. */

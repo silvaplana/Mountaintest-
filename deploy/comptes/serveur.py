@@ -104,6 +104,7 @@ COLONNES_AJOUTEES = [
     ("depenses", "remb", "VARCHAR(10)"),
     ("depenses", "moyen", "VARCHAR(10)"),
     ("utilisateurs", "super_user", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ("utilisateurs", "scan25", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ("utilisateurs", "prenom", "VARCHAR(100) NOT NULL DEFAULT ''"),
     ("utilisateurs", "nom", "VARCHAR(100) NOT NULL DEFAULT ''"),
     ("utilisateurs", "telephone", "VARCHAR(50)"),
@@ -114,6 +115,7 @@ COLONNES_AJOUTEES = [
     ("depenses", "count_id", "UUID REFERENCES buddy_counts(id) ON DELETE CASCADE"),
     ("utilisateurs", "telephone_octets", "BIGINT"),
     ("utilisateurs", "telephone_le", "TIMESTAMP WITH TIME ZONE"),
+    ("utilisateurs", "supprime_le", "TIMESTAMP WITH TIME ZONE"),
 ]
 
 
@@ -368,6 +370,28 @@ def changer_moi(ch: Changement, j: dict = Depends(jeton_requis), s: Session = De
     buddies.profil_change(s, u)
     s.commit()
     return profil(u)
+
+
+def logto_supprimer(sub: str) -> None:
+    """Efface la personne chez Logto (son e-mail, ses connexions Google) ; sans accès de gestion, rien."""
+    if not (M2M_ID and M2M_SECRET) or not logto_utilisateur(sub):  # logto_utilisateur renouvelle le jeton
+        return
+    try:
+        req = urllib.request.Request(f"{LOGTO_INTERNE}/api/users/{urllib.parse.quote(sub)}", method="DELETE")
+        req.add_header("Authorization", f"Bearer {_m2m['jeton']}")
+        urllib.request.urlopen(req, timeout=10).close()
+    except Exception as e:
+        print("Logto : suppression impossible :", e, flush=True)
+
+
+@app.delete("/moi")
+def supprimer_moi(j: dict = Depends(jeton_requis), s: Session = Depends(db)):
+    """Supprimer mon compte (exigé par le Play Store) : voir buddies.supprimer_compte pour ce qui part et ce qui reste."""
+    u = utilisateur(s, j)
+    buddies.supprimer_compte(s, u)
+    s.commit()
+    logto_supprimer(j["sub"])
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- Buddies (bloc 1)
