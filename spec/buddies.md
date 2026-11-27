@@ -703,9 +703,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Écran 24** : la carte reste à l'écran, barre verte en haut « En ligne · 3:12 / Julie parle… · Luc », 🎙/🔇 et
   ✕ raccrocher. Celui qui appelle et que personne ne rejoint raccroche seul au bout d'une minute.
 - **Ce que l'appelant entend** (Seb, 27 novembre) : tant que personne n'a décroché, la tonalité de retour d'appel à la
-  française (440 Hz, 1,5 s toutes les 5 s) et la barre « Appel pour <groupe> » (Seb, 27/11). Dessous, les petits visages de ceux qu'on appelle (maquette
+  française (440 Hz, 1,5 s toutes les 5 s, coupée dès que quelqu'un est dans l'appel) et la barre « Appel pour <groupe> » (Seb, 27/11). Dessous, les petits visages de ceux qu'on appelle (maquette
   `maquettes/qui-decroche/`, choix B) : en couleur avec un point vert = en ligne, grisé en pointillé = ça sonne,
-  barré = pas répondu (après une minute, ou parti) ; en ligne d'abord, 6 au plus puis « +N », et la durée. Quand quelqu'un décroche : deux bips montants,
+  barré = pas répondu (après une minute, ou parti) ; en ligne d'abord, 6 au plus puis « +N », et la durée. Quand quelqu'un décroche : deux bips montants (une seule fois par buddy et par appel ; un départ n'est annoncé que s'il dure 5 s, pour une connexion qui saute),
   une vibration et la barre passe au vert « Julie a décroché » 4 s ; quand quelqu'un raccroche : deux bips
   descendants et « Luc a raccroché ». Celui qui rejoint un appel déjà en cours ne se fait pas annoncer ceux déjà là.
 - **🗺 Suis ma carte** (Seb, 27 novembre, maquette `maquettes/partage-carte-appel/`, option A choisie ; ni vidéo de
