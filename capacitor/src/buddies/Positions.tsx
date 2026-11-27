@@ -4,6 +4,7 @@ import type { Map as MlMap } from 'maplibre-gl';
 import { Capacitor } from '@capacitor/core';
 import { EcoLocation } from '../gps/ecoLocation';
 import { initialesDe } from '../compte/auth';
+import { epingleSurCarte, rangerEtiquettes } from '../PinLayer';
 import { Natif, useBuddies, Visage } from './Buddies';
 import { maPosition } from './Messages';
 import { detail, etiquette, heureCourte, opacite, reperes, reperesTous, type Repere } from './positions';
@@ -36,20 +37,13 @@ function VisagesSurCarte({ map, rs }: { map: MlMap | null; rs: Repere[] }) {
   useEffect(() => {
     if (!map || !rs.length) return;
     const ms = rs.map((r) => {
-      // Tête d'épingle aux initiales, piquée sur son aiguille, et l'heure de la dernière position (Seb, 26/11).
-      const el = document.createElement('div');
-      el.className = 'bd-pos-carte';
-      el.style.opacity = String(opacite(r));
-      const t = document.createElement('span');
-      t.className = 'bd-tete';
-      t.textContent = initiales(r.b.pseudo);
-      const b = document.createElement('b');
-      b.className = r.moi ? 'moi' : r.actif ? '' : 'vieux';
-      // Le pseudo en entier avec l'heure (Seb, 27/11 : « S » seul, trop petit et pas parlant).
-      b.textContent = r.moi ? 'toi' : `${r.b.pseudo} · ${heureCourte(r.p.prise_le)}`;
-      el.append(t, document.createElement('i'), b);
-      return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([r.p.lon, r.p.lat]).addTo(map);
+      // Une épingle toute simple, et le pseudo en entier avec l'heure (Seb, 27/11).
+      const mk = epingleSurCarte(map, r.p.lon, r.p.lat, r.moi ? 'toi' : `${r.b.pseudo} · ${heureCourte(r.p.prise_le)}`,
+        r.moi ? 'moi' : r.actif ? '' : 'vieux');
+      mk.getElement().style.opacity = String(opacite(r));
+      return mk;
     });
+    rangerEtiquettes(map);
     return () => ms.forEach((m) => m.remove());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, cle]);
@@ -199,15 +193,13 @@ export function PositionsBuddiesSurCarte({ map, centre }: { map: MlMap | null; c
  * (Seb, 27/11 : partagée depuis le PC, il ne la voyait pas sur le téléphone sans passer par la liste).
  */
 export function BuddiesVisiblesSurCarte({ map }: { map: MlMap | null }) {
-  const e = useBuddies();
   const rs = useTous().filter((r) => r.actif && !r.moi);
-  // Tant que quelqu'un se montre (lui ou moi), on va chercher ses nouvelles positions toutes les 2 minutes.
-  const suivre = rs.length > 0 || mesEpingles(e).length > 0;
+  // Toutes les 2 minutes, appli ouverte : les positions et les voitures garées des buddies arrivent sans rouvrir
+  // l'appli (Seb, 27/11 : sa voiture garée n'arrivait pas chez les autres).
   useEffect(() => {
-    if (!suivre) return;
     const t = setInterval(() => { if (document.visibilityState === 'visible') void synchroniser().catch(() => undefined); }, 2 * 60_000);
     return () => clearInterval(t);
-  }, [suivre]);
+  }, []);
   return <VisagesSurCarte map={map} rs={rs} />;
 }
 
@@ -282,6 +274,7 @@ export function VoituresSurCarte({ map }: { map: MlMap | null }) {
       el.append(h, auto);
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([v.lon, v.lat]).addTo(map);
     });
+    rangerEtiquettes(map);
     return () => ms.forEach((m) => m.remove());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [map, cle]);

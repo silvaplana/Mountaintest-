@@ -25,6 +25,54 @@ const PIN_SVG = '<svg viewBox="0 0 30 30" width="30" height="30" aria-hidden="tr
   + '<circle cx="20" cy="10" r="7.5" stroke="#1d2421" stroke-width="1.6"/><circle cx="17.5" cy="7.5" r="2.2" fill="#fff"/></svg>';
 
 /**
+ * Une épingle rouge toute simple avec son étiquette au-dessus (positions des buddies, point d'un message) : même
+ * dessin que les épingles des traces (Seb, 27/11 : « juste une épingle, comme pour les autres »). La pointe de
+ * l'aiguille est le point exact.
+ */
+export function epingleSurCarte(map: MlMap, lon: number, lat: number, texte: string, classe = '') {
+  const el = document.createElement('div');
+  el.className = 'bd-pin';
+  // Au-dessus des voitures : la pointe reste visible.
+  el.style.zIndex = '2';
+  el.innerHTML = PIN_SVG;
+  el.querySelectorAll('circle')[0].setAttribute('fill', '#d32f2f');
+  const b = document.createElement('b');
+  if (classe) b.className = classe;
+  b.textContent = texte;
+  el.appendChild(b);
+  return new maplibregl.Marker({ element: el, anchor: 'bottom-left', offset: [-2, 2] }).setLngLat([lon, lat]).addTo(map);
+}
+
+const rangees = new WeakSet<MlMap>();
+/**
+ * Étiquettes des épingles et des voitures au même endroit (Seb, 27/11 : illisibles l'une sur l'autre) : on les
+ * empile vers le haut, sans bouger les épingles. Refait après chaque zoom et à chaque nouvelle épingle.
+ */
+export function rangerEtiquettes(map: MlMap) {
+  if (!rangees.has(map)) { rangees.add(map); map.on('zoomend', () => rangerEtiquettes(map)); }
+  requestAnimationFrame(() => {
+    const ls = [...map.getContainer().querySelectorAll<HTMLElement>('.bd-pin b, .bd-voiture-carte b')];
+    ls.forEach((b) => b.style.setProperty('--dy', '0px'));
+    const rs = ls.map((b) => ({ b, r: b.getBoundingClientRect() })).sort((x, y) => y.r.bottom - x.r.bottom);
+    // Les épingles et les voitures ne bougent pas : les étiquettes passent au-dessus d'elles, sans les cacher.
+    const poses = [...map.getContainer().querySelectorAll('.bd-pin svg, .bd-voiture-carte .bd-auto')].map((x) => {
+      const r = x.getBoundingClientRect();
+      return { l: r.left, r: r.right, t: r.top, b: r.bottom };
+    });
+    for (const { b, r } of rs) {
+      let dy = 0;
+      for (let n = 0; n < 12; n++) {
+        const gene = poses.find((p) => r.left < p.r && r.right > p.l && r.top + dy < p.b && r.bottom + dy > p.t);
+        if (!gene) break;
+        dy = gene.t - 3 - r.bottom;
+      }
+      b.style.setProperty('--dy', `${dy}px`);
+      poses.push({ l: r.left, r: r.right, t: r.top + dy, b: r.bottom + dy });
+    }
+  });
+}
+
+/**
  * 📍 Épingles de mes traces sur la carte (maquette validée le 25/11). Un appui choisit l'épingle (son mot à modifier),
  * appui long : on la fait glisser, très long : une 🗑 apparaît au-dessus. Quand 📍 est allumé dans le
  * menu de la trace, toucher la carte pique un nouveau point sur cette trace.
