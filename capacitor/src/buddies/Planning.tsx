@@ -4,7 +4,7 @@ import {
   appliquer, aRemplir, aujourdhui, creerPlanning, creerSortie, datesPlanning, envoyerAttente, envoyerMessage, lire, repondre, sortieDeLigne, synchroniser,
   type Buddy, type Etat3, type Groupe, type Planning, type Sortie,
 } from './store';
-import { lienReutilisable, Natif, PartagerIcon, Visage } from './Buddies';
+import { couleur, lienReutilisable, Natif, PartagerIcon, Visage } from './Buddies';
 import { nomAffiche } from '../compte/auth';
 
 /**
@@ -246,7 +246,11 @@ function Valider({ p, g, dt, qui, onFermer, onToast }: {
 }
 
 /** Remplir mes dispos (écran 17) : un toucher par date ; appui long pour un petit mot. */
-export function MesDispos({ p, onRetour, onClose }: { p: Planning; onRetour: () => void; onClose: () => void }) {
+/**
+ * Mes dispos (écran 18) : à côté de chaque date, les réponses déjà données par les autres (initiale en couleur ✓ ? ✗),
+ * et ma case unique qui tourne à chaque toucher : ✓ → ? → ✗ → vide (Seb, 27/11). Appui long : un petit mot.
+ */
+export function MesDispos({ p, g, onRetour, onClose }: { p: Planning; g?: Groupe; onRetour: () => void; onClose: () => void }) {
   const [mot, setMot] = useState<string | null>(null);
   const [texte, setTexte] = useState('');
   const appui = useRef<number>(0);
@@ -264,10 +268,12 @@ export function MesDispos({ p, onRetour, onClose }: { p: Planning; onRetour: () 
     {dates.map((dt) => {
       const [d] = dt;
       const r = p.dispos.find((x) => x.qui === moi && x.debut === d);
-      const toucher = (e: Etat3) => {
+      const toucher = () => {
         if (appui.current === -1) { appui.current = 0; return; }
-        repondre(p.id, d, r?.etat === e ? '' : e, r?.mot);
+        repondre(p.id, d, suivant[r?.etat ?? ''], r?.mot);
       };
+      const autres = colonnes(p, g).filter((b) => b.id !== moi)
+        .map((b) => ({ b, x: p.dispos.find((y) => y.qui === b.id && y.debut === d) })).filter((o) => o.x);
       const long = {
         onPointerDown: () => { appui.current = window.setTimeout(() => { appui.current = -1; ouvrirMot(d); }, 550); },
         onPointerUp: () => { if (appui.current > 0) clearTimeout(appui.current); },
@@ -277,8 +283,11 @@ export function MesDispos({ p, onRetour, onClose }: { p: Planning; onRetour: () 
       return <div key={d} className={`bd-dispo${mot === d ? ' ouvert' : ''}`}>
         <div className="bd-dispo-ligne">
           <span className="bd-texte"><b>{ligneCourte(dt)}</b><small>{dt[0] === dt[1] ? '' : `${jourSemaine(dt[0])} – ${jourSemaine(dt[1])}`}</small></span>
-          {(['oui', 'peut', 'non'] as Etat3[]).map((e) =>
-            <button key={e} {...long} className={`bd-case ${r?.etat === e ? e : ''}`} aria-label={e} onClick={() => toucher(e)}>{SIGNE[e]}</button>)}
+          <span className="bd-dispo-autres">{autres.map(({ b, x }) =>
+            <span key={b.id} className={`bd-dispo-autre ${x!.etat}`} title={x!.mot || undefined}>
+              <i style={{ background: couleur(b.id) }}>{(b.pseudo || '?').slice(0, 1).toUpperCase()}</i>{SIGNE[x!.etat]}{x!.mot ? ' 💬' : ''}</span>)}</span>
+          <button {...long} className={`bd-case bd-case-seule ${r?.etat ?? ''}`} aria-label={r ? `Ma réponse : ${r.etat}` : 'Répondre'} onClick={toucher}>
+            {r ? SIGNE[r.etat] : '·'}</button>
         </div>
         {r?.mot && mot !== d && <button className="bd-mot" onClick={() => ouvrirMot(d)}>💬 {r.mot}</button>}
         {mot === d && <div className="bd-mot-choix">
@@ -290,7 +299,7 @@ export function MesDispos({ p, onRetour, onClose }: { p: Planning; onRetour: () 
       </div>;
     })}
     {!dates.length && <p className="bd-vide">Toutes les dates de ce planning sont passées.</p>}
-    <p className="hint">Appui long sur une réponse : un petit mot (« Samedi seulement »…).</p>
+    <p className="hint">Touche ta case : ✓ dispo, puis ? peut-être, puis ✗ non, puis vide. Appui long : un petit mot (« Samedi seulement »…).</p>
   </div>;
 }
 
