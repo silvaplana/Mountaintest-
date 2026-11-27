@@ -19,6 +19,14 @@ const SILHOUETTES: Record<Forme, { nom: string; corps: string; vitres: string; r
   cabriolet: { nom: 'Cabriolet', corps: 'M4,48 L4,32 Q6,27 16,27 L94,27 L110,30 Q116,32 116,40 L116,48 Z', vitres: 'M70,27 L60,13 L64,12 L76,27 Z', roues: [25, 96] },
 };
 export const FORMES = Object.keys(SILHOUETTES) as Forme[];
+
+/**
+ * Longueur d'une voiture garée à l'écran, en pixels, selon le zoom (Seb, 27/11 : « les voitures qui gardent la même
+ * taille quand on zoome, c'est pas cohérent »). Elle grandit d'un facteur √2 par cran de zoom, entre la taille fixe
+ * et l'échelle réelle (qui la ferait disparaître), bornée : 34 px au moins (visible, touchable), 120 px au plus.
+ * 80 px au zoom 16. Même règle en 2D (Positions.tsx) et en 3D (voitures3d.ts).
+ */
+export const longueurVoiturePx = (zoom: number) => Math.min(120, Math.max(34, 80 * 2 ** ((zoom - 16) / 2)));
 export const nomForme = (f: Forme) => SILHOUETTES[f].nom;
 
 export const COULEURS: Record<Couleur, string> = {

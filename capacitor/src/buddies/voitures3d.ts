@@ -3,11 +3,12 @@
  * Carte inclinée : chaque voiture devient une petite maquette posée sur le relief, avec la silhouette et la couleur
  * du profil (rouge et citadine si rien n'est choisi). Pas de modèle à télécharger : quelques blocs extrudés par
  * MapLibre (roues, caisse, vitres, toit), calculés ici, hors ligne. Toujours vue de profil, l'avant à droite comme
- * en 2D, et toujours à la même taille à l'écran (une vraie voiture ferait quelques pixels).
+ * en 2D, et à la même taille à l'écran qu'en 2D, qui suit le zoom entre deux bornes (une vraie voiture ferait
+ * quelques pixels).
  * Le badge des initiales, l'heure et l'appui pour le détail restent les marqueurs HTML de Positions.tsx.
  */
 import type { Map as MlMap, GeoJSONSource } from 'maplibre-gl';
-import { COULEURS, FORMES, type Couleur, type Forme } from './voitureDessin';
+import { COULEURS, FORMES, longueurVoiturePx, type Couleur, type Forme } from './voitureDessin';
 
 /** Longueur, largeur, haut de la caisse, cabine (de l'arrière 0 à l'avant 1, hauteur du toit), roues, en mètres. */
 type Gabarit = { l: number; w: number; caisse: number; cab: [number, number, number]; roue: number; vitre?: 'pleine' };
@@ -23,8 +24,8 @@ const GABARITS: Record<Forme, Gabarit> = {
 };
 const VITRE = '#bfe0f2', PNEU = '#1c1f24';
 
-/** Taille à l'écran : une berline fait environ 90 px de long, quel que soit le zoom. */
-const PX = 90, L_REF = 4.7;
+/** Taille à l'écran : une berline fait `longueurVoiturePx(zoom)` de long (petite de loin, plus grande de près). */
+const L_REF = 4.7;
 
 export type Voiture3d = { qui: string; lon: number; lat: number; forme?: string | null; couleur?: string | null };
 type Bloc = { x0: number; x1: number; y0: number; y1: number; b: number; h: number; c: string };
@@ -83,9 +84,9 @@ export function voitures3d(map: MlMap, vs: Voiture3d[]): () => void {
   const SRC = 'voitures3d';
   const donnees = (): GeoJSON.FeatureCollection => {
     const c = map.getCenter(), z = map.getZoom();
-    // Mètres par pixel à ce zoom (tuiles de 512 px) : la voiture garde ~90 px de long.
+    // Mètres par pixel à ce zoom (tuiles de 512 px) : la voiture suit le zoom, bornée (voitureDessin.ts).
     const mpp = 78271.517 * Math.cos(c.lat * Math.PI / 180) / 2 ** z;
-    const k = Math.max(1, PX * mpp / L_REF);
+    const k = Math.max(1, longueurVoiturePx(z) * mpp / L_REF);
     return { type: 'FeatureCollection', features: vs.flatMap((v) => polygones(v, k, map.getBearing() + 90, (lon, lat) => map.queryTerrainElevation([lon, lat]))) };
   };
   const en3d = () => !!map.getTerrain();
