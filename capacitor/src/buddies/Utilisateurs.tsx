@@ -8,7 +8,8 @@ type Compte = {
   plateforme: 'apk' | 'play' | 'web' | null; version: string | null; jours: number; ouvertures: number; groupes: string[];
   par_jour: Record<string, number>;
 };
-type Reponse = { telechargements: { total: number; semaine: number }; comptes: Compte[]; semaine: number };
+type Ligne = { quand: string; qui: string; pseudo: string; quoi: 'inscription' | 'connexion' | 'ouverture' | 'rejoint' | 'deconnexion'; detail: string };
+type Reponse = { telechargements: { total: number; semaine: number }; comptes: Compte[]; semaine: number; journal: Ligne[] };
 
 const PLATEFORME = { apk: 'Android', play: 'Play Store', web: 'navigateur' };
 const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
@@ -25,6 +26,29 @@ function ilYa(iso: string | null) {
   if (jours === 0) return `il y a ${Math.round(min / 60)} h`;
   return jours === 1 ? 'hier' : `il y a ${jours} jours`;
 }
+/** Une ligne du journal, à la façon de Seb : « Toto s'est connecté ». */
+function phrase(l: Ligne) {
+  switch (l.quoi) {
+    case 'inscription': return 'a créé son compte';
+    case 'connexion': return `s'est connecté${l.detail ? ` (${l.detail})` : ''}`;
+    case 'ouverture': return `a ouvert l'appli${l.detail ? ` (${l.detail})` : ''}`;
+    case 'rejoint': return `a rejoint « ${l.detail} »`;
+    case 'deconnexion': return "s'est déconnecté";
+  }
+}
+const heure = (iso: string) => {
+  const d = new Date(iso), auj = new Date();
+  const h = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === auj.toDateString() ? h : `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${h}`;
+};
+
+/** Journal du Super User (Seb, 27/11), le plus récent en haut ; avec `avecNom`, le pseudo devant chaque ligne. */
+function Journal({ lignes, avecNom }: { lignes: Ligne[]; avecNom: boolean }) {
+  if (!lignes.length) return <p className="bd-vide">Rien pour l'instant</p>;
+  return <ul className="su-journal">{lignes.map((l, i) => <li key={i}>
+    <span>{avecNom && <b>{l.pseudo} </b>}{phrase(l)}</span><small>{heure(l.quand)}</small></li>)}</ul>;
+}
+
 const date = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 
 /** Onglet Utilisateurs de l'espace Super User (Seb, 27/11) : téléchargements, comptes, et l'usage de chacun. */
@@ -34,7 +58,7 @@ export function Utilisateurs() {
   useEffect(() => { api<Reponse>('GET', '/super/utilisateurs').then(setR).catch(() => setR('erreur')); }, []);
   if (r === 'erreur') return <p className="bd-vide">Pas de réseau : la liste revient avec la connexion.</p>;
   if (!r) return <p className="bd-vide">Chargement…</p>;
-  if (choisi) return <UnUtilisateur c={choisi} onRetour={() => setChoisi(null)} />;
+  if (choisi) return <UnUtilisateur c={choisi} journal={r.journal.filter((l) => l.qui === choisi.id)} onRetour={() => setChoisi(null)} />;
   return <>
     <div className="su-cases">
       <div className="su-case"><b>{r.telechargements.total}</b><small>{r.telechargements.total > 1 ? 'téléchargements' : 'téléchargement'}<br />dont {r.telechargements.semaine} cette semaine</small></div>
@@ -47,10 +71,12 @@ export function Utilisateurs() {
         <small>{ilYa(c.vu_le)}{c.plateforme ? ` · ${PLATEFORME[c.plateforme]}` : ''}</small></span>
       <span className="su-jours"><b>{c.jours}</b>{c.jours > 1 ? 'jours' : 'jour'}</span>
     </button>)}
+    <h3 className="bd-section">Journal</h3>
+    <Journal lignes={r.journal ?? []} avecNom />
   </>;
 }
 
-function UnUtilisateur({ c, onRetour }: { c: Compte; onRetour: () => void }) {
+function UnUtilisateur({ c, journal, onRetour }: { c: Compte; journal: Ligne[]; onRetour: () => void }) {
   const jours = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - 29 + i);
     return c.par_jour[d.toISOString().slice(0, 10)] ?? 0;
@@ -67,5 +93,7 @@ function UnUtilisateur({ c, onRetour }: { c: Compte; onRetour: () => void }) {
     <div className="su-ligne"><span>Groupes</span><b>{c.groupes.join(', ') || 'aucun'}</b></div>
     <small className="su-legende">Ouvertures des 30 derniers jours ({pluriel(jours.reduce((a, b) => a + b, 0), 'ouverture')})</small>
     <div className="su-barres" aria-hidden="true">{jours.map((n, i) => <i key={i} style={{ height: `${(n / max) * 100}%` }} />)}</div>
+    <h3 className="bd-section">Journal</h3>
+    <Journal lignes={journal} avecNom={false} />
   </div>;
 }

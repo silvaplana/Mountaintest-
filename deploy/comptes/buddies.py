@@ -23,7 +23,7 @@ import logging
 
 import droits
 import mails
-from modeles import (Blocage, BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
+from modeles import (Blocage, BuddyCount, Carnet, Coeur, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, Journal, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Signalement, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 log = logging.getLogger(__name__)
@@ -259,6 +259,12 @@ def envoyer_mails(Sessions, ids: list[uuid.UUID]) -> None:
             s.commit()
 
 
+def noter(s: Session, u: Utilisateur, quoi: str, detail: str = "") -> None:
+    """Une ligne du journal du Super User (jamais pour le Super User lui-même, Seb 27/11)."""
+    if not u.super_user:
+        s.add(Journal(utilisateur_id=u.id, quoi=quoi, detail=detail[:120]))
+
+
 def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
     inv = s.scalar(select(Invitation).where(Invitation.code == str(op.get("code") or "")))
     if inv is None or inv.groupe_id is None or s.get(Groupe, inv.groupe_id).supprime_le is not None:
@@ -276,6 +282,7 @@ def rejoindre(s: Session, u: Utilisateur, op: dict) -> None:
     else:
         s.add(Membre(groupe_id=inv.groupe_id, utilisateur_id=u.id, role="membre"))
         cible = s.get(Groupe, inv.groupe_id)
+    noter(s, u, "rejoint", cible.nom)
     if inv.acceptee_par is None and inv.canal != "qr":
         inv.acceptee_par = u.id
     toucher(cible)

@@ -575,3 +575,17 @@ class MaTrace(Base):
     donnees: Mapped[str] = mapped_column(Text, nullable=False)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
     supprime_le: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Journal(Base):
+    """Journal du Super User (Seb, 27/11) : « Toto a créé son compte », « s'est connecté », « a ouvert l'appli »,
+    « a rejoint X », « s'est déconnecté ». Seulement des personnes connectées (rien d'anonyme), jamais le
+    Super User lui-même ; gardé 90 jours. `quoi` : inscription, connexion, ouverture, rejoint, deconnexion."""
+
+    __tablename__ = "journal"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    quand: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+    utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), index=True, nullable=False)
+    quoi: Mapped[str] = mapped_column(String(12), nullable=False)
+    detail: Mapped[str] = mapped_column(String(120), nullable=False, default="")

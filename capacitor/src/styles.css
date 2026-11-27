@@ -1723,3 +1723,6 @@ body:has(.accueil-voile) .quick .arrow { outline: 3px solid var(--accent); outli
 .bd-mc-choix { display: flex; gap: 8px; margin-top: 8px; }
 .bd-mc-choix button { flex: 1; min-height: 48px; border-radius: 12px; font-size: 17px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
 .bd-mc-choix .bd-mc-oui { background: #2e8b57; border-color: #2e8b57; color: #fff; font-weight: 600; }
+.su-journal { list-style: none; margin: 0; padding: 0; }
+.su-journal li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line, #d8dee5); font-size: 17px; }
+.su-journal small { color: var(--muted); font-size: 15px; white-space: nowrap; }
