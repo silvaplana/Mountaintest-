@@ -12,6 +12,7 @@
 import { envoyer as envoyerFichier, oublier as oublierFichier } from './album';
 import { envoyer as envoyerFichierMessage, oublier as oublierFichierMessage } from './fichiers';
 import { api, connecte, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
+import { annoncerRestauration, debutRestauration } from '../compte/Restauration';
 
 export const LIEN_INVITATION = 'https://mountainbuddies.silvaplana.cloud/app/rejoindre.html?c=';
 const CLE = 'buddies';
@@ -937,6 +938,9 @@ let enCours: Promise<string[]> | null = null;
 export function synchroniser(): Promise<string[]> {
   if (!connecte()) return Promise.resolve([]);
   enCours ??= (async () => {
+    // Première synchro sur ce téléphone (installation, connexion) : l'encart dit ce qui revient (compte/Restauration.tsx).
+    const premiere = !lire().synchro;
+    if (premiere) debutRestauration();
     try {
       const avant = lire();
       const ops = avant.attente;
@@ -963,10 +967,20 @@ export function synchroniser(): Promise<string[]> {
         scan25: r.scan25 ?? e.scan25, scan25_ids: r.scan25_ids ?? e.scan25_ids,
         attente: e.attente.filter((o) => !envoyees.has(o.id)),
       });
+      if (premiere) {
+        annoncerRestauration({
+          groupes: g.liste.filter((x) => !aDeux(x)).length, sorties: so.liste.length,
+          albums: new Set(ph.liste.map((p) => p.sortie)).size,
+          conversations: new Set(mg.liste.map((m) => m.sortie ?? m.groupe)).size,
+        }, true);
+      }
       await envoyerPhotos(new Set(r.ids_photos ?? [])).catch(() => undefined); // sans réseau : au prochain tour
       await envoyerFichiersMessages().catch(() => undefined);
       return r.refus.map((x) => x.raison);
-    } finally { enCours = null; }
+    } finally {
+      enCours = null;
+      if (premiere) annoncerRestauration({}, true); // sans réseau : les lignes ne restent pas en attente
+    }
   })();
   return enCours;
 }

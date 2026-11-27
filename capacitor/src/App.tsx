@@ -55,6 +55,7 @@ import { PhoneSpacePanel } from './offline/PhoneSpacePanel';
 import { reportPhoneDaily } from './offline/phoneSpace';
 import { suivreSauvegardeTraces } from './trails/traceBackup';
 import { suivreOuvertures } from './compte/ouverture';
+import { Restauration } from './compte/Restauration';
 import { clearDroneZones, localDroneZones, saveDroneZones } from './drones/droneZones';
 import { saveGpxFile, TrackRecorder } from './track/recorder';
 import { FrameOverlay } from './FrameOverlay';
@@ -1602,6 +1603,7 @@ export function App() {
       <BarreAppel />
       <EcranSonnerie onToast={setToast} />
       <PhotosRecues ici={position ? { lon: position.lon, lat: position.lat } : null} onToast={setToast} onAlbum={(x) => { setCarteSortie(null); setBuddiesDepart({ ecran: 'album', sortie: x.id, groupe: x.groupe }); setBuddies(true); }} />
+      <Restauration />
       {toast && <div className="toast">{toast}</div>}
       {showOffline && !spaceClosed && !open && !drawing && !framing && (
         <PhoneSpacePanel cartes={stored.scan25Bytes + stored.planignBytes + stored.mntBytes} squares={owned.size} squaresBytes={ownedBytes}
