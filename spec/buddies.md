@@ -441,6 +441,16 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   chaque message porte un numéro ; celui qui reçoit jette un message d'une époque finie ou d'un numéro dépassé (une
   vue arrivée après la fin faisait resuivre pour toujours). Deux buddies qui allument en même temps : la plus
   grande époque garde la main (avant, les deux s'éteignaient).
+  **Un événement pour tout, plus le passage régulier (Seb, 27/11 : « événement plus polling, au moins on ne ratera
+  rien »).** Flux SSE repris de la messagerie d'AppBase (`deploy/comptes/evenements.py`, `GET /buddies/evenements`,
+  `capacitor/src/buddies/evenements.ts`) : un flux par appareil, ouvert tant que l'appli est à l'écran ; jeton dans
+  l'adresse, premier octet tout de suite, ping toutes les 20 s, reconnexion forcée au retour du réseau et au retour
+  à l'écran, synchro à chaque (re)connexion. À chaque changement (toute opération acceptée d'une synchro, « écrit… »,
+  profil, fichier d'une photo ou d'un message arrivé, appel), le serveur envoie « synchronise-toi » aux membres de mes
+  groupes, aux participants de mes sorties et à mes autres appareils ; l'événement ne porte pas la donnée, elle
+  arrive par la synchro. L'appareil qui envoie n'est pas réveillé par son propre envoi. Deux écarts avec AppBase : le
+  flux est recréé avec un jeton neuf quand le jeton d'une heure a expiré, et il est fermé en arrière-plan (batterie).
+  Restent en filet : le passage toutes les 2 minutes, les 5 s en conversation, le push Firebase.
 
 ### 7.2 Bloc 2 : ce qui est construit (23 novembre 2026)
 

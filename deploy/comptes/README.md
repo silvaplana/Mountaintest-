@@ -35,6 +35,12 @@ Le serveur redémarre tout seul quand une nouvelle version de `serveur.py` arriv
 `spec/buddies.md` §7.1). `GET /i?c=CODE` est le lien d'invitation (aperçu WhatsApp, puis la page principale `deploy/vitrine/index.html`, qui lit `GET /invitations/{code}`).
 Les colonnes ajoutées aux tables déjà créées sur le VPS s'ajoutent seules au démarrage (`ajouter_colonnes`).
 
+## Événements (SSE, comme AppBase)
+
+`evenements.py` et `GET /buddies/evenements?jeton=…` : un flux par appareil à l'écran, un événement « synchro » à
+chaque changement qui concerne le compte (`spec/buddies.md` §7.1). En mémoire, donc un seul processus uvicorn.
+Caddy n'a rien à régler : `reverse_proxy` laisse passer un flux `text/event-stream` sans le retenir.
+
 ## Appels de groupe (bloc 10)
 
 `appels.py` : jetons d'entrée LiveKit, sonnerie Firebase, qui est en ligne (`spec/buddies.md` §7.10). Le son passe
