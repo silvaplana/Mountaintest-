@@ -160,6 +160,20 @@ def test_le_pseudo_change_arrive_chez_les_buddies(client):
     assert g["membres"][1]["pseudo"] == "Julie M."
 
 
+def test_les_initiales_viennent_du_prenom_et_du_nom(client):
+    """Planning (Seb, 27/11) : « SR » pour Sébastien Richard, pas « S » tiré du pseudo « Sebri ». Le nom ne part pas."""
+    op = nouveau_groupe()
+    sync(client, ops=[op, invitation(op["groupe"])])
+    sync(client, sub="julie", ops=[{"id": "j", "type": "rejoindre", "code": "CodeSecret0123456789"}])
+    r = client.put("/moi", headers=entete(sub="seb"), json={"pseudo": "Sebri", "prenom": "sébastien", "nom": "Richard"})
+    assert r.status_code == 200, r.text
+    m = par_nom(sync(client, sub="julie"), "Ski du dimanche")["membres"]
+    assert [x["initiales"] for x in m] == ["SR", ""] and "nom" not in m[0]
+    # Ma photo prime ; retirée, elle reste retirée (la photo Google ne revient pas).
+    assert client.put("/moi", headers=entete(sub="seb"), json={"photo": "data:image/jpeg;base64,AA"}).json()["photo"].startswith("data:")
+    assert client.put("/moi", headers=entete(sub="seb"), json={"photo": ""}).json()["photo"] == ""
+
+
 def test_colonnes_ajoutees_a_une_base_existante(monkeypatch):
     """Base créée par la version précédente (sans nature, photo, canal…) : les colonnes s'ajoutent au démarrage."""
     import serveur

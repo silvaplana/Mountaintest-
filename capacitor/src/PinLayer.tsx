@@ -29,7 +29,9 @@ const PIN_SVG = '<svg viewBox="0 0 30 30" width="30" height="30" aria-hidden="tr
  * dessin que les épingles des traces (Seb, 27/11 : « juste une épingle, comme pour les autres »). La pointe de
  * l'aiguille est le point exact.
  */
-export function epingleSurCarte(map: MlMap, lon: number, lat: number, texte: string, classe = '') {
+/** `visage` : la petite photo ou les initiales (« SR ») devant le nom, dans l'étiquette (Seb, 27/11). */
+export function epingleSurCarte(map: MlMap, lon: number, lat: number, texte: string, classe = '',
+  visage?: { photo: string | null; initiales: string; couleur: string }) {
   const el = document.createElement('div');
   el.className = 'bd-pin';
   // Au-dessus des voitures : la pointe reste visible.
@@ -38,7 +40,18 @@ export function epingleSurCarte(map: MlMap, lon: number, lat: number, texte: str
   el.querySelectorAll('circle')[0].setAttribute('fill', '#d32f2f');
   const b = document.createElement('b');
   if (classe) b.className = classe;
-  b.textContent = texte;
+  if (visage) {
+    const v = document.createElement('i');
+    v.style.background = visage.couleur;
+    if (visage.photo) {
+      const img = document.createElement('img');
+      img.src = visage.photo; img.alt = ''; img.referrerPolicy = 'no-referrer';
+      img.onerror = () => { img.remove(); v.textContent = visage.initiales; };
+      v.appendChild(img);
+    } else v.textContent = visage.initiales;
+    b.appendChild(v);
+  }
+  b.append(texte);
   el.appendChild(b);
   return new maplibregl.Marker({ element: el, anchor: 'bottom-left', offset: [-2, 2] }).setLngLat([lon, lat]).addTo(map);
 }
