@@ -708,8 +708,10 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
   « Tu montres ta carte » : les autres suivent ma vue (centre, zoom, orientation, inclinaison, 4 fois par seconde
   au plus) et mon fond de carte (SCAN 25, Plan IGN… s'ils y ont droit). Mes traces affichées partent aussi, allégées
   (500 points en tout), et arrivent chez eux en invitées « nom (de Julie) », sans aller dans Mes traces. Chez eux :
-  barre verte « Julie te montre sa carte » et, dessous, « Tu suis la carte de Julie · Reprendre ma carte » et une
-  ligne « Garder » par trace (3 au plus), qui la range dans Mes traces. Une seule personne montre à la fois : si Luc
+  barre verte « Julie te montre sa carte » et, dessous, « Tu suis la carte de Julie · Reprendre ma carte ». Pas
+  d'acceptation au départ ; c'est chacun qui arrête de suivre (Seb, 27 novembre). Quand on arrête (ou que Julie
+  arrête, ou fin d'appel), si des traces sont arrivées : « Garder les traces de Julie ? » avec leurs noms, Non merci /
+  Garder (toutes rangées dans Mes traces). Une seule personne montre à la fois : si Luc
   allume la sienne, celle de Julie s'éteint. Un buddy qui arrive en cours reçoit tout de suite la vue et les traces.
   Les tuiles ne voyagent pas : chacun charge la même zone (un appel demande du réseau). Messages de données LiveKit
   `carte`, `traces`, `carteFin` (`capacitor/src/buddies/CarteSuivie.tsx`).

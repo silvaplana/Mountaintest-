@@ -21,7 +21,10 @@ export function CarteSuivie({ map, fond, onFond, mes, onInvitees, onToast }: {
   const jeMontre = !!e?.jeMontre;
   const suit = e?.suit ?? null;
   const [recues, setRecues] = useState<TraceEnvoyee[]>([]);
-  const [gardees, setGardees] = useState<Set<string>>(new Set());
+  /** Quand je ne suis plus (« Reprendre ma carte », fin d'appel) : garder ses traces ? */
+  const [proposer, setProposer] = useState<{ de: string; traces: TraceEnvoyee[] } | null>(null);
+  const recuesRef = useRef(recues); recuesRef.current = recues;
+  const suitRef = useRef(suit);
   const fondRef = useRef(fond); fondRef.current = fond;
   const mesRef = useRef(mes); mesRef.current = mes;
   const onFondRef = useRef(onFond); onFondRef.current = onFond;
@@ -61,23 +64,36 @@ export function CarteSuivie({ map, fond, onFond, mes, onInvitees, onToast }: {
       else setRecues([]);
     }, () => undefined);
   }, [map]);
-  useEffect(() => { if (!suit) setRecues([]); }, [suit?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const avant = suitRef.current;
+    suitRef.current = suit;
+    if (avant && avant.id !== suit?.id) {
+      const ts = recuesRef.current.filter((t) => t.ligne.length >= 2);
+      if (ts.length) setProposer({ de: avant.pseudo, traces: ts });
+      setRecues([]);
+    }
+  }, [suit?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { onInvitees(suit ? tracesInvitees(recues, suit.pseudo) : []); }, [recues, suit?.pseudo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (proposer) {
+    const garder = async () => {
+      for (const t of proposer.traces) await saveTrace(t.nom, t.ligne.map(([lon, lat]) => ({ lon, lat })), false);
+      setProposer(null);
+      onToast(proposer.traces.length > 1 ? `${proposer.traces.length} traces ajoutées à Mes traces` : `« ${proposer.traces[0].nom} » est dans Mes traces`);
+    };
+    return <div className="cs-bandeau">
+      <div className="cs-titre">Garder les traces de {proposer.de} ?</div>
+      {proposer.traces.slice(0, 4).map((t) => <div key={t.id} className="cs-ligne">
+        <span className="cs-trait" style={{ background: t.couleur }} /><span className="cs-nom">{t.nom}</span></div>)}
+      {proposer.traces.length > 4 && <div className="cs-ligne"><span className="cs-nom">et {proposer.traces.length - 4} autres</span></div>}
+      <div className="cs-ligne cs-choix">
+        <button className="cs-reprendre" onClick={() => setProposer(null)}>Non merci</button>
+        <button className="cs-garder" onClick={() => void garder()}>Garder</button>
+      </div>
+    </div>;
+  }
   if (!suit) return null;
-  const cle = (t: TraceEnvoyee) => `${suit.id}:${t.id}`;
-  const aGarder = recues.filter((t) => t.ligne.length >= 2 && !gardees.has(cle(t))).slice(0, 3);
-  const garder = async (t: TraceEnvoyee) => {
-    await saveTrace(t.nom, t.ligne.map(([lon, lat]) => ({ lon, lat })), false);
-    setGardees((g) => new Set(g).add(cle(t)));
-    onToast(`« ${t.nom} » est dans Mes traces`);
-  };
   return <div className="cs-bandeau">
-    {aGarder.map((t) => <div key={t.id} className="cs-ligne">
-      <span className="cs-trait" style={{ background: t.couleur }} />
-      <span className="cs-nom">{t.nom}</span>
-      <button className="cs-garder" onClick={() => void garder(t)}>Garder</button>
-    </div>)}
     <div className="cs-ligne">
       <span className="cs-nom">Tu suis la carte de {suit.pseudo}</span>
       <button className="cs-reprendre" onClick={reprendreMaCarte}>Reprendre ma carte</button>
