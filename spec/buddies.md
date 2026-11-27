@@ -1104,7 +1104,8 @@ validées par Seb le 27/11).
 « Chatter tout en regardant la carte » (maquette `maquettes/buddies-coulisse/`, validée par Seb ; seulement la
 messagerie pour l'instant, Seb 27/11).
 
-- Une conversation (groupe, à deux, support) s'ouvre toujours tout en haut, avec une poignée en haut au milieu.
+- La liste des messages et une conversation (groupe, à deux, support) s'ouvrent toujours tout en haut, avec une poignée
+  en haut au milieu (la liste aussi : Seb, 27/11).
 - On tire la poignée vers le bas : la conversation devient un panneau du bas et la carte apparaît au-dessus, utilisable
   (bouger, zoomer). Elle reste à la hauteur où on la lâche (au moins le titre, le dernier message et la case Écrire),
   et s'y rouvre la fois suivante ; lâchée tout près du haut, elle remonte en plein écran. Un appui sur la poignée passe
