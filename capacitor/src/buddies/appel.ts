@@ -25,10 +25,17 @@ export type EtatAppel = {
   suit?: Voix | null;
 };
 
+/** Les calques de la carte, les mêmes chez ceux qui suivent. */
+export type Calques = { pente: boolean; ombres: boolean; drones: boolean; meteo: boolean };
+
 /** Ce qui passe entre les téléphones pour « Suis ma carte » (spec/buddies.md §7.10). */
 export type MsgCarte =
-  | { carte: { c: [number, number]; z: number; b: number; p: number; fond: string } }
+  | { carte: { c: [number, number]; z: number; b: number; p: number; fond: string; cq?: Calques } }
   | { traces: { id: number; nom: string; couleur: string; ligne: [number, number][] }[] }
+  /** Le trait que je dessine, en direct ([] : fini). */
+  | { trait: [number, number][] }
+  /** La trace dont j'ai ouvert le profil (null : fermé). */
+  | { profil: { id: number; nom: string; couleur: string; ligne: [number, number][] } | null }
   | { carteFin: true };
 
 /** Sans réponse au bout d'une minute, l'appel s'arrête seul. */
@@ -44,6 +51,8 @@ const arrivees = new Set<() => void>();
 const sons: HTMLMediaElement[] = [];
 /** J'ai lancé l'appel : j'entends la tonalité tant que personne n'a décroché. */
 let jAppelle = false;
+/** 🗺 Lancé depuis la messagerie : je montre ma carte dès que quelqu'un décroche. */
+let montrerDesQue = false;
 let audio: AudioContext | null = null;
 let tonalite: ReturnType<typeof setInterval> | undefined;
 
@@ -147,7 +156,9 @@ async function entrer(r: Reponse, nom: string) {
       bip([660, 440], 0.15);
       annonce = { texte: `${partis.map((x) => x.pseudo).join(' et ')} ${partis.length > 1 ? 'ont' : 'a'} raccroché`, jusqua: Date.now() + 4000 };
     }
-    changer({ ...etat, voix: v, annonce, suit: etat.suit && apres.has(etat.suit.id) ? etat.suit : null, phase: ensemble ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
+    const montre = etat.jeMontre || (montrerDesQue && ensemble);
+    if (montre) montrerDesQue = false;
+    changer({ ...etat, voix: v, annonce, jeMontre: montre, suit: etat.suit && apres.has(etat.suit.id) ? etat.suit : null, phase: ensemble ? 'en_ligne' : etat.phase === 'en_ligne' ? 'en_ligne' : 'appel',
       debut: etat.debut ?? (ensemble ? Date.now() : undefined) });
   };
   room.on(RoomEvent.ParticipantConnected, maj).on(RoomEvent.ParticipantDisconnected, maj)
@@ -156,9 +167,9 @@ async function entrer(r: Reponse, nom: string) {
     .on(RoomEvent.TrackUnsubscribed, (t: RemoteTrack) => { t.detach().forEach((el) => el.remove()); })
     .on(RoomEvent.DataReceived, (data: Uint8Array, p?: Participant) => {
       try {
-        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] } & Partial<Record<'carte' | 'traces' | 'carteFin', unknown>>;
+        const m = JSON.parse(new TextDecoder().decode(data)) as { doigt?: [number, number] } & Partial<Record<'carte' | 'traces' | 'carteFin' | 'trait' | 'profil', unknown>>;
         if (m.doigt) doigts.forEach((f) => f({ lon: m.doigt![0], lat: m.doigt![1], qui: p?.name || '?' }));
-        if (p && (m.carte || m.traces || m.carteFin)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
+        if (p && (m.carte || m.traces || m.carteFin || m.trait || 'profil' in m)) recevoirCarte(m as MsgCarte, { id: p.identity, pseudo: p.name || '?' });
       } catch { /* message inconnu : ignoré */ }
     })
     .on(RoomEvent.Disconnected, () => { if (salle === room) fini(); });
@@ -180,6 +191,7 @@ function fini() {
   sons.splice(0).forEach((el) => el.remove());
   salle = null;
   jAppelle = false;
+  montrerDesQue = false;
   ignore = null;
   changer(null);
   if (id) void api('POST', `/appels/${id}/presence`, { en_ligne: false }).catch(() => undefined);
@@ -196,6 +208,16 @@ export async function couperMicro(muet: boolean) {
   if (!salle || !etat) return;
   await salle.localParticipant.setMicrophoneEnabled(!muet);
   changer({ ...etat, muet });
+}
+
+/**
+ * 🗺 Depuis la messagerie : en appel, j'allume ma carte ; sinon j'appelle la bande et ma carte s'allume dès que
+ * quelqu'un décroche (« Suis ma carte » passe par l'appel).
+ */
+export async function montrerMaCarteA(dest: Dest, nom: string) {
+  if (etat) { if (etat.phase === 'en_ligne') montrerMaCarte(true); else montrerDesQue = true; return; }
+  await appeler(dest, nom);
+  if (etat) montrerDesQue = true;
 }
 
 /** 🗺 J'allume ou j'éteins « Suis ma carte ». */

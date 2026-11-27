@@ -23,7 +23,8 @@ import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosit
 import { Utilisateurs } from './Utilisateurs';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre } from './Messages';
 import { apercu, fil } from './messages';
-import { appelEnCours, appeler, type Dest, type Sonnerie } from './appel';
+import { appelEnCours, appeler, montrerMaCarteA, type Dest, type Sonnerie } from './appel';
+import { IconeSuisCarte } from './IconeSuisCarte';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
@@ -817,6 +818,12 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
           <div className="xp-head"><button onClick={() => setVue(aDeux(gc) ? { ecran: ('retour' in vue && vue.retour) || 'messages' } : { ecran: 'groupe', id: gc.id })} aria-label="Retour">‹</button>
             {aDeux(gc) && <Visage b={gc.nature === 'support' && !superUser() ? { id: gc.id, nom: 'Support', photo: null } : autreDuDuo(gc, e) ?? { id: gc.id, nom: '?', photo: null }} taille={40} />}
             <span className="bd-titre"><b>{nomDiscussion(gc, e)}</b>{gc.nature === 'support' ? <small>{superUser() ? relireAppareil(gc.nom) : 'Le support te répond ici'}</small> : <SousTitre g={gc} e={e} />}</span>
+            {gc.nature !== 'support' && <button aria-label="Montrer ma carte" onClick={() => {
+              const enAppel = appelEnCours()?.phase === 'en_ligne';
+              onToast(enAppel ? 'Tes buddies suivent ta carte' : 'Appel… ta carte s\'affichera chez eux quand ils décrochent');
+              void montrerMaCarteA({ groupe: gc.id }, nomDiscussion(gc, e)).catch((err: Error) => onToast(err.message || 'Appel impossible'));
+              onClose();
+            }}><IconeSuisCarte /></button>}
             <button onClick={onClose} aria-label="Fermer">✕</button></div>
           <Conversation dest={{ groupe: gc.id }} membres={gc.membres} onToast={onToast}
             onPlanning={(id, remplir) => setVue({ ecran: remplir ? 'dispos' : 'planning', id, groupe: gc.id, conv: gc.id })}

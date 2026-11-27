@@ -9,7 +9,7 @@ import { decalage, main } from './doigt';
  * Au lâcher, on convertit en coordonnées (même principe côté Kotlin, DrawPathView).
  */
 const APPUI_MS = 450, TRES_LONG_MS = 1400;
-export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad, onStart, rec, onSelect }: {
+export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad, onStart, rec, onSelect, onTrait }: {
   map: MlMap; onPaths: boolean; setOnPaths: (v: boolean) => void;
   onDone: (line: LonLat[]) => void; onCancel: () => void;
   /** 📂 Charger des traces : écran avec 📥 Ouvrir un fichier puis Mes traces. */
@@ -20,6 +20,8 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
   rec: { paused: boolean; onPause: () => void; onResume: () => void; onStop: () => void } | null;
   /** Appui TRÈS long sans bouger : rectangle de sélection des traces (point de départ, pixels de la carte). */
   onSelect: (p: { x: number; y: number }) => void;
+  /** 🗺 Le trait en cours, pendant qu'on dessine ([] au lâcher) : montré aux buddies qui suivent ma carte. */
+  onTrait?: (line: LonLat[]) => void;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const pts = useRef<[number, number][]>([]);
@@ -33,8 +35,9 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
     return [e.clientX - r.left + dx, e.clientY - r.top + dy];
   };
   const toD = (p: [number, number][]) => p.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join('');
-  const cb = useRef({ onDone, onSelect });
-  cb.current = { onDone, onSelect };
+  const cb = useRef({ onDone, onSelect, onTrait });
+  cb.current = { onDone, onSelect, onTrait };
+  const lonlat = (p: [number, number][]) => p.map(([x, y]) => { const ll = map.unproject([x, y]); return { lon: ll.lng, lat: ll.lat }; });
 
   useEffect(() => {
     const zone = map.getCanvasContainer();
@@ -57,6 +60,7 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
       if (Math.hypot(p[0] - last[0], p[1] - last[1]) < 6) return;
       pts.current.push(p);
       setPath(toD(pts.current));
+      cb.current.onTrait?.(lonlat(pts.current));
     };
     const up = () => {
       if (!trace) return;
@@ -64,6 +68,7 @@ export function DrawOverlay({ map, onPaths, setOnPaths, onDone, onCancel, onLoad
       trace = false; fin(); setVis(null);
       const p = pts.current;
       pts.current = [];
+      cb.current.onTrait?.([]);
       let len = 0;
       for (let i = 1; i < p.length; i++) len += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]);
       if (len < 40) { setPath(''); return; } // trop court : on recommence

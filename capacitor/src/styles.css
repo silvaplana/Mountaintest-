@@ -1201,6 +1201,9 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .cs-bandeau button { min-height: 44px; border: 0; border-radius: 22px; padding: 0 16px; font-size: 16px; color: #fff; flex: none; }
 .cs-garder { background: #2e8b57; }
 .cs-reprendre { background: #3e5368; }
+.cs-stop { background: #d93a3a; min-width: 88px; }
+.cs-titre { font-weight: bold; padding-top: 12px; }
+.cs-choix { justify-content: flex-end; }
 .ap-barre button.ap-rouge { background: #d93a3a; }
 .ap-icone { font-size: 22px; }
 .ap-doigt { background: #3e5368; color: #fff; padding: 6px 10px; border-radius: 16px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 8px #0005; white-space: nowrap; }
