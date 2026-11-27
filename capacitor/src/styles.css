@@ -1073,6 +1073,11 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
   padding: 8px 12px; border-radius: 12px; margin-bottom: 6px; white-space: nowrap; box-shadow: 0 4px 14px #0004; }
 .bd-voiture-carte.ouvert em { display: block; }
 .bd-voiture-carte.ouvert { z-index: 5; }
+/* Carte inclinée : la voiture est en 3D sur le relief (buddies/voitures3d.ts) ; le dessin à plat s'efface, le badge,
+   l'heure et la zone à toucher restent au-dessus d'elle. */
+.voitures-3d .bd-voiture-carte .bd-auto { color: transparent; text-shadow: none; }
+.voitures-3d .bd-voiture-carte .bd-auto svg { visibility: hidden; }
+.voitures-3d .bd-voiture-carte { filter: none; }
 .bd-pos-ligne { display: flex; align-items: center; gap: 12px; }
 .bd-pos-ligne > b { font-size: 17px; white-space: nowrap; }
 .bd-pos-ligne.vieux { opacity: 0.6; }
