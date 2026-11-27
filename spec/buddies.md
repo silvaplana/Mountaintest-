@@ -1202,3 +1202,24 @@ Maquette : `maquettes/planning-messagerie/` (validée par Seb) ; captures `captu
 
 Dans Buddies, un appui sur l'icône de ma position qui l'allume ferme Buddies et centre la carte sur moi (le message
 « Ta position est partagée… » reste affiché). L'éteindre ne change pas d'écran.
+
+### 7.29 Inviter par la page principale, deux liens de groupe (Seb, 27 novembre 2026)
+
+Le lien d'invitation (SMS, mail, QR, WhatsApp) est `https://mountainbuddies.silvaplana.cloud/api/i?c=CODE` (`&p=` pour un
+planning). Le serveur y sert l'aperçu que lit WhatsApp (« Seb t'invite dans « groupe » », logo) et renvoie aussitôt sur
+la page principale `/?c=CODE` : les copains découvrent le site, avec en haut un bandeau « Seb t'invite dans … » et un
+bouton « Rejoindre le groupe » (« Rejoindre la sortie », « Donner mes dispos »).
+- Android : le bouton ouvre l'appli sur l'invitation ; sans l'appli, on la télécharge avec le bouton de la page, puis
+  on revient toucher « Rejoindre le groupe ».
+- iPhone, ordinateur : la version web s'ouvre (`/app/?rejoindre=CODE`), on se connecte et on entre ; sur iPhone, on met
+  ensuite l'appli sur l'écran d'accueil (il faut s'y reconnecter une fois).
+- Les anciens liens `…/app/rejoindre.html?c=` mènent à la même page.
+
+« Inviter mes copains » › « Lien, QR » : un seul lien pour tout le monde (même un groupe WhatsApp entier), au choix :
+- **Entrée directe** : on entre tout de suite ; le lien vaut 30 jours.
+- **Un admin accepte** : le lien ne périme pas ; celui qui le touche fait une demande (table `demandes_entree`), les
+  admins sont prévenus et répondent dans les buddies du groupe (Accepter, ✕) ; le demandeur voit « Demande envoyée ».
+
+Boutons « Envoyer dans WhatsApp » (message tout prêt) et « Partager ailleurs ». Les invitations à une personne (SMS,
+contacts, mail) ne changent pas. Toucher le lien quand on est déjà dans le groupe (réinstallation) ne fait rien de plus :
+on retrouve son groupe.
