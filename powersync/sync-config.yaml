@@ -1,0 +1,90 @@
+# Écrit par deploy/comptes/powersync.py (python powersync.py) : ne pas modifier à la main.
+config:
+  edition: 3
+streams:
+  groupe:
+    auto_subscribe: true
+    with:
+      mes_groupes: SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()
+      qui_se_montre: SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id()
+    queries:
+      - SELECT * FROM groupes WHERE id IN mes_groupes
+      - SELECT groupe_id || '/' || utilisateur_id AS id, * FROM membres WHERE groupe_id IN mes_groupes
+      - SELECT * FROM invitations WHERE groupe_id IN mes_groupes
+      - SELECT groupe_id || '/' || utilisateur_id AS id, * FROM demandes_entree WHERE groupe_id IN mes_groupes
+      - SELECT * FROM sorties WHERE groupe_id IN mes_groupes
+      - SELECT * FROM traces WHERE groupe_id IN mes_groupes
+      - SELECT * FROM plannings WHERE groupe_id IN mes_groupes
+      - SELECT planning_id || '/' || utilisateur_id || '/' || debut AS id, * FROM dispos WHERE groupe_id IN mes_groupes
+      - SELECT * FROM buddy_counts WHERE groupe_id IN mes_groupes
+      - SELECT * FROM depenses WHERE groupe_id IN mes_groupes
+      - SELECT groupe_id || '/' || utilisateur_id AS id, * FROM positions_groupes WHERE groupe_id IN mes_groupes AND utilisateur_id IN qui_se_montre
+      - SELECT * FROM messages_buddies WHERE groupe_id IN mes_groupes
+      - SELECT message_id || '/' || utilisateur_id AS id, * FROM reactions_buddies WHERE groupe_id IN mes_groupes
+      - SELECT message_id || '/' || utilisateur_id || '/' || option AS id, * FROM votes_buddies WHERE groupe_id IN mes_groupes
+      - SELECT utilisateur_id || '/' || cle AS id, * FROM lectures_buddies WHERE cle IN mes_groupes
+      - SELECT * FROM appels WHERE groupe_id IN mes_groupes
+  sortie:
+    auto_subscribe: true
+    with:
+      mes_sorties: SELECT id FROM sorties WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id())
+      qui_se_montre: SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id()
+    queries:
+      - SELECT sortie_id || '/' || utilisateur_id AS id, * FROM participants WHERE sortie_id IN mes_sorties
+      - SELECT * FROM traces WHERE sortie_id IN mes_sorties
+      - SELECT * FROM photos WHERE sortie_id IN mes_sorties
+      - SELECT sortie_id || '/' || utilisateur_id AS id, * FROM recits WHERE sortie_id IN mes_sorties
+      - SELECT sortie_id || '/' || jour AS id, * FROM fiches_jour WHERE sortie_id IN mes_sorties
+      - SELECT sortie_id AS id, * FROM carnets WHERE sortie_id IN mes_sorties
+      - SELECT * FROM buddy_counts WHERE sortie_id IN mes_sorties
+      - SELECT * FROM depenses WHERE sortie_id IN mes_sorties
+      - SELECT sortie_id || '/' || utilisateur_id AS id, * FROM positions WHERE sortie_id IN mes_sorties AND utilisateur_id IN qui_se_montre
+      - SELECT * FROM hebergements WHERE sortie_id IN mes_sorties
+      - SELECT hebergement_id || '/' || utilisateur_id AS id, * FROM coeurs WHERE sortie_id IN mes_sorties
+      - SELECT * FROM messages_buddies WHERE sortie_id IN mes_sorties
+      - SELECT message_id || '/' || utilisateur_id AS id, * FROM reactions_buddies WHERE sortie_id IN mes_sorties
+      - SELECT message_id || '/' || utilisateur_id || '/' || option AS id, * FROM votes_buddies WHERE sortie_id IN mes_sorties
+      - SELECT utilisateur_id || '/' || cle AS id, * FROM lectures_buddies WHERE cle IN mes_sorties
+      - SELECT * FROM appels WHERE sortie_id IN mes_sorties
+  invite:
+    auto_subscribe: true
+    with:
+      mes_participations: SELECT sortie_id FROM participants WHERE utilisateur_id = auth.user_id()
+      qui_se_montre: SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id()
+    queries:
+      - SELECT * FROM invitations WHERE sortie_id IN mes_participations
+      - SELECT * FROM sorties WHERE id IN mes_participations
+      - SELECT sortie_id || '/' || utilisateur_id AS id, * FROM participants WHERE sortie_id IN mes_participations
+      - SELECT * FROM traces WHERE sortie_id IN mes_participations
+      - SELECT * FROM photos WHERE sortie_id IN mes_participations
+      - SELECT sortie_id || '/' || utilisateur_id AS id, * FROM recits WHERE sortie_id IN mes_participations
+      - SELECT sortie_id || '/' || jour AS id, * FROM fiches_jour WHERE sortie_id IN mes_participations
+      - SELECT sortie_id AS id, * FROM carnets WHERE sortie_id IN mes_participations
+      - SELECT * FROM buddy_counts WHERE sortie_id IN mes_participations
+      - SELECT * FROM depenses WHERE sortie_id IN mes_participations
+      - SELECT sortie_id || '/' || utilisateur_id AS id, * FROM positions WHERE sortie_id IN mes_participations AND utilisateur_id IN qui_se_montre
+      - SELECT * FROM hebergements WHERE sortie_id IN mes_participations
+      - SELECT hebergement_id || '/' || utilisateur_id AS id, * FROM coeurs WHERE sortie_id IN mes_participations
+      - SELECT * FROM messages_buddies WHERE sortie_id IN mes_participations
+      - SELECT message_id || '/' || utilisateur_id AS id, * FROM reactions_buddies WHERE sortie_id IN mes_participations
+      - SELECT message_id || '/' || utilisateur_id || '/' || option AS id, * FROM votes_buddies WHERE sortie_id IN mes_participations
+      - SELECT utilisateur_id || '/' || cle AS id, * FROM lectures_buddies WHERE cle IN mes_participations
+      - SELECT * FROM appels WHERE sortie_id IN mes_participations
+  utilisateurs_moi:
+    auto_subscribe: true
+    query: SELECT id, pseudo, photo, upper(substring(prenom, 1, 1)) AS initiale_prenom, upper(substring(nom, 1, 1)) AS initiale_nom, voiture_modele, voiture_forme, voiture_couleur FROM utilisateurs WHERE id = auth.user_id()
+  utilisateurs_connu:
+    auto_subscribe: true
+    query: SELECT id, pseudo, photo, upper(substring(prenom, 1, 1)) AS initiale_prenom, upper(substring(nom, 1, 1)) AS initiale_nom, voiture_modele, voiture_forme, voiture_couleur FROM utilisateurs WHERE id IN (SELECT auteur_id FROM connus WHERE lecteur_id = auth.user_id())
+  demandes_entree_moi:
+    auto_subscribe: true
+    query: SELECT groupe_id || '/' || utilisateur_id AS id, * FROM demandes_entree WHERE utilisateur_id = auth.user_id()
+  voitures_moi:
+    auto_subscribe: true
+    query: SELECT utilisateur_id AS id, * FROM voitures WHERE utilisateur_id = auth.user_id()
+  voitures_groupe:
+    auto_subscribe: true
+    query: SELECT utilisateur_id AS id, * FROM voitures WHERE utilisateur_id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id())) AND utilisateur_id IN (SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id())
+  blocages_moi:
+    auto_subscribe: true
+    query: SELECT utilisateur_id || '/' || bloque_id AS id, * FROM blocages WHERE utilisateur_id = auth.user_id()

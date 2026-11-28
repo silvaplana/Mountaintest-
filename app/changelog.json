@@ -1,0 +1,2678 @@
+{
+ "build": 5,
+ "entries": [
+  {
+   "date": "2026-11-28 15:39",
+   "title": "Say \"show my map\" instead of \"share my map\" on screen (#328)",
+   "details": [],
+   "commit": "e23132d"
+  },
+  {
+   "date": "2026-11-28 15:21",
+   "title": "Move the Super User menu button to the Buddies column and position sharing under the map search (#326)",
+   "details": [],
+   "commit": "61ce21f"
+  },
+  {
+   "date": "2026-11-28 04:17",
+   "title": "Beta: test results on both syncs, frozen-connection and idle cases, README",
+   "details": [],
+   "commit": "3daea35"
+  },
+  {
+   "date": "2026-11-28 03:40",
+   "title": "Beta: sync rules grouped per group and outing (PowerSync 1000-parameter limit), watchdog for silently dead streams, more test cases",
+   "details": [],
+   "commit": "57a3723"
+  },
+  {
+   "date": "2026-11-28 02:42",
+   "title": "Beta: three-phone test suite for both syncs, fix stuck pending op, hide blocked people's position and car",
+   "details": [],
+   "commit": "9ae3742"
+  },
+  {
+   "date": "2026-11-28 01:35",
+   "title": "Beta workflow: run the app tests without the beta switch",
+   "details": [],
+   "commit": "9535c21"
+  },
+  {
+   "date": "2026-11-28 01:33",
+   "title": "Beta workflow: build the beta APK and server files into the site-beta branch; local /ps prefix proxy for tests",
+   "details": [],
+   "commit": "02f1c12"
+  },
+  {
+   "date": "2026-11-28 01:22",
+   "title": "Beta app flavor (id, name, icon, update channel), beta server installer, download page",
+   "details": [],
+   "commit": "be908ac"
+  },
+  {
+   "date": "2026-11-28 01:17",
+   "title": "PowerSync beta: all Buddies tables synced to SQLite, app state projected from it, writes through the PowerSync queue",
+   "details": [],
+   "commit": "8e9845b"
+  },
+  {
+   "date": "2026-11-28 01:04",
+   "title": "PowerSync spike: parked cars and group positions, local stack and two-device scenarios",
+   "details": [],
+   "commit": "1a8cb9e"
+  },
+  {
+   "date": "2026-11-28 00:41",
+   "title": "Suis ma carte : trait en direct allégé + journal à la demande (#321)",
+   "details": [],
+   "commit": "79bd088"
+  },
+  {
+   "date": "2026-11-28 00:33",
+   "title": "Voitures 3D posées sur la carte : cap fixe, taille qui suit le zoom, maquettes plus fines (#323)",
+   "details": [],
+   "commit": "55d52ef"
+  },
+  {
+   "date": "2026-11-28 00:28",
+   "title": "Parked cars scale with the zoom (bounded), in 2D and 3D (#322)",
+   "details": [],
+   "commit": "1143304"
+  },
+  {
+   "date": "2026-11-28 00:20",
+   "title": "Voitures 3D : le calque se pose même pendant que des tuiles chargent (#320)",
+   "details": [],
+   "commit": "21c60ea"
+  },
+  {
+   "date": "2026-11-28 00:06",
+   "title": "Voitures garées en 3D sur le relief quand la carte est inclinée (#319)",
+   "details": [],
+   "commit": "246e6a5"
+  },
+  {
+   "date": "2026-11-27 23:58",
+   "title": "Cars: needle to the exact spot, spread around their point with a connector, follow the zoom (#318)",
+   "details": [],
+   "commit": "f320b23"
+  },
+  {
+   "date": "2026-11-27 23:57",
+   "title": "Full initials (SR) or photo in every buddy round, choose my photo in the profile, planning dates no longer cut (#317)",
+   "details": [],
+   "commit": "4a8b62b"
+  },
+  {
+   "date": "2026-11-27 23:50",
+   "title": "Partager ma carte : icône sous la loupe, fenêtre Suivre dans l'appli, repère déplaçable (#316)",
+   "details": [],
+   "commit": "aeb15b1"
+  },
+  {
+   "date": "2026-11-27 23:37",
+   "title": "Local Buddies copy in IndexedDB; queue and pending uploads also in a small synchronous key (#315)",
+   "details": [],
+   "commit": "63e20d0"
+  },
+  {
+   "date": "2026-11-27 23:33",
+   "title": "Keep my car on the phone until the server echoes it back (#314)",
+   "details": [],
+   "commit": "b2f8d58"
+  },
+  {
+   "date": "2026-11-27 23:33",
+   "title": "Soft-deleted expenses, server clock for cars and pins, shared-map watchdog (#313)",
+   "details": [
+    "depenses.supprime_le: a removed expense (or a refused 'I paid') stays hidden in the table, so an offline phone editing or resending it later cannot bring it back.",
+    "The sync returns the server time; the phone keeps its clock offset and compares car, pin and position times against server time, also offline.",
+    "Shared map: 15 s without a message from the sharer ends the follow."
+   ],
+   "commit": "8f17973"
+  },
+  {
+   "date": "2026-11-27 23:32",
+   "title": "Pointing: '<name> montre' and a drawn finger whose tip touches the spot (#312)",
+   "details": [],
+   "commit": "1153d69"
+  },
+  {
+   "date": "2026-11-27 23:24",
+   "title": "Server-sent events for every shared change, same design as AppBase messaging (#310)",
+   "details": [],
+   "commit": "ed085ba"
+  },
+  {
+   "date": "2026-11-27 23:21",
+   "title": "Each buddy's own car on the map: make, model, shape and colour from the profile (#311)",
+   "details": [],
+   "commit": "10c44b8"
+  },
+  {
+   "date": "2026-11-27 23:20",
+   "title": "Sync edge cases: queue over 500 ops, stalled response body, lost wake-up, stale pin replay, shared-map ordering (#308)",
+   "details": [],
+   "commit": "bfabebf"
+  },
+  {
+   "date": "2026-11-27 23:17",
+   "title": "Map: pins and cars at the same place spread side by side (#309)",
+   "details": [],
+   "commit": "9f61162"
+  },
+  {
+   "date": "2026-11-27 23:05",
+   "title": "Silent push to group members when a car or shared position changes (#307)",
+   "details": [],
+   "commit": "057e147"
+  },
+  {
+   "date": "2026-11-27 23:04",
+   "title": "Sync never hangs: 30 s request timeout, uploads outside the sync (#306)",
+   "details": [],
+   "commit": "53e17d3"
+  },
+  {
+   "date": "2026-11-27 23:01",
+   "title": "Buddy positions: plain pin, stacked labels, sync every 2 min (#305)",
+   "details": [],
+   "commit": "9220e1e"
+  },
+  {
+   "date": "2026-11-27 22:55",
+   "title": "Keep the messaging open when sharing my map from it (#304)",
+   "details": [],
+   "commit": "d9e5cc7"
+  },
+  {
+   "date": "2026-11-27 22:46",
+   "title": "Suis ma carte : le suivi ne se fige plus + notification « Seb partage sa carte » (Suivre / Rejoindre) (#302)",
+   "details": [],
+   "commit": "1c07f31"
+  },
+  {
+   "date": "2026-11-27 22:38",
+   "title": "My availability: show the others' answers per date, one box that cycles on each tap (#303)",
+   "details": [],
+   "commit": "9a8a8cc"
+  },
+  {
+   "date": "2026-11-27 22:21",
+   "title": "Buddies: the messaging icon always opens the Messages list (#301)",
+   "details": [],
+   "commit": "a83b8bd"
+  },
+  {
+   "date": "2026-11-27 22:18",
+   "title": "Fix share sheet: photo scroller's full-screen class no longer hijacks the sheet's tile rows (#300)",
+   "details": [],
+   "commit": "e3dc665"
+  },
+  {
+   "date": "2026-11-27 22:15",
+   "title": "Position d'un buddy : le pseudo en entier avec l'heure sur l'épingle (#299)",
+   "details": [],
+   "commit": "d3c84fa"
+  },
+  {
+   "date": "2026-11-27 22:09",
+   "title": "Invitation avant connexion : le nouveau copain entre bien dans le groupe (#298)",
+   "details": [],
+   "commit": "d5dc9c1"
+  },
+  {
+   "date": "2026-11-27 21:45",
+   "title": "Messaging: one input bubble, full row for the text (#297)",
+   "details": [],
+   "commit": "37d1755"
+  },
+  {
+   "date": "2026-11-27 21:41",
+   "title": "Parked car on the map: big red car with owner's initials badge (#296)",
+   "details": [],
+   "commit": "e997d46"
+  },
+  {
+   "date": "2026-11-27 21:36",
+   "title": "Liens de planning et d'invitation : plus de « Fichier illisible », aperçu propre au planning (#295)",
+   "details": [],
+   "commit": "72d4a36"
+  },
+  {
+   "date": "2026-11-27 21:18",
+   "title": "Add an \"Appeler qui ?\" sheet when no group is open (#293)",
+   "details": [],
+   "commit": "c0133a5"
+  },
+  {
+   "date": "2026-11-27 21:16",
+   "title": "Show buddies sharing their position on the main map (#294)",
+   "details": [],
+   "commit": "ae79997"
+  },
+  {
+   "date": "2026-11-27 21:13",
+   "title": "Stop the ringback tone as soon as someone is in the call (#292)",
+   "details": [],
+   "commit": "da21ef6"
+  },
+  {
+   "date": "2026-11-27 21:05",
+   "title": "Shared position: pin anchored to the ground + accuracy circle (#291)",
+   "details": [],
+   "commit": "5f9af8a"
+  },
+  {
+   "date": "2026-11-27 20:38",
+   "title": "Super User : journal des utilisateurs (inscription, connexion, ouverture, groupe rejoint, déconnexion) (#284)",
+   "details": [],
+   "commit": "fc79086"
+  },
+  {
+   "date": "2026-11-27 20:38",
+   "title": "Appels : notifications du partage de carte, « Appel pour <groupe> », visages de qui a décroché (#285)",
+   "details": [],
+   "commit": "d693c7c"
+  },
+  {
+   "date": "2026-11-27 20:22",
+   "title": "Lien d'application Android : le lien d'invitation ouvre directement l'appli (#290)",
+   "details": [],
+   "commit": "3ca6007"
+  },
+  {
+   "date": "2026-11-27 20:12",
+   "title": "Invite page: download then join; the new app finds the invite in the clipboard (#289)",
+   "details": [],
+   "commit": "a0ddbc8"
+  },
+  {
+   "date": "2026-11-27 19:35",
+   "title": "Group link sheet: the link in plain text with a Copy button (#288)",
+   "details": [],
+   "commit": "025db43"
+  },
+  {
+   "date": "2026-11-27 19:29",
+   "title": "Invite link: 'already in the group' message; notify the group when someone joins (#286)",
+   "details": [],
+   "commit": "8c2bc11"
+  },
+  {
+   "date": "2026-11-27 19:26",
+   "title": "Page publique : « pas de notifications » dans les limites de la version iPhone (#287)",
+   "details": [],
+   "commit": "19c2e53"
+  },
+  {
+   "date": "2026-11-27 19:23",
+   "title": "Version iPhone installable : version web en plein écran, un bouton par appareil sur la page publique (#280)",
+   "details": [],
+   "commit": "8b25e92"
+  },
+  {
+   "date": "2026-11-27 19:15",
+   "title": "Invitations open the main page with an invite banner; group link with or without admin approval; WhatsApp (#282)",
+   "details": [],
+   "commit": "e2d2229"
+  },
+  {
+   "date": "2026-11-27 19:09",
+   "title": "Map: waves around my blue dot while my position is shared (#283)",
+   "details": [],
+   "commit": "86ca874"
+  },
+  {
+   "date": "2026-11-27 18:58",
+   "title": "Buddies: remove a member from a group with a long press and a confirmation (#281)",
+   "details": [],
+   "commit": "1e0d893"
+  },
+  {
+   "date": "2026-11-27 18:43",
+   "title": "Show my map from the messaging screen without a call (#279)",
+   "details": [],
+   "commit": "9e90512"
+  },
+  {
+   "date": "2026-11-27 18:40",
+   "title": "Buddies: turning my position on goes back to the map, centred on me (#278)",
+   "details": [],
+   "commit": "5780727"
+  },
+  {
+   "date": "2026-11-27 18:32",
+   "title": "Suis ma carte : l'icône carte de la barre devient le badge du guide (un appui arrête) (#277)",
+   "details": [],
+   "commit": "7573887"
+  },
+  {
+   "date": "2026-11-27 18:18",
+   "title": "Suis ma carte : encart « Ta carte suit Julie · Stop », garder les traces à l'arrêt, icône dans la messagerie (#276)",
+   "details": [],
+   "commit": "261b316"
+  },
+  {
+   "date": "2026-11-27 18:05",
+   "title": "Calls: 'Suis ma carte' - others follow my map view, base layer and traces during a call (#275)",
+   "details": [],
+   "commit": "06c5fca"
+  },
+  {
+   "date": "2026-11-27 18:01",
+   "title": "Calls: ringback tone for the caller, sound and banner when someone answers or hangs up (#273)",
+   "details": [],
+   "commit": "47c3732"
+  },
+  {
+   "date": "2026-11-27 17:57",
+   "title": "Share a season planning in the chat: paperclip Planning, card in the thread, Share from the planning (chat or link) (#274)",
+   "details": [],
+   "commit": "c70a8b5"
+  },
+  {
+   "date": "2026-11-27 17:52",
+   "title": "Readable device line in support, initial when a profile photo fails to load (#272)",
+   "details": [],
+   "commit": "ad9ed31"
+  },
+  {
+   "date": "2026-11-27 17:41",
+   "title": "Outing panel on the map: close button like Load traces (#271)",
+   "details": [],
+   "commit": "88bb99d"
+  },
+  {
+   "date": "2026-11-27 17:39",
+   "title": "Show the restore card after the welcome card, not under it (#270)",
+   "details": [],
+   "commit": "2995fc4"
+  },
+  {
+   "date": "2026-11-27 17:18",
+   "title": "Show what comes back from the server after an install (#269)",
+   "details": [],
+   "commit": "5083946"
+  },
+  {
+   "date": "2026-11-27 17:15",
+   "title": "Buddies: the message list slides down over the map too (#268)",
+   "details": [],
+   "commit": "df35b07"
+  },
+  {
+   "date": "2026-11-27 17:14",
+   "title": "Hide « take back the whole folder » behind the long press on My traces (#267)",
+   "details": [],
+   "commit": "81ef053"
+  },
+  {
+   "date": "2026-11-27 16:24",
+   "title": "Take back the whole Mountain Buddies folder into My traces in one go (#266)",
+   "details": [],
+   "commit": "006d8b3"
+  },
+  {
+   "date": "2026-11-27 15:45",
+   "title": "My traces: backed up on the server, restored after a reinstall; open several files at once (#265)",
+   "details": [],
+   "commit": "0e44d89"
+  },
+  {
+   "date": "2026-11-27 15:35",
+   "title": "First launch: login, then welcome card, then wide map on my position (#264)",
+   "details": [],
+   "commit": "aaaef4b"
+  },
+  {
+   "date": "2026-11-27 15:23",
+   "title": "Public page: cache-busting query on screenshots (#263)",
+   "details": [],
+   "commit": "cb6f5e5"
+  },
+  {
+   "date": "2026-11-27 15:21",
+   "title": "Play build: Firebase config for cloud.silvaplana.mountainbuddies (#262)",
+   "details": [],
+   "commit": "82838ac"
+  },
+  {
+   "date": "2026-11-27 15:16",
+   "title": "Add all-rights-reserved LICENSE (#261)",
+   "details": [],
+   "commit": "c19a8b0"
+  },
+  {
+   "date": "2026-11-27 15:09",
+   "title": "App calls the API and relay under mountainbuddies.silvaplana.cloud (#260)",
+   "details": [],
+   "commit": "d46e338"
+  },
+  {
+   "date": "2026-11-27 15:04",
+   "title": "Public page: real messaging-over-map screenshot (#259)",
+   "details": [],
+   "commit": "7633aa1"
+  },
+  {
+   "date": "2026-11-27 14:56",
+   "title": "Buddies: messaging slides down over the map (handle), points and traces shown above it (#258)",
+   "details": [],
+   "commit": "b32c459"
+  },
+  {
+   "date": "2026-11-27 14:38",
+   "title": "Renommage mountaintest → mountainbuddies sur le VPS (script, installeurs, doc) (#257)",
+   "details": [],
+   "commit": "8737250"
+  },
+  {
+   "date": "2026-11-27 14:19",
+   "title": "Super User: Users tab with APK downloads, accounts and usage (#256)",
+   "details": [],
+   "commit": "aef3f8a"
+  },
+  {
+   "date": "2026-11-27 14:13",
+   "title": "Calque Hors ligne : rectangle remis comme avant, encart de la sélection en haut (#245)",
+   "details": [],
+   "commit": "785079f"
+  },
+  {
+   "date": "2026-11-27 11:14",
+   "title": "Page publique : vraie capture du survol 3D (#255)",
+   "details": [],
+   "commit": "305cbeb"
+  },
+  {
+   "date": "2026-11-27 11:00",
+   "title": "Liens d'invitation, mails et téléchargement vers mountainbuddies.silvaplana.cloud (#253)",
+   "details": [],
+   "commit": "57ad908"
+  },
+  {
+   "date": "2026-11-27 10:45",
+   "title": "Play build: Super User can unlock SCAN 25 per account (#254)",
+   "details": [],
+   "commit": "f9cdd99"
+  },
+  {
+   "date": "2026-11-27 10:34",
+   "title": "Play Store: delete my account, report, block, and the Play AAB build (#251)",
+   "details": [],
+   "commit": "5b08ae4"
+  },
+  {
+   "date": "2026-11-27 10:19",
+   "title": "Public page for mountainbuddies.silvaplana.cloud, web app under /app/ (#252)",
+   "details": [],
+   "commit": "01a1851"
+  },
+  {
+   "date": "2026-11-27 01:19",
+   "title": "👥 Comptes : pouvoir changer de compte après « Se déconnecter » (#250)",
+   "details": [
+    "👥 en haut de la seconde barre d'icônes : écran « Mon compte » (connexion, pseudo, état hors ligne, synchro)",
+    "Connexion par Logto (auth.silvaplana.cloud) : page de connexion en français, code reçu par mail, pas de mot de passe",
+    "Hors ligne : session gardée 180 jours sur le téléphone, pseudo changé sans réseau envoyé au retour du réseau",
+    "Serveur Python des comptes (deploy/comptes) + installation du VPS en une commande, configuration de Logto par script",
+    "CI : tests du serveur, et construction vérifiée sur les PR sans rien publier",
+    "Logto: Google/Apple connectors with fixed ids when credentials are set, web SPA app",
+    "/config announces active providers; buttons go straight to Google (direct_sign_in)",
+    "Capacitor, web (PWA) and Kotlin: login screen opens at launch until connected, 'Plus tard' closes it"
+   ],
+   "commit": "5b85e7b"
+  },
+  {
+   "date": "2026-11-27 00:56",
+   "title": "Web invite path and duo/support never shown as a group (#249)",
+   "details": [],
+   "commit": "1e66cdb"
+  },
+  {
+   "date": "2026-11-27 00:11",
+   "title": "Buddies button moved to the bottom of the map icon column (#248)",
+   "details": [],
+   "commit": "6088dd2"
+  },
+  {
+   "date": "2026-11-27 00:07",
+   "title": "Invitations par mail envoyées par le serveur (Brevo) à la place de Partager (#247)",
+   "details": [],
+   "commit": "0831a56"
+  },
+  {
+   "date": "2026-11-26 23:42",
+   "title": "Add Firebase google-services.json for the Capacitor Android app (#246)",
+   "details": [],
+   "commit": "3456579"
+  },
+  {
+   "date": "2026-11-26 23:01",
+   "title": "Rectangle de sélection : le doigt reste suivi quand Android reprend le toucher (#244)",
+   "details": [],
+   "commit": "8fd8b0e"
+  },
+  {
+   "date": "2026-11-26 22:39",
+   "title": "Calque Hors ligne : la sélection va dans le panneau du bas, deux lignes de tuiles (#243)",
+   "details": [],
+   "commit": "3a324ef"
+  },
+  {
+   "date": "2026-11-26 22:19",
+   "title": "Move 'Écrire au support' to the very bottom of the profile (#242)",
+   "details": [],
+   "commit": "e5a4d98"
+  },
+  {
+   "date": "2026-11-26 22:12",
+   "title": "Buddies icon drawn in two blues like the mockup (emoji rendered black on some phones) (#241)",
+   "details": [],
+   "commit": "5466d47"
+  },
+  {
+   "date": "2026-11-26 18:24",
+   "title": "Welcome panel on first launch; help bubbles redone on both screens (#240)",
+   "details": [],
+   "commit": "9634a8d"
+  },
+  {
+   "date": "2026-11-26 17:44",
+   "title": "Simplify the download page: one button, app colours, web app off Android (#239)",
+   "details": [],
+   "commit": "f172f52"
+  },
+  {
+   "date": "2026-11-26 17:37",
+   "title": "Lodging icon, initials, support chat; fix invite links shown as expired (#238)",
+   "details": [],
+   "commit": "fde124b"
+  },
+  {
+   "date": "2026-11-26 17:17",
+   "title": "Plannings title with the group; compact past outings with goers' initials (#237)",
+   "details": [],
+   "commit": "40f98c7"
+  },
+  {
+   "date": "2026-11-26 16:34",
+   "title": "Notifications: only buddies' messages, payments and shares (#236)",
+   "details": [],
+   "commit": "363fd82"
+  },
+  {
+   "date": "2026-11-26 16:19",
+   "title": "Buddy count: « J'ai payé » / « OK, reçu », equals sign when balanced (#235)",
+   "details": [],
+   "commit": "b8a81df"
+  },
+  {
+   "date": "2026-11-26 16:11",
+   "title": "Buddies column: new icons are colour pastilles with white drawings (version D) (#234)",
+   "details": [],
+   "commit": "d58ca4e"
+  },
+  {
+   "date": "2026-11-26 16:10",
+   "title": "Buddies column: old emoji icons by default, line icons via a profile checkbox; position on keeps the light background with bold waves (#233)",
+   "details": [],
+   "commit": "10c4bcc"
+  },
+  {
+   "date": "2026-11-26 16:04",
+   "title": "Buddy count: drop open/closed (no padlock, no close/reopen); server no longer refuses closed counts (#232)",
+   "details": [],
+   "commit": "e6a71a7"
+  },
+  {
+   "date": "2026-11-26 16:03",
+   "title": "Place sur le serveur dans le panneau Hors ligne ; le Super User voit celle de chacun (serveur et téléphone) (#230)",
+   "details": [],
+   "commit": "2d60120"
+  },
+  {
+   "date": "2026-11-26 16:02",
+   "title": "Buddy count list: Groupe and Sortie sections, compact padlock, drop old local expenses button (#231)",
+   "details": [],
+   "commit": "9025c0c"
+  },
+  {
+   "date": "2026-11-26 15:52",
+   "title": "Calque Hors ligne : panneau remontable, poids des tuiles, bleu = Plan IGN seul, rectangle pour supprimer ou télécharger des tuiles (#229)",
+   "details": [],
+   "commit": "e741828"
+  },
+  {
+   "date": "2026-11-26 15:31",
+   "title": "Buddies: admins can delete a group from the long-press bar (soft delete, with confirmation) (#228)",
+   "details": [],
+   "commit": "c6c11eb"
+  },
+  {
+   "date": "2026-11-26 15:28",
+   "title": "Buddies: WhatsApp-style long press on groups and outings (rename, share, delete); icon column open by default (#227)",
+   "details": [],
+   "commit": "3b271cf"
+  },
+  {
+   "date": "2026-11-26 15:22",
+   "title": "Buddies: simpler Ma position (tap shares with all my groups outside a group), static icon, no pin emojis (#226)",
+   "details": [],
+   "commit": "12106b0"
+  },
+  {
+   "date": "2026-11-26 15:19",
+   "title": "Buddies: group and outing Buddy counts, open/closed, rename, delete (admin) (#225)",
+   "details": [],
+   "commit": "cc9ea2f"
+  },
+  {
+   "date": "2026-11-26 15:08",
+   "title": "Buddies: line icons in the column (B1 Buddy count, P1 position), park my car with a long press (#224)",
+   "details": [],
+   "commit": "b5d8704"
+  },
+  {
+   "date": "2026-11-26 14:53",
+   "title": "Buddies: position as an on/off switch under the phone, pin-head markers with initials, auto-stop at 7 pm (#223)",
+   "details": [],
+   "commit": "ef493b2"
+  },
+  {
+   "date": "2026-11-26 14:44",
+   "title": "Buddies: smaller edit pencils and trash cans (18 px icons, 38 px circles on photos) (#222)",
+   "details": [],
+   "commit": "3e28832"
+  },
+  {
+   "date": "2026-11-26 14:41",
+   "title": "Buddies column: line icons for Buddy count (double-barred B then C) and lodging (bed in a house) (#221)",
+   "details": [],
+   "commit": "aa42993"
+  },
+  {
+   "date": "2026-11-26 14:35",
+   "title": "Buddies: ✕ goes back to the previous screen, no more ‹ (#220)",
+   "details": [],
+   "commit": "dd5eddd"
+  },
+  {
+   "date": "2026-11-26 14:26",
+   "title": "Carnet d'une sortie : plus de ✕ sur la photo, qui recouvrait la flèche (#219)",
+   "details": [],
+   "commit": "34f9da2"
+  },
+  {
+   "date": "2026-11-26 14:25",
+   "title": "Calque « Hors ligne » : voile sur ce qui n'est pas gardé, traces en vert, place sur le téléphone (#216)",
+   "details": [],
+   "commit": "2382722"
+  },
+  {
+   "date": "2026-11-26 14:25",
+   "title": "Carte : plus de bande vide quand on la tire, fenêtre de mise à jour recentrée ; boutons ＋ sans icône ; « sortie passée » (#218)",
+   "details": [],
+   "commit": "3ca6bfe"
+  },
+  {
+   "date": "2026-11-26 14:23",
+   "title": "Wero dans le profil ; Buddy count : « Rembourser Julie » par Wero ou virement (#217)",
+   "details": [],
+   "commit": "9470361"
+  },
+  {
+   "date": "2026-11-26 14:17",
+   "title": "Liste Buddies : juste le nom du groupe, plus de « 1 buddy · 1 invitation envoyée » (#215)",
+   "details": [],
+   "commit": "2dce342"
+  },
+  {
+   "date": "2026-11-26 14:07",
+   "title": "Plus de ✕ dans les sous-écrans de Buddies ni sur une sortie ; ☰ pour le Super User seulement (#214)",
+   "details": [],
+   "commit": "27eb6e2"
+  },
+  {
+   "date": "2026-11-26 13:47",
+   "title": "Carte : rangée, seulement ✕ et la flèche ; les autres icônes glissent d'un bloc (#213)",
+   "details": [],
+   "commit": "0041393"
+  },
+  {
+   "date": "2026-11-26 13:46",
+   "title": "Buddy count: small '+ Dépense' pill like '+ Sortie', balances stop before the icon column (#212)",
+   "details": [],
+   "commit": "a7118c9"
+  },
+  {
+   "date": "2026-11-26 13:46",
+   "title": "Buddies : l'écran se resserre à côté de la colonne d'icônes (#211)",
+   "details": [],
+   "commit": "e410fac"
+  },
+  {
+   "date": "2026-11-26 13:43",
+   "title": "Buddies column: chat right after call, before planning (#210)",
+   "details": [],
+   "commit": "c8fcd62"
+  },
+  {
+   "date": "2026-11-26 13:31",
+   "title": "Couleurs accordées au logo : fond ciel breton, ardoise, boutons en verre dépoli, mode sombre (#209)",
+   "details": [],
+   "commit": "9d17322"
+  },
+  {
+   "date": "2026-11-26 13:25",
+   "title": "Plannings : « ＋ Planning » sans « une saison », petite icône (#208)",
+   "details": [],
+   "commit": "31665bb"
+  },
+  {
+   "date": "2026-11-26 13:23",
+   "title": "Buddies : colonne d'icônes sans panneau, seulement les ronds (#207)",
+   "details": [],
+   "commit": "38bc0ea"
+  },
+  {
+   "date": "2026-11-26 13:21",
+   "title": "Écran d'un groupe : « ＋ Sortie » petit, comme dans la liste (#206)",
+   "details": [],
+   "commit": "b1aac43"
+  },
+  {
+   "date": "2026-11-26 13:15",
+   "title": "Buddies : la colonne d'icônes recouvre l'écran au lieu de le pousser (#205)",
+   "details": [],
+   "commit": "f13fb41"
+  },
+  {
+   "date": "2026-11-26 13:13",
+   "title": "Stop snapped drawn trace at the end of the path instead of a detour (#204)",
+   "details": [],
+   "commit": "e84b11b"
+  },
+  {
+   "date": "2026-11-26 13:11",
+   "title": "Layers row wraps onto 2 lines when it does not fit, base map under the slope button (#203)",
+   "details": [],
+   "commit": "9fd0f5e"
+  },
+  {
+   "date": "2026-11-26 13:10",
+   "title": "Bud picks photos: − / ＋ for how many, unpicked photos stay visible (#202)",
+   "details": [],
+   "commit": "8698fc8"
+  },
+  {
+   "date": "2026-11-26 13:06",
+   "title": "Buddies : contenu tout en haut, colonne qui glisse en une seule animation (#201)",
+   "details": [],
+   "commit": "7a63749"
+  },
+  {
+   "date": "2026-11-26 12:51",
+   "title": "Buddies : ✕ au-dessus de la flèche, tout en haut, taille des icônes de la carte (#200)",
+   "details": [],
+   "commit": "6e36ab4"
+  },
+  {
+   "date": "2026-11-26 12:47",
+   "title": "Écran d'un groupe : « Rien de prévu pour l'instant », « Sorties passées » sur toute la largeur (#198)",
+   "details": [],
+   "commit": "1fa10e1"
+  },
+  {
+   "date": "2026-11-26 12:46",
+   "title": "Relay: no forced tool_choice (refused by the model), simple error messages on screen (#199)",
+   "details": [],
+   "commit": "f185282"
+  },
+  {
+   "date": "2026-11-26 12:41",
+   "title": "Buddies : icônes taille carte, flèche horizontale, plus de « à jour à », petits ＋ Groupe / ＋ Sortie (#197)",
+   "details": [],
+   "commit": "5c66ea9"
+  },
+  {
+   "date": "2026-11-26 12:29",
+   "title": "Profile like AppBase: initials, name, e-mail, role, first/last name, phone and IBAN (optional, offline) (#196)",
+   "details": [],
+   "commit": "f7c283d"
+  },
+  {
+   "date": "2026-11-26 12:25",
+   "title": "Roles like AppBase: optional club, Super User, group roles (main admin/admin/member), 'Alone' personal group (#195)",
+   "details": [
+    "droits.py is the only place reading roles; Super User set by a VPS command (super_user.py)",
+    "Groups: creator is admin_principal; admins delete what others brought, members only their own",
+    "Optional organisations (clubs) above groups, none yet, no screen",
+    "'Seul' in + Sortie: personal group created on first solo outing",
+    "spec/buddies.md §7.17"
+   ],
+   "commit": "a201cf8"
+  },
+  {
+   "date": "2026-11-26 12:03",
+   "title": "Buddies : « Groupe » et « Sortie », colonne d'icônes rétractable (#194)",
+   "details": [],
+   "commit": "c2d67ec"
+  },
+  {
+   "date": "2026-11-26 11:56",
+   "title": "Layers icon opens the map layers row; new drone, 3D and slope icons (#193)",
+   "details": [],
+   "commit": "d467c08"
+  },
+  {
+   "date": "2026-11-26 01:59",
+   "title": "Loupe : « Chercher sur le web » et questions « Bud, … » (#192)",
+   "details": [],
+   "commit": "0f1d8b3"
+  },
+  {
+   "date": "2026-11-26 01:57",
+   "title": "Loupe : « auberges / hébergement / hôtels près de Prapic » sur la carte (#191)",
+   "details": [],
+   "commit": "b097da6"
+  },
+  {
+   "date": "2026-11-26 01:51",
+   "title": "Loupe : trouver aussi les auberges, gîtes et hôtels (OpenStreetMap) (#190)",
+   "details": [],
+   "commit": "833d1b3"
+  },
+  {
+   "date": "2026-11-26 01:40",
+   "title": "Flyover film: name the film while it is being made (#189)",
+   "details": [],
+   "commit": "f2ba4c9"
+  },
+  {
+   "date": "2026-11-26 01:27",
+   "title": "Loupe rangée par catégories (skitour d'abord) + Bud cherche dans skitour (#188)",
+   "details": [],
+   "commit": "673a242"
+  },
+  {
+   "date": "2026-11-26 01:26",
+   "title": "Offline panel: show kept squares in green (#187)",
+   "details": [],
+   "commit": "9061ebe"
+  },
+  {
+   "date": "2026-11-26 01:25",
+   "title": "Drone zones offline (#186)",
+   "details": [],
+   "commit": "9fcc799"
+  },
+  {
+   "date": "2026-11-26 01:22",
+   "title": "Loupe : « refuge », « cabane », « gîte » → points refuges.info sur la carte (#185)",
+   "details": [],
+   "commit": "cca2e25"
+  },
+  {
+   "date": "2026-11-26 01:21",
+   "title": "Map: drone restriction overlay (DGAC zones) (#184)",
+   "details": [],
+   "commit": "505f9dc"
+  },
+  {
+   "date": "2026-11-26 01:19",
+   "title": "Lodging: checked sites (now with refuges.info) are looked at first, then the rest of the web; Bud uses them too (#183)",
+   "details": [],
+   "commit": "a97644a"
+  },
+  {
+   "date": "2026-11-26 01:14",
+   "title": "Flyover film: new 🎯 Repères camera (#182)",
+   "details": [],
+   "commit": "31437ab"
+  },
+  {
+   "date": "2026-11-26 01:12",
+   "title": "Album: a film shows its cover in the full-screen viewer (#181)",
+   "details": [],
+   "commit": "5a21362"
+  },
+  {
+   "date": "2026-11-26 00:38",
+   "title": "Flyover film: rain-snow limit wording, no direction arrows in the film (#180)",
+   "details": [],
+   "commit": "684a242"
+  },
+  {
+   "date": "2026-11-26 00:29",
+   "title": "Flyover film: no more stripes in the painted snow (#179)",
+   "details": [],
+   "commit": "aff701d"
+  },
+  {
+   "date": "2026-11-26 00:14",
+   "title": "Flyover film: name a film when filming, pencil to rename (#178)",
+   "details": [],
+   "commit": "be3f1b2"
+  },
+  {
+   "date": "2026-11-25 23:47",
+   "title": "Album: Bud picks the 8 best photos for the notebook (#177)",
+   "details": [
+    "Height setting is respected: Low rides about 5 m above the ground 30 m behind, Medium 40/120, High 150/400; the gaze goes up the slope on the climb (pitch up to 100: beyond that MapLibre stops drawing nearby terrain).",
+    "Summit: rises like a drone, orbits, stops on the descent axis, dives back to the ground, holds still, then goes.",
+    "Descent starts close and gains height and distance; the gaze keeps the horizon in frame.",
+    "Arrival: turns back to the summit and, when it is in line of sight, rises and moves toward it.",
+    "Never inside the mountain: the eye is lifted ahead of bumps (7 m relief for this style), and the live guard uses the margin the trajectory guarantees.",
+    "New cloud renderer look: cauliflower cumulus tops (billow noise), silver lining toward the sun, lighter creases, cirrus veil, sun halo, richer sky.",
+    "Inside the cloud is no longer uniform: pockets where it thins out, places where light breaks through (white) and darker blue-grey passages.",
+    "Three looks in the style panel when the cloud dive is on: the original smooth golden sea (kept as is), golden cumulus, blue-grey cumulus.",
+    "Less grain: each frame averages 2 passes (3 in careful mode) with shifted ray offsets.",
+    "The cloud dive now lasts 12 s and is added to the chosen duration, so the trace flyover keeps its full time; more of it is spent inside the clouds."
+   ],
+   "commit": "04c57de"
+  },
+  {
+   "date": "2026-11-25 23:43",
+   "title": "Album: films first, WhatsApp-like photo browsing (PhotoSwipe), landscape margins (#176)",
+   "details": [
+    "Height setting is respected: Low rides about 5 m above the ground 30 m behind, Medium 40/120, High 150/400; the gaze goes up the slope on the climb (pitch up to 100: beyond that MapLibre stops drawing nearby terrain).",
+    "Summit: rises like a drone, orbits, stops on the descent axis, dives back to the ground, holds still, then goes.",
+    "Descent starts close and gains height and distance; the gaze keeps the horizon in frame.",
+    "Arrival: turns back to the summit and, when it is in line of sight, rises and moves toward it.",
+    "Never inside the mountain: the eye is lifted ahead of bumps (7 m relief for this style), and the live guard uses the margin the trajectory guarantees.",
+    "New cloud renderer look: cauliflower cumulus tops (billow noise), silver lining toward the sun, lighter creases, cirrus veil, sun halo, richer sky.",
+    "Inside the cloud is no longer uniform: pockets where it thins out, places where light breaks through (white) and darker blue-grey passages.",
+    "Three looks in the style panel when the cloud dive is on: the original smooth golden sea (kept as is), golden cumulus, blue-grey cumulus.",
+    "Less grain: each frame averages 2 passes (3 in careful mode) with shifted ray offsets.",
+    "The cloud dive now lasts 12 s and is added to the chosen duration, so the trace flyover keeps its full time; more of it is spent inside the clouds."
+   ],
+   "commit": "477b341"
+  },
+  {
+   "date": "2026-11-25 23:09",
+   "title": "Film: built on a hidden map, the panel can be closed while it is made (#175)",
+   "details": [],
+   "commit": "ffeb271"
+  },
+  {
+   "date": "2026-11-25 23:09",
+   "title": "Remove Me Time: old ones erased with their content; + Buddy Time asks for a Buddy Group (#174)",
+   "details": [],
+   "commit": "379bbf7"
+  },
+  {
+   "date": "2026-11-25 23:07",
+   "title": "Trace menu: move the Buddy Time link to the bottom (#173)",
+   "details": [],
+   "commit": "cc41a64"
+  },
+  {
+   "date": "2026-11-25 23:00",
+   "title": "Film: outward / return / round trip, shadows on the Buddy Time's day, faster speeds (#172)",
+   "details": [],
+   "commit": "27ffb1c"
+  },
+  {
+   "date": "2026-11-25 22:43",
+   "title": "Photos to place: a tap opens the photo large, another tap shrinks it (#171)",
+   "details": [],
+   "commit": "7ffbed4"
+  },
+  {
+   "date": "2026-11-25 22:32",
+   "title": "Camera button: photos just taken go to the day's Buddy Time album (#170)",
+   "details": [],
+   "commit": "32672f5"
+  },
+  {
+   "date": "2026-11-25 22:28",
+   "title": "Album photos: full-screen viewer everywhere, swipe, share (#169)",
+   "details": [],
+   "commit": "44ee7a5"
+  },
+  {
+   "date": "2026-11-25 22:02",
+   "title": "Rename a Buddy Group (pencil in its header) (#168)",
+   "details": [],
+   "commit": "eef7341"
+  },
+  {
+   "date": "2026-11-25 21:59",
+   "title": "Album: keep photo quality, full screen and pinch zoom in the viewer (#166)",
+   "details": [],
+   "commit": "dab307e"
+  },
+  {
+   "date": "2026-11-25 21:58",
+   "title": "Pins: a tap on the pin or its word selects it and opens its trace menu to edit the word (#167)",
+   "details": [],
+   "commit": "0471b99"
+  },
+  {
+   "date": "2026-11-25 21:48",
+   "title": "Pencil and trash next to each Buddy Time in the lists (#164)",
+   "details": [],
+   "commit": "8e66e07"
+  },
+  {
+   "date": "2026-11-25 21:46",
+   "title": "Trace list: pencil to rename a saved trace; long names no longer push buttons off screen (#165)",
+   "details": [],
+   "commit": "d3e52bc"
+  },
+  {
+   "date": "2026-11-25 21:45",
+   "title": "Logbook: draw the trace on a Plan IGN background (#163)",
+   "details": [],
+   "commit": "831193d"
+  },
+  {
+   "date": "2026-11-25 21:25",
+   "title": "Show the Buddy Time link in the Modifier panel too (#162)",
+   "details": [],
+   "commit": "1475e76"
+  },
+  {
+   "date": "2026-11-25 21:25",
+   "title": "Buddy Time: rename and delete from its card, rename by Bud; Bud understands BT, BG, BC and dictation variants (#161)",
+   "details": [],
+   "commit": "2976ee3"
+  },
+  {
+   "date": "2026-11-25 21:19",
+   "title": "Link a trace to a Buddy Time, from the trace or from the Buddy Time (#160)",
+   "details": [],
+   "commit": "ccc4f1f"
+  },
+  {
+   "date": "2026-11-25 21:12",
+   "title": "Bud can delete a Buddy Time, with Undo (#159)",
+   "details": [],
+   "commit": "6cea7e5"
+  },
+  {
+   "date": "2026-11-25 20:55",
+   "title": "Outing photos: shown in the flyover film, placed by hand, received from WhatsApp (#158)",
+   "details": [],
+   "commit": "3882397"
+  },
+  {
+   "date": "2026-11-25 20:45",
+   "title": "Flyover film: choose a speed instead of a duration (#157)",
+   "details": [],
+   "commit": "8143a82"
+  },
+  {
+   "date": "2026-11-25 19:42",
+   "title": "Flyover film: snow painted on the aerial photos (#156)",
+   "details": [],
+   "commit": "c91dbd1"
+  },
+  {
+   "date": "2026-11-25 19:18",
+   "title": "Flyover film: cumulus clouds in three looks, longer dive, aerial photo background (#155)",
+   "details": [
+    "Height setting is respected: Low rides about 5 m above the ground 30 m behind, Medium 40/120, High 150/400; the gaze goes up the slope on the climb (pitch up to 100: beyond that MapLibre stops drawing nearby terrain).",
+    "Summit: rises like a drone, orbits, stops on the descent axis, dives back to the ground, holds still, then goes.",
+    "Descent starts close and gains height and distance; the gaze keeps the horizon in frame.",
+    "Arrival: turns back to the summit and, when it is in line of sight, rises and moves toward it.",
+    "Never inside the mountain: the eye is lifted ahead of bumps (7 m relief for this style), and the live guard uses the margin the trajectory guarantees.",
+    "New cloud renderer look: cauliflower cumulus tops (billow noise), silver lining toward the sun, lighter creases, cirrus veil, sun halo, richer sky.",
+    "Inside the cloud is no longer uniform: pockets where it thins out, places where light breaks through (white) and darker blue-grey passages.",
+    "Three looks in the style panel when the cloud dive is on: the original smooth golden sea (kept as is), golden cumulus, blue-grey cumulus.",
+    "Less grain: each frame averages 2 passes (3 in careful mode) with shifted ray offsets.",
+    "The cloud dive now lasts 12 s and is added to the chosen duration, so the trace flyover keeps its full time; more of it is spent inside the clouds."
+   ],
+   "commit": "073b380"
+  },
+  {
+   "date": "2026-11-25 19:00",
+   "title": "Climber flyover: camera on the ground, drone orbit at the summit, look back at the end (#154)",
+   "details": [
+    "Height setting is respected: Low rides about 5 m above the ground 30 m behind, Medium 40/120, High 150/400; the gaze goes up the slope on the climb (pitch up to 100: beyond that MapLibre stops drawing nearby terrain).",
+    "Summit: rises like a drone, orbits, stops on the descent axis, dives back to the ground, holds still, then goes.",
+    "Descent starts close and gains height and distance; the gaze keeps the horizon in frame.",
+    "Arrival: turns back to the summit and, when it is in line of sight, rises and moves toward it.",
+    "Never inside the mountain: the eye is lifted ahead of bumps (7 m relief for this style), and the live guard uses the margin the trajectory guarantees."
+   ],
+   "commit": "0be6a31"
+  },
+  {
+   "date": "2026-11-25 18:25",
+   "title": "Flyover film: Download button saving the film to the gallery (#153)",
+   "details": [],
+   "commit": "917c902"
+  },
+  {
+   "date": "2026-11-25 17:59",
+   "title": "Trace direction: start and finish discs, arrows along the line, Reverse tool in Modify (#152)",
+   "details": [],
+   "commit": "23091c7"
+  },
+  {
+   "date": "2026-11-25 17:56",
+   "title": "Flyover film: never inside the mountain, smoother camera, slope-leaning climber, films folder (#151)",
+   "details": [],
+   "commit": "3924460"
+  },
+  {
+   "date": "2026-11-25 17:31",
+   "title": "Edit panel: green check button to finish editing (#150)",
+   "details": [],
+   "commit": "dab79b9"
+  },
+  {
+   "date": "2026-11-25 17:30",
+   "title": "Extend straight by default, no absurd detours, no map refit while editing (#149)",
+   "details": [],
+   "commit": "4c8816a"
+  },
+  {
+   "date": "2026-11-25 17:27",
+   "title": "Bottom panels: centered grab tab; tab bar only after the hamburger; centered update window (#146)",
+   "details": [],
+   "commit": "fab6aac"
+  },
+  {
+   "date": "2026-11-25 17:22",
+   "title": "Drawing: long press starts the line, very long press selects; traces drawn with one clear width (#148)",
+   "details": [],
+   "commit": "b3bd518"
+  },
+  {
+   "date": "2026-11-25 17:20",
+   "title": "Buddies: 📍 in the right column shares my position with Buddy Groups, outside a Buddy Time (#147)",
+   "details": [],
+   "commit": "ac27022"
+  },
+  {
+   "date": "2026-11-25 17:13",
+   "title": "Selection rectangle on long press, no dead-end spurs after re-snap, drawn trash icon, snap unchecked by default (#145)",
+   "details": [],
+   "commit": "e0f017f"
+  },
+  {
+   "date": "2026-11-25 16:58",
+   "title": "Remove the red chosen-point marker; re-snap no longer hangs; finger offset off by default (#144)",
+   "details": [],
+   "commit": "289893c"
+  },
+  {
+   "date": "2026-11-25 16:55",
+   "title": "Microphone: thin-line icon in a light grey circle, everywhere (#143)",
+   "details": [],
+   "commit": "03efdec"
+  },
+  {
+   "date": "2026-11-25 16:49",
+   "title": "App update: check while the app is open, non-blocking banner (#142)",
+   "details": [],
+   "commit": "1ae6633"
+  },
+  {
+   "date": "2026-11-25 16:40",
+   "title": "Smooth mode: dot-count choice drawn with dots (#141)",
+   "details": [],
+   "commit": "ed50195"
+  },
+  {
+   "date": "2026-11-25 16:37",
+   "title": "No 'chosen point' marker on long press of a pin or edit dot (#140)",
+   "details": [],
+   "commit": "b961332"
+  },
+  {
+   "date": "2026-11-25 16:34",
+   "title": "Place search: peaks before addresses, OSM fallback, 30 results, dictation, 🔍 under ◎ (#138)",
+   "details": [],
+   "commit": "0ed27fa"
+  },
+  {
+   "date": "2026-11-25 16:33",
+   "title": "Separate settings: hand for drawing, side of the map icons (#139)",
+   "details": [],
+   "commit": "cf6de64"
+  },
+  {
+   "date": "2026-11-25 16:26",
+   "title": "Left/right-handed setting: finger offset and icon column side (#137)",
+   "details": [],
+   "commit": "ef1d50c"
+  },
+  {
+   "date": "2026-11-25 16:18",
+   "title": "Trace edit: zoom-aware smooth dots, no spurs after re-snap, clear Undo (#136)",
+   "details": [],
+   "commit": "cc5fe72"
+  },
+  {
+   "date": "2026-11-25 16:06",
+   "title": "Le point tracé ou déplacé se pose 1 cm au-dessus du doigt (#135)",
+   "details": [],
+   "commit": "730d570"
+  },
+  {
+   "date": "2026-11-25 15:13",
+   "title": "Modifier une trace : les ronds se déplacent au doigt (#134)",
+   "details": [],
+   "commit": "dfdfe72"
+  },
+  {
+   "date": "2026-11-25 15:00",
+   "title": "Bottom panels: stay where the handle is released (#133)",
+   "details": [],
+   "commit": "d6fa117"
+  },
+  {
+   "date": "2026-11-25 14:58",
+   "title": "Trace editing: pencil screen (snap pieces to paths, extend, smooth) and pins with a note (#132)",
+   "details": [],
+   "commit": "58c964d"
+  },
+  {
+   "date": "2026-11-25 14:51",
+   "title": "Videos: real full screen in the Android app (#131)",
+   "details": [],
+   "commit": "f1d3d4c"
+  },
+  {
+   "date": "2026-11-25 14:46",
+   "title": "Skitour sheets: render BBCode links in texts, open linked topos in the app, keep Google Maps button on screen (#130)",
+   "details": [],
+   "commit": "eb327a5"
+  },
+  {
+   "date": "2026-11-25 14:39",
+   "title": "Flyover film: simple dive and cloud dive as two intros, full-screen replay (#129)",
+   "details": [],
+   "commit": "e99d7d7"
+  },
+  {
+   "date": "2026-11-25 14:13",
+   "title": "Flyover film: volumetric cloud dive intro, finer shadows in careful mode (#128)",
+   "details": [],
+   "commit": "0c0ccfd"
+  },
+  {
+   "date": "2026-11-25 13:55",
+   "title": "Flyover film: camera styles, back arrow, film-only slopes (#126)",
+   "details": [],
+   "commit": "5c1377b"
+  },
+  {
+   "date": "2026-11-25 13:51",
+   "title": "Bottom panels: drag handle and title bar to set height (#127)",
+   "details": [],
+   "commit": "74e8b74"
+  },
+  {
+   "date": "2026-11-25 13:21",
+   "title": "Flyover film: fast/careful choice and a trace that draws itself (#125)",
+   "details": [],
+   "commit": "35b3af5"
+  },
+  {
+   "date": "2026-11-25 12:38",
+   "title": "Flyover film: frame-by-frame encoding at exact 30 fps, wider feathered shadows (#124)",
+   "details": [],
+   "commit": "93efeea"
+  },
+  {
+   "date": "2026-11-25 11:22",
+   "title": "3D flyover film along a trace, saved to a Buddy Time album (#123)",
+   "details": [],
+   "commit": "69ca9bc"
+  },
+  {
+   "date": "2026-11-25 10:52",
+   "title": "Place search: nearby names first, and peak/col names kept offline (#122)",
+   "details": [],
+   "commit": "3960612"
+  },
+  {
+   "date": "2026-11-25 00:49",
+   "title": "Messaging step 4: notifications of new messages (#121)",
+   "details": [],
+   "commit": "aba13ce"
+  },
+  {
+   "date": "2026-11-25 00:45",
+   "title": "Messaging step 3: polls, files and videos, forwarding (#120)",
+   "details": [],
+   "commit": "4a6a384"
+  },
+  {
+   "date": "2026-11-25 00:36",
+   "title": "Buddies chat, step 2: one-to-one chats, chat list with search and new chat, typing and online (#119)",
+   "details": [],
+   "commit": "bafe196"
+  },
+  {
+   "date": "2026-11-25 00:27",
+   "title": "Buddies chat: AppBase's thread (reply, copy, edit, delete, reactions, ticks, emojis) and in-app dictation (#118)",
+   "details": [],
+   "commit": "04e722b"
+  },
+  {
+   "date": "2026-11-25 00:20",
+   "title": "Fix Bud: tool schema rejected by the API, and answer to « Buds » (#117)",
+   "details": [],
+   "commit": "7bc0f63"
+  },
+  {
+   "date": "2026-11-25 00:10",
+   "title": "Vue 3D du relief : incliner à deux doigts ou 🗻, 🧭 pour revenir à plat (#115)",
+   "details": [],
+   "commit": "3c87dbf"
+  },
+  {
+   "date": "2026-11-25 00:09",
+   "title": "Place search leaves ◎ follow mode so the map stays on the picked place (#116)",
+   "details": [],
+   "commit": "9eb63f3"
+  },
+  {
+   "date": "2026-11-25 00:02",
+   "title": "Lodging search: town + radius (5, 10, 20 km) (#114)",
+   "details": [],
+   "commit": "76a49ae"
+  },
+  {
+   "date": "2026-11-24 22:30",
+   "title": "Way types for gravel and hiking on every selected trace (#113)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "3431e08"
+  },
+  {
+   "date": "2026-11-24 19:19",
+   "title": "Fix empty VisuGPX/Geotrek lists, 'Rechercher dans cette zone' on the map, place search in the itinerary list (#112)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "5fad420"
+  },
+  {
+   "date": "2026-11-24 17:46",
+   "title": "Lodging results straight to the map; refuges link to their booking page (#111)",
+   "details": [],
+   "commit": "d72074a"
+  },
+  {
+   "date": "2026-11-24 17:42",
+   "title": "Show found lodgings on the map (#110)",
+   "details": [],
+   "commit": "d587524"
+  },
+  {
+   "date": "2026-11-24 17:39",
+   "title": "Ready-made Booking, Airbnb, Abritel links in lodging screens (#109)",
+   "details": [],
+   "commit": "ee8122d"
+  },
+  {
+   "date": "2026-11-24 15:42",
+   "title": "Itinerary map 'Rechercher ici' + skitour map: all points, one ring for outings with a trace or itinerary (#108)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "3c27575"
+  },
+  {
+   "date": "2026-11-24 15:29",
+   "title": "Itinerary list: show the area each source searched (#107)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "8f70627"
+  },
+  {
+   "date": "2026-11-24 13:33",
+   "title": "Search moves behind the locate button: long press ◎ shows 🔍 (#106)",
+   "details": [],
+   "commit": "37ec6d0"
+  },
+  {
+   "date": "2026-11-24 13:31",
+   "title": "Variant buttons styled like the bar; compact bar on short screens (#105)",
+   "details": [],
+   "commit": "0e13ab6"
+  },
+  {
+   "date": "2026-11-24 13:29",
+   "title": "Map bar: 🗺 joins ⛰, 👤 moves into the Buddies column (#104)",
+   "details": [],
+   "commit": "6c5baba"
+  },
+  {
+   "date": "2026-11-24 13:20",
+   "title": "One icon column on the map: reduced/extended bar, long press opens variants (#103)",
+   "details": [],
+   "commit": "d857384"
+  },
+  {
+   "date": "2026-11-24 13:12",
+   "title": "Geotrek itineraries in the aggregated list + one chip per source (#102)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "138933f"
+  },
+  {
+   "date": "2026-11-24 12:56",
+   "title": "Remove the Kotlin app (unblocks the VPS) + five modes incl. road bike and gravel (#101)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "fe51b7b"
+  },
+  {
+   "date": "2026-11-24 12:30",
+   "title": "VisuGPX circuits in the itinerary list, through the VPS relay (both apps) (#100)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "b31a8f8"
+  },
+  {
+   "date": "2026-11-24 00:45",
+   "title": "Copy installer-appels.sh to the site with the accounts server (#99)",
+   "details": [],
+   "commit": "54158da"
+  },
+  {
+   "date": "2026-11-23 22:29",
+   "title": "Bud peut aussi agir : dépense, Buddy Time, ma dispo, avec Annuler (#98)",
+   "details": [],
+   "commit": "15055fc"
+  },
+  {
+   "date": "2026-11-23 18:54",
+   "title": "Buddies bloc 11 : Bud dans les conversations (écran 25), deux applis (#97)",
+   "details": [],
+   "commit": "75f09a6"
+  },
+  {
+   "date": "2026-11-23 18:44",
+   "title": "Buddies bloc 10 : appels de groupe (écrans 10 et 24), deux applis (#96)",
+   "details": [],
+   "commit": "5cf0205"
+  },
+  {
+   "date": "2026-11-23 18:27",
+   "title": "Planning de saison : « Publier » ne reste plus grisé sans raison (deux applis) (#95)",
+   "details": [],
+   "commit": "f219b67"
+  },
+  {
+   "date": "2026-11-23 18:20",
+   "title": "Buddies bloc 9 : messagerie par Buddy Group et Buddy Time, mots simples sans IA (deux applis) (#94)",
+   "details": [],
+   "commit": "b48ec36"
+  },
+  {
+   "date": "2026-11-23 18:00",
+   "title": "Buddies bloc 8 : hébergement partagé par Buddy Time (deux applis) (#93)",
+   "details": [],
+   "commit": "4f9d616"
+  },
+  {
+   "date": "2026-11-23 17:46",
+   "title": "Buddies bloc 7 : position des buddies avec l'épingle (deux applis) (#92)",
+   "details": [],
+   "commit": "c7485e4"
+  },
+  {
+   "date": "2026-11-23 17:30",
+   "title": "Buddies bloc 6 : Buddy count partagé par Buddy Time (deux applis) (#91)",
+   "details": [
+    "Server: depenses table; depense (add or correct) and retirer_depense ops in the sync; payer and beneficiaries must be trip participants.",
+    "Screen 8: balances as bars, who owes whom, expenses with a guessed icon, \"+ Dépense\"; expense form with faces for payer and shares.",
+    "Access: column 💶 (current trip or list), a 💶 tile on the map banner, a line in the journal's practical section; the old local expense sharing stays reachable."
+   ],
+   "commit": "c1e82d5"
+  },
+  {
+   "date": "2026-11-23 17:22",
+   "title": "👥 Comptes : autoriser l'appli Capacitor chez Logto (#90)",
+   "details": [
+    "👥 en haut de la seconde barre d'icônes : écran « Mon compte » (connexion, pseudo, état hors ligne, synchro)",
+    "Connexion par Logto (auth.silvaplana.cloud) : page de connexion en français, code reçu par mail, pas de mot de passe",
+    "Hors ligne : session gardée 180 jours sur le téléphone, pseudo changé sans réseau envoyé au retour du réseau",
+    "Serveur Python des comptes (deploy/comptes) + installation du VPS en une commande, configuration de Logto par script",
+    "CI : tests du serveur, et construction vérifiée sur les PR sans rien publier",
+    "Logto: Google/Apple connectors with fixed ids when credentials are set, web SPA app",
+    "/config announces active providers; buttons go straight to Google (direct_sign_in)",
+    "Capacitor, web (PWA) and Kotlin: login screen opens at launch until connected, 'Plus tard' closes it"
+   ],
+   "commit": "7c8b4ae"
+  },
+  {
+   "date": "2026-11-23 17:19",
+   "title": "Buddies block 5: trip journal, written together (both apps) (#89)",
+   "details": [
+    "Server: recits, fiches_jour and carnets tables; recit, fiche and carnet ops in the sync, sent inside the Buddy Time view.",
+    "Journal screen (12, 13): cover, chosen photos (stars, else an automatic pick spread over the trip), signed stories, trace with one colour per day, profile and figures from IGN relief, day sheets, folded \"practical\" section, share as text.",
+    "Write screen (14): my story with dictation, day sheets, difficulty, weather, conditions; only changes are queued, offline-first.",
+    "A finished Buddy Time opens on its journal; \"Carnet\" button on the map."
+   ],
+   "commit": "24c39b6"
+  },
+  {
+   "date": "2026-11-23 17:01",
+   "title": "Buddies block 4: shared photo album, on the map too (both apps) (#88)",
+   "details": [],
+   "commit": "39a00b2"
+  },
+  {
+   "date": "2026-11-23 16:47",
+   "title": "Buddies block 3: season planning (both apps) (#87)",
+   "details": [],
+   "commit": "37e9d07"
+  },
+  {
+   "date": "2026-11-23 16:39",
+   "title": "👥 Comptes, étape 2 : connexion dès l'ouverture, « Continuer avec Google » (Apple prévu) (#86)",
+   "details": [
+    "👥 en haut de la seconde barre d'icônes : écran « Mon compte » (connexion, pseudo, état hors ligne, synchro)",
+    "Connexion par Logto (auth.silvaplana.cloud) : page de connexion en français, code reçu par mail, pas de mot de passe",
+    "Hors ligne : session gardée 180 jours sur le téléphone, pseudo changé sans réseau envoyé au retour du réseau",
+    "Serveur Python des comptes (deploy/comptes) + installation du VPS en une commande, configuration de Logto par script",
+    "CI : tests du serveur, et construction vérifiée sur les PR sans rien publier",
+    "Logto: Google/Apple connectors with fixed ids when credentials are set, web SPA app",
+    "/config announces active providers; buttons go straight to Google (direct_sign_in)",
+    "Capacitor, web (PWA) and Kotlin: login screen opens at launch until connected, 'Plus tard' closes it"
+   ],
+   "commit": "0152f66"
+  },
+  {
+   "date": "2026-11-23 16:28",
+   "title": "Buddies block 2: Buddy Time, its map, shared traces and common share panel (both apps) (#85)",
+   "details": [],
+   "commit": "931878f"
+  },
+  {
+   "date": "2026-11-23 16:10",
+   "title": "Buddies block 1: Buddy Groups, Me Time, invitations, offline sync (both apps) (#84)",
+   "details": [],
+   "commit": "751fd98"
+  },
+  {
+   "date": "2026-11-23 16:01",
+   "title": "Buddies spec: Bud, the AI buddy you call in a conversation (screen 25) (#83)",
+   "details": [],
+   "commit": "3bc3d18"
+  },
+  {
+   "date": "2026-11-23 15:49",
+   "title": "Buddies: spec v1 and mockups (#82)",
+   "details": [],
+   "commit": "e2436fa"
+  },
+  {
+   "date": "2026-11-23 12:41",
+   "title": "🌲 Bouton Forêts à gauche de 🌗 (deux applis) (#81)",
+   "details": [],
+   "commit": "4beefb4"
+  },
+  {
+   "date": "2026-11-23 12:12",
+   "title": "Mes traces et écran d'une trace : icône de partage classique, poubelle simple (#80)",
+   "details": [],
+   "commit": "c37ca02"
+  },
+  {
+   "date": "2026-11-23 11:50",
+   "title": "Way types: fixed colors, two widths, fixed legend order, checkbox in VTT/hiking (#79)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "17e3e5b"
+  },
+  {
+   "date": "2026-11-23 11:05",
+   "title": "Way types: computed as soon as a trace appears, kept, fetched faster (both apps) (#78)",
+   "details": [
+    "Prefetch way types + junctions in background when one of my traces appears",
+    "In-memory memo and one fetch at a time per trace",
+    "Two Overpass chunks in parallel, way geometry clipped to the chunk box"
+   ],
+   "commit": "b89d13c"
+  },
+  {
+   "date": "2026-11-23 02:01",
+   "title": "Way types legend: sorted by share, absent types hidden (both apps) (#77)",
+   "details": [],
+   "commit": "14f9b36"
+  },
+  {
+   "date": "2026-11-23 01:50",
+   "title": "🥾 Mode rando et itinéraires Camptocamp (liste, fiche, tracés sur la carte) (#76)",
+   "details": [],
+   "commit": "9297124"
+  },
+  {
+   "date": "2026-11-23 01:43",
+   "title": "Profil à échelle fixe, mode ⛷/🚵 VTT et type de chemin des traces (#75)",
+   "details": [],
+   "commit": "df052a2"
+  },
+  {
+   "date": "2026-11-23 01:16",
+   "title": "👥 Comptes, étape 1 : se connecter (code par mail), rester connecté hors ligne (#74)",
+   "details": [
+    "👥 en haut de la seconde barre d'icônes : écran « Mon compte » (connexion, pseudo, état hors ligne, synchro)",
+    "Connexion par Logto (auth.silvaplana.cloud) : page de connexion en français, code reçu par mail, pas de mot de passe",
+    "Hors ligne : session gardée 180 jours sur le téléphone, pseudo changé sans réseau envoyé au retour du réseau",
+    "Serveur Python des comptes (deploy/comptes) + installation du VPS en une commande, configuration de Logto par script",
+    "CI : tests du serveur, et construction vérifiée sur les PR sans rien publier"
+   ],
+   "commit": "5f39313"
+  },
+  {
+   "date": "2026-11-23 00:53",
+   "title": "Nouvelle trace : plus de bandeau en haut de la carte (#73)",
+   "details": [
+    "Pendant une nouvelle trace (▶ Commencer une trace du menu ✏), plus de bandeau « Nouvelle trace » en haut : la pastille verte sur ✏ suffit"
+   ],
+   "commit": "46d502e"
+  },
+  {
+   "date": "2026-11-23 00:44",
+   "title": "Menu ✏ : « ▶ Commencer une trace », ⏸ Pause et ⏹ Terminer sur une ligne à eux (#72)",
+   "details": [
+    "Menu ✏ : « ▶ Commencer une trace » (ou ⏸ Pause et ⏹ Terminer) passe sur sa propre ligne sous « recaler sur sentiers », plus rien ne déborde de l'écran"
+   ],
+   "commit": "3e9f629"
+  },
+  {
+   "date": "2026-11-23 00:42",
+   "title": "📂 Charger des traces : le dossier GPX seulement par appui long sur « Mes traces » (#71)",
+   "details": [
+    "Le dossier des fichiers GPX (Téléchargements/Mountain Buddies) ne s'affiche plus en permanence : appui long sur « Mes traces » pour le voir"
+   ],
+   "commit": "36a9d43"
+  },
+  {
+   "date": "2026-11-23 00:39",
+   "title": "Sorties skitour : la liste « 4 ans » ne reste plus figée (#70)",
+   "details": [],
+   "commit": "fd7b75e"
+  },
+  {
+   "date": "2026-11-23 00:33",
+   "title": "Mes traces en fichiers GPX dans Téléchargements/Mountain Buddies, et 📤 Partager (#69)",
+   "details": [
+    "Chaque trace sauvegardée est aussi un fichier GPX dans Téléchargements/Mountain Buddies (visible dans l'appli Fichiers) ; le dossier est indiqué dans 📂 Charger des traces",
+    "📤 à côté de chaque trace de Mes traces : envoie le fichier GPX par mail, WhatsApp…"
+   ],
+   "commit": "0f9d610"
+  },
+  {
+   "date": "2026-11-23 00:29",
+   "title": "Menu ✏ : une croix ✕ en haut à droite à la place du bouton Annuler (#68)",
+   "details": [
+    "Menu ✏ : plus de bouton « Annuler », une croix ✕ en haut à droite le ferme"
+   ],
+   "commit": "d28fd01"
+  },
+  {
+   "date": "2026-11-23 00:29",
+   "title": "Menu ✏ : ▶ Commencer à droite de « recaler sur sentiers », écran « 📂 Charger des traces » (#67)",
+   "details": [
+    "Menu ✏ : ▶ Commencer est sur la même ligne que « recaler sur sentiers », à droite ; il reste 📂 Charger des traces et Annuler",
+    "« 📂 Charger des traces » ouvre un écran du même nom : 📥 Ouvrir un fichier en haut, puis la liste Mes traces"
+   ],
+   "commit": "51a493e"
+  },
+  {
+   "date": "2026-11-23 00:25",
+   "title": "L'appli revient toujours devant l'écran de verrouillage au rallumage (bouton ou double tap) (#66)",
+   "details": [
+    "Quand l'écran s'éteint avec l'appli ouverte, elle réapparaît directement au rallumage, avec le bouton comme avec le double tap, même sans trace ni 👖 ; les autres applis restent verrouillées"
+   ],
+   "commit": "e4b826d"
+  },
+  {
+   "date": "2026-11-23 00:00",
+   "title": "⚙ Réglages du suivi (⑂, vibration, double tap) et sauvegarde proposée à la fin d'une trace (#65)",
+   "details": [
+    "Nouveau bouton ⚙ à gauche de 👖 : un appui déplie ⑂ écran aux carrefours, la vibration hors trace et le nouveau bouton double tap",
+    "Bouton double tap (doigt « ×2 ») : explique et ouvre les réglages du téléphone pour « Appuyer deux fois pour allumer l'écran »",
+    "⏹ à la fin d'une trace commencée : l'appli propose de la sauvegarder, avec un nom modifiable"
+   ],
+   "commit": "6387f1f"
+  },
+  {
+   "date": "2026-11-22 23:51",
+   "title": "Trace en cours : l'appli passe devant l'écran de verrouillage au rallumage (#64)",
+   "details": [
+    "Pendant une trace commencée (prévue ou nouvelle), l'appli s'affiche par-dessus l'écran de verrouillage quand l'écran se rallume, même avec ⑂ coupé"
+   ],
+   "commit": "28f0485"
+  },
+  {
+   "date": "2026-11-22 23:47",
+   "title": "▶ Commencer la trace : parcours réel dessiné, nouvelle trace depuis ✏, pause dans le menu, pastille sur ✏ (#62)",
+   "details": [
+    "« ▶ Suivre la trace » devient « ▶ Commencer la trace » ; ton parcours réel s'enregistre et se dessine en rouge par-dessus",
+    "▶ Commencer dans le menu ✏ : une nouvelle trace sans parcours prévu, dessinée au fur et à mesure ; ⏹ Terminer en fait une de tes traces (💾 pour la garder)",
+    "⏸ Pause / ▶ Reprendre et ⏹ Arrêter sont dans le menu de la trace (et le menu ✏), plus sur la carte ; toucher le bandeau du haut ouvre ce menu",
+    "Le crayon ✏ porte une pastille verte ▶ quand une trace est en cours, orange ⏸ en pause"
+   ],
+   "commit": "799a47a"
+  },
+  {
+   "date": "2026-11-22 23:42",
+   "title": "✏ pendant le suivi ouvre la trace suivie ; traces et suivi gardés à la fermeture de l'appli (#61)",
+   "details": [
+    "Pendant ▶ Suivre la trace, le crayon ✏ ouvre le menu de la trace suivie au lieu de « Trace ton parcours du doigt »",
+    "À la réouverture de l'appli, tes traces affichées sont toujours sur la carte",
+    "Si une trace était suivie (▶), le suivi reprend tout seul (en pause s'il était en pause)"
+   ],
+   "commit": "f1487e8"
+  },
+  {
+   "date": "2026-11-22 23:18",
+   "title": "Suivi de la trace : écran rallumé avant les carrefours (⑂), vibration hors trace, GPS écran éteint, carte qui reste centrée (#60)",
+   "details": [
+    "⑂ Nouveau bouton à gauche de 👖 : pendant ▶ Suivre la trace, l'écran se rallume environ 20 s avant chaque carrefour (50 à 200 m selon la vitesse) et quand on quitte la trace",
+    "Carrefours trouvés en croisant la trace avec les chemins et routes OpenStreetMap, gardés sur le téléphone (aussi avec 📶 Hors ligne) pour marcher sans réseau",
+    "Bandeau du suivi : « ⑂ carrefour dans 120 m »",
+    "Nouveau bouton vibration hors trace (à gauche de ⑂) pour activer ou couper la vibration quand on quitte la trace",
+    "Le GPS continue écran éteint pendant le suivi (toutes les 2 s, 5 s écran éteint loin des carrefours) et vibre hors trace",
+    "Après ◎, la carte reste centrée sur toi tant que tu ne touches à rien, même après extinction de l'écran"
+   ],
+   "commit": "6220516"
+  },
+  {
+   "date": "2026-11-21 19:12",
+   "title": "Suivi de la trace : ⏸ pause et ▶ reprise (#59)",
+   "details": [
+    "📥 Ouvrir un fichier : sélecteur Android ouvert dans le dernier dossier utilisé, sinon Téléchargements",
+    "Plusieurs traces affichées à la fois, une couleur chacune ; toucher une trace la sélectionne",
+    "🧭 Naviguer : suivi GPS, reste à faire (km, D+, D−, durée), alerte « hors trace » avec vibration",
+    "📶 Hors ligne : cartes et relief dans un couloir d'environ 1 km autour de la trace, proposé au chargement",
+    "Les deux applis (Capacitor et Kotlin)"
+   ],
+   "commit": "4d546b2"
+  },
+  {
+   "date": "2026-11-21 19:09",
+   "title": "Menu de la trace : 🚗 Y aller, ▶ Suivre la trace / ⏹ Arrêter (#58)",
+   "details": [
+    "📥 Ouvrir un fichier : sélecteur Android ouvert dans le dernier dossier utilisé, sinon Téléchargements",
+    "Plusieurs traces affichées à la fois, une couleur chacune ; toucher une trace la sélectionne",
+    "🧭 Naviguer : suivi GPS, reste à faire (km, D+, D−, durée), alerte « hors trace » avec vibration",
+    "📶 Hors ligne : cartes et relief dans un couloir d'environ 1 km autour de la trace, proposé au chargement",
+    "Les deux applis (Capacitor et Kotlin)"
+   ],
+   "commit": "ef2aa44"
+  },
+  {
+   "date": "2026-11-21 19:04",
+   "title": "« Ouvrir avec » Mountain Buddies pour les fichiers GPX, KML, GeoJSON (#57)",
+   "details": [
+    "📥 Ouvrir un fichier : sélecteur Android ouvert dans le dernier dossier utilisé, sinon Téléchargements",
+    "Plusieurs traces affichées à la fois, une couleur chacune ; toucher une trace la sélectionne",
+    "🧭 Naviguer : suivi GPS, reste à faire (km, D+, D−, durée), alerte « hors trace » avec vibration",
+    "📶 Hors ligne : cartes et relief dans un couloir d'environ 1 km autour de la trace, proposé au chargement",
+    "Les deux applis (Capacitor et Kotlin)"
+   ],
+   "commit": "c353d66"
+  },
+  {
+   "date": "2026-11-21 18:15",
+   "title": "Traces : ouvrir un fichier GPX/KML/GeoJSON, plusieurs traces en couleurs, 🧭 naviguer, 📶 hors ligne autour de la trace (#56)",
+   "details": [
+    "📥 Ouvrir un fichier : sélecteur Android ouvert dans le dernier dossier utilisé, sinon Téléchargements",
+    "Plusieurs traces affichées à la fois, une couleur chacune ; toucher une trace la sélectionne",
+    "🧭 Naviguer : suivi GPS, reste à faire (km, D+, D−, durée), alerte « hors trace » avec vibration",
+    "📶 Hors ligne : cartes et relief dans un couloir d'environ 1 km autour de la trace, proposé au chargement",
+    "Les deux applis (Capacitor et Kotlin)"
+   ],
+   "commit": "2f9615d"
+  },
+  {
+   "date": "2026-11-06 02:06",
+   "title": "Sortie choisie : la carte ne bouge plus pour le parking (#55)",
+   "details": [],
+   "commit": "50c66c2"
+  },
+  {
+   "date": "2026-11-06 02:04",
+   "title": "Topos : position lue sur la page du sommet, photos du topo ; sorties : 3 et 4 ans, « Tout » plus complet (#54)",
+   "details": [],
+   "commit": "0f50dd3"
+  },
+  {
+   "date": "2026-11-06 01:39",
+   "title": "Icône Mountain Buddies : montagne seule, centrée, sans les lettres MB",
+   "details": [],
+   "commit": "3b5a46b"
+  },
+  {
+   "date": "2026-11-06 01:31",
+   "title": "Topos sur la carte : bouton « 🗺 Sur la carte » et carte des topos remplie",
+   "details": [
+    "Fiche d'un topo (deux applis) : « 🗺 Sur la carte » ouvre la carte des topos, ce topo choisi, son itinéraire GPX en vert pointillé, cadré sur départ, sommets et itinéraire.",
+    "Relais : quand le filtre « autour d'un point » de l'API échoue (erreur 500 comme pour les sorties) ou ne place rien, la carte prend les topos des massifs du coin (repérés par les sorties), gardés 7 jours.",
+    "La carte montre aussi les topos de la dernière liste par massifs, déjà sur le téléphone.",
+    "Fiche topo : itinéraire GPX gardé avec la fiche (hors ligne)."
+   ],
+   "commit": "d945d3a"
+  },
+  {
+   "date": "2026-11-06 00:54",
+   "title": "Ski : quatre onglets (Sorties, Carte sorties, Topos, Carte topos)",
+   "details": [
+    "Relais : /skitour-topos, liste des topos par massifs ou autour d'un point (cases de 0,1°), gardée 7 jours sur le disque pour ménager le quota skitour.",
+    "Les deux applis : onglets en haut des écrans ski (et en tête du panneau du bas des cartes) ; onglet Topos = liste des topos des massifs choisis avec recherche, topo ouvert dans l'appli ; Carte topos = points orange au départ des topos, étiquette puis fiche ; fiche du topo commune (TopoView / TopoPage)."
+   ],
+   "commit": "90bf216"
+  },
+  {
+   "date": "2026-11-06 00:39",
+   "title": "Kotlin : menu de la trace, lire le curseur du profil depuis l'activité",
+   "details": [],
+   "commit": "d25c70a"
+  },
+  {
+   "date": "2026-11-06 00:39",
+   "title": "Trace au doigt : bandeau en bas, trace violette avec menu (pente, profil, sauvegarder, supprimer), charger des traces",
+   "details": [
+    "le bandeau « Trace ton parcours du doigt » passe tout en bas de l'écran ;",
+    "bouton « 📂 Charger des traces » (bandeau et onglet Randos) : traces enregistrées sur le téléphone, hors ligne ;",
+    "la trace dessinée est violette ; la toucher ouvre un menu en bas : afficher la pente, afficher le profil, sauvegarder (nom proposé), supprimer."
+   ],
+   "commit": "8eed6e9"
+  },
+  {
+   "date": "2026-11-06 00:18",
+   "title": "Sorties ski en texte : périodes 1 an, 2 ans et Tout",
+   "details": [],
+   "commit": "dcc1140"
+  },
+  {
+   "date": "2026-11-06 00:12",
+   "title": "Carte auto : SCAN 25 visible un zoom plus loin (fondu 12→13 au lieu de 13→14)",
+   "details": [],
+   "commit": "3b5ec5a"
+  },
+  {
+   "date": "2026-11-06 00:08",
+   "title": "Demandes skitour comptées (écran 📊) et moins nombreuses",
+   "details": [
+    "Relais : chaque demande à l'API skitour est comptée par jour et par type (skitour-appels.json, 30 jours), renvoyée par GET /mountaintest-ia/ (aujourd'hui / quota 1000, 7 derniers jours).",
+    "Économies : listes de sorties gardées sur le disque (1 h, 6 h au-delà d'un mois) et une liste plus longue sert aux périodes plus courtes ; topos des sommets gardés 7 jours sur le disque ; itinéraire cherché seulement dans les topos qui ont un GPX, deux essais au plus par sortie.",
+    "Les deux applis : section « ⛷ Demandes à skitour.fr » dans 📊 Usage."
+   ],
+   "commit": "57626f3"
+  },
+  {
+   "date": "2026-11-06 00:03",
+   "title": "Parkings et itinéraires : ne plus garder « rien » quand l'API skitour est en erreur",
+   "details": [
+    "relais : une erreur de l'API n'est plus retenue (parkings, topos du sommet, GPX des topos) ; ancien fichier des départs repris sans ses « pas de parking » ; GPX des topos gardés sur le disque ;",
+    "les deux applis : détails repartis de zéro, et une sortie reçue sans parking est redemandée une heure après ; un parking connu par la liste n'est plus effacé par des détails sans parking."
+   ],
+   "commit": "3bd75ca"
+  },
+  {
+   "date": "2026-11-05 23:58",
+   "title": "Mountain Buddies : nouveau logo et nouveau nom dans les deux applis",
+   "details": [],
+   "commit": "ee5536f"
+  },
+  {
+   "date": "2026-11-05 23:35",
+   "title": "Topos skitour lus dans l'appli et gardés hors ligne (50 derniers)",
+   "details": [],
+   "commit": "6d576ad"
+  },
+  {
+   "date": "2026-11-05 23:31",
+   "title": "Fiche ski : départ avec « 🚗 Google Maps » (itinéraire jusqu'au parking) au lieu de « 🗺 Carte »",
+   "details": [],
+   "commit": "1d5f3f4"
+  },
+  {
+   "date": "2026-11-05 23:28",
+   "title": "Fiche ski : sans topo associé, les topos du sommet (même départ / orientation d'abord)",
+   "details": [],
+   "commit": "a1d7f68"
+  },
+  {
+   "date": "2026-11-05 23:23",
+   "title": "Burger ☰ : icône 📊 « Usage IA et mémoire » dans les deux applis",
+   "details": [
+    "Coût cumulé de toutes les requêtes IA (depuis le début, ce mois-ci, nombre, détail par usage), lu sur le relais du VPS qui note déjà chaque requête payante ; derniers chiffres gardés pour le hors-ligne.",
+    "Place prise sur le téléphone : données (classées : tuiles SCAN 25, Plan IGN, relief, sorties ski, traces…), appli, cache (shared/StorageUsage.java, identique dans les deux applis).",
+    "Relais IA : cumul par usage et taille des données du serveur sur GET /mountaintest-ia/.",
+    "Capacitor : onglets un peu plus serrés pour faire place à l'icône."
+   ],
+   "commit": "92902fc"
+  },
+  {
+   "date": "2026-11-05 23:18",
+   "title": "Carte ski : un appui ailleurs sur la carte enlève l'étiquette de la sortie choisie",
+   "details": [],
+   "commit": "2106c4a"
+  },
+  {
+   "date": "2026-11-05 23:16",
+   "title": "Carte ski : cases Trace GPX (rouge) / Itinéraire (vert) toujours visibles sous les filtres ; panneau du bas affiché en venant d'une fiche",
+   "details": [
+    "Plus de pastille 〰 : les deux cases sont sous la ligne période / ski, aux couleurs des lignes.",
+    "🗺 Carte depuis une fiche texte ouvre la carte ski avec son panneau ; la sortie reste choisie même hors de la période. Deux applis."
+   ],
+   "commit": "33cc337"
+  },
+  {
+   "date": "2026-11-05 23:05",
+   "title": "Photo en grand : ✕ pour revenir, retour Android qui la ferme",
+   "details": [],
+   "commit": "270be77"
+  },
+  {
+   "date": "2026-11-05 22:53",
+   "title": "Carte ⛷🗺 : traces GPX des sorties et itinéraires des topos, avec cases à cocher",
+   "details": [
+    "Relais : /skitour-details renvoie la trace GPX de la sortie et l'itinéraire GPX de son topo (API /topo/{id}), simplifiés à 80 points, gardés en mémoire.",
+    "Deux applis : pastille 〰 avec « Trace GPX » (rouge) et « Itinéraire » (vert pointillé), choix gardés ; lignes plus épaisses pour la sortie choisie."
+   ],
+   "commit": "117d13e"
+  },
+  {
+   "date": "2026-11-05 22:52",
+   "title": "Échelle toujours en haut à gauche (plus cachée par les panneaux du bas), dans les deux applis",
+   "details": [],
+   "commit": "2ff227c"
+  },
+  {
+   "date": "2026-11-05 22:45",
+   "title": "Carte ⛷🗺 : toujours seulement les points ; un point touché montre son étiquette, l'étiquette ouvre la fiche",
+   "details": [],
+   "commit": "bdb5c38"
+  },
+  {
+   "date": "2026-11-05 22:41",
+   "title": "Sorties ski : pastille « GPX » dans la liste et bouton GPX dans la fiche",
+   "details": [],
+   "commit": "edb4b3f"
+  },
+  {
+   "date": "2026-11-05 22:39",
+   "title": "Ski : une seule icône ⛷ (liste « Sorties ski »), 🗺 à droite du titre ouvre la carte",
+   "details": [],
+   "commit": "45a54e4"
+  },
+  {
+   "date": "2026-11-05 22:33",
+   "title": "Fiche ski : « 🗺 Carte » aussi quand skitour ne donne pas les coordonnées",
+   "details": [
+    "Applis : le point de la sortie vient de la carte si la fiche n'en a pas ; départ sans coordonnées → parking, sommet sans coordonnées → point de la sortie.",
+    "Relais : fiche complétée avec le point connu de la carte quand ses sommets n'en ont pas."
+   ],
+   "commit": "6a816a2"
+  },
+  {
+   "date": "2026-11-05 22:22",
+   "title": "Aide des icônes : bulles beaucoup plus courtes, et plus de sélection de texte ni de menu « Traduire / Copier » à l'appui long",
+   "details": [],
+   "commit": "b57f733"
+  },
+  {
+   "date": "2026-11-05 22:16",
+   "title": "Carte ⛷🗺 : de loin des points seuls ; étiquettes des sommets à partir du zoom 12, parkings à partir de 13, dans les deux applis",
+   "details": [],
+   "commit": "4c62826"
+  },
+  {
+   "date": "2026-11-05 22:04",
+   "title": "Relais skitour : photos lues dans tous les formats de l'API, sinon prises sur la page de la sortie",
+   "details": [],
+   "commit": "9ca33cb"
+  },
+  {
+   "date": "2026-11-05 22:03",
+   "title": "Fiche ski : « 🗺 Carte » à côté du départ et du sommet (carte de l'appli centrée dessus), le nom garde le lien skitour.fr ; titres sans « &nbsp; », dans les deux applis",
+   "details": [],
+   "commit": "816a687"
+  },
+  {
+   "date": "2026-11-05 22:00",
+   "title": "⛷🗺 : plus de nombre de sorties dans le panneau, dans les deux applis",
+   "details": [],
+   "commit": "9f114cb"
+  },
+  {
+   "date": "2026-11-05 21:57",
+   "title": "⛷🗺 : filtre de difficulté ski (≤ 1.3 à ≤ 5.4, Tout) ; pastilles toutes visibles, une seule dépliée au-dessus, dans les deux applis",
+   "details": [],
+   "commit": "6a66696"
+  },
+  {
+   "date": "2026-11-05 21:52",
+   "title": "⛷🗺 : panneau ouvert réduit (première ligne seulement), dans les deux applis",
+   "details": [],
+   "commit": "e87a8f0"
+  },
+  {
+   "date": "2026-11-05 21:45",
+   "title": "Étiquettes : sommets bien visibles (bord bleu épais, nom en gras), parkings plus petits et gris, dans les deux applis",
+   "details": [],
+   "commit": "c464757"
+  },
+  {
+   "date": "2026-11-05 21:44",
+   "title": "Relais skitour : fiche lisible même quand l'API répond bizarrement (texte, sommets ou auteurs en chaînes), secours par la page skitour.fr, message d'erreur simple",
+   "details": [],
+   "commit": "8069d4b"
+  },
+  {
+   "date": "2026-11-05 21:38",
+   "title": "Me localiser : nouvelle icône, cercle traversé d'une croix horizontale et verticale avec un point au centre, dans les deux applis",
+   "details": [],
+   "commit": "2acd0c6"
+  },
+  {
+   "date": "2026-11-05 21:35",
+   "title": "Message « serveur pas encore à jour » sans « IA » (le relais sert aussi skitour), dans les deux applis",
+   "details": [],
+   "commit": "b0924b8"
+  },
+  {
+   "date": "2026-11-05 21:34",
+   "title": "Appui long sur une icône : bulle d'aide, avec la légende des couleurs en degrés pour ⛰ Pentes, dans les deux applis",
+   "details": [],
+   "commit": "42359b9"
+  },
+  {
+   "date": "2026-11-05 21:34",
+   "title": "Étiquettes de la carte : parkings et sorties ne se chevauchent plus (places plus loin si besoin, plusieurs passages), dans les deux applis",
+   "details": [],
+   "commit": "f46e5fa"
+  },
+  {
+   "date": "2026-11-05 21:30",
+   "title": "⛷🗺 : toucher une sortie sur la carte ouvre sa fiche, avec ▾ pour la réduire et ✕, dans les deux applis",
+   "details": [],
+   "commit": "c30d201"
+  },
+  {
+   "date": "2026-11-05 21:25",
+   "title": "Kotlin : noms des bords de l'écran (longitudeWest…) pour la recherche ⛷🗺",
+   "details": [],
+   "commit": "e8e86d8"
+  },
+  {
+   "date": "2026-11-05 21:20",
+   "title": "⛷🗺 : pastille de période (< 1 j à 1 an, Tout) et première ligne sans titre, dans les deux applis",
+   "details": [],
+   "commit": "d98ac46"
+  },
+  {
+   "date": "2026-11-05 21:11",
+   "title": "⛷🗺 : sorties de l'écran affiché, sans zone à encadrer, dans les deux applis",
+   "details": [
+    "Relais : /skitour-tout (toute la liste d'une période, une requête skitour gardée 1 h) et /skitour-details (étoiles, skiabilité, parking pour 30 sorties au plus).",
+    "Applis : liste chargée une fois par période (gardée pour le hors ligne), filtrée sur l'écran à chaque arrêt de la carte ; détails demandés une seconde après l'arrêt, pour les sorties visibles qui n'en ont pas, gardés sur le téléphone (800). Pas de points en dessous du zoom 7. Recadrage seulement quand le choix change."
+   ],
+   "commit": "58ce8c4"
+  },
+  {
+   "date": "2026-11-05 21:07",
+   "title": "Parkings skitour : un seul P par parking partagé, nom et altitude lus dans le lien du départ de la page, dans les deux applis",
+   "details": [],
+   "commit": "b6af0eb"
+  },
+  {
+   "date": "2026-11-05 21:04",
+   "title": "Barre d'échelle sur la carte (200 m, 2 km, 5 km… selon le zoom), au-dessus du menu, visible en mode nature, dans les deux applis",
+   "details": [],
+   "commit": "f6d1f64"
+  },
+  {
+   "date": "2026-11-05 20:56",
+   "title": "Fiche de sortie façon skitour.fr : départ, topos et sommets cliquables (page skitour.fr, 📍 sur la carte), dans les deux applis",
+   "details": [
+    "Relais : liens lus sur la page de la sortie (sinon construits avec les id de l'API), exposition.",
+    "Fiche : titre et étoiles dans un cadre, date, auteurs, Massif / Départ / Topos / Sommet / Orientation / Dénivelé / Ski / Exposition / Skiabilité.",
+    "Panneau ⛷🗺 : bouton « Fiche de la sortie » qui ouvre cette fiche par-dessus la carte."
+   ],
+   "commit": "49c77aa"
+  },
+  {
+   "date": "2026-11-05 20:51",
+   "title": "Parking : P bleu, nom et altitude (lus sur la page skitour.fr si l'API ne les donne pas), dans les deux applis",
+   "details": [],
+   "commit": "d0f16bf"
+  },
+  {
+   "date": "2026-11-05 20:50",
+   "title": "Sorties ski : panneau réductible (▾/▴) et étiquettes de la carte placées sans chevauchement, dans les deux applis",
+   "details": [],
+   "commit": "37502c5"
+  },
+  {
+   "date": "2026-11-05 20:32",
+   "title": "Carte skitour : étiquette complète, parking cliquable (nom, altitude) relié au sommet, dans les deux applis",
+   "details": [],
+   "commit": "eac91a2"
+  },
+  {
+   "date": "2026-11-05 20:08",
+   "title": "Sorties skitour : étoiles et skiabilité « 🙂 Bonne » lues sur la page skitour.fr, dans les deux applis",
+   "details": [],
+   "commit": "c252d0d"
+  },
+  {
+   "date": "2026-11-05 20:03",
+   "title": "Skiabilité affichée en étoiles (★★☆☆☆) dans les deux applis",
+   "details": [],
+   "commit": "70224bf"
+  },
+  {
+   "date": "2026-11-05 20:03",
+   "title": "Liste skitour lisible en mode sombre, libellés ski/skiabilité, dans les deux applis",
+   "details": [],
+   "commit": "138b823"
+  },
+  {
+   "date": "2026-11-05 19:28",
+   "title": "Sorties skitour : nom de la course, étoiles et skiabilité à côté de chaque point bleu, dans les deux applis",
+   "details": [
+    "Relais : chaque sortie renvoie sa skiabilité et ses étoiles si l'API les donne (champ non documenté : on essaie etoiles / note / stars / interet / qualite) ; GET /mountaintest-ia/ liste les champs vus dans les sorties (skitour_champs) pour trouver le bon nom.",
+    "Capacitor : étiquette HTML à droite du point (2 lignes : nom, puis ★ · skiabilité), cachée sous le zoom 9.",
+    "Kotlin : couche de symboles « ski-tags » (image dessinée par skiTagBitmap), à partir du zoom 9, sans chevauchement. La liste en texte montre aussi étoiles et skiabilité."
+   ],
+   "commit": "1a93549"
+  },
+  {
+   "date": "2026-11-05 18:28",
+   "title": "Photos des sorties skitour dans la fiche, gardées hors ligne, et skiabilité, dans les deux applis",
+   "details": [
+    "Relais : la fiche renvoie les photos (adresse, légende, auteur) et la skiabilité ; /skitour-photo relaie une photo de skitour.fr pour l'appli web (CORS), adresses limitées à skitour.fr.",
+    "Applis : grille de 2 photos avec l'auteur, photo en grand avec légende, ‹ › ; chaque photo vue est gardée réduite à 1024 px (IndexedDB / filesDir), seulement pour les 50 fiches gardées. Photos montrées uniquement dans la fiche de leur sortie, auteur cité (conditions de l'API skitour)."
+   ],
+   "commit": "5dd5288"
+  },
+  {
+   "date": "2026-11-05 18:19",
+   "title": "Ski texte : sorties skitour en texte façon site (liste date / titre / auteurs, fiche détaillée), massifs et « Limiter à », dans les deux applis",
+   "details": [
+    "Remplace la question à Claude par un affichage textuel (demande de Seb) : plus de coût IA.",
+    "Relais : /skitour-liste (jours jusqu'à 6 mois, massifs choisis : un appel par massif, gardé 1 h), /skitour-sortie (fiche : départ, sommets, topos, conditions, neige, récit ; gardée 24 h), /skitour-massifs (id, nom, groupe ; gardée 1 jour).",
+    "Applis : choix des massifs groupés comme sur skitour.fr (retenu), « Limiter à » 1 jour à 6 mois, filtre texte, fiche avec lien skitour.fr (photos) et point sur la carte ; dernière liste et 50 dernières fiches gardées hors ligne."
+   ],
+   "commit": "5d89828"
+  },
+  {
+   "date": "2026-11-05 18:09",
+   "title": "Retire un fichier Python compilé ajouté par erreur",
+   "details": [],
+   "commit": "8352b2f"
+  },
+  {
+   "date": "2026-11-05 18:09",
+   "title": "Duo ski : ⛷🗺 sorties sur la carte, ⛷💬 question en texte (réponse de Claude via le relais), dans les deux applis",
+   "details": [
+    "Relais : POST /skitour-texte ; Claude cherche dans les sorties skitour des 60 derniers jours (outil chercher_sorties exécuté sur le serveur, par mots ou autour d'un point) puis répond en quelques phrases ; seules les sorties qu'il a vues sont renvoyées. Quota et journal des coûts partagés avec les autres routes.",
+    "Applis : panneau question / réponse, sorties citées en points bleus et liens skitour.fr ; les 10 dernières réponses restent sur le téléphone, relisibles hors ligne."
+   ],
+   "commit": "0f5cb78"
+  },
+  {
+   "date": "2026-11-05 18:01",
+   "title": "Icônes : la colonne ne bouge plus quand un duo se déplie ; ⛰ seul, un appui montre 🌗 à côté (duo pentes / ombres), dans les deux applis",
+   "details": [],
+   "commit": "7f69274"
+  },
+  {
+   "date": "2026-11-05 17:59",
+   "title": "Sorties skitour hors ligne : chaque recherche est gardée sur le téléphone (10 dernières zones), réutilisée sans réseau, dans les deux applis",
+   "details": [],
+   "commit": "88bc8af"
+  },
+  {
+   "date": "2026-11-05 17:15",
+   "title": "Icônes : ✈ seul, un appui montre 👖 à côté (duo avion / poche), toucher ailleurs replie, dans les deux applis",
+   "details": [
+    "React : état « pair » dans QuickButtons ; 👖 apparaît à gauche de ✈ au premier appui, chaque icône bascule ensuite son mode ; un toucher hors du duo (écouteur pointerdown) le replie. En aide : les deux, l'un sous l'autre, pour laisser la place aux étiquettes.",
+    "Kotlin : ✈ et 👖 dans un LinearLayout horizontal (pairAvion), 👖 masqué tant que pairOpen est faux ; dispatchTouchEvent replie le duo quand on touche ailleurs ; même présentation verticale en aide."
+   ],
+   "commit": "d4b70ac"
+  },
+  {
+   "date": "2026-11-05 17:03",
+   "title": "Relais skitour : recherche par jours (le filtre ll de l'API répond 500) et lecture du vrai format des sorties",
+   "details": [
+    "sorties_skitour : plus de paramètre ll (erreur 500 côté skitour.fr), on lit les sorties des derniers jours par pages de 1000 et on garde celles dont un sommet est dans la zone.",
+    "Format réel de l'API : sommets avec lat/lng/sommet, conditions dans « cond » (HTML nettoyé), tout en chaînes ; les nombres (id, date, altitude, dénivelé) sont convertis pour les applis.",
+    "installer-ia.sh demande la clé skitour (SKITOUR_CLE) ; README : où la trouver, comment l'ajouter."
+   ],
+   "commit": "9fd2f6e"
+  },
+  {
+   "date": "2026-11-04 19:31",
+   "title": "Météo : choix du moment façon Météo-France (jour avec ‹ ›, Matin / Après-midi / Soir / Nuit) dans les deux applis",
+   "details": [],
+   "commit": "8082ad0"
+  },
+  {
+   "date": "2026-11-04 19:11",
+   "title": "Kotlin : correction de compilation (paramètre color masquant Paint.color dans windBitmap)",
+   "details": [],
+   "commit": "761ca23"
+  },
+  {
+   "date": "2026-11-04 19:06",
+   "title": "Météo : étiquette plus claire, « 4 °C » en mode Temps et « 12 (30) km/h » en mode Vent",
+   "details": [],
+   "commit": "5bba13e"
+  },
+  {
+   "date": "2026-11-04 19:02",
+   "title": "Météo : icônes plus grosses, mode Vent (flèches colorées, vitesse / rafales), carte simplifiée sous la météo (fond pâle, quelques villes), dans les deux applis",
+   "details": [],
+   "commit": "cf6c3c0"
+  },
+  {
+   "date": "2026-11-04 16:58",
+   "title": "L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰, dans les deux applis",
+   "details": [],
+   "commit": "e6c8275"
+  },
+  {
+   "date": "2026-11-04 16:50",
+   "title": "Le panneau du bas reste fermé à chaque ouverture de l'appli (même au retour de l'arrière-plan), dans les deux applis",
+   "details": [],
+   "commit": "6aeebd9"
+  },
+  {
+   "date": "2026-11-04 16:31",
+   "title": "🌦 Météo posée sur la carte : icônes Météo-France (AROME, ARPEGE via Open-Meteo), curseur d'heure sur 4 jours, cache hors ligne ; appui long = appli Météo-France",
+   "details": [],
+   "commit": "6941d6e"
+  },
+  {
+   "date": "2026-11-04 16:20",
+   "title": "Flèche des icônes plus grosse (56 px), colonne centrée",
+   "details": [],
+   "commit": "451d649"
+  },
+  {
+   "date": "2026-11-03 22:14",
+   "title": "⛷ Sorties ski de rando skitour.fr dans une zone encadrée (API officielle via le relais, clé sur le serveur)",
+   "details": [],
+   "commit": "0ce5ffa"
+  },
+  {
+   "date": "2026-11-03 21:47",
+   "title": "Partage des frais : photo d'une facture, Claude remplit titre, montant et date",
+   "details": [],
+   "commit": "937a849"
+  },
+  {
+   "date": "2026-11-03 21:34",
+   "title": "Voyage : après le calcul du coût, ajout au partage des frais (groupe, qui a payé)",
+   "details": [],
+   "commit": "b429862"
+  },
+  {
+   "date": "2026-11-03 21:18",
+   "title": "Partage des frais : plus d'icônes, enregistrement toujours possible (titre par défaut) ; hébergement : sites à cocher (gites-refuges.com, capverb.org, ajout libre)",
+   "details": [],
+   "commit": "dec9088"
+  },
+  {
+   "date": "2026-11-03 21:10",
+   "title": "Hébergement (menu Voyage) : ville, personnes, prix maxi, dates ; Claude cherche les meilleurs prix, liste du moins cher au plus cher",
+   "details": [],
+   "commit": "b781ffd"
+  },
+  {
+   "date": "2026-11-03 21:00",
+   "title": "Partage des frais façon Tricount (menu Voyage) : groupes, participants avec e-mail et invitation (Brevo via le relais, sinon appli mail), dépenses, équilibres",
+   "details": [],
+   "commit": "7943817"
+  },
+  {
+   "date": "2026-11-03 20:47",
+   "title": "Kotlin : correction de compilation (champ erreur du panneau Voyage)",
+   "details": [],
+   "commit": "3b64983"
+  },
+  {
+   "date": "2026-11-03 20:42",
+   "title": "Voyage : plus de « centre de la carte » comme départ (bouton « Partir de ma position »), message clair quand l'IGN ne trouve pas de chemin",
+   "details": [],
+   "commit": "67b80d7"
+  },
+  {
+   "date": "2026-11-03 20:26",
+   "title": "IA : mot de passe intégré prioritaire, mot de passe tapé en secours (essayé si le premier est refusé)",
+   "details": [],
+   "commit": "e0a9339"
+  },
+  {
+   "date": "2026-11-03 20:15",
+   "title": "Fenêtres du bas remontées au-dessus de la barre de gestes (menu et voyage)",
+   "details": [],
+   "commit": "ef5fddd"
+  },
+  {
+   "date": "2026-11-03 20:08",
+   "title": "Voyage : temps écoulé pendant le calcul du coût, erreurs bien visibles, abandon au bout de 4 min",
+   "details": [],
+   "commit": "e1cef1f"
+  },
+  {
+   "date": "2026-11-03 19:21",
+   "title": "Voyage : prix moyen du carburant affiché, km d'autoroute par itinéraire, message clair si le serveur IA n'est pas encore à jour",
+   "details": [],
+   "commit": "4ec7b4d"
+  },
+  {
+   "date": "2026-11-03 19:06",
+   "title": "Croix pour quitter, menu Voyage (météo, météo montagne, voiture : itinéraires IGN au choix, coût et péages par l'IA)",
+   "details": [],
+   "commit": "5238fcb"
+  },
+  {
+   "date": "2026-11-03 18:41",
+   "title": "Mot de passe IA intégré aux deux APK par la CI (secret IA_MOT_DE_PASSE), champ caché quand il est présent",
+   "details": [],
+   "commit": "f4f2dee"
+  },
+  {
+   "date": "2026-11-03 18:35",
+   "title": "Relais IA : l'installeur ne s'arrête plus en silence sur un .env sans clé Anthropic",
+   "details": [],
+   "commit": "e6cab74"
+  },
+  {
+   "date": "2026-11-03 15:39",
+   "title": "Pentes cochées : étiquettes régulières de pente (degrés et %) le long du tracé affiché et du GPX importé, dans les deux applis",
+   "details": [],
+   "commit": "b337469"
+  },
+  {
+   "date": "2026-11-03 15:30",
+   "title": "Aide des icônes : appui long sur la flèche, une étiquette à gauche de chaque icône, dans les deux applis",
+   "details": [],
+   "commit": "c7e8dee"
+  },
+  {
+   "date": "2026-11-03 15:21",
+   "title": "Flèche des icônes en 3 temps : toutes, appareil photo seul, aucune, dans les deux applis",
+   "details": [],
+   "commit": "3912f7c"
+  },
+  {
+   "date": "2026-11-03 00:13",
+   "title": "📷 ouvre l'application Appareil photo (la capture intégrée bloquait au OK), dans les deux applis",
+   "details": [],
+   "commit": "b91773a"
+  },
+  {
+   "date": "2026-11-02 23:56",
+   "title": "Ombres : curseur plus grand et boutons − / + (30 min), dans les deux applis",
+   "details": [],
+   "commit": "ca25291"
+  },
+  {
+   "date": "2026-11-02 23:51",
+   "title": "Mode poche : GPS du bouton ◎ coupé pendant l'écran noir et relancé au réveil (l'enregistrement continue), dans les deux applis",
+   "details": [],
+   "commit": "07db841"
+  },
+  {
+   "date": "2026-11-02 23:47",
+   "title": "Icône 📷 : photo sans quitter l'appli (album Assomoutain) ; mode poche : écran noir aussi quand le capteur de proximité est couvert, dans les deux applis",
+   "details": [],
+   "commit": "1d3e7c0"
+  },
+  {
+   "date": "2026-11-02 23:34",
+   "title": "Démarrage menu fermé et croix du menu à gauche, dans les deux applis",
+   "details": [],
+   "commit": "a11731c"
+  },
+  {
+   "date": "2026-11-02 12:07",
+   "title": "Flèche des icônes horizontale : ◂ pour les afficher, ▸ pour les cacher, dans les deux applis",
+   "details": [],
+   "commit": "086cfab"
+  },
+  {
+   "date": "2026-11-02 12:03",
+   "title": "Carte épurée : bande du haut et boussole retirées (carte nord en haut), fond de carte en icône 🗺, dans les deux applis",
+   "details": [],
+   "commit": "762c763"
+  },
+  {
+   "date": "2026-11-02 11:53",
+   "title": "Icônes de la carte : loupe (recherche), pentes et ombres, flèche pour afficher ou cacher les icônes, dans les deux applis",
+   "details": [],
+   "commit": "9bc1e3d"
+  },
+  {
+   "date": "2026-11-02 11:35",
+   "title": "Ombres : film sur 24 h (48 images, une toutes les 30 min), dans les deux applis",
+   "details": [
+    "Le film démarre à l'heure actuelle (ou à 8 h pour un autre jour) et se regarde pendant le calcul",
+    "Nuit : une seule image sombre, sans calcul ; Kotlin garde les ombres sur un bit par maille"
+   ],
+   "commit": "e4e6898"
+  },
+  {
+   "date": "2026-11-02 10:10",
+   "title": "Ombres du relief : film de 8 h à midi toutes les 30 min avec l'heure affichée, calculé sur le téléphone (soleil NOAA + relief IGN RGE ALTI, aussi hors ligne), dans les deux applis",
+   "details": [
+    "Case « Ombres » en haut : barre avec l'heure en gros, lecture ▶/⏸, curseur d'heure et date (aujourd'hui par défaut)",
+    "Ombre portée par le relief (balayage depuis le soleil) et versants dos au soleil, en bleu translucide",
+    "Relief IGN gardé sur le téléphone ; « Hors ligne » télécharge aussi le relief de la zone (zooms 10 à 14)",
+    "Recalcul seulement quand la carte sort de la zone calculée ou que la date change"
+   ],
+   "commit": "a3a93c5"
+  },
+  {
+   "date": "2026-11-01 23:30",
+   "title": "Pente le long du tracé : curseur sur le profil et toucher du tracé sur la carte (pente en degrés et %, moyenne glissante sur 50 m, distance, altitude), dans les deux applis",
+   "details": [],
+   "commit": "3b45611"
+  },
+  {
+   "date": "2026-11-01 23:14",
+   "title": "Forêts par essence (carte forestière IGN BD Forêt V2) : nouvel onglet Forêts, couleurs par essence, filtre sur une ou plusieurs essences, détail au toucher, dans les deux applis",
+   "details": [],
+   "commit": "86f0fc2"
+  },
+  {
+   "date": "2026-11-01 23:07",
+   "title": "Randos trouvées sur le web par Claude : un point par rando avec le lien de sa page, coût affiché et cumulé, dans les deux applis",
+   "details": [
+    "Onglet Randos : en encadrant une zone, en plus des tracés OSM, l'appli demande à Claude (recherche web) les randos décrites en ligne ; un point orange par rando, sa fiche ouvre la page source, « Y aller » vers le départ. Mot de passe IA saisi une fois dans l'onglet.",
+    "Relais sur le VPS (deploy/ia/) : garde la clé API Anthropic, mot de passe, 40 recherches par jour, cache 7 jours par zone, ne garde que les liens réellement vus par la recherche web.",
+    "Coût : chaque recherche est notée dans ia-data/couts.jsonl ; l'appli affiche son coût et les cumuls du mois et total."
+   ],
+   "commit": "e8628c4"
+  },
+  {
+   "date": "2026-11-01 22:22",
+   "title": "Icône ✏ permanente sur la carte pour lancer le tracé au doigt, dans les deux applis",
+   "details": [],
+   "commit": "862b1d5"
+  },
+  {
+   "date": "2026-11-01 22:17",
+   "title": "Tracé au doigt : l'ancien tracé est effacé dès qu'on en commence un nouveau, dans les deux applis",
+   "details": [],
+   "commit": "0c20a0c"
+  },
+  {
+   "date": "2026-11-01 22:14",
+   "title": "Tracé au doigt : ligne libre par défaut, recalage sur les sentiers en option (choix retenu), dans les deux applis",
+   "details": [],
+   "commit": "7a30af1"
+  },
+  {
+   "date": "2026-11-01 21:05",
+   "title": "Kotlin : ordre d'initialisation du tracé au doigt",
+   "details": [],
+   "commit": "7dd25b7"
+  },
+  {
+   "date": "2026-11-01 21:01",
+   "title": "Tracé au doigt : chemin recalé sur les sentiers (itinéraire piéton IGN), km, D+/D−, temps de marche et profil en coupe, dans les deux applis",
+   "details": [],
+   "commit": "129572b"
+  },
+  {
+   "date": "2026-11-01 20:54",
+   "title": "Boutons permanents remontés en haut à droite, boutons de zoom supprimés (zoom aux doigts), dans les deux applis",
+   "details": [],
+   "commit": "b776764"
+  },
+  {
+   "date": "2026-11-01 20:50",
+   "title": "Rouvrir la carte sur la dernière vue (position et zoom) au lieu de La Ciotat, dans les deux applis",
+   "details": [],
+   "commit": "5ca5fe3"
+  },
+  {
+   "date": "2026-11-01 20:45",
+   "title": "Boutons permanents sur la carte (même en plein écran) : me localiser, mode avion, mode poche ; encadré des coordonnées retiré, dans les deux applis",
+   "details": [],
+   "commit": "380fc42"
+  },
+  {
+   "date": "2026-11-01 20:40",
+   "title": "Mode poche : luminosité au plus bas pendant l'écran noir (économie aussi sur écran LCD)",
+   "details": [],
+   "commit": "0516812"
+  },
+  {
+   "date": "2026-11-01 15:12",
+   "title": "Mode poche : la position verticale seule suffit (plus besoin de couvrir le capteur de proximité)",
+   "details": [],
+   "commit": "b99481f"
+  },
+  {
+   "date": "2026-11-01 14:52",
+   "title": "Mode poche : écran noir quand le téléphone est debout dans la poche, rallumé à plat ou par deux secousses, dans les deux applis",
+   "details": [],
+   "commit": "7fd763f"
+  },
+  {
+   "date": "2026-11-01 11:02",
+   "title": "Afficher ma position GPS en coordonnées (copiables) dans les deux applis",
+   "details": [],
+   "commit": "d09d3f7"
+  },
+  {
+   "date": "2026-11-01 10:56",
+   "title": "Économie batterie : raccourcis mode avion, Wi-Fi, données, Bluetooth, dans les deux applis",
+   "details": [
+    "Android interdit aux applis de couper ces radios elles-mêmes : chaque bouton ouvre le réglage ou le panneau rapide",
+    "shared/BatterySettings.java copié dans les deux applis (plugin Capacitor BatterySettings côté React)"
+   ],
+   "commit": "735a847"
+  },
+  {
+   "date": "2026-11-01 10:52",
+   "title": "Onglet Versions, mode nature (plein écran carte) et hors ligne par rectangle, dans les deux applis",
+   "details": [
+    "Versions : historique des changements (le plus récent en haut), généré à la compilation depuis les commits (shared/changelog.py)",
+    "Mode nature : la croix du panneau masque toute l'interface, un petit bouton ☰ la fait revenir",
+    "Hors ligne : la zone La Ciotat est retirée ; « Tracer un rectangle » réutilise l'outil des randos OSM et télécharge les tuiles du rectangle (estimation du nombre de tuiles et de la taille)"
+   ],
+   "commit": "7d96fc3"
+  },
+  {
+   "date": "2026-11-01 10:51",
+   "title": "Randos libres d'une zone : encadrer, randos balisées OpenStreetMap, km/D+/D−, export GPX, dans les deux applis",
+   "details": [],
+   "commit": "2a2c3c7"
+  },
+  {
+   "date": "2026-11-01 10:40",
+   "title": "Hors ligne : télécharger la zone affichée (pas seulement La Ciotat), dans les deux applis",
+   "details": [],
+   "commit": "83dc17b"
+  },
+  {
+   "date": "2026-11-01 10:39",
+   "title": "« Y aller » : itinéraire Google Maps vers le lieu choisi, dans les deux applis",
+   "details": [],
+   "commit": "a019568"
+  },
+  {
+   "date": "2026-11-01 10:37",
+   "title": "Hors ligne : place occupée affichée, tuiles gardées et reprises",
+   "details": [
+    "Capacitor : taille de chaque tuile dans l'index (ancien index relu une fois), index des tuiles vues enregistré (avant : perdu au redémarrage), place totale dans Hors ligne et Mesures",
+    "Kotlin : la zone déjà téléchargée est reprise au lieu d'être effacée puis retéléchargée, taille de la base mbgl-offline.db affichée"
+   ],
+   "commit": "ed09a90"
+  },
+  {
+   "date": "2026-11-01 10:25",
+   "title": "Recherche de lieux (ville, département, sommet, adresse) dans les deux applis",
+   "details": [],
+   "commit": "2f2a58a"
+  },
+  {
+   "date": "2026-11-01 10:08",
+   "title": "Mises à jour intégrées aux deux applis + clé de signature fixe",
+   "details": [
+    "shared/Updater.java (copié dans les deux applis) : à l'ouverture, propose la nouvelle version publiée par GitHub Actions, la télécharge et ouvre l'installeur ; vérification en arrière-plan toutes les 12 h avec notification (WorkManager)",
+    "versionCode = numéro de build GitHub ; version.json publié avec les APK (release + VPS)",
+    "clé de signature créée une fois par la CI, chiffrée par le secret SIGNING_PASSWORD"
+   ],
+   "commit": "4d0e9a8"
+  },
+  {
+   "date": "2026-11-01 09:25",
+   "title": "Bouton me localiser, carte auto (Plan IGN de loin, SCAN 25 de près), Kotlin au niveau de la version React",
+   "details": [
+    "Capacitor : GeolocateControl, mode Auto par défaut avec fondu z13-14, hors ligne Plan IGN z10-13 + SCAN 25 z13-16",
+    "Kotlin : même écran à onglets (Sortie, Hors ligne, Mesures), pentes, import/export GPX, simulation x10/x60, clé IGN modifiable et testée, annuler/vider le hors ligne, LocationComponent pour me localiser, même mode Auto"
+   ],
+   "commit": "b20988b"
+  },
+  {
+   "date": "2026-10-31 12:15",
+   "title": "Mise en ligne sur le VPS (silvaplana.cloud/mountaintest) au lieu de GitHub Pages",
+   "details": [],
+   "commit": "353d774"
+  },
+  {
+   "date": "2026-10-31 11:31",
+   "title": "Prototypes Capacitor et Kotlin + build APK et site web par GitHub Actions",
+   "details": [],
+   "commit": "5f512c6"
+  }
+ ]
+}

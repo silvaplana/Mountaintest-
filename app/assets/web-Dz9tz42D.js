@@ -1,0 +1,2 @@
+import{y as e}from"./index-Cq5FDm7m.js";var t=class extends e{async registerCore(){throw Error(`This code path is not supported on web.`)}};export{t as PowerSyncWeb};
+//# sourceMappingURL=web-Dz9tz42D.js.map

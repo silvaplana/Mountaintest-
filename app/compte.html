@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mountain Buddies : supprimer mon compte</title>
+<!-- Page web de suppression du compte, exigée par le Play Store (pour qui n'a plus l'appli) : on passe par la version web
+     de l'appli, qui s'ouvre directement sur l'écran « Supprimer mon compte » après la connexion. -->
+<style>
+  :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --glass: #f6f8fab3; --line: #b3c2cf; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --glass: #1d2834cc; --line: #38495b; } }
+  body { margin: 0; font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 460px; margin: 0 auto; padding: 36px 16px 48px; text-align: center; }
+  .logo { width: 72px; height: 72px; border-radius: 18px; }
+  h1 { font-size: 26px; margin: 14px 0 6px; }
+  p, li { color: var(--muted); }
+  ol, ul { text-align: left; padding-left: 22px; }
+  a.b { display: block; margin: 24px 0; padding: 15px; border-radius: 26px; text-decoration: none; font-weight: 800; min-height: 52px; box-sizing: border-box;
+    background: var(--glass); color: var(--accent); border: 1.5px solid var(--line); box-shadow: 0 2px 8px #0002; font-size: 19px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="logo.svg" alt="">
+  <h1>Supprimer mon compte Mountain Buddies</h1>
+  <p>Connecte-toi avec le même moyen que dans l'appli (Google ou code par e-mail) : l'écran de suppression s'ouvre ensuite.</p>
+  <a class="b" href="./?compte=supprimer">Me connecter et supprimer mon compte</a>
+  <p><b>Effacé :</b></p>
+  <ul><li>ton profil, ta photo, ton e-mail</li><li>tes photos partagées et tes positions</li><li>ta place dans tes groupes et sorties</li></ul>
+  <p><b>Gardé pour tes buddies :</b></p>
+  <ul><li>tes messages, signés « Ancien buddy »</li><li>les dépenses des Buddy counts, pour que les comptes restent justes</li></ul>
+  <p>Tu peux aussi le faire dans l'appli : Profil › Supprimer mon compte. Voir aussi <a href="confidentialite.html">Confidentialité</a>.</p>
+</main>
+</body>
+</html>
