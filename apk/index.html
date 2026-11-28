@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mountain Buddies</title>
+<link rel="icon" href="../logo.svg">
+<script>
+  // Seule l'appli Android s'installe : iPhone, Mac, Windows… ouvrent la version web (Seb, 26/11).
+  if (!/Android/.test(navigator.userAgent)) location.replace('../');
+</script>
+<!-- Page de téléchargement : un seul bouton, aux couleurs de l'appli (comme rejoindre.html). -->
+<style>
+  :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #3e5368; --glass: #f6f8fab3; --line: #b3c2cf; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #9dc4e6; --glass: #1d2834cc; --line: #38495b; } }
+  body { margin: 0; font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 440px; margin: 0 auto; padding: 36px 16px 40px; text-align: center; }
+  .logo { width: 96px; height: 96px; border-radius: 22px; }
+  h1 { font-size: 28px; margin: 12px 0 4px; }
+  p { color: var(--muted); margin: 8px 0; }
+  a.b { display: block; margin: 24px 0 18px; padding: 16px; border-radius: 28px; text-decoration: none; font-weight: 800; font-size: 20px;
+    background: var(--glass); color: var(--accent); border: 1.5px solid var(--line); box-shadow: 0 2px 8px #0002; }
+  a.web { color: var(--accent); }
+  details { text-align: left; color: var(--muted); margin-top: 20px; }
+  summary { cursor: pointer; font-weight: 700; min-height: 48px; display: flex; align-items: center; justify-content: center; }
+  ol { padding-left: 22px; }
+  small { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="../logo.svg" alt="">
+  <h1>Mountain Buddies</h1>
+  <p>Les sorties montagne entre copains.</p>
+  <a class="b" href="https://mountainbuddies.silvaplana.cloud/api/telecharger">Télécharger Mountain Buddies</a>
+  <p><a class="web" href="../">ou l'ouvrir sans l'installer</a></p>
+  <details>
+    <summary>Comment l'installer ?</summary>
+    <ol>
+      <li>Touche « Télécharger », puis « Télécharger quand même » si le téléphone prévient.</li>
+      <li>Ouvre le fichier téléchargé (dans les notifications ou dans Fichiers › Téléchargements).</li>
+      <li>Si le téléphone le demande, autorise l'installation, reviens, puis touche « Installer ».</li>
+      <li>Si un avertissement s'affiche : « Plus de détails » › « Installer quand même ».</li>
+    </ol>
+    <p>Ensuite l'appli se met à jour toute seule.</p>
+  </details>
+  <p><small>Version du 28/11/2026 15:41</small></p>
+</main>
+</body>
+</html>

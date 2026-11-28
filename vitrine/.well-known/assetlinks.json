@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "fr.assomoutain.rando",
+    "sha256_cert_fingerprints": ["88:5F:A1:62:05:DE:01:5D:0A:00:2C:7B:6D:06:AA:51:DD:28:90:7B:3B:97:8D:F9:44:B4:83:D3:9F:32:28:DA"]
+  }
+}]
