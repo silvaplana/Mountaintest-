@@ -20,7 +20,7 @@ import { EcrireCarnet, UnCarnet } from './Carnet';
 import { euros } from './count';
 import { HebergementsSurCarte, OuOnDort, prixHebergement, proposer } from './Hebergements';
 import type { Lodging } from '../Lodging';
-import { BandePositions, MaPosition, nombreVisibles, PositionIcon, basculerPosition, basculerVoiture, ciblesIci, PositionsSurCarte, useReperes } from './Positions';
+import { BandePositions, MaPosition, nombreVisibles, basculerVoiture, ciblesIci, PositionsSurCarte, useReperes } from './Positions';
 import { Utilisateurs } from './Utilisateurs';
 import { Conversation, Conversations, NouvelleDiscussion, PointSurCarte, SousTitre, type PointCarte } from './Messages';
 import { apercu, fil } from './messages';
@@ -30,7 +30,7 @@ import { AppelerQui, noterAppel } from './AppelerQui';
 import { pendant } from './positions';
 import { ARemplir, MesDispos, NouveauPlanning, Plannings, UnPlanning } from './Planning';
 import {
-  aDeux, accepterDemande, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, monEpingle, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
+  aDeux, accepterDemande, annulerInvitation, renvoyerMail, appliquer, aujourdhui, autreDuDuo, demandesSupport, nomDiscussion, superUser, changerCount, creerCount, maVoiture, mesCounts, creerGroupe, creerSortie, estAdmin, estAdminPrincipal, inviter, joursAvant, lien, lire, marquerVu, nommerAdmin, retirerAdmin, transmettre, nonLus,
   inviterSortie, supprimerGroupe, bloquer, debloquer, donnerScan25, estBloque, nouveauCode, ouvrirDuo, partagerTrace, prochaine, quitter, rejoindre, rejointsEnAttente, remettreSortie, renommerGroupe, renommerSortie, retirer, supprimerSortie, suivre, synchroniser, envoyerAttente, envoyerMessage, vue as vueSorties,
   type Buddy, type Canal, type Etat, type Groupe, type Invitation, type NouvelleInvitation, type Planning, type Sortie, type TraceBuddy,
 } from './store';
@@ -265,12 +265,11 @@ function retourOuFermer(fermer: () => void) {
   if (retour) retour.click(); else fermer();
 }
 
-function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onPosition, onPositionLong, onSuperUser }: {
-  onSuperUser?: () => void; onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
-  onAppel?: () => void; onPosition?: () => void; onPositionLong?: () => void;
+function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount, onPlanning, onAlbum, onMessages, onAppel, onSuperUser, onBandeau }: {
+  onSuperUser?: () => void; onBandeau?: () => void; onClose: () => void; onToast: (m: string) => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void; onAccount: () => void; onPlanning?: () => void; onAlbum?: () => void; onMessages?: () => void;
+  onAppel?: () => void;
 }) {
   const e = useBuddies();
-  const visible = !!monEpingle(e);
   const garee = !!maVoiture(e);
   // Nouvelles icônes (au trait) ou anciennes (émojis), au choix dans 👤 Mon compte ; anciennes par défaut (Seb, 26/11).
   const [neuves, setNeuves] = useState(nouvellesIcones);
@@ -306,15 +305,6 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     </div>
     <div className={`bd-col-icones${ouverte || aide ? ' ouverte' : ''}${neuves ? ' pastilles' : ''}`} inert={!ouverte && !aide}>
     <button aria-label="Appel" data-help="Appeler mes buddies" {...c('#2e9a5b')} onClick={onAppel ?? (() => onToast('Connecte-toi (👤) pour appeler tes buddies'))}>{ic(TEL, '📞')}</button>
-    {/* Ma position, un interrupteur sous le téléphone (Seb, 26/11) : un appui allume ou éteint, un appui long ouvre l'écran. */}
-    <button aria-label={visible ? 'Arrêter de partager ma position' : 'Partager ma position'} aria-pressed={visible} data-help="Signaler ma position à mes buddies"
-      className={`bd-col-pin${visible ? ' actif' : ''}`} {...c('#2f7de1')}
-      onPointerDown={() => { appui.current.long = false; clearTimeout(appui.current.t);
-        if (onPositionLong) appui.current.t = window.setTimeout(() => { appui.current.long = true; onPositionLong(); }, 550); }}
-      onPointerUp={() => clearTimeout(appui.current.t)} onPointerLeave={() => clearTimeout(appui.current.t)}
-      onContextMenu={(ev) => ev.preventDefault()}
-      onClick={() => { if (appui.current.long) return; (onPosition ?? (() => onToast('Connecte-toi (👤) pour partager ta position')))(); }}>
-      <PositionIcon on={visible} /></button>
     <button aria-label="Messagerie" data-help="Messages" {...c('#3a78c9')} onClick={onMessages ?? (() => onToast('Connecte-toi (👤) pour écrire à tes buddies'))}>{ic(BULLE, '💬')}</button>
     <button aria-label="Planning" data-help="Planning des sorties" {...c('#d2473f')} onClick={onPlanning ?? (() => onToast('Connecte-toi (👤) pour les plannings de saison'))}>{ic(CALENDRIER, '📅')}</button>
     <button aria-label="Album photo" data-help="Albums des sorties" {...c('#e0892b')} onClick={onAlbum ?? (() => onToast('Connecte-toi (👤) pour les albums'))}>{ic(PHOTO, '📸')}</button>
@@ -331,9 +321,18 @@ function Colonne({ onClose, onToast, onExpenses, onLodging, onTravel, onAccount,
     {/* 🔑 Le Super User seul (Seb, 26/11 : « comme je suis modeste, mettons la clé ») : ses demandes de support. */}
     {onSuperUser && superUser() && <button aria-label="Super User" className="bd-col-cle" onClick={onSuperUser}><CleIcon />
       {supportNonLus(e) > 0 && <i className="bd-col-n">{supportNonLus(e)}</i>}</button>}
+    {/* ☰ Le bandeau du bas (Sortie, Randos, Forêts…), Super User seul : sous la dernière icône (Seb, 28/11). */}
+    {onBandeau && superUser() && <button aria-label="Afficher le bandeau" data-help="Bandeau des outils" onClick={onBandeau}><MenuIcon /></button>}
     </div>
   </div>
   </>;
+}
+
+/** ☰ au trait : trois barres. */
+function MenuIcon() {
+  return <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+  </svg>;
 }
 
 /** 🔑 Clé d'or du Super User (Seb, 26/11). */
@@ -749,6 +748,7 @@ type Vue = { ecran: 'liste' } | { ecran: 'groupe'; id: string } | { ecran: 'nouv
   | { ecran: 'position'; groupe?: string; sortie?: string } | { ecran: 'nvCount'; groupe: string } | { ecran: 'nvCountSortie'; groupe: string };
 /** Ouvrir Buddies ailleurs que sur la liste : un groupe (‹ depuis la carte), l'album ou le carnet d'une sortie. */
 export type DepartBuddies = string | { ecran: 'album' | 'carnet' | 'count' | 'dodo'; sortie: string; groupe: string } | { ecran: 'conv'; id: string }
+  | { ecran: 'position'; sortie?: string; groupe?: string }
   /** 📅 Un planning du fil d'une sortie, ou d'un lien reçu ; un nouveau planning à poster dans le fil d'une sortie (§7.28). */
   | { ecran: 'planning' | 'dispos'; id: string; groupe?: string } | { ecran: 'nvPlanning'; groupe: string; poster: { sortie: string } };
 
@@ -758,10 +758,8 @@ export type CarteBuddies = { sortie?: Sortie; traces: TraceBuddy[]; parler?: boo
   /** Messagerie descendue sur la carte (Seb, 27/11) : elle reste ouverte et cache ces pixels du bas ; on montre au-dessus. */
   cache?: number };
 
-export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, onMaPosition, depart }: {
-  /** Ma position vient d'être allumée : retour sur la carte, centrée sur moi (Seb, 27/11). */
-  onMaPosition: () => void;
-  onClose: () => void; onToast: (m: string, ms?: number) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
+export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, onTravel, onCarte, onBandeau, depart }: {
+  onBandeau?: () => void; onClose: () => void; onToast: (m: string, ms?: number) => void; onAccount: () => void; onExpenses: () => void; onLodging: () => void; onTravel: () => void;
   /** Ouvrir une sortie sur la carte (écran 4), ou une trace partagée dans un groupe. */
   onCarte: (x: CarteBuddies) => void;
   depart?: DepartBuddies;
@@ -777,7 +775,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
   useEffect(() => { if (carteMuette) cl.descendre(); }, [carteMuette]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => siCarteAbsente(() => onToast('Sa carte n’est plus montrée')), [onToast]);
   const [vue, setVue] = useState<Vue>(typeof depart === 'string' ? { ecran: 'groupe', id: depart }
-    : depart && 'sortie' in depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : depart ?? { ecran: 'liste' });
+    : depart && depart.ecran !== 'position' && 'sortie' in depart ? { ecran: depart.ecran, id: depart.sortie, groupe: depart.groupe } : depart ?? { ecran: 'liste' });
   // Plus de ‹ à l'écran (Seb, 26/11) : le retour du téléphone, comme ✕, revient à l'écran d'avant.
   const fermer = useRef(onClose);
   fermer.current = onClose;
@@ -847,10 +845,7 @@ export function Buddies({ onClose, onToast, onAccount, onExpenses, onLodging, on
     onExpenses={() => setVue(sortieIci ? { ecran: 'count', id: sortieIci, groupe: ici } : { ecran: 'comptes', groupe: ici })}
     onPlanning={() => setVue({ ecran: 'plannings', groupe: ici && ici !== meTime?.id ? ici : undefined })}
     onAlbum={() => setVue({ ecran: 'albums', groupe: ici })}
-    onSuperUser={() => setVue({ ecran: 'superUser' })}
-    onPositionLong={() => setVue({ ecran: 'position', groupe: ici && ici !== meTime?.id ? ici : undefined, sortie: sortieIci })}
-    // Un appui : la sortie ouverte, sinon le groupe ouvert, sinon tous mes groupes (Seb, 26/11).
-    onPosition={() => void basculerPosition(e, ciblesIci(e, groupes, sorties, sortieIci, ici), onToast).then((on) => { if (on) onMaPosition(); })}
+    onSuperUser={() => setVue({ ecran: 'superUser' })} onBandeau={onBandeau}
     // 💬 : toujours la liste « Messages », même depuis un groupe ou une sortie (Seb, 27/11).
     onMessages={() => setVue({ ecran: 'messages', groupe: ici })}
     onAppel={() => {
