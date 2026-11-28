@@ -46,7 +46,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: capacitor/package-lock.json }
       - run: npm ci
+      # Les tests de l'appli décrivent l'ancienne synchro : ils tournent sans le réglage bêta.
       - run: npm test
+        env: { VITE_POWERSYNC: '', VITE_API_URL: '' }
       - run: npx vite build --base=./
       - uses: actions/upload-artifact@v4
         with: { name: web-beta, path: capacitor/dist }
