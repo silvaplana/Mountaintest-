@@ -92,11 +92,11 @@ def test_carte_debut_et_fin_notifies(client, livekit):
     sync(client, ops=[op])
     d = livekit[-1][1]
     assert d["type"] == "carte" and d["message"] == op["message"]
-    assert d["ligne"].endswith("a partagé sa carte dans " + d["titre"]) and d["ligne"].startswith(d["de"])
+    assert d["ligne"].endswith("a montré sa carte dans " + d["titre"]) and d["ligne"].startswith(d["de"])
     fin = nouveau_message(groupe=gid, nature="carte_fin", texte=op["message"])
     sync(client, ops=[fin])
     d = livekit[-1][1]
-    assert d["ligne"].endswith("a arrêté de partager sa carte dans " + d["titre"])
+    assert d["ligne"].endswith("a arrêté de montrer sa carte dans " + d["titre"])
     assert client.post(f"/cartes/{op['message']}", headers=entete(sub="julie")).status_code == 409
 
 
@@ -108,10 +108,10 @@ def test_carte_imposee_pendant_l_appel_notifiee(client, livekit):
         client.post(f"/appels/{a['id']}/presence", headers=entete(sub=sub), json={"en_ligne": True})
     assert client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": True}).status_code == 200
     qui, d = livekit[-1]
-    assert qui == [julie] and d["ligne"].endswith("a partagé sa carte dans Ski du dimanche") and d["ligne"].startswith(d["de"])
+    assert qui == [julie] and d["ligne"].endswith("a montré sa carte dans Ski du dimanche") and d["ligne"].startswith(d["de"])
     n = len(livekit)  # tout le groupe est dans l'appel : personne d'autre à prévenir
     client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": False})
-    assert len(livekit) == n + 1 and livekit[-1][1]["ligne"].endswith("a arrêté de partager sa carte dans Ski du dimanche")
+    assert len(livekit) == n + 1 and livekit[-1][1]["ligne"].endswith("a arrêté de montrer sa carte dans Ski du dimanche")
     assert client.post(f"/appels/{a['id']}/carte", headers=entete(sub="luc"), json={"on": True}).status_code == 409
 
 
@@ -122,4 +122,4 @@ def test_carte_en_appel_proposee_aux_absents(client, livekit):
     client.post(f"/appels/{a['id']}/presence", headers=entete(sub="seb"), json={"en_ligne": True})
     client.post(f"/appels/{a['id']}/carte", headers=entete(sub="seb"), json={"on": True})
     qui, d = livekit[-1]
-    assert qui == [julie] and d["type"] == "carte_appel" and d["appel"] == a["id"] and d["ligne"].endswith("partage sa carte pendant l'appel")
+    assert qui == [julie] and d["type"] == "carte_appel" and d["appel"] == a["id"] and d["ligne"].endswith("montre sa carte pendant l'appel")

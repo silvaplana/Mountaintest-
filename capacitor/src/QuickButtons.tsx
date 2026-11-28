@@ -402,7 +402,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onCarte
           if (onPositionLong) posPress.current.t = window.setTimeout(() => { posPress.current.long = true; onPositionLong(); }, 550); }}
         onPointerUp={() => clearTimeout(posPress.current.t)} onPointerLeave={() => clearTimeout(posPress.current.t)}
         onClick={() => { if (!posPress.current.long) onPosition(); }}><PositionIcon on={!!positionOn} /></button>}
-      {onCarte && <button className={`qb-carte${carteOn ? ' on' : ''}`} aria-label={carteOn ? 'Arrêter de partager ma carte' : 'Partager ma carte'} data-help="Partager ma carte"
+      {onCarte && <button className={`qb-carte${carteOn ? ' on' : ''}`} aria-label={carteOn ? 'Arrêter de montrer ma carte' : 'Montrer ma carte'} data-help="Montrer interactivement ma carte à mes buddies"
         {...lp('carte')} onClick={onCarte}><IconeSuisCarte /></button>}
       <button disabled={!native} aria-label="Prendre une photo" data-help="Prendre des photos sans quitter l'application" {...lp('photo')}
         onClick={() => { Photo.open().catch((e) => onToast(String((e as Error).message ?? e))); }}>📷</button>
