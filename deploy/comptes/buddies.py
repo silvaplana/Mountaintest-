@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, text
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.orm import Session
 
@@ -24,7 +24,7 @@ import logging
 
 import droits
 import mails
-from modeles import (Blocage, BuddyCount, Carnet, Coeur, DemandeEntree, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, Journal, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
+from modeles import (Visible, Blocage, BuddyCount, Carnet, Coeur, DemandeEntree, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, Journal, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Signalement, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 log = logging.getLogger(__name__)
@@ -1455,6 +1455,7 @@ def supprimer_compte(s: Session, u: Utilisateur) -> None:
     u.voiture_modele = u.voiture_forme = u.voiture_couleur = None
     u.pseudo, u.prenom, u.nom, u.wero, u.super_user = "Ancien buddy", "", "", False, False
     u.supprime_le = maintenant()
+    recalculer_visibles(s)
 
 
 OPERATIONS = {
@@ -1505,6 +1506,34 @@ def mes_demandes(s: Session, u: Utilisateur) -> list[dict[str, Any]]:
         .where(DemandeEntree.utilisateur_id == u.id, Groupe.supprime_le.is_(None)))]
 
 
+# Opérations fréquentes qui ne changent ni les membres, ni les participants, ni les blocages.
+SANS_EFFET_SUR_VISIBLES = {"message", "position", "epingle", "voiture", "lu", "reagir", "voter", "modifier_message", "retirer_message",
+                           "depense", "retirer_depense", "dispo", "recit", "fiche", "carnet", "coeur", "etoile"}
+
+
+def recalculer_visibles(s: Session) -> None:
+    """Remet la table `visibles` d'accord avec les groupes, les sorties et les blocages (voir modeles.Visible).
+    Tout est recalculé en une requête, puis seules les différences sont écrites : la réplication ne voit passer que
+    ce qui change. Coût : la somme des carrés des tailles de groupe, négligeable à notre échelle."""
+    s.flush()
+    voulu = {(str(a), str(b)) for a, b in s.execute(text("""
+        SELECT a.utilisateur_id, b.utilisateur_id FROM membres a JOIN membres b ON a.groupe_id = b.groupe_id
+          JOIN groupes g ON g.id = a.groupe_id WHERE g.supprime_le IS NULL
+        UNION
+        SELECT a.utilisateur_id, b.utilisateur_id FROM participants a JOIN participants b ON a.sortie_id = b.sortie_id
+          JOIN sorties so ON so.id = a.sortie_id WHERE so.supprime_le IS NULL
+        EXCEPT
+        SELECT utilisateur_id, bloque_id FROM blocages""")).all()}
+    voulu = {(uuid.UUID(a), uuid.UUID(b)) for a, b in voulu}
+    la = {(v.auteur_id, v.lecteur_id): v for v in s.scalars(select(Visible))}
+    for cle, v in la.items():
+        if cle not in voulu:
+            s.delete(v)
+    for a, b in voulu - set(la):
+        s.add(Visible(auteur_id=a, lecteur_id=b))
+    s.flush()
+
+
 def appliquer_ops(s: Session, u: Utilisateur, ops: list[dict]) -> list[dict]:
     """Applique une file d'opérations et valide ; rend les refus. Sert à la synchro maison (`synchroniser`) et à
     l'essai PowerSync (powersync.py), qui garde les mêmes opérations et les mêmes règles."""
@@ -1532,6 +1561,8 @@ def appliquer_ops(s: Session, u: Utilisateur, ops: list[dict]) -> list[dict]:
             if not isinstance(e, (Refus, KeyError, ValueError, TypeError, IndexError)):
                 log.warning("Opération refusée par la base (%s) : %s", op.get("type"), e)
             refus.append({"id": op.get("id"), "raison": str(e) if isinstance(e, Refus) else "Opération mal formée"})
+    if any(str(op.get("type")) not in SANS_EFFET_SUR_VISIBLES for op in ops):
+        recalculer_visibles(s)
     # 🔔 Photos ajoutées à un album : une seule notification par sortie et par synchro.
     for sid, n in s.info.pop("photos_ajoutees", {}).items():
         so = s.get(Sortie, sid)

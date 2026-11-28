@@ -92,6 +92,9 @@ async def cycle(_app: FastAPI):
     Base.metadata.create_all(moteur)  # crée les tables manquantes (pas encore de migrations)
     ajouter_colonnes()
     roles_de_groupe()
+    with Session(moteur) as s:  # table dérivée (bêta PowerSync) : remise d'accord à chaque démarrage
+        buddies.recalculer_visibles(s)
+        s.commit()
     powersync.preparer(moteur)
     flux.demarrer(asyncio.get_running_loop())
     yield

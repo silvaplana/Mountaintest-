@@ -172,6 +172,8 @@ const APPAREIL = crypto.randomUUID();
 const FICHIER = 'buddies.db';
 
 export const laBase = () => base;
+/** Pour les essais : où en est la file d'envoi. */
+export const _file = () => ({ posees: [...posees], parties: [...parties.keys()], pret: !!pret, base: !!base, poussees: enFile });
 
 async function ouvrir(): Promise<AbstractPowerSyncDatabase> {
   if (Capacitor.isNativePlatform()) {
@@ -250,17 +252,25 @@ async function envoyer(b: AbstractPowerSyncDatabase) {
         raisons.push('Un envoi a été refusé par le serveur');
       }
     }
-    await lot.complete();
+    // L'heure est prise AVANT `complete()` : tant que le lot n'est pas rendu, PowerSync n'applique rien de ce qu'il
+    // reçoit, et ensuite seulement un point de contrôle qui contient nos écritures. Prise après, le point de contrôle
+    // pouvait être déjà appliqué : plus rien ne venait dire que c'était fini, et l'opération restait « en attente »
+    // (trouvé par la batterie de tests, cas « Rafale » après une longue série).
     const t = Date.now();
+    await lot.complete();
     for (const o of ops) parties.set(o.id, t);
     limite = 50;
     planifier();
+    // La garde de 15 s (voir `rafraichir`) doit tomber même si plus rien ne bouge dans la base.
+    setTimeout(planifier, 15_200);
   }
 }
 
 let file: Promise<void> = Promise.resolve();
+let enFile = 0;
 /** Pose dans SQLite les opérations de `attente` qui n'y sont pas encore (une seule écriture à la fois). */
 export function pousser(): Promise<void> {
+  enFile++;
   file = file.then(async () => {
     if (!pret || !acces) return;
     await pret.catch(() => undefined);
@@ -274,7 +284,7 @@ export function pousser(): Promise<void> {
         for (const { id, type, t: _t, ...corps } of l) await tx.execute('INSERT INTO ops (id, type, corps) VALUES (?, ?, ?)', [id, type, JSON.stringify(corps)]);
       });
     } catch (e) { for (const o of l) posees.delete(o.id); throw e; }
-  }).catch((e) => journal('powersync', `file : ${String(e).slice(0, 200)}`));
+  }).catch((e) => journal('powersync', `file : ${String(e).slice(0, 200)}`)).finally(() => { enFile--; });
   return file;
 }
 
@@ -299,7 +309,7 @@ function rafraichir(): Promise<void> {
     // Sorties de `attente` : parties, et un point de contrôle est arrivé après la réponse du serveur. (15 s de garde :
     // rien ne doit rester affiché « en attente » pour toujours.)
     const maintenant = Date.now();
-    const finies = new Set([...parties].filter(([, quand]) => synchro > quand || maintenant - quand > 15_000).map(([id]) => id));
+    const finies = new Set([...parties].filter(([, quand]) => synchro >= quand || maintenant - quand > 15_000).map(([id]) => id));
     for (const id of finies) { parties.delete(id); posees.delete(id); }
     a.ecrire({ ...e, ...(moi ? projeter(t, moi, vus, maintenant + (e.decalage ?? 0)) : {}), synchro: synchro || e.synchro,
       attente: finies.size ? e.attente.filter((o) => !finies.has(o.id)) : e.attente });

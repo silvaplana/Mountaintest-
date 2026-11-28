@@ -533,6 +533,18 @@ class Appel(Base):
     fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class Visible(Base):
+    """Bêta PowerSync : qui (`lecteur_id`) peut voir la position et la voiture de qui (`auteur_id`). Les règles de
+    PowerSync ne savent pas dire « sauf si l'auteur m'a bloqué » : le serveur tient donc à jour la liste de ceux qui
+    PEUVENT voir (même groupe ou même sortie, moins les blocages), et les règles filtrent dessus. Table dérivée,
+    recalculée par `buddies.recalculer_visibles` ; rien d'autre ne la lit."""
+
+    __tablename__ = "visibles"
+
+    auteur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    lecteur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+
+
 class Blocage(Base):
     """🚫 Bloquer un buddy (Play Store) : je ne vois plus ses messages (repliés), il ne voit plus ma position ni ma
     voiture. Il n'est pas prévenu et reste dans les groupes."""

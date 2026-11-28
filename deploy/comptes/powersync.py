@@ -31,6 +31,11 @@ SORTIES_DE_MES_GROUPES = f"SELECT id FROM sorties WHERE groupe_id IN ({MES_GROUP
 OU_JE_PARTICIPE = "SELECT sortie_id FROM participants WHERE utilisateur_id = auth.user_id()"
 # Une sortie se voit par son groupe, ou parce qu'on y participe (copain invité à une seule sortie).
 PAR_GROUPE = {"groupe": f"groupe_id IN ({MES_GROUPES})"}
+# Position et voiture : seulement de ceux qui ne m'ont pas bloqué. Les règles ne savent pas dire « sauf » : le serveur
+# tient la table `visibles` (qui peut voir qui, modeles.Visible) et la règle exige d'y figurer.
+VISIBLE = "utilisateur_id IN (SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id())"
+# Tables que PowerSync doit suivre pour évaluer les règles, sans les envoyer aux téléphones.
+TABLES_DES_REGLES = ("visibles",)
 PAR_SORTIE = {"sortie": f"sortie_id IN ({SORTIES_DE_MES_GROUPES})", "invite": f"sortie_id IN ({OU_JE_PARTICIPE})"}
 MES_MESSAGES = {
     "groupe": f"SELECT id FROM messages_buddies WHERE groupe_id IN ({MES_GROUPES})",
@@ -71,11 +76,11 @@ FLUX: dict[str, tuple[str, dict[str, str]]] = {
     "carnets": ("sortie_id AS id, *", PAR_SORTIE),
     "buddy_counts": ("*", {**PAR_GROUPE, **PAR_SORTIE}),
     "depenses": ("*", {**PAR_SORTIE, "groupe": f"count_id IN (SELECT id FROM buddy_counts WHERE groupe_id IN ({MES_GROUPES}))"}),
-    "positions": (cle("sortie_id", "utilisateur_id"), PAR_SORTIE),
-    "positions_groupes": (cle("groupe_id", "utilisateur_id"), PAR_GROUPE),
+    "positions": (cle("sortie_id", "utilisateur_id"), {k: f"{v} AND {VISIBLE}" for k, v in PAR_SORTIE.items()}),
+    "positions_groupes": (cle("groupe_id", "utilisateur_id"), {k: f"{v} AND {VISIBLE}" for k, v in PAR_GROUPE.items()}),
     "voitures": ("utilisateur_id AS id, *", {
         "moi": "utilisateur_id = auth.user_id()",
-        "groupe": f"utilisateur_id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN ({MES_GROUPES}))",
+        "groupe": f"utilisateur_id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN ({MES_GROUPES})) AND {VISIBLE}",
     }),
     "hebergements": ("*", PAR_SORTIE),
     "coeurs": (cle("hebergement_id", "utilisateur_id"), {
@@ -145,9 +150,9 @@ def preparer(moteur) -> None:
         return
     with moteur.begin() as c:
         if c.execute(text("select 1 from pg_publication where pubname = 'powersync'")).first() is None:
-            c.execute(text(f"CREATE PUBLICATION powersync FOR TABLE {', '.join(TABLES)}"))
+            c.execute(text(f"CREATE PUBLICATION powersync FOR TABLE {', '.join(TABLES + TABLES_DES_REGLES)}"))
         else:  # la liste a pu grandir depuis
-            c.execute(text(f"ALTER PUBLICATION powersync SET TABLE {', '.join(TABLES)}"))
+            c.execute(text(f"ALTER PUBLICATION powersync SET TABLE {', '.join(TABLES + TABLES_DES_REGLES)}"))
 
 
 # Colonnes de `utilisateurs` telles qu'elles arrivent sur le téléphone (voir FICHE).

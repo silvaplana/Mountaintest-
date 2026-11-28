@@ -106,19 +106,19 @@ streams:
     query: SELECT * FROM depenses WHERE count_id IN (SELECT id FROM buddy_counts WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()))
   positions_sortie:
     auto_subscribe: true
-    query: SELECT sortie_id || '/' || utilisateur_id AS id, * FROM positions WHERE sortie_id IN (SELECT id FROM sorties WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()))
+    query: SELECT sortie_id || '/' || utilisateur_id AS id, * FROM positions WHERE sortie_id IN (SELECT id FROM sorties WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id())) AND utilisateur_id IN (SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id())
   positions_invite:
     auto_subscribe: true
-    query: SELECT sortie_id || '/' || utilisateur_id AS id, * FROM positions WHERE sortie_id IN (SELECT sortie_id FROM participants WHERE utilisateur_id = auth.user_id())
+    query: SELECT sortie_id || '/' || utilisateur_id AS id, * FROM positions WHERE sortie_id IN (SELECT sortie_id FROM participants WHERE utilisateur_id = auth.user_id()) AND utilisateur_id IN (SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id())
   positions_groupes_groupe:
     auto_subscribe: true
-    query: SELECT groupe_id || '/' || utilisateur_id AS id, * FROM positions_groupes WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id())
+    query: SELECT groupe_id || '/' || utilisateur_id AS id, * FROM positions_groupes WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()) AND utilisateur_id IN (SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id())
   voitures_moi:
     auto_subscribe: true
     query: SELECT utilisateur_id AS id, * FROM voitures WHERE utilisateur_id = auth.user_id()
   voitures_groupe:
     auto_subscribe: true
-    query: SELECT utilisateur_id AS id, * FROM voitures WHERE utilisateur_id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()))
+    query: SELECT utilisateur_id AS id, * FROM voitures WHERE utilisateur_id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id())) AND utilisateur_id IN (SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id())
   hebergements_sortie:
     auto_subscribe: true
     query: SELECT * FROM hebergements WHERE sortie_id IN (SELECT id FROM sorties WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()))
