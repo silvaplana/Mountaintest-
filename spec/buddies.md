@@ -930,6 +930,12 @@ Pas de message vocal : la messagerie d'AppBase n'en a pas.
   ouvert, sinon tous mes groupes ; un appui éteint partout. Un message de 3 secondes : « Ta position est partagée :
   les buddies de La Ciotat ski club (ou « de tous tes groupes ») te voient jusqu'à 19 h, s'il y a du réseau. » ou
   « Ta position n'est plus partagée : plus personne ne te voit. ».
+- **Déplacée sur la carte, sous la loupe 🔍 (Seb, 28/11)** : l'interrupteur quitte la colonne de Buddies. Éteint, un
+  appui demande « Partager ma position avec qui ? » (la même feuille que « Partager ma carte avec qui ? » : groupes,
+  sorties, buddies un par un, derniers choisis en tête) ; allumé, un appui l'éteint partout. Appui long : l'écran
+  « Ma position » ci-dessous.
+- **☰ du Super User (Seb, 28/11)** : le bouton qui ouvre le bandeau du bas quitte la carte pour le bas de la colonne
+  de Buddies, sous la clé 🔑 ; il ferme Buddies et ouvre le bandeau. Toujours visible du Super User seul.
 - **Appui long : écran « Ma position »** (simplifié le 26/11, Seb ne comprenait pas l'écran de choix) : en haut, ma
   position partagée ou non (avec qui, jusqu'à quelle heure) ; « Qui me montre sa position » : les buddies visibles,
   un toucher montre la carte centrée sur lui ; un seul bouton « Partager ma position » / « Arrêter de partager »,

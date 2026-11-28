@@ -18,10 +18,10 @@ import { TravelPanel } from './TravelPanel';
 import { Expenses } from './Expenses';
 import { Account, ecouterCompte, suppressionDemandee } from './Account';
 import { appliquerIcones } from './doigt';
-import { connecte, lire as lireCompte, suivre as suivreCompte } from './compte/auth';
+import { connecte } from './compte/auth';
 import { BandeauSortie, Buddies, ecouterBuddies, PartagePanel, useBuddies, type CarteBuddies, type DepartBuddies } from './buddies/Buddies';
 import { PointSurCarte } from './buddies/Messages';
-import { BuddiesVisiblesSurCarte, PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
+import { basculerPosition, BuddiesVisiblesSurCarte, PositionIcon, PositionsBuddiesSurCarte, useEpingle, VoituresSurCarte } from './buddies/Positions';
 import { BarreAppel, DoigtsSurCarte, EcranSonnerie, PropositionCarteAppli, useAppel, useSonnerie } from './buddies/Appel';
 import { CarteSuivie, envoyerTrait } from './buddies/CarteSuivie';
 import { appelEnCours, montrer, montrerMaCarte, montrerMaCarteDesQue, raccrocher, reprendreMaCarte, suivreUneCarte } from './buddies/appel';
@@ -328,9 +328,7 @@ export function App() {
   /** Mode nature : carte seule, plein écran, toute l'interface masquée. */
   // L'appli s'ouvre carte seule : le bandeau du bas (onglets) n'apparaît qu'avec ☰ (demande de Seb).
   const [nature, setNature] = useState(true);
-  // ☰ (bandeau du bas) : seulement pour le Super User (Seb 26/11, il sert de moins en moins).
-  const [superUser, setSuperUser] = useState(() => !!lireCompte().profil?.super_user);
-  useEffect(() => suivreCompte((e) => setSuperUser(!!e.profil?.super_user)), []);
+  // ☰ (bandeau du bas) : Super User seul (Seb 26/11), en bas de la colonne de Buddies (Seb 28/11).
   // Bandeau du bas : seulement après ☰, pas quand la loupe 🔍 fait revenir l'interface (Seb 25/11).
   const [bandeau, setBandeau] = useState(false);
   const [geo, setGeo] = useState<GeolocateControl | null>(null);
@@ -499,6 +497,7 @@ export function App() {
    * partage avec l'appel ; sinon « Partager ma carte avec qui ? » (groupes, sorties, buddies ; derniers choisis d'abord).
    */
   const [partageQui, setPartageQui] = useState(false);
+  const [positionQui, setPositionQui] = useState(false);
   const partagerCarte = () => {
     const a = appelEnCours();
     if (a?.jeMontre) { montrerMaCarte(false); setToast('Tu ne partages plus ta carte'); return; }
@@ -1433,7 +1432,6 @@ export function App() {
 
   return (
     <div className={`app ${nature ? 'nature' : ''}`}>
-      {nature && superUser && <button className="restore" onClick={() => { setNature(false); setBandeau(true); }} aria-label="Afficher les boutons">☰</button>}
       <MapView baseLayer={baseLayer} showSlopes={showSlopes} showDrones={showDrones} droneZones={droneZones} onDroneZone={setToast}
         offlineCover={(open && tab === 'horsligne') || (framing && framingFor === 'horsligne') ? cover : null}
         offlineLayer={offlineLayer} recorded={recorded} imported={imported}
@@ -1540,6 +1538,10 @@ export function App() {
       {!framing && !drawing && <QuickButtons onFermer={carteSortie && !buddies ? retourSortie : undefined} geo={geo} onToast={setToast} onDraw={map ? startDrawing : undefined}
         onSearch={() => { setNature(false); setSearching(true); }}
         onCarte={partagerCarte} carteOn={!!appel?.jeMontre}
+        // Ma position sous la loupe (Seb, 28/11) : allumée, un appui l'éteint ; éteinte, on choisit à qui la montrer.
+        positionOn={mesEpingles(buddiesEtat).length > 0}
+        onPosition={() => (mesEpingles(buddiesEtat).length ? void basculerPosition(buddiesEtat, { cibles: [], nom: '' }, setToast) : setPositionQui(true))}
+        onPositionLong={() => { setBuddiesDepart({ ecran: 'position', sortie: carteSortie?.sortie.id, groupe: carteSortie?.sortie.groupe }); setCarteSortie(null); setBuddies(true); }}
         onBaseLayer={() => {
           // Fond de carte : Carte auto → SCAN 25 → Plan IGN → …
           const next = fonds[(fonds.indexOf(baseLayer) + 1) % fonds.length];
@@ -1614,7 +1616,8 @@ export function App() {
       {buddies && <Buddies key={JSON.stringify(buddiesDepart ?? '')} onToast={toastDuree} onClose={() => { setBuddies(false); setBuddiesDepart(undefined); }} onAccount={() => setAccount(true)}
         onExpenses={() => setExpenses(true)} onLodging={() => { setBuddies(false); setLodging(true); }} depart={buddiesDepart}
         onTravel={() => { setBuddies(false); setLodging(false); setTravel(true); setOpen(false); setSearching(false); }}
-        onCarte={montrerBuddies} onMaPosition={() => { setBuddies(false); setBuddiesDepart(undefined); gpsOn(); }} />}
+        onCarte={montrerBuddies}
+        onBandeau={() => { setBuddies(false); setBuddiesDepart(undefined); setNature(false); setBandeau(true); }} />}
       {pointBuddy && (!buddies || !!pointBuddy.cache) && <PointSurCarte map={map} p={pointBuddy} />}
       <VoituresSurCarte map={map} />
       {positionsBuddy && !buddies && <PositionsBuddiesSurCarte key={positionsBuddy} map={map} centre={positionsBuddy} />}
@@ -1648,6 +1651,9 @@ export function App() {
         onClose={() => { setTravel(false); setTravelRoutes([]); }} />}
       <DoigtsSurCarte map={map} onToast={setToast} />
       <PropositionCarteAppli onToast={setToast} />
+      {positionQui && <AppelerQui titre="Partager ma position avec qui ?" verbe="Partager ma position avec" memoire="positions-recentes" icone={<PositionIcon on />}
+        choix={(dest, nom) => void basculerPosition(buddiesEtat, { cibles: [dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe ?? '' }], nom }, setToast)
+          .then((on) => { if (on) gpsOn(); })} onClose={() => setPositionQui(false)} onToast={setToast} />}
       {partageQui && <AppelerQui titre="Partager ma carte avec qui ?" verbe="Partager ma carte avec" memoire="cartes-recentes" icone={<IconeSuisCarte />}
         choix={(dest, nom) => partagerMaCarteAvec(dest, nom, setToast)} onClose={() => setPartageQui(false)} onToast={setToast}
         pied={<button className="aq-journal" onClick={() => void envoyerJournal(setToast)}>Envoyer le journal (quand ça a coincé)</button>} />}

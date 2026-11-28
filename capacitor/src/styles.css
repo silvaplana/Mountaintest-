@@ -144,14 +144,9 @@ button.micro { border: 0; border-radius: 50%; background: var(--micro-bg); color
 .versions ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; }
 .versions li { margin: 2px 0; }
 
-/* Mode nature : carte seule, interface masquée ; un petit bouton discret la fait revenir. */
+/* Mode nature : carte seule, interface masquée ; ☰ en bas de la colonne de Buddies la fait revenir (Super User). */
 .app.nature .layers, .app.nature .search, .app.nature .target, .app.nature .sheet,
 .app.nature .maplibregl-ctrl-top-right, .app.nature .maplibregl-ctrl-bottom-left { display: none; }
-.restore {
-  position: absolute; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 28px); z-index: 3;
-  width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%;
-  background: #ffffffb0; border: 1px solid #0002; font-size: 20px; color: #1d2421;
-}
 
 
 /* Boutons toujours visibles, même en mode nature : me localiser, mode avion, mode poche */
@@ -1533,7 +1528,6 @@ div.bd-rembourser { background: var(--card); border-radius: 16px; padding: 10px 
 .icones-gauche .shade-bar { left: 68px; right: 10px; }
 .icones-gauche .c2c-bar { left: 70px; right: 10px; }
 .icones-gauche .bd-carte-haut { left: 72px; right: 10px; }
-.icones-gauche .restore { right: auto; left: 12px; }
 .icones-gauche .frame-banner.draw-banner { left: 10px; right: 10px; }
 .icones-gauche .quick button.toggle.arrow { transform: scaleX(-1); }
 
