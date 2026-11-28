@@ -1185,9 +1185,9 @@ def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
     if m.nature == "planning":
         return "📅 Planning : " + m.texte
     if m.nature == "carte":
-        return "🗺 a partagé sa carte"
+        return "🗺 a montré sa carte"
     if m.nature == "carte_fin":
-        return "🗺 a arrêté de partager sa carte"
+        return "🗺 a arrêté de montrer sa carte"
     return m.texte[:200]
 
 
@@ -1212,7 +1212,7 @@ def a_prevenir(s: Session, u: Utilisateur, mids: list[uuid.UUID]) -> list[tuple[
         # 🗺 Carte partagée (Seb, 27/11) : une phrase entière, « Seb a partagé sa carte dans <groupe> ».
         ligne = ""
         if m.nature in ("carte", "carte_fin"):
-            fait = "a partagé sa carte" if m.nature == "carte" else "a arrêté de partager sa carte"
+            fait = "a montré sa carte" if m.nature == "carte" else "a arrêté de montrer sa carte"
             ligne = f"{de} {fait} {'avec toi' if a_deux else 'dans ' + titre}"
         bloque = set(s.scalars(select(Blocage.utilisateur_id).where(Blocage.bloque_id == u.id)))
         l.append(([x for x in qui if x != u.id and x not in bloque], {

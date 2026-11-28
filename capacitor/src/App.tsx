@@ -500,10 +500,10 @@ export function App() {
   const [positionQui, setPositionQui] = useState(false);
   const partagerCarte = () => {
     const a = appelEnCours();
-    if (a?.jeMontre) { montrerMaCarte(false); setToast('Tu ne partages plus ta carte'); return; }
+    if (a?.jeMontre) { montrerMaCarte(false); setToast('Tu ne montres plus ta carte'); return; }
     if (a?.suit) { reprendreMaCarte(); return; }
     if (a && !a.muette && a.phase === 'en_ligne') { montrerMaCarte(true); setToast('Tes buddies suivent ta carte'); return; }
-    if (a && !a.muette) { if (!a.carteDesQue) montrerMaCarteDesQue(); setToast('Ta carte sera partagée dès qu’ils décrochent'); return; }
+    if (a && !a.muette) { if (!a.carteDesQue) montrerMaCarteDesQue(); setToast('Ta carte sera montrée dès qu’ils décrochent'); return; }
     if (a?.muette) void raccrocher(); // j'attendais une carte qui ne vient pas
     setPartageQui(true);
   };
@@ -1654,7 +1654,7 @@ export function App() {
       {positionQui && <AppelerQui titre="Partager ma position avec qui ?" verbe="Partager ma position avec" memoire="positions-recentes" icone={<PositionIcon on />}
         choix={(dest, nom) => void basculerPosition(buddiesEtat, { cibles: [dest.sortie ? { sortie: dest.sortie } : { groupe: dest.groupe ?? '' }], nom }, setToast)
           .then((on) => { if (on) gpsOn(); })} onClose={() => setPositionQui(false)} onToast={setToast} />}
-      {partageQui && <AppelerQui titre="Partager ma carte avec qui ?" verbe="Partager ma carte avec" memoire="cartes-recentes" icone={<IconeSuisCarte />}
+      {partageQui && <AppelerQui titre="Montrer ma carte à qui ?" verbe="Montrer ma carte à" memoire="cartes-recentes" icone={<IconeSuisCarte />}
         choix={(dest, nom) => partagerMaCarteAvec(dest, nom, setToast)} onClose={() => setPartageQui(false)} onToast={setToast}
         pied={<button className="aq-journal" onClick={() => void envoyerJournal(setToast)}>Envoyer le journal (quand ça a coincé)</button>} />}
       <BarreAppel />

@@ -221,7 +221,7 @@ def carte_en_appel(s: Session, Sessions, u: Utilisateur, aid: str, on: bool) -> 
     g, so, _, nom = destinataires(s, u, str(a.groupe_id) if a.groupe_id else None, str(a.sortie_id) if a.sortie_id else None)
     a_deux = bool(g and g.nature in ("duo", "support"))
     de = personne(u)["pseudo"]
-    fait = "a partagé sa carte" if on else "a arrêté de partager sa carte"
+    fait = "a montré sa carte" if on else "a arrêté de montrer sa carte"
     en_ligne = [uuid.UUID(x) for x in json.loads(a.en_ligne) if x != str(u.id)]
     sonner(Sessions, [x for x in en_ligne if x in qui], {
         "type": "message", "cle": str(a.sortie_id or a.groupe_id), "groupe": str(a.groupe_id or ""), "sortie": str(a.sortie_id or ""),
@@ -232,7 +232,7 @@ def carte_en_appel(s: Session, Sessions, u: Utilisateur, aid: str, on: bool) -> 
     if on and a.fin is None and absents:
         sonner(Sessions, absents, {
             "type": "carte_appel", "appel": str(a.id), "de": de, "nom": nom, "groupe": str(a.groupe_id or ""), "sortie": str(a.sortie_id or ""),
-            "titre": de if a_deux else nom, "ligne": f"{de} partage sa carte pendant l'appel", "envoye_le": str(int(time.time() * 1000))})
+            "titre": de if a_deux else nom, "ligne": f"{de} montre sa carte pendant l'appel", "envoye_le": str(int(time.time() * 1000))})
     return {"ok": True}
 
 

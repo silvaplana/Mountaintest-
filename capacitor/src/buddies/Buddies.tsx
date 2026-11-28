@@ -232,7 +232,7 @@ export function partagerMaCarteAvec(dest: Dest, nom: string, onToast: (m: string
     const m = envoyerMessage(dest, { nature: 'carte', texte: '' });
     await synchroniser();
     return m;
-  }).then(() => onToast(`Ta carte est partagée avec ${nom}`)).catch((err: Error) => onToast(err.message || 'Impossible de partager ta carte'));
+  }).then(() => onToast(`Ta carte est montrée à ${nom}`)).catch((err: Error) => onToast(err.message || 'Impossible de montrer ta carte'));
 }
 
 /** 📞 Appeler toute la bande (ou rejoindre l'appel déjà en cours) ; la barre d'appel s'affiche sur la carte. */
