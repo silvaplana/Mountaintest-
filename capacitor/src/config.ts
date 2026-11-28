@@ -23,6 +23,11 @@ export type BaseMode = 'auto' | 'scan25' | 'planign';
  * non grand public par la licence IGN ; Plan IGN seul, et pas de mise à jour hors du Play Store.
  */
 export const PLAY = import.meta.env.VITE_PLAY === '1';
+/**
+ * Version bêta (VITE_POWERSYNC=1, build « beta ») : la synchro des Buddies passe par PowerSync (buddies/powersyncEtat.ts)
+ * et l'appli parle au serveur bêta (VITE_API_URL). Installée à côté de l'appli normale.
+ */
+export const POWERSYNC = import.meta.env.VITE_POWERSYNC === '1';
 export const BASE_MODES: Record<BaseMode, string> = {
   auto: 'Carte auto',
   scan25: 'SCAN 25',

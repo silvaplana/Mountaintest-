@@ -1,0 +1,24 @@
+# Service PowerSync de l'essai. Les adresses et mots de passe viennent de l'environnement (docker-compose.yml).
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_SOURCE_URI
+      sslmode: disable
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_URI
+  sslmode: disable
+port: 8080
+sync_config:
+  path: sync-config.yaml
+client_auth:
+  jwks_uri: !env PS_JWKS_URI
+  audience: ["powersync"]
+telemetry:
+  disable_telemetry_sharing: true
+# Plafonds par personne (1000 par défaut). Les règles font un paquet par groupe et par sortie : la marge couvre des
+# années de sorties. Au plafond, PowerSync refuse de synchroniser le compte : mieux vaut large.
+api:
+  parameters:
+    max_buckets_per_connection: 5000
+    max_parameter_query_results: 5000

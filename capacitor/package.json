@@ -10,6 +10,7 @@
     "android": "npm run build && npx cap sync android && npx cap open android"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.1",
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.6.0",
@@ -17,6 +18,8 @@
     "@capacitor/file-transfer": "^2.0.6",
     "@capacitor/filesystem": "^8.1.5",
     "@capacitor/preferences": "^8.0.1",
+    "@powersync/capacitor": "^0.10.1",
+    "@powersync/web": "^2.7.0",
     "livekit-client": "2.23.0",
     "maplibre-gl": "^6.16.0",
     "mp4-muxer": "^5.2.2",

@@ -1,0 +1,468 @@
+{
+ "mode": "powersync",
+ "quand": "2026-11-28T03:16:41.344Z",
+ "resultats": [
+  {
+   "famille": "fonctions",
+   "nom": "Groupe créé, rejoint par deux personnes avec le même lien",
+   "etat": "réussi",
+   "ms": 27196,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Invitation « un admin accepte » : demande, refus pour l'un, accord pour l'autre",
+   "etat": "réussi",
+   "ms": 4518,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Rôles : nommer admin, retirer admin, transmettre le groupe, renommer",
+   "etat": "réussi",
+   "ms": 5864,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Messagerie : texte, réponse, réaction, modification, suppression",
+   "etat": "réussi",
+   "ms": 7464,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sondage : chacun vote, change son vote",
+   "etat": "réussi",
+   "ms": 6152,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Lu : quand Julie lit, Seb le voit",
+   "etat": "réussi",
+   "ms": 3011,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Discussion à deux : le troisième ne voit rien",
+   "etat": "réussi",
+   "ms": 3756,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Transférer un message vers un autre groupe",
+   "etat": "réussi",
+   "ms": 6444,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sortie : créée, renommée, supprimée puis remise",
+   "etat": "réussi",
+   "ms": 7539,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sortie avec un invité hors du groupe : il voit la sortie, pas le groupe",
+   "etat": "réussi",
+   "ms": 4773,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Planning de saison : trois réponses, une modifiée",
+   "etat": "réussi",
+   "ms": 5516,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Dépenses : ajoutée, modifiée, remboursée (« j'ai payé », « reçu »), retirée",
+   "etat": "réussi",
+   "ms": 10802,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Buddy count de groupe : créé, renommé, une dépense dedans",
+   "etat": "réussi",
+   "ms": 3831,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Hébergement : proposé, deux cœurs, retenu, retiré",
+   "etat": "réussi",
+   "ms": 10403,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Carnet : deux récits, des fiches de jour, les conditions",
+   "etat": "réussi",
+   "ms": 5592,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Trace partagée avec un groupe et avec une sortie",
+   "etat": "réussi",
+   "ms": 5561,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Voiture : garée, déplacée, enlevée",
+   "etat": "réussi",
+   "ms": 9514,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Position : épingle sur un groupe, 5 points, puis relevée",
+   "etat": "réussi",
+   "ms": 4944,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Position sur une sortie : vue des participants, pas du reste du groupe",
+   "etat": "réussi",
+   "ms": 4896,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Photos : trois déposées, une étoile, une placée, une retirée",
+   "etat": "réussi",
+   "ms": 5787,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Message « je suis ici » (point sur la carte) et message de 2 000 caractères avec accents et émojis",
+   "etat": "réussi",
+   "ms": 3325,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Groupe supprimé par son admin : il disparaît chez tous",
+   "etat": "réussi",
+   "ms": 5278,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Mode avion : 5 messages écrits sans réseau s'affichent tout de suite, partent au retour, dans l'ordre",
+   "etat": "réussi",
+   "ms": 6827,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau mort sans que le téléphone le sache (tunnel) : même chose",
+   "etat": "réussi",
+   "ms": 6274,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Hors ligne, appli fermée puis rouverte hors ligne : tout est encore là, ce qui attend aussi",
+   "etat": "réussi",
+   "ms": 7523,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Appli tuée juste après l'écriture, en ligne : le message arrive une seule fois",
+   "etat": "réussi",
+   "ms": 10324,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réponse perdue : le serveur a enregistré, le téléphone ne le sait pas et renvoie → pas de doublon",
+   "etat": "réussi",
+   "ms": 3257,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réponse perdue sur une dépense et un vote : comptés une seule fois",
+   "etat": "réussi",
+   "ms": 7192,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Serveur en panne (erreurs 503) pendant quelques envois : l'appli réessaie seule",
+   "etat": "réussi",
+   "ms": 12392,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau lent (1,5 s par échange) : tout arrive, rien ne disparaît de l'écran entre l'envoi et le retour",
+   "etat": "réussi",
+   "ms": 10112,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau instable (connexions qui tombent au hasard) pendant 30 messages de chaque côté",
+   "etat": "réussi",
+   "ms": 8604,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Le flux qui apporte les changements est coupé seul : j'écris quand même, et je rattrape au retour",
+   "etat": "réussi",
+   "ms": 7381,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "La connexion se fige sans se fermer (serveur ou box qui disparaît sans prévenir) : le téléphone s'en aperçoit seul",
+   "etat": "réussi",
+   "ms": 59357,
+   "note": "rattrapé 52 s après le retour du réseau"
+  },
+  {
+   "famille": "reseau",
+   "nom": "Trois minutes sans rien faire : la connexion reste en place, sans rebranchement inutile",
+   "etat": "réussi",
+   "ms": 175378,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Le serveur d'écriture est coupé seul : je reçois toujours, mes écritures attendent",
+   "etat": "réussi",
+   "ms": 21663,
+   "note": "reçu seulement au retour du serveur"
+  },
+  {
+   "famille": "reseau",
+   "nom": "Hors ligne des deux côtés, écritures croisées : au retour, mêmes messages dans le même ordre chez tous",
+   "etat": "réussi",
+   "ms": 9456,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Conflit : deux personnes renomment la même sortie hors ligne → tout le monde finit avec le même nom",
+   "etat": "réussi",
+   "ms": 10297,
+   "note": "nom gardé : Nom de Julie (le dernier arrivé au serveur)"
+  },
+  {
+   "famille": "reseau",
+   "nom": "Conflit : l'un modifie une dépense hors ligne pendant que l'autre la supprime",
+   "etat": "réussi",
+   "ms": 10126,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Écrire hors ligne dans un groupe dont on a été retiré entre-temps : refusé proprement, rien ne reste bloqué",
+   "etat": "réussi",
+   "ms": 11407,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Rafale : 200 messages écrits hors ligne arrivent tous, dans l'ordre",
+   "etat": "réussi",
+   "ms": 6086,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Longue absence : pendant qu'un téléphone est éteint, 60 changements (ajouts, modifications, suppressions) ; il rattrape tout",
+   "etat": "réussi",
+   "ms": 16497,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Coupures à répétition pendant une conversation à trois (10 cycles de 1 s)",
+   "etat": "réussi",
+   "ms": 46155,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Position envoyée hors ligne toutes les secondes : au retour, seule la dernière compte",
+   "etat": "réussi",
+   "ms": 11540,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Voiture garée hors ligne puis enlevée hors ligne : au retour, personne ne voit de voiture",
+   "etat": "réussi",
+   "ms": 8067,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Rejoindre un groupe par un lien ouvert hors ligne : l'entrée se fait au retour du réseau",
+   "etat": "réussi",
+   "ms": 6100,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Groupe, sortie, dépense et message créés hors ligne d'un coup : tout part dans l'ordre, rien n'est refusé",
+   "etat": "réussi",
+   "ms": 7994,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Quelqu'un qui n'est pas du groupe n'en reçoit rien, ni à l'écran ni dans la base du téléphone",
+   "etat": "réussi",
+   "ms": 8161,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Quitter un groupe : tout son contenu disparaît du téléphone",
+   "etat": "réussi",
+   "ms": 8324,
+   "note": "elle garde la sortie où elle était inscrite (règle du serveur, pareil sur les deux synchros)"
+  },
+  {
+   "famille": "droits",
+   "nom": "Retiré par un admin : tout disparaît, et la personne ne reçoit plus la suite",
+   "etat": "réussi",
+   "ms": 10041,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Un membre simple ne peut pas retirer quelqu'un ni supprimer le groupe : refusé, rien ne change",
+   "etat": "réussi",
+   "ms": 6327,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Modifier ou supprimer le message d'un autre : refusé",
+   "etat": "réussi",
+   "ms": 7013,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Nouveau membre : il reçoit tout l'historique du groupe",
+   "etat": "réussi",
+   "ms": 12863,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Invité d'une sortie : il a la sortie et son contenu, rien du groupe",
+   "etat": "réussi",
+   "ms": 11362,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Données privées : ni le mail ni le téléphone des autres ne descendent dans la base du téléphone",
+   "etat": "réussi",
+   "ms": 5758,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Personne bloquée : elle ne doit plus recevoir ma position ni ma voiture",
+   "etat": "réussi",
+   "ms": 12576,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Deux téléphones pour le même compte : ce que je fais sur l'un apparaît sur l'autre",
+   "etat": "réussi",
+   "ms": 17168,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Déconnexion puis autre compte sur le même téléphone : aucune donnée du premier ne reste",
+   "etat": "réussi",
+   "ms": 18597,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Premier lancement sur un téléphone neuf, hors ligne : l'appli s'ouvre vide, puis se remplit au retour du réseau",
+   "etat": "réussi",
+   "ms": 11197,
+   "note": ""
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 11 : 120 actions et incidents",
+   "etat": "réussi",
+   "ms": 65381,
+   "note": "graine 11 : 120 étapes, 35 messages au bout, 27 incidents de réseau"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 23 : 120 actions et incidents",
+   "etat": "réussi",
+   "ms": 58423,
+   "note": "graine 23 : 120 étapes, 34 messages au bout, 33 incidents de réseau"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 37 : 120 actions et incidents",
+   "etat": "réussi",
+   "ms": 64781,
+   "note": "graine 37 : 120 étapes, 35 messages au bout, 22 incidents de réseau"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 41 : 120 actions et incidents",
+   "etat": "réussi",
+   "ms": 69772,
+   "note": "graine 41 : 120 étapes, 35 messages au bout, 27 incidents de réseau"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 53 : 120 actions et incidents",
+   "etat": "réussi",
+   "ms": 65267,
+   "note": "graine 53 : 120 étapes, 29 messages au bout, 27 incidents de réseau"
+  },
+  {
+   "famille": "volume",
+   "nom": "Gros compte : 400 messages, 300 réactions, 90 sorties avec message et dépense, puis appli rouverte",
+   "etat": "réussi",
+   "ms": 98272,
+   "note": "400 messages, 300 réactions, 90 sorties : tout arrive, y compris après réouverture"
+  },
+  {
+   "famille": "lourd",
+   "nom": "PowerSync redémarre pendant une conversation : rien n'est perdu, la synchro reprend seule",
+   "etat": "réussi",
+   "ms": 16344,
+   "note": "tout est arrivé 5 s après le dernier message"
+  },
+  {
+   "famille": "lourd",
+   "nom": "Postgres redémarre pendant une conversation : rien n'est perdu, la synchro reprend seule",
+   "etat": "réussi",
+   "ms": 58718,
+   "note": "tout est arrivé 42 s après le dernier message"
+  }
+ ]
+}

@@ -12,11 +12,11 @@
  */
 
 import { Capacitor } from '@capacitor/core';
-import { PLAY } from '../config';
+import { PLAY, POWERSYNC } from '../config';
 
-export const API_URL = 'https://mountainbuddies.silvaplana.cloud/api';
+export const API_URL: string = import.meta.env.VITE_API_URL || 'https://mountainbuddies.silvaplana.cloud/api';
 /** Identifiant Android : l'APK des copains, ou la version du Play Store (deux applis distinctes). */
-export const SCHEMA = PLAY ? 'cloud.silvaplana.mountainbuddies' : 'fr.assomoutain.rando';
+export const SCHEMA = PLAY ? 'cloud.silvaplana.mountainbuddies' : POWERSYNC ? 'fr.assomoutain.rando.beta' : 'fr.assomoutain.rando';
 export const REDIRECT = `${SCHEMA}://callback`;
 const CLE = 'compte';
 

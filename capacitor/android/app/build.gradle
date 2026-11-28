@@ -37,11 +37,24 @@ android {
     productFlavors {
         apk {
             dimension "canal"
+            buildConfigField "String", "CANAL_MAJ", '"capacitor"'
+        }
+        // Bêta (branche « beta », essai PowerSync) : une 3e appli, installée à côté de la normale, qui se met à jour
+        // depuis le site bêta. Mêmes fichiers Java que « apk » (Updater).
+        beta {
+            dimension "canal"
+            applicationId "fr.assomoutain.rando.beta"
+            buildConfigField "String", "CANAL_MAJ", '"beta"'
         }
         play {
             dimension "canal"
             applicationId "cloud.silvaplana.mountainbuddies"
+            buildConfigField "String", "CANAL_MAJ", '""'
         }
+    }
+    buildFeatures { buildConfig = true }
+    sourceSets {
+        beta { java.srcDirs += 'src/apk/java'; manifest.srcFile 'src/apk/AndroidManifest.xml' }
     }
     buildTypes {
         release {

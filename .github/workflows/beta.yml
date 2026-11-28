@@ -1,0 +1,112 @@
+name: Bêta (PowerSync) – APK et fichiers du serveur bêta
+
+# Branche « beta » seulement : rien ici ne touche à la production (ni la release « latest », ni la branche « site »).
+# Résultat : la branche « site-beta », que le serveur bêta du VPS récupère toutes les 5 minutes
+# (deploy/beta/installer-beta.sh) : APK bêta, appli web bêta, serveur Python, réglages PowerSync.
+on:
+  push:
+    branches: [beta]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta
+  cancel-in-progress: true
+
+env:
+  VITE_POWERSYNC: '1'
+  VITE_API_URL: https://mb-beta.silvaplana.cloud/api
+
+jobs:
+  serveur:
+    name: Serveur des comptes (tests Python)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: deploy/comptes } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q -r requirements.txt pytest httpx
+      - run: python -m pytest -q tests
+      - name: Les réglages PowerSync sont bien ceux que décrit powersync.py
+        run: |
+          python powersync.py | diff - ../beta/sync-config.yaml
+          python powersync.py schema | diff - ../../capacitor/src/buddies/powersyncSchema.ts
+
+  web:
+    name: Appli web bêta
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: capacitor } }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: python3 ../shared/changelog.py ${{ github.run_number }} public/changelog.json
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: capacitor/package-lock.json }
+      - run: npm ci
+      # Les tests de l'appli décrivent l'ancienne synchro : ils tournent sans le réglage bêta.
+      - run: npm test
+        env: { VITE_POWERSYNC: '', VITE_API_URL: '' }
+      - run: npx vite build --base=./
+      - uses: actions/upload-artifact@v4
+        with: { name: web-beta, path: capacitor/dist }
+
+  apk:
+    name: APK bêta
+    runs-on: ubuntu-latest
+    env:
+      SIGNING_PASSWORD: '${{ secrets.SIGNING_PASSWORD }}'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      # Même clé que l'appli normale (signing/prototypes.p12, chiffrée par le secret) ; sans secret : signature debug.
+      - if: env.SIGNING_PASSWORD != ''
+        run: echo "SIGNING_STORE=$GITHUB_WORKSPACE/signing/prototypes.p12" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: capacitor/package-lock.json }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - working-directory: capacitor
+        run: |
+          python3 ../shared/changelog.py ${{ github.run_number }} public/changelog.json
+          npm ci
+          npx vite build
+          npx cap sync android
+        env: { VITE_IA_MOT_DE_PASSE: '${{ secrets.IA_MOT_DE_PASSE }}' }
+      - working-directory: capacitor/android
+        run: ./gradlew --no-daemon assembleBetaRelease -PversionCode=${{ github.run_number }}
+      - run: cp capacitor/android/app/build/outputs/apk/beta/release/*.apk mountain-buddies-beta.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: apk-beta, path: mountain-buddies-beta.apk }
+
+  site:
+    name: Préparer les fichiers du serveur bêta
+    needs: [serveur, web, apk]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: web-beta, path: site/app }
+      - uses: actions/download-artifact@v4
+        with: { name: apk-beta, path: site/apk }
+      - run: |
+          rm -f site/app/*.map site/app/assets/*.map
+          mkdir -p site/comptes site/powersync
+          cp deploy/comptes/*.py deploy/comptes/requirements.txt site/comptes/
+          cp deploy/beta/powersync.yaml deploy/beta/sync-config.yaml site/powersync/
+          cp deploy/beta/installer-beta.sh site/
+          cp capacitor/android/app/src/beta/res/mipmap-xxxhdpi/ic_launcher.png site/apk/icone-beta.png
+          sed -e "s|@DATE@|$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')|" -e "s/@BUILD@/${{ github.run_number }}/" \
+              -e "s/@TAILLE@/$(du -m site/apk/mountain-buddies-beta.apk | cut -f1)/" deploy/beta/apk-index.html > site/apk/index.html
+          # Lu par l'appli bêta pour proposer la mise à jour (Updater.java, clé « beta »).
+          printf '{"build": %s, "apk": {"beta": "https://mb-beta.silvaplana.cloud/apk/mountain-buddies-beta.apk"}}\n' \
+            "${{ github.run_number }}" > site/apk/version.json
+      - name: Pousser la branche site-beta
+        run: |
+          mv site /tmp/site-beta && cd /tmp/site-beta
+          git init -q -b site-beta
+          git -c user.name=github-actions -c user.email=actions@github.com add -A
+          git -c user.name=github-actions -c user.email=actions@github.com commit -qm "Bêta ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" site-beta

@@ -37,6 +37,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hmac
+import functools
 import json
 import os
 import re
@@ -65,6 +66,7 @@ import buddies
 from evenements import Evenements
 import droits
 import mails
+import powersync
 from modeles import Base, Groupe, Journal, MaTrace, Membre, Telechargement, Usage, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
@@ -90,6 +92,11 @@ async def cycle(_app: FastAPI):
     Base.metadata.create_all(moteur)  # crée les tables manquantes (pas encore de migrations)
     ajouter_colonnes()
     roles_de_groupe()
+    with Session(moteur) as s:  # table dérivée (bêta PowerSync) : remise d'accord à chaque démarrage
+        buddies.recalculer_visibles(s)
+        buddies.rattacher(s)
+        s.commit()
+    powersync.preparer(moteur)
     flux.demarrer(asyncio.get_running_loop())
     yield
 
@@ -137,6 +144,18 @@ COLONNES_AJOUTEES = [
     ("utilisateurs", "voiture_modele", "VARCHAR(60)"),
     ("utilisateurs", "voiture_forme", "VARCHAR(12)"),
     ("utilisateurs", "voiture_couleur", "VARCHAR(10)"),
+    # Recopies pour les règles PowerSync (buddies.rattacher remplit les lignes d'avant).
+    ("reactions_buddies", "groupe_id", "UUID"),
+    ("reactions_buddies", "sortie_id", "UUID"),
+    ("votes_buddies", "groupe_id", "UUID"),
+    ("votes_buddies", "sortie_id", "UUID"),
+    ("coeurs", "sortie_id", "UUID"),
+    ("dispos", "groupe_id", "UUID"),
+    ("depenses", "groupe_id", "UUID"),
+    ("messages_buddies", "fichier_nom", "VARCHAR(200)"),
+    ("messages_buddies", "fichier_mime", "VARCHAR(100)"),
+    ("messages_buddies", "fichier_taille", "BIGINT"),
+    ("messages_buddies", "fichier_envoye", "BOOLEAN"),
 ]
 
 
@@ -288,7 +307,9 @@ def utilisateur(s: Session, j: dict[str, Any]) -> Utilisateur:
             u.pseudo = (fiche.get("name") or fiche.get("username") or (u.email or "").split("@")[0] or "")[:40]
         if u.photo is None:  # la photo Google par défaut ; retirée par la personne (""), elle ne revient pas
             u.photo = fiche.get("avatar")
-    u.vu_le = maintenant()
+    # PowerSync (essai) : chaque changement de cette ligne repart vers tous les buddies ; une fois par minute suffit.
+    if nouveau or u.vu_le is None or maintenant() - buddies.date(buddies.iso(u.vu_le)) > timedelta(seconds=60):
+        u.vu_le = maintenant()
     if nouveau:
         s.flush()
         buddies.noter(s, u, "inscription")
@@ -551,6 +572,47 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     return r
 
 
+# ---------------------------------------------------------------- essai PowerSync (voitures et positions)
+
+@functools.lru_cache(maxsize=1)
+def cle_powersync():
+    return powersync.cle(DOSSIER)
+
+
+@app.get("/powersync/cles")
+def powersync_cles():
+    return powersync.jwks(cle_powersync())
+
+
+@app.get("/powersync/jeton")
+def powersync_jeton(u: Utilisateur = Depends(moi_requis)):
+    return {"token": powersync.jeton(cle_powersync(), u.id), "endpoint": powersync.ADRESSE, "moi": str(u.id)}
+
+
+@app.get("/powersync/reste")
+def powersync_reste(u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    return buddies.reste(s, u)
+
+
+@app.post("/powersync/ecrire")
+def powersync_ecrire(corps: Synchro, u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """La file du téléphone, portée par PowerSync : mêmes opérations et mêmes règles que /buddies/sync. La réponse
+    ne porte pas de données : elles reviennent par la réplication."""
+    refus = buddies.appliquer_ops(s, u, corps.ops)
+    # 🔔 Les mêmes notifications que la synchro maison (messages, paiements, traces et photos partagées, mails).
+    for qui, data in buddies.a_prevenir(s, u, s.info.pop("nouveaux_messages", [])):
+        appels.sonner(Sessions, qui, data, ttl="86400s")
+    for qui, data in s.info.pop("a_prevenir", []):
+        appels.sonner(Sessions, qui, data, ttl="86400s")
+    if mails_ := s.info.pop("mails", []):
+        mails.en_arriere_plan(lambda: buddies.envoyer_mails(Sessions, mails_))
+    if s.info.pop("secouer", False):
+        # Push silencieux : réveille les téléphones dont l'appli est en arrière-plan (PowerSync n'y est pas connecté).
+        appels.sonner(Sessions, buddies.copains(s, u), {"type": "synchro"}, ttl="600s")
+        secouer(s, u, sauf=corps.appareil)  # les appareils encore sur la synchro maison
+    return {"refus": refus}
+
+
 class Ecrit(BaseModel):
     cle: str
 
@@ -647,7 +709,7 @@ async def envoyer_fichier(fid: str, req: Request, j: dict = Depends(jeton_requis
     if not f.envoye:
         f.envoye = True
         for m in s.scalars(select(buddies.MessageBuddy).where(buddies.MessageBuddy.fichier_id == f.id)):
-            m.modifie_le = maintenant()
+            m.fichier_envoye, m.modifie_le = True, maintenant()
         s.commit()
         secouer(s, u)
     return {"ok": True}

@@ -28,9 +28,10 @@ DOSSIER = os.environ.get("COMPTES_DOSSIER", "/data")
 M2M_ID, M2M_SECRET = os.environ["LOGTO_M2M_ID"], os.environ["LOGTO_M2M_SECRET"]
 
 # Schémas d'URL de retour après connexion = identifiant Android de chaque appli. L'appli Capacitor en a deux :
-# l'APK des copains (fr.assomoutain.rando) et la version du Play Store (cloud.silvaplana.mountainbuddies).
+# l'APK des copains (fr.assomoutain.rando), la version du Play Store (cloud.silvaplana.mountainbuddies) et la bêta
+# (fr.assomoutain.rando.beta, branche « beta »).
 APPLIS = {
-    "capacitor": ("Mountain Buddies", ["fr.assomoutain.rando", "cloud.silvaplana.mountainbuddies"]),
+    "capacitor": ("Mountain Buddies", ["fr.assomoutain.rando", "cloud.silvaplana.mountainbuddies", "fr.assomoutain.rando.beta"]),
     "kotlin": ("Mountain Buddies K", ["fr.assomoutain.proto.kotlin"]),
 }
 VERT = "#2f6f4f"
@@ -100,7 +101,7 @@ for cle, (nom, schemas) in APPLIS.items():
 # 2 bis. Version web (iPhone en PWA) : appli « page web » (SPA), retour sur la page elle-même.
 # Deux adresses : https://mountainbuddies.silvaplana.cloud/app/ et l'ancienne https://silvaplana.cloud/mountaintest/.
 # Même jeton de renouvellement de 180 jours, gardé par le navigateur.
-SITES = os.environ.get("SITE_URL", "https://mountainbuddies.silvaplana.cloud/app/ https://silvaplana.cloud/mountaintest/").split()
+SITES = os.environ.get("SITE_URL", "https://mountainbuddies.silvaplana.cloud/app/ https://silvaplana.cloud/mountaintest/ https://mb-beta.silvaplana.cloud/app/").split()
 SITE = SITES[0]
 oidc = {"redirectUris": [u for s in SITES for u in (s, s + "index.html")], "postLogoutRedirectUris": SITES}
 perso = {"alwaysIssueRefreshToken": True, "rotateRefreshToken": False, "refreshTokenTtlInDays": 180,
