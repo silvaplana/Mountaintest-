@@ -1224,3 +1224,24 @@ def test_depense_retiree_ne_ressuscite_pas(client):
     assert r["refus"] == [] and r["ids_depenses"] == []
     # Retirer deux fois ne dit rien.
     assert sync(client, ops=[op("retirer_depense", depense=gite["depense"])])["refus"] == []
+
+
+def test_colonnes_et_tables_des_regles_powersync(client):
+    """Les règles PowerSync filtrent sur une colonne de la table envoyée : la réaction porte le groupe de son message,
+    et `connus` / `visibles` disent de qui chacun reçoit la fiche et la position (un blocage retire la position)."""
+    import buddies
+    import serveur
+    from modeles import Connu, ReactionBuddy, Visible
+    g = nouveau_groupe()
+    moi = sync(client, ops=[g, invitation(g["groupe"])])["moi"]
+    julie = sync(client, sub="julie", ops=[{"id": "j", "type": "rejoindre", "code": "CodeSecret0123456789"}])["moi"]
+    mid = str(uuid.uuid4())
+    sync(client, ops=[{"id": "m", "type": "message", "message": mid, "groupe": g["groupe"], "texte": "salut"}])
+    sync(client, sub="julie", ops=[{"id": "r", "type": "reagir", "message": mid, "emoji": "👍"}])
+    paires = lambda s, modele: {(str(x.auteur_id), str(x.lecteur_id)) for x in s.scalars(buddies.select(modele))}
+    with serveur.Sessions() as s:
+        assert [str(r.groupe_id) for r in s.scalars(buddies.select(ReactionBuddy))] == [g["groupe"]]
+        assert {(moi, julie), (julie, moi)} <= paires(s, Connu) and {(moi, julie), (julie, moi)} <= paires(s, Visible)
+    sync(client, ops=[{"id": "b", "type": "bloquer", "buddy": julie}])
+    with serveur.Sessions() as s:
+        assert (moi, julie) not in paires(s, Visible) and (moi, julie) in paires(s, Connu)

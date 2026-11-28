@@ -24,7 +24,7 @@ import logging
 
 import droits
 import mails
-from modeles import (Visible, Blocage, BuddyCount, Carnet, Coeur, DemandeEntree, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, Journal, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
+from modeles import (Connu, Visible, Blocage, BuddyCount, Carnet, Coeur, DemandeEntree, Depense, Dispo, FicheJour, FichierBuddy, Groupe, Hebergement, Invitation, Journal, LectureBuddy, MaTrace, Membre, MessageBuddy, Participant, Photo, Planning,
                      Position, PositionGroupe, ReactionBuddy, Recit, Signalement, Sortie, TracePartagee, VoteBuddy, Utilisateur, Voiture, maintenant)
 
 log = logging.getLogger(__name__)
@@ -568,7 +568,7 @@ def dispo(s: Session, u: Utilisateur, op: dict) -> None:
         if d is not None:
             s.delete(d)
     elif d is None:
-        s.add(Dispo(planning_id=p.id, utilisateur_id=u.id, debut=debut, etat=etat, mot=propre(op.get("mot"), 200)))
+        s.add(Dispo(planning_id=p.id, utilisateur_id=u.id, debut=debut, etat=etat, mot=propre(op.get("mot"), 200), groupe_id=p.groupe_id))
     else:
         d.etat, d.mot = etat, propre(op.get("mot"), 200)
     p.modifie_le = maintenant()
@@ -751,7 +751,7 @@ def depense(s: Session, u: Utilisateur, op: dict) -> None:
         if isinstance(lieu, Sortie):
             s.add(Depense(id=did, sortie_id=lieu.id, par=u.id, **champs))
         else:
-            s.add(Depense(id=did, count_id=c.id, par=u.id, **champs))
+            s.add(Depense(id=did, count_id=c.id, groupe_id=c.groupe_id, par=u.id, **champs))
     else:
         for k, v in champs.items():
             setattr(d, k, v)
@@ -799,7 +799,7 @@ def paye(s: Session, u: Utilisateur, op: dict) -> None:
     if isinstance(lieu, Sortie):
         s.add(Depense(id=did, sortie_id=lieu.id, **champs))
     else:
-        s.add(Depense(id=did, count_id=c.id, **champs))
+        s.add(Depense(id=did, count_id=c.id, groupe_id=c.groupe_id, **champs))
     toucher(lieu)
     prevenir_paiement(s, u, a, lieu, c, f"dit t'avoir payé {montant // 100} € {MOYENS[moyen]}".strip())
 
@@ -1053,7 +1053,7 @@ def coeur(s: Session, u: Utilisateur, op: dict) -> None:
     h, so = hebergement_de(s, u, op["hebergement"])
     c = s.get(Coeur, (h.id, u.id))
     if op.get("coeur") and c is None:
-        s.add(Coeur(hebergement_id=h.id, utilisateur_id=u.id))
+        s.add(Coeur(hebergement_id=h.id, utilisateur_id=u.id, sortie_id=h.sortie_id))
     elif not op.get("coeur") and c is not None:
         s.delete(c)
     h.modifie_le = maintenant()
@@ -1154,6 +1154,7 @@ def message(s: Session, u: Utilisateur, op: dict) -> None:
         elif ff.par != u.id and not fichier_lisible(s, u, fid):
             raise Refus("Fichier inconnu")
         fichier = fid
+        ff = ff or s.get(FichierBuddy, fid)
     if nature == "sondage":
         sondage = sondage_propre(op.get("sondage"))
     planning = None
@@ -1167,7 +1168,8 @@ def message(s: Session, u: Utilisateur, op: dict) -> None:
     repond_a = cible.id if cible and (cible.groupe_id, cible.sortie_id) == (None if so else g.id, so.id if so else None) else None
     s.add(MessageBuddy(id=mid, groupe_id=g.id if g else None, sortie_id=so.id if so else None, par=u.id, nature=nature,
                        texte=texte, lon=lon, lat=lat, photo_id=photo, bud=bool(op.get("bud")), repond_a=repond_a,
-                       fichier_id=fichier, sondage=sondage, transfere=bool(op.get("transfere")), planning_id=planning))
+                       fichier_id=fichier, sondage=sondage, transfere=bool(op.get("transfere")), planning_id=planning,
+                       **({"fichier_nom": ff.nom, "fichier_mime": ff.mime, "fichier_taille": ff.taille, "fichier_envoye": ff.envoye} if fichier else {})))
 
 
 def resume_message(m: MessageBuddy, f: FichierBuddy | None) -> str:
@@ -1259,6 +1261,7 @@ def retirer_message(s: Session, u: Utilisateur, op: dict) -> None:
             raise Refus("On ne supprime que ses messages")
     m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
     m.fichier_id = m.sondage = m.planning_id = None
+    m.fichier_nom = m.fichier_mime = m.fichier_taille = m.fichier_envoye = None
     for r in [*s.scalars(select(ReactionBuddy).where(ReactionBuddy.message_id == m.id)), *s.scalars(select(VoteBuddy).where(VoteBuddy.message_id == m.id))]:
         s.delete(r)
 
@@ -1278,7 +1281,7 @@ def voter(s: Session, u: Utilisateur, op: dict) -> None:
         s.delete(v)
     s.flush()
     for o in sorted(choix):
-        s.add(VoteBuddy(message_id=m.id, utilisateur_id=u.id, option=o))
+        s.add(VoteBuddy(message_id=m.id, utilisateur_id=u.id, option=o, groupe_id=m.groupe_id, sortie_id=m.sortie_id))
     m.modifie_le = maintenant()
 
 
@@ -1295,7 +1298,7 @@ def reagir(s: Session, u: Utilisateur, op: dict) -> None:
         s.delete(r)
         s.flush()
     if emoji:
-        s.add(ReactionBuddy(message_id=m.id, utilisateur_id=u.id, emoji=emoji))
+        s.add(ReactionBuddy(message_id=m.id, utilisateur_id=u.id, emoji=emoji, groupe_id=m.groupe_id, sortie_id=m.sortie_id))
     m.modifie_le = maintenant()
 
 
@@ -1398,6 +1401,7 @@ def traiter_signalement(s: Session, u: Utilisateur, op: dict) -> None:
     if suite == "efface" and m is not None and not m.supprime:
         m.supprime, m.texte, m.lon, m.lat, m.photo_id, m.modifie_le = True, "", None, None, None, maintenant()
         m.fichier_id = m.sondage = m.planning_id = None
+        m.fichier_nom = m.fichier_mime = m.fichier_taille = m.fichier_envoye = None
     if suite == "retire" and m is not None and x.cible_id is not None:
         g = s.get(Groupe, s.get(Sortie, m.sortie_id).groupe_id if m.sortie_id else m.groupe_id)
         mb = membre(s, g.id, x.cible_id) if g is not None and g.nature == "bande" else None
@@ -1511,26 +1515,64 @@ SANS_EFFET_SUR_VISIBLES = {"message", "position", "epingle", "voiture", "lu", "r
                            "depense", "retirer_depense", "dispo", "recit", "fiche", "carnet", "coeur", "etoile"}
 
 
+# Les règles PowerSync ne filtrent bien que sur une colonne de la table envoyée (un « paquet » par groupe ou par sortie,
+# au lieu d'un par message : au-delà de 1000 paquets, PowerSync refuse de synchroniser le compte). Ces colonnes sont
+# posées à l'écriture ; ceci remplit les lignes écrites avant qu'elles existent. Sans effet la deuxième fois.
+RATTACHEMENTS = [
+    "UPDATE reactions_buddies SET groupe_id = (SELECT m.groupe_id FROM messages_buddies m WHERE m.id = message_id), "
+    "sortie_id = (SELECT m.sortie_id FROM messages_buddies m WHERE m.id = message_id) WHERE groupe_id IS NULL AND sortie_id IS NULL",
+    "UPDATE votes_buddies SET groupe_id = (SELECT m.groupe_id FROM messages_buddies m WHERE m.id = message_id), "
+    "sortie_id = (SELECT m.sortie_id FROM messages_buddies m WHERE m.id = message_id) WHERE groupe_id IS NULL AND sortie_id IS NULL",
+    "UPDATE coeurs SET sortie_id = (SELECT h.sortie_id FROM hebergements h WHERE h.id = hebergement_id) WHERE sortie_id IS NULL",
+    "UPDATE dispos SET groupe_id = (SELECT p.groupe_id FROM plannings p WHERE p.id = planning_id) WHERE groupe_id IS NULL",
+    "UPDATE depenses SET groupe_id = (SELECT c.groupe_id FROM buddy_counts c WHERE c.id = count_id) WHERE count_id IS NOT NULL AND groupe_id IS NULL",
+    "UPDATE messages_buddies SET fichier_nom = (SELECT f.nom FROM fichiers_buddies f WHERE f.id = fichier_id), "
+    "fichier_mime = (SELECT f.mime FROM fichiers_buddies f WHERE f.id = fichier_id), "
+    "fichier_taille = (SELECT f.taille FROM fichiers_buddies f WHERE f.id = fichier_id), "
+    "fichier_envoye = (SELECT f.envoye FROM fichiers_buddies f WHERE f.id = fichier_id) WHERE fichier_id IS NOT NULL AND fichier_nom IS NULL",
+]
+
+
+def rattacher(s: Session) -> None:
+    for sql in RATTACHEMENTS:
+        s.execute(text(sql))
+
+
+VISIBLES_SQL = """
+    SELECT a.utilisateur_id, b.utilisateur_id FROM membres a JOIN membres b ON a.groupe_id = b.groupe_id
+      JOIN groupes g ON g.id = a.groupe_id WHERE g.supprime_le IS NULL
+    UNION
+    SELECT a.utilisateur_id, b.utilisateur_id FROM participants a JOIN participants b ON a.sortie_id = b.sortie_id
+      JOIN sorties so ON so.id = a.sortie_id WHERE so.supprime_le IS NULL
+    EXCEPT
+    SELECT utilisateur_id, bloque_id FROM blocages"""
+# Dont je reçois la fiche : les membres de mes groupes, ceux qui demandent à y entrer, les participants des sorties de
+# mes groupes et de celles où je participe.
+CONNUS_SQL = """
+    SELECT a.utilisateur_id, b.utilisateur_id FROM membres a JOIN membres b ON a.groupe_id = b.groupe_id
+    UNION
+    SELECT d.utilisateur_id, m.utilisateur_id FROM demandes_entree d JOIN membres m ON m.groupe_id = d.groupe_id
+    UNION
+    SELECT p.utilisateur_id, m.utilisateur_id FROM participants p JOIN sorties so ON so.id = p.sortie_id
+      JOIN membres m ON m.groupe_id = so.groupe_id
+    UNION
+    SELECT a.utilisateur_id, b.utilisateur_id FROM participants a JOIN participants b ON a.sortie_id = b.sortie_id"""
+
+
 def recalculer_visibles(s: Session) -> None:
-    """Remet la table `visibles` d'accord avec les groupes, les sorties et les blocages (voir modeles.Visible).
-    Tout est recalculé en une requête, puis seules les différences sont écrites : la réplication ne voit passer que
-    ce qui change. Coût : la somme des carrés des tailles de groupe, négligeable à notre échelle."""
+    """Remet les tables `visibles` et `connus` d'accord avec les groupes, les sorties et les blocages (voir
+    modeles.Visible, modeles.Connu). Tout est recalculé en une requête par table, puis seules les différences sont
+    écrites : la réplication ne voit passer que ce qui change. Coût : la somme des carrés des tailles de groupe,
+    négligeable à notre échelle."""
     s.flush()
-    voulu = {(str(a), str(b)) for a, b in s.execute(text("""
-        SELECT a.utilisateur_id, b.utilisateur_id FROM membres a JOIN membres b ON a.groupe_id = b.groupe_id
-          JOIN groupes g ON g.id = a.groupe_id WHERE g.supprime_le IS NULL
-        UNION
-        SELECT a.utilisateur_id, b.utilisateur_id FROM participants a JOIN participants b ON a.sortie_id = b.sortie_id
-          JOIN sorties so ON so.id = a.sortie_id WHERE so.supprime_le IS NULL
-        EXCEPT
-        SELECT utilisateur_id, bloque_id FROM blocages""")).all()}
-    voulu = {(uuid.UUID(a), uuid.UUID(b)) for a, b in voulu}
-    la = {(v.auteur_id, v.lecteur_id): v for v in s.scalars(select(Visible))}
-    for cle, v in la.items():
-        if cle not in voulu:
-            s.delete(v)
-    for a, b in voulu - set(la):
-        s.add(Visible(auteur_id=a, lecteur_id=b))
+    for modele, sql in ((Visible, VISIBLES_SQL), (Connu, CONNUS_SQL)):
+        voulu = {(uuid.UUID(str(a)), uuid.UUID(str(b))) for a, b in s.execute(text(sql)).all()}
+        la = {(v.auteur_id, v.lecteur_id): v for v in s.scalars(select(modele))}
+        for cle, v in la.items():
+            if cle not in voulu:
+                s.delete(v)
+        for a, b in voulu - set(la):
+            s.add(modele(auteur_id=a, lecteur_id=b))
     s.flush()
 
 

@@ -49,7 +49,7 @@ async function tirage(m, graine, etapes) {
     else if (p < 0.12 && !enAvion.has(a)) { lent(a, 300 + Math.floor(r() * 900)); journal.push(`${a.sub}: réseau lent`); }
     else if (p < 0.15 && !enAvion.has(a)) { instable(a, 0.5); journal.push(`${a.sub}: réseau instable`); }
     else if (p < 0.18 && !enAvion.has(a)) { await retablir(a); journal.push(`${a.sub}: réseau rétabli`); }
-    else if (p < 0.21) { await rouvrir(a); journal.push(`${a.sub}: appli tuée et rouverte`); }
+    else if (p < 0.21) { if (enAvion.has(a)) { await B.fermer(a); await B.ouvrirEnAvion(a); } else await rouvrir(a); journal.push(`${a.sub}: appli tuée et rouverte`); }
     else journal.push(`${a.sub}: ${await action(a, g, s, r, n)}`);
     if (r() < 0.3) await attendre(Math.floor(r() * 400));
   }
@@ -59,7 +59,8 @@ async function tirage(m, graine, etapes) {
     // Mêmes messages, dans le même ordre, sans doublon, chez les trois.
     let fils;
     await jusqua('le même fil chez les trois', async () => { fils = await Promise.all(tous.map((a) => textes(a, g))); return fils.every((l) => l.join('|') === fils[0].join('|')); }, 60_000);
-    if (new Set(fils[0]).size !== fils[0].length) throw new Error('doublons dans le fil');
+    const dits = fils[0].filter((t) => t);  // un message supprimé n'a plus de texte
+    if (new Set(dits).size !== dits.length) throw new Error(`doublons dans le fil : ${dits.filter((t, i) => dits.indexOf(t) !== i).join(', ')}`);
     await B.converge(tous, 60_000);
     return `graine ${graine} : ${etapes} étapes, ${fils[0].length} messages au bout, ${journal.filter((x) => /avion|coupure|lent|instable|tuée/.test(x)).length} incidents de réseau`;
   } catch (e) {

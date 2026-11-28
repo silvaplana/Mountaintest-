@@ -147,6 +147,9 @@ module.exports = [
     const e = await etat(julie);
     if ((e.positions ?? []).some((p) => p.lat === 44.5555) || (e.voitures ?? []).some((v) => v.lat === 44.6666)) throw new Error('Julie, bloquée, voit la position ou la voiture de Seb à l\'écran');
     if (MODE === 'powersync') { const b = await toutSqlite(julie); if (b.includes('44.5555') || b.includes('44.6666')) throw new Error('la position ou la voiture de Seb est dans la base du téléphone de Julie, bloquée (pas à l\'écran)'); }
+    // Débloquée, elle les revoit (et les cas suivants repartent sans blocage).
+    await js(seb, (j) => window.S.debloquer(j), julie.id);
+    await chez(julie, 'position et voiture de Seb après déblocage', (e) => (e.positions ?? []).some((p) => p.lat === 44.5555) && (e.voitures ?? []).some((v) => v.lat === 44.6666), 30_000);
   } },
 
   { nom: 'Deux téléphones pour le même compte : ce que je fais sur l\'un apparaît sur l\'autre', f: async ({ seb, julie }) => {

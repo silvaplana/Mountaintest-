@@ -1,0 +1,455 @@
+{
+ "mode": "actuelle",
+ "quand": "2026-11-28T02:32:00.913Z",
+ "resultats": [
+  {
+   "famille": "fonctions",
+   "nom": "Groupe créé, rejoint par deux personnes avec le même lien",
+   "etat": "réussi",
+   "ms": 4468,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Invitation « un admin accepte » : demande, refus pour l'un, accord pour l'autre",
+   "etat": "réussi",
+   "ms": 4833,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Rôles : nommer admin, retirer admin, transmettre le groupe, renommer",
+   "etat": "réussi",
+   "ms": 4375,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Messagerie : texte, réponse, réaction, modification, suppression",
+   "etat": "réussi",
+   "ms": 3698,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sondage : chacun vote, change son vote",
+   "etat": "réussi",
+   "ms": 3244,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Lu : quand Julie lit, Seb le voit",
+   "etat": "réussi",
+   "ms": 1932,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Discussion à deux : le troisième ne voit rien",
+   "etat": "réussi",
+   "ms": 2388,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Transférer un message vers un autre groupe",
+   "etat": "réussi",
+   "ms": 2865,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sortie : créée, renommée, supprimée puis remise",
+   "etat": "réussi",
+   "ms": 2959,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sortie avec un invité hors du groupe : il voit la sortie, pas le groupe",
+   "etat": "réussi",
+   "ms": 2218,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Planning de saison : trois réponses, une modifiée",
+   "etat": "réussi",
+   "ms": 2687,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Dépenses : ajoutée, modifiée, remboursée (« j'ai payé », « reçu »), retirée",
+   "etat": "réussi",
+   "ms": 3244,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Buddy count de groupe : créé, renommé, une dépense dedans",
+   "etat": "réussi",
+   "ms": 2147,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Hébergement : proposé, deux cœurs, retenu, retiré",
+   "etat": "réussi",
+   "ms": 4035,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Carnet : deux récits, des fiches de jour, les conditions",
+   "etat": "réussi",
+   "ms": 2739,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Trace partagée avec un groupe et avec une sortie",
+   "etat": "réussi",
+   "ms": 2743,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Voiture : garée, déplacée, enlevée",
+   "etat": "réussi",
+   "ms": 3459,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Position : épingle sur un groupe, 5 points, puis relevée",
+   "etat": "réussi",
+   "ms": 2968,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Position sur une sortie : vue des participants, pas du reste du groupe",
+   "etat": "réussi",
+   "ms": 2731,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Photos : trois déposées, une étoile, une placée, une retirée",
+   "etat": "réussi",
+   "ms": 3069,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Message « je suis ici » (point sur la carte) et message de 2 000 caractères avec accents et émojis",
+   "etat": "réussi",
+   "ms": 2123,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Groupe supprimé par son admin : il disparaît chez tous",
+   "etat": "réussi",
+   "ms": 2685,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Mode avion : 5 messages écrits sans réseau s'affichent tout de suite, partent au retour, dans l'ordre",
+   "etat": "réussi",
+   "ms": 3688,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau mort sans que le téléphone le sache (tunnel) : même chose",
+   "etat": "réussi",
+   "ms": 4149,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Hors ligne, appli fermée puis rouverte hors ligne : tout est encore là, ce qui attend aussi",
+   "etat": "réussi",
+   "ms": 5017,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Appli tuée juste après l'écriture, en ligne : le message arrive une seule fois",
+   "etat": "réussi",
+   "ms": 7737,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réponse perdue : le serveur a enregistré, le téléphone ne le sait pas et renvoie → pas de doublon",
+   "etat": "réussi",
+   "ms": 3354,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réponse perdue sur une dépense et un vote : comptés une seule fois",
+   "etat": "réussi",
+   "ms": 3167,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Serveur en panne (erreurs 503) pendant quelques envois : l'appli réessaie seule",
+   "etat": "réussi",
+   "ms": 2424,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau lent (1,5 s par échange) : tout arrive, rien ne disparaît de l'écran entre l'envoi et le retour",
+   "etat": "réussi",
+   "ms": 10804,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau instable (connexions qui tombent au hasard) pendant 30 messages de chaque côté",
+   "etat": "réussi",
+   "ms": 9318,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Le flux qui apporte les changements est coupé seul : j'écris quand même, et je rattrape au retour",
+   "etat": "réussi",
+   "ms": 3552,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Le serveur d'écriture est coupé seul : je reçois toujours, mes écritures attendent",
+   "etat": "réussi",
+   "ms": 17595,
+   "note": "reçu seulement au retour du serveur"
+  },
+  {
+   "famille": "reseau",
+   "nom": "Hors ligne des deux côtés, écritures croisées : au retour, mêmes messages dans le même ordre chez tous",
+   "etat": "réussi",
+   "ms": 4590,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Conflit : deux personnes renomment la même sortie hors ligne → tout le monde finit avec le même nom",
+   "etat": "réussi",
+   "ms": 3798,
+   "note": "nom gardé : Nom de Julie (le dernier arrivé au serveur)"
+  },
+  {
+   "famille": "reseau",
+   "nom": "Conflit : l'un modifie une dépense hors ligne pendant que l'autre la supprime",
+   "etat": "réussi",
+   "ms": 3546,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Écrire hors ligne dans un groupe dont on a été retiré entre-temps : refusé proprement, rien ne reste bloqué",
+   "etat": "réussi",
+   "ms": 4977,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Rafale : 200 messages écrits hors ligne arrivent tous, dans l'ordre",
+   "etat": "réussi",
+   "ms": 3551,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Longue absence : pendant qu'un téléphone est éteint, 60 changements (ajouts, modifications, suppressions) ; il rattrape tout",
+   "etat": "réussi",
+   "ms": 10138,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Coupures à répétition pendant une conversation à trois (10 cycles de 1 s)",
+   "etat": "réussi",
+   "ms": 15126,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Position envoyée hors ligne toutes les secondes : au retour, seule la dernière compte",
+   "etat": "réussi",
+   "ms": 4078,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Voiture garée hors ligne puis enlevée hors ligne : au retour, personne ne voit de voiture",
+   "etat": "réussi",
+   "ms": 4257,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Rejoindre un groupe par un lien ouvert hors ligne : l'entrée se fait au retour du réseau",
+   "etat": "réussi",
+   "ms": 2587,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Groupe, sortie, dépense et message créés hors ligne d'un coup : tout part dans l'ordre, rien n'est refusé",
+   "etat": "réussi",
+   "ms": 2911,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Quelqu'un qui n'est pas du groupe n'en reçoit rien, ni à l'écran ni dans la base du téléphone",
+   "etat": "réussi",
+   "ms": 4413,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Quitter un groupe : tout son contenu disparaît du téléphone",
+   "etat": "réussi",
+   "ms": 4078,
+   "note": "elle garde la sortie où elle était inscrite (règle du serveur, pareil sur les deux synchros)"
+  },
+  {
+   "famille": "droits",
+   "nom": "Retiré par un admin : tout disparaît, et la personne ne reçoit plus la suite",
+   "etat": "réussi",
+   "ms": 6307,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Un membre simple ne peut pas retirer quelqu'un ni supprimer le groupe : refusé, rien ne change",
+   "etat": "réussi",
+   "ms": 6370,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Modifier ou supprimer le message d'un autre : refusé",
+   "etat": "réussi",
+   "ms": 6396,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Nouveau membre : il reçoit tout l'historique du groupe",
+   "etat": "réussi",
+   "ms": 9545,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Invité d'une sortie : il a la sortie et son contenu, rien du groupe",
+   "etat": "réussi",
+   "ms": 6573,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Données privées : ni le mail ni le téléphone des autres ne descendent dans la base du téléphone",
+   "etat": "sans objet"
+  },
+  {
+   "famille": "droits",
+   "nom": "Personne bloquée : elle ne doit plus recevoir ma position ni ma voiture",
+   "etat": "réussi",
+   "ms": 6166,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Deux téléphones pour le même compte : ce que je fais sur l'un apparaît sur l'autre",
+   "etat": "réussi",
+   "ms": 6002,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Déconnexion puis autre compte sur le même téléphone : aucune donnée du premier ne reste",
+   "etat": "réussi",
+   "ms": 10144,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Premier lancement sur un téléphone neuf, hors ligne : l'appli s'ouvre vide, puis se remplit au retour du réseau",
+   "etat": "réussi",
+   "ms": 5559,
+   "note": ""
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 11 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 31459,
+   "note": "",
+   "erreur": "doublons dans le fil\n       graine 11, dernières étapes : sebmwzsczcl1: modification ; juliemwzsczcl1: position ; juliemwzsczcl1: message jul-111 ; juliemwzsczcl1: appli tuée et rouverte ; marcmwzsczcl1: position ; marcmwzsczcl1: message mar-114 ; marcmwzsczcl1: suppression de message ; marcmwzsczcl1: message mar-116 ; sebmwzsczcl1: voiture ; marcmwzsczcl1: réponse au planning ; sebmwzsczcl1: dépense modifiée ou retirée ; marcmwzsczcl1: modification\n       sebmwzsczcl1 : 0 en attente (), file PowerSync -, , dernières requêtes POST /buddies/sync | POST /buddies/sync | POST /buddies/sync | POST /buddies/sync\n       juliemwzsczcl1 : 0 en attente (), file PowerSync -, , dernières requêtes POST /buddies/sync | GET /buddies/evenements | POST /buddies/sync | POST /buddies/sync\n       marcmwzsczcl1 : 0 en attente (), file PowerSync -, , dernières requêtes POST /buddies/sync | GET /buddies/evenements | GET /moi | POST /buddies/sync"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 23 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 47149,
+   "note": "",
+   "erreur": "doublons dans le fil\n       graine 23, dernières étapes : juliemwzsczcl2: message jul-109 ; sebmwzsczcl2: suppression de message ; juliemwzsczcl2: message jul-111 ; sebmwzsczcl2: suppression de message ; marcmwzsczcl2: réponse au planning ; sebmwzsczcl2: coupure partielle ; marcmwzsczcl2: appli tuée et rouverte ; juliemwzsczcl2: message jul-116 ; juliemwzsczcl2: suppression de message ; sebmwzsczcl2: position ; sebmwzsczcl2: réponse au planning ; juliemwzsczcl2: message jul-120\n       sebmwzsczcl2 : 0 en attente (), file PowerSync -, , dernières requêtes GET /buddies/evenements | POST /buddies/sync | POST /buddies/sync | POST /buddies/sync\n       juliemwzsczcl2 : 0 en attente (), file PowerSync -, , dernières requêtes GET /moi | GET /buddies/evenements | POST /buddies/sync | POST /buddies/sync\n       marcmwzsczcl2 : 0 en attente (), file PowerSync -, , dernières requêtes GET /moi | POST /buddies/sync | GET /buddies/evenements | POST /buddies/sync"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 37 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 43931,
+   "note": "",
+   "erreur": "doublons dans le fil\n       graine 37, dernières étapes : sebmwzsczcl3: appli tuée et rouverte ; sebmwzsczcl3: réaction ; marcmwzsczcl3: modification ; marcmwzsczcl3: appli tuée et rouverte ; sebmwzsczcl3: message seb-113 ; sebmwzsczcl3: fin du mode avion ; juliemwzsczcl3: message jul-115 ; sebmwzsczcl3: dépense ; marcmwzsczcl3: modification ; juliemwzsczcl3: modification ; sebmwzsczcl3: sortie renommée ; sebmwzsczcl3: dépense\n       sebmwzsczcl3 : 0 en attente (), file PowerSync -, , dernières requêtes POST /buddies/sync | GET /mes-traces | PUT /mes-traces | POST /buddies/sync\n       juliemwzsczcl3 : 0 en attente (), file PowerSync -, , dernières requêtes GET /moi | GET /buddies/evenements | POST /buddies/sync | POST /buddies/sync\n       marcmwzsczcl3 : 0 en attente (), file PowerSync -, , dernières requêtes GET /buddies/evenements | POST /buddies/sync | GET /mes-traces | PUT /mes-traces"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 41 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 44658,
+   "note": "",
+   "erreur": "doublons dans le fil\n       graine 41, dernières étapes : marcmwzsczcl4: message mar-109 ; juliemwzsczcl4: appli tuée et rouverte ; marcmwzsczcl4: appli tuée et rouverte ; juliemwzsczcl4: message jul-112 ; sebmwzsczcl4: voiture ; juliemwzsczcl4: message jul-114 ; sebmwzsczcl4: réseau lent ; juliemwzsczcl4: message jul-116 ; marcmwzsczcl4: message mar-117 ; marcmwzsczcl4: appli tuée et rouverte ; juliemwzsczcl4: appli tuée et rouverte ; sebmwzsczcl4: position\n       sebmwzsczcl4 : 0 en attente (), file PowerSync -, , dernières requêtes POST /buddies/sync | POST /buddies/sync | POST /buddies/sync | POST /buddies/sync\n       juliemwzsczcl4 : 0 en attente (), file PowerSync -, , dernières requêtes GET /moi | POST /buddies/sync | GET /buddies/evenements | POST /buddies/sync\n       marcmwzsczcl4 : 0 en attente (), file PowerSync -, , dernières requêtes GET /buddies/evenements | POST /buddies/sync | POST /buddies/sync | POST /buddies/sync"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 53 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 33603,
+   "note": "",
+   "erreur": "doublons dans le fil\n       graine 53, dernières étapes : marcmwzsczcl5: suppression de message ; juliemwzsczcl5: dépense modifiée ou retirée ; marcmwzsczcl5: dépense modifiée ou retirée ; marcmwzsczcl5: mode avion ; juliemwzsczcl5: réaction ; marcmwzsczcl5: suppression de message ; juliemwzsczcl5: suppression de message ; juliemwzsczcl5: réponse au planning ; sebmwzsczcl5: position ; juliemwzsczcl5: suppression de message ; marcmwzsczcl5: dépense ; juliemwzsczcl5: message jul-120\n       sebmwzsczcl5 : 0 en attente (), file PowerSync -, , dernières requêtes GET /buddies/evenements | POST /buddies/sync | POST /buddies/sync | POST /buddies/sync\n       juliemwzsczcl5 : 0 en attente (), file PowerSync -, , dernières requêtes POST /buddies/sync | GET /mes-traces | POST /buddies/sync | PUT /mes-traces\n       marcmwzsczcl5 : 0 en attente (), file PowerSync -, , dernières requêtes GET /moi | POST /buddies/sync | GET /buddies/evenements | POST /buddies/sync"
+  },
+  {
+   "famille": "volume",
+   "nom": "Gros compte : 400 messages, 300 réactions, 90 sorties avec message et dépense, puis appli rouverte",
+   "etat": "réussi",
+   "ms": 20755,
+   "note": "400 messages, 300 réactions, 90 sorties : tout arrive, y compris après réouverture"
+  },
+  {
+   "famille": "lourd",
+   "nom": "PowerSync redémarre pendant une conversation : rien n'est perdu, la synchro reprend seule",
+   "etat": "sans objet"
+  },
+  {
+   "famille": "lourd",
+   "nom": "Postgres redémarre pendant une conversation : rien n'est perdu, la synchro reprend seule",
+   "etat": "réussi",
+   "ms": 15786,
+   "note": "tout est arrivé 2 s après le dernier message"
+  }
+ ]
+}

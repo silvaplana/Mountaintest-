@@ -94,6 +94,7 @@ async def cycle(_app: FastAPI):
     roles_de_groupe()
     with Session(moteur) as s:  # table dérivée (bêta PowerSync) : remise d'accord à chaque démarrage
         buddies.recalculer_visibles(s)
+        buddies.rattacher(s)
         s.commit()
     powersync.preparer(moteur)
     flux.demarrer(asyncio.get_running_loop())
@@ -143,6 +144,18 @@ COLONNES_AJOUTEES = [
     ("utilisateurs", "voiture_modele", "VARCHAR(60)"),
     ("utilisateurs", "voiture_forme", "VARCHAR(12)"),
     ("utilisateurs", "voiture_couleur", "VARCHAR(10)"),
+    # Recopies pour les règles PowerSync (buddies.rattacher remplit les lignes d'avant).
+    ("reactions_buddies", "groupe_id", "UUID"),
+    ("reactions_buddies", "sortie_id", "UUID"),
+    ("votes_buddies", "groupe_id", "UUID"),
+    ("votes_buddies", "sortie_id", "UUID"),
+    ("coeurs", "sortie_id", "UUID"),
+    ("dispos", "groupe_id", "UUID"),
+    ("depenses", "groupe_id", "UUID"),
+    ("messages_buddies", "fichier_nom", "VARCHAR(200)"),
+    ("messages_buddies", "fichier_mime", "VARCHAR(100)"),
+    ("messages_buddies", "fichier_taille", "BIGINT"),
+    ("messages_buddies", "fichier_envoye", "BOOLEAN"),
 ]
 
 
@@ -696,7 +709,7 @@ async def envoyer_fichier(fid: str, req: Request, j: dict = Depends(jeton_requis
     if not f.envoye:
         f.envoye = True
         for m in s.scalars(select(buddies.MessageBuddy).where(buddies.MessageBuddy.fichier_id == f.id)):
-            m.modifie_le = maintenant()
+            m.fichier_envoye, m.modifie_le = True, maintenant()
         s.commit()
         secouer(s, u)
     return {"ok": True}

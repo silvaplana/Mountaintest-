@@ -12,7 +12,7 @@ const path = require('node:path');
 const B = require('./suite/banc.cjs');
 
 const filtre = process.argv[2] ? new RegExp(process.argv[2], 'i') : null;
-const FAMILLES = ['fonctions', 'reseau', 'droits', 'hasard', 'lourd'];
+const FAMILLES = ['fonctions', 'reseau', 'droits', 'hasard', 'volume', 'lourd'];
 const DELAI_CAS = 180_000;
 
 (async () => {
@@ -33,7 +33,7 @@ const DELAI_CAS = 180_000;
       try {
         note = await Promise.race([
           (async () => { const r = await c.f(m); for (const a of m.tous) await B.retablir(a); if (!c.sansJuge) await B.converge(m.tous); return r; })(),
-          new Promise((_, non) => setTimeout(() => non(new Error(`cas trop long (${DELAI_CAS / 1000} s)`)), DELAI_CAS)),
+          new Promise((_, non) => setTimeout(() => non(new Error(`cas trop long (${(c.delai ?? DELAI_CAS) / 1000} s)`)), c.delai ?? DELAI_CAS)),
         ]);
       } catch (e) { erreur = String(e.message ?? e) + '\n       ' + (await Promise.all(m.tous.map((a) => B.diagnostic(a)))).join('\n       '); }
       const ms = Date.now() - t0;

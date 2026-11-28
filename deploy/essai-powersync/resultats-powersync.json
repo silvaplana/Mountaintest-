@@ -1,0 +1,462 @@
+{
+ "mode": "powersync",
+ "quand": "2026-11-28T02:23:15.713Z",
+ "resultats": [
+  {
+   "famille": "fonctions",
+   "nom": "Groupe créé, rejoint par deux personnes avec le même lien",
+   "etat": "réussi",
+   "ms": 7017,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Invitation « un admin accepte » : demande, refus pour l'un, accord pour l'autre",
+   "etat": "réussi",
+   "ms": 3110,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Rôles : nommer admin, retirer admin, transmettre le groupe, renommer",
+   "etat": "réussi",
+   "ms": 6358,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Messagerie : texte, réponse, réaction, modification, suppression",
+   "etat": "réussi",
+   "ms": 8636,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sondage : chacun vote, change son vote",
+   "etat": "réussi",
+   "ms": 9217,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Lu : quand Julie lit, Seb le voit",
+   "etat": "réussi",
+   "ms": 3792,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Discussion à deux : le troisième ne voit rien",
+   "etat": "réussi",
+   "ms": 3625,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Transférer un message vers un autre groupe",
+   "etat": "réussi",
+   "ms": 4341,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sortie : créée, renommée, supprimée puis remise",
+   "etat": "réussi",
+   "ms": 6641,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Sortie avec un invité hors du groupe : il voit la sortie, pas le groupe",
+   "etat": "réussi",
+   "ms": 6043,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Planning de saison : trois réponses, une modifiée",
+   "etat": "réussi",
+   "ms": 8137,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Dépenses : ajoutée, modifiée, remboursée (« j'ai payé », « reçu »), retirée",
+   "etat": "réussi",
+   "ms": 9847,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Buddy count de groupe : créé, renommé, une dépense dedans",
+   "etat": "réussi",
+   "ms": 4290,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Hébergement : proposé, deux cœurs, retenu, retiré",
+   "etat": "réussi",
+   "ms": 11224,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Carnet : deux récits, des fiches de jour, les conditions",
+   "etat": "réussi",
+   "ms": 4942,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Trace partagée avec un groupe et avec une sortie",
+   "etat": "réussi",
+   "ms": 4588,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Voiture : garée, déplacée, enlevée",
+   "etat": "réussi",
+   "ms": 6904,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Position : épingle sur un groupe, 5 points, puis relevée",
+   "etat": "réussi",
+   "ms": 5625,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Position sur une sortie : vue des participants, pas du reste du groupe",
+   "etat": "réussi",
+   "ms": 5838,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Photos : trois déposées, une étoile, une placée, une retirée",
+   "etat": "réussi",
+   "ms": 5894,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Message « je suis ici » (point sur la carte) et message de 2 000 caractères avec accents et émojis",
+   "etat": "réussi",
+   "ms": 2950,
+   "note": ""
+  },
+  {
+   "famille": "fonctions",
+   "nom": "Groupe supprimé par son admin : il disparaît chez tous",
+   "etat": "réussi",
+   "ms": 5223,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Mode avion : 5 messages écrits sans réseau s'affichent tout de suite, partent au retour, dans l'ordre",
+   "etat": "réussi",
+   "ms": 6684,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau mort sans que le téléphone le sache (tunnel) : même chose",
+   "etat": "réussi",
+   "ms": 5889,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Hors ligne, appli fermée puis rouverte hors ligne : tout est encore là, ce qui attend aussi",
+   "etat": "réussi",
+   "ms": 7084,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Appli tuée juste après l'écriture, en ligne : le message arrive une seule fois",
+   "etat": "réussi",
+   "ms": 10133,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réponse perdue : le serveur a enregistré, le téléphone ne le sait pas et renvoie → pas de doublon",
+   "etat": "réussi",
+   "ms": 3889,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réponse perdue sur une dépense et un vote : comptés une seule fois",
+   "etat": "réussi",
+   "ms": 4299,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Serveur en panne (erreurs 503) pendant quelques envois : l'appli réessaie seule",
+   "etat": "réussi",
+   "ms": 13039,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau lent (1,5 s par échange) : tout arrive, rien ne disparaît de l'écran entre l'envoi et le retour",
+   "etat": "réussi",
+   "ms": 9876,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Réseau instable (connexions qui tombent au hasard) pendant 30 messages de chaque côté",
+   "etat": "réussi",
+   "ms": 9777,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Le flux qui apporte les changements est coupé seul : j'écris quand même, et je rattrape au retour",
+   "etat": "réussi",
+   "ms": 6238,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Le serveur d'écriture est coupé seul : je reçois toujours, mes écritures attendent",
+   "etat": "réussi",
+   "ms": 20870,
+   "note": "reçu seulement au retour du serveur"
+  },
+  {
+   "famille": "reseau",
+   "nom": "Hors ligne des deux côtés, écritures croisées : au retour, mêmes messages dans le même ordre chez tous",
+   "etat": "réussi",
+   "ms": 11082,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Conflit : deux personnes renomment la même sortie hors ligne → tout le monde finit avec le même nom",
+   "etat": "réussi",
+   "ms": 12046,
+   "note": "nom gardé : Nom de Julie (le dernier arrivé au serveur)"
+  },
+  {
+   "famille": "reseau",
+   "nom": "Conflit : l'un modifie une dépense hors ligne pendant que l'autre la supprime",
+   "etat": "réussi",
+   "ms": 9618,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Écrire hors ligne dans un groupe dont on a été retiré entre-temps : refusé proprement, rien ne reste bloqué",
+   "etat": "réussi",
+   "ms": 10173,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Rafale : 200 messages écrits hors ligne arrivent tous, dans l'ordre",
+   "etat": "réussi",
+   "ms": 6070,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Longue absence : pendant qu'un téléphone est éteint, 60 changements (ajouts, modifications, suppressions) ; il rattrape tout",
+   "etat": "réussi",
+   "ms": 15907,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Coupures à répétition pendant une conversation à trois (10 cycles de 1 s)",
+   "etat": "réussi",
+   "ms": 47740,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Position envoyée hors ligne toutes les secondes : au retour, seule la dernière compte",
+   "etat": "réussi",
+   "ms": 8292,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Voiture garée hors ligne puis enlevée hors ligne : au retour, personne ne voit de voiture",
+   "etat": "réussi",
+   "ms": 8953,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Rejoindre un groupe par un lien ouvert hors ligne : l'entrée se fait au retour du réseau",
+   "etat": "réussi",
+   "ms": 6934,
+   "note": ""
+  },
+  {
+   "famille": "reseau",
+   "nom": "Groupe, sortie, dépense et message créés hors ligne d'un coup : tout part dans l'ordre, rien n'est refusé",
+   "etat": "réussi",
+   "ms": 9270,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Quelqu'un qui n'est pas du groupe n'en reçoit rien, ni à l'écran ni dans la base du téléphone",
+   "etat": "réussi",
+   "ms": 8391,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Quitter un groupe : tout son contenu disparaît du téléphone",
+   "etat": "réussi",
+   "ms": 8067,
+   "note": "elle garde la sortie où elle était inscrite (règle du serveur, pareil sur les deux synchros)"
+  },
+  {
+   "famille": "droits",
+   "nom": "Retiré par un admin : tout disparaît, et la personne ne reçoit plus la suite",
+   "etat": "réussi",
+   "ms": 9122,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Un membre simple ne peut pas retirer quelqu'un ni supprimer le groupe : refusé, rien ne change",
+   "etat": "réussi",
+   "ms": 6070,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Modifier ou supprimer le message d'un autre : refusé",
+   "etat": "réussi",
+   "ms": 6435,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Nouveau membre : il reçoit tout l'historique du groupe",
+   "etat": "réussi",
+   "ms": 12391,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Invité d'une sortie : il a la sortie et son contenu, rien du groupe",
+   "etat": "réussi",
+   "ms": 10627,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Données privées : ni le mail ni le téléphone des autres ne descendent dans la base du téléphone",
+   "etat": "réussi",
+   "ms": 5631,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Personne bloquée : elle ne doit plus recevoir ma position ni ma voiture",
+   "etat": "réussi",
+   "ms": 7452,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Deux téléphones pour le même compte : ce que je fais sur l'un apparaît sur l'autre",
+   "etat": "réussi",
+   "ms": 13976,
+   "note": ""
+  },
+  {
+   "famille": "droits",
+   "nom": "Déconnexion puis autre compte sur le même téléphone : aucune donnée du premier ne reste",
+   "etat": "échec",
+   "ms": 36097,
+   "note": "",
+   "erreur": "« le contenu de Julie chez juliemwzrqjom1 » pas arrivé en 30000 ms ; manque 44.106, 44.406 ; groupes 55\n       sebmwzrqjom1 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes POST /powersync/ecrire | GET /powersync/reste | GET /write-checkpoint2.json | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}\n       juliemwzrqjom1 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /powersync/reste | POST /powersync/ecrire | GET /write-checkpoint2.json | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}\n       marcmwzrqjom1 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /powersync/reste | GET /powersync/reste | GET /powersync/reste | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}"
+  },
+  {
+   "famille": "droits",
+   "nom": "Premier lancement sur un téléphone neuf, hors ligne : l'appli s'ouvre vide, puis se remplit au retour du réseau",
+   "etat": "réussi",
+   "ms": 9321,
+   "note": ""
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 11 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 26481,
+   "note": "",
+   "erreur": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://localhost:5174/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5174/\", waiting until \"load\"\u001b[22m\n\n       sebmwzrqjom2 : 1 en attente (message), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes POST /sync/stream | GET /powersync/reste | POST /powersync/ecrire | GET /write-checkpoint2.json ; file {\"posees\":1,\"parties\":1,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":1,\"attenteParties\":1}\n       juliemwzrqjom2 : 15 en attente (depense,reagir,message,dispo,modifier_message,renommer_sortie), file PowerSync 14, connecté false, envoi false, erreur [object Object], dernières requêtes GET /buddies/evenements | POST /ouverture | GET /moi | GET /buddies/evenements ; file {\"posees\":15,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":3,\"attentePosees\":15,\"attenteParties\":0}\n       marcmwzrqjom2 : page.evaluate: Execution context was destroyed, most likely because of a navigation"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 23 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 10264,
+   "note": "",
+   "erreur": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://localhost:5174/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5174/\", waiting until \"load\"\u001b[22m\n\n       sebmwzrqjom3 : 4 en attente (depense,message,epingle,position), file PowerSync 4, connecté true, envoi false, erreur [object Object], dernières requêtes GET /powersync/reste | GET /powersync/reste | GET /powersync/reste | GET /powersync/reste ; file {\"posees\":4,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":4,\"attenteParties\":0}\n       juliemwzrqjom3 : 4 en attente (message,dispo,renommer_sortie,modifier_message), file PowerSync 2, connecté true, envoi false, erreur [object Object], dernières requêtes POST /powersync/ecrire | GET /powersync/reste | POST /powersync/ecrire | GET /powersync/reste ; file {\"posees\":4,\"parties\":1,\"pret\":true,\"base\":true,\"poussees\":2,\"attentePosees\":4,\"attenteParties\":1}\n       marcmwzrqjom3 : page.evaluate: Execution context was destroyed, most likely because of a navigation"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 37 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 11722,
+   "note": "",
+   "erreur": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://localhost:5174/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5174/\", waiting until \"load\"\u001b[22m\n\n       sebmwzrqjom4 : page.evaluate: Execution context was destroyed, most likely because of a navigation\n       juliemwzrqjom4 : 4 en attente (message,modifier_message), file PowerSync 4, connecté true, envoi true, erreur , dernières requêtes GET /powersync/reste | GET /powersync/reste | POST /powersync/ecrire | GET /powersync/reste ; file {\"posees\":4,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":4,\"attenteParties\":0}\n       marcmwzrqjom4 : 6 en attente (message,epingle,position,modifier_message,reagir), file PowerSync 6, connecté false, envoi true, erreur [object Object], dernières requêtes OPTIONS /write-checkpoint2.json | GET /write-checkpoint2.json | GET /powersync/reste | POST /powersync/ecrire ; file {\"posees\":6,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":6,\"attenteParties\":0}"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 41 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 20245,
+   "note": "",
+   "erreur": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://localhost:5174/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5174/\", waiting until \"load\"\u001b[22m\n\n       sebmwzrqjom5 : page.evaluate: Execution context was destroyed, most likely because of a navigation\n       juliemwzrqjom5 : 4 en attente (message,epingle,position), file PowerSync 0, connecté false, envoi false, erreur , dernières requêtes GET /write-checkpoint2.json | POST /ouverture | GET /moi | GET /buddies/evenements ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}\n       marcmwzrqjom5 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /write-checkpoint2.json | GET /powersync/reste | POST /powersync/ecrire | GET /write-checkpoint2.json ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}"
+  },
+  {
+   "famille": "hasard",
+   "nom": "Tirage au hasard n° 53 : 120 actions et incidents",
+   "etat": "échec",
+   "ms": 20625,
+   "note": "",
+   "erreur": "page.goto: net::ERR_INTERNET_DISCONNECTED at http://localhost:5174/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5174/\", waiting until \"load\"\u001b[22m\n\n       sebmwzrqjom6 : page.evaluate: Execution context was destroyed, most likely because of a navigation\n       juliemwzrqjom6 : 1 en attente (message), file PowerSync 0, connecté false, envoi false, erreur , dernières requêtes POST /ouverture | GET /buddies/evenements | GET /moi | GET /powersync/reste ; file {\"posees\":1,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":4,\"attentePosees\":1,\"attenteParties\":0}\n       marcmwzrqjom6 : 3 en attente (reagir,message,recit), file PowerSync 3, connecté true, envoi true, erreur , dernières requêtes GET /powersync/reste | GET /powersync/reste | POST /powersync/ecrire | GET /powersync/reste ; file {\"posees\":3,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":3,\"attenteParties\":0}"
+  },
+  {
+   "famille": "volume",
+   "nom": "Gros compte : 400 messages, 300 réactions, 90 sorties avec message et dépense, puis appli rouverte",
+   "etat": "réussi",
+   "ms": 78423,
+   "note": "400 messages, 300 réactions, 90 sorties : tout arrive, y compris après réouverture"
+  },
+  {
+   "famille": "lourd",
+   "nom": "PowerSync redémarre pendant une conversation : rien n'est perdu, la synchro reprend seule",
+   "etat": "échec",
+   "ms": 158514,
+   "note": "",
+   "erreur": "« 9 messages chez juliemwzrqjom7 » pas arrivé en 150000 ms\n       sebmwzrqjom7 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /powersync/reste | GET /powersync/reste | GET /powersync/reste | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}\n       juliemwzrqjom7 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /write-checkpoint2.json | GET /powersync/reste | GET /powersync/reste | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}\n       marcmwzrqjom7 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /write-checkpoint2.json | GET /powersync/reste | GET /powersync/reste | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}"
+  },
+  {
+   "famille": "lourd",
+   "nom": "Postgres redémarre pendant une conversation : rien n'est perdu, la synchro reprend seule",
+   "etat": "échec",
+   "ms": 180048,
+   "note": "",
+   "erreur": "cas trop long (180 s)\n       sebmwzrqjom8 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /powersync/reste | OPTIONS /stockage/telephone | PUT /stockage/telephone | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}\n       juliemwzrqjom8 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /powersync/reste | OPTIONS /stockage/telephone | PUT /stockage/telephone | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}\n       marcmwzrqjom8 : 0 en attente (), file PowerSync 0, connecté true, envoi false, erreur , dernières requêtes GET /powersync/reste | OPTIONS /stockage/telephone | PUT /stockage/telephone | GET /powersync/reste ; file {\"posees\":0,\"parties\":0,\"pret\":true,\"base\":true,\"poussees\":0,\"attentePosees\":0,\"attenteParties\":0}"
+  }
+ ]
+}

@@ -35,13 +35,8 @@ PAR_GROUPE = {"groupe": f"groupe_id IN ({MES_GROUPES})"}
 # tient la table `visibles` (qui peut voir qui, modeles.Visible) et la règle exige d'y figurer.
 VISIBLE = "utilisateur_id IN (SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id())"
 # Tables que PowerSync doit suivre pour évaluer les règles, sans les envoyer aux téléphones.
-TABLES_DES_REGLES = ("visibles",)
+TABLES_DES_REGLES = ("visibles", "connus")
 PAR_SORTIE = {"sortie": f"sortie_id IN ({SORTIES_DE_MES_GROUPES})", "invite": f"sortie_id IN ({OU_JE_PARTICIPE})"}
-MES_MESSAGES = {
-    "groupe": f"SELECT id FROM messages_buddies WHERE groupe_id IN ({MES_GROUPES})",
-    "sortie": f"SELECT id FROM messages_buddies WHERE sortie_id IN ({SORTIES_DE_MES_GROUPES})",
-    "invite": f"SELECT id FROM messages_buddies WHERE sortie_id IN ({OU_JE_PARTICIPE})",
-}
 # De la fiche d'un buddy : ce qu'il montre aux autres. Jamais l'e-mail, le téléphone, l'IBAN ni le nom complet.
 FICHE = ("id, pseudo, photo, upper(substring(prenom, 1, 1)) AS initiale_prenom, upper(substring(nom, 1, 1)) AS initiale_nom, "
          "voiture_modele, voiture_forme, voiture_couleur")
@@ -56,10 +51,7 @@ def cle(*colonnes: str) -> str:
 FLUX: dict[str, tuple[str, dict[str, str]]] = {
     "utilisateurs": (FICHE, {
         "moi": "id = auth.user_id()",
-        "groupe": f"id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN ({MES_GROUPES}))",
-        "sortie": f"id IN (SELECT utilisateur_id FROM participants WHERE sortie_id IN ({SORTIES_DE_MES_GROUPES}))",
-        "invite": f"id IN (SELECT utilisateur_id FROM participants WHERE sortie_id IN ({OU_JE_PARTICIPE}))",
-        "demande": f"id IN (SELECT utilisateur_id FROM demandes_entree WHERE groupe_id IN ({MES_GROUPES}))",
+        "connu": "id IN (SELECT auteur_id FROM connus WHERE lecteur_id = auth.user_id())",
     }),
     "groupes": ("*", {"groupe": f"id IN ({MES_GROUPES})"}),
     "membres": (cle("groupe_id", "utilisateur_id"), PAR_GROUPE),
@@ -69,13 +61,13 @@ FLUX: dict[str, tuple[str, dict[str, str]]] = {
     "participants": (cle("sortie_id", "utilisateur_id"), PAR_SORTIE),
     "traces": ("*", {**PAR_GROUPE, **PAR_SORTIE}),
     "plannings": ("*", PAR_GROUPE),
-    "dispos": (cle("planning_id", "utilisateur_id", "debut"), {"groupe": f"planning_id IN (SELECT id FROM plannings WHERE groupe_id IN ({MES_GROUPES}))"}),
+    "dispos": (cle("planning_id", "utilisateur_id", "debut"), PAR_GROUPE),
     "photos": ("*", PAR_SORTIE),
     "recits": (cle("sortie_id", "utilisateur_id"), PAR_SORTIE),
     "fiches_jour": (cle("sortie_id", "jour"), PAR_SORTIE),
     "carnets": ("sortie_id AS id, *", PAR_SORTIE),
     "buddy_counts": ("*", {**PAR_GROUPE, **PAR_SORTIE}),
-    "depenses": ("*", {**PAR_SORTIE, "groupe": f"count_id IN (SELECT id FROM buddy_counts WHERE groupe_id IN ({MES_GROUPES}))"}),
+    "depenses": ("*", {**PAR_SORTIE, **PAR_GROUPE}),
     "positions": (cle("sortie_id", "utilisateur_id"), {k: f"{v} AND {VISIBLE}" for k, v in PAR_SORTIE.items()}),
     "positions_groupes": (cle("groupe_id", "utilisateur_id"), {k: f"{v} AND {VISIBLE}" for k, v in PAR_GROUPE.items()}),
     "voitures": ("utilisateur_id AS id, *", {
@@ -83,14 +75,10 @@ FLUX: dict[str, tuple[str, dict[str, str]]] = {
         "groupe": f"utilisateur_id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN ({MES_GROUPES})) AND {VISIBLE}",
     }),
     "hebergements": ("*", PAR_SORTIE),
-    "coeurs": (cle("hebergement_id", "utilisateur_id"), {
-        "sortie": f"hebergement_id IN (SELECT id FROM hebergements WHERE sortie_id IN ({SORTIES_DE_MES_GROUPES}))",
-        "invite": f"hebergement_id IN (SELECT id FROM hebergements WHERE sortie_id IN ({OU_JE_PARTICIPE}))",
-    }),
+    "coeurs": (cle("hebergement_id", "utilisateur_id"), PAR_SORTIE),
     "messages_buddies": ("*", {**PAR_GROUPE, **PAR_SORTIE}),
-    "reactions_buddies": (cle("message_id", "utilisateur_id"), {k: f"message_id IN ({v})" for k, v in MES_MESSAGES.items()}),
-    "votes_buddies": (cle("message_id", "utilisateur_id", "option"), {k: f"message_id IN ({v})" for k, v in MES_MESSAGES.items()}),
-    "fichiers_buddies": ("*", {k: f"id IN ({v.replace('SELECT id', 'SELECT fichier_id')})" for k, v in MES_MESSAGES.items()}),
+    "reactions_buddies": (cle("message_id", "utilisateur_id"), {**PAR_GROUPE, **PAR_SORTIE}),
+    "votes_buddies": (cle("message_id", "utilisateur_id", "option"), {**PAR_GROUPE, **PAR_SORTIE}),
     "lectures_buddies": (cle("utilisateur_id", "cle"), {
         "groupe": f"cle IN ({MES_GROUPES})", "sortie": f"cle IN ({SORTIES_DE_MES_GROUPES})", "invite": f"cle IN ({OU_JE_PARTICIPE})"}),
     "appels": ("*", {**PAR_GROUPE, **PAR_SORTIE}),
@@ -99,13 +87,36 @@ FLUX: dict[str, tuple[str, dict[str, str]]] = {
 TABLES = tuple(FLUX)
 
 
+# Les filtres communs : toutes les tables filtrées par « mes groupes » vont dans UN flux (de même « les sorties de mes
+# groupes » et « les sorties où je participe »). PowerSync fait alors un paquet par groupe ou par sortie, partagé par
+# toutes ces tables, et ne compte la liste de mes groupes qu'une fois. Un flux par table et par filtre atteignait le
+# plafond de 1000 par personne vers 250 messages ou 70 sorties, et le compte ne se synchronisait plus du tout.
+COMMUNS = {"groupe": ("mes_groupes", MES_GROUPES), "sortie": ("mes_sorties", SORTIES_DE_MES_GROUPES),
+           "invite": ("mes_participations", OU_JE_PARTICIPE)}
+
+
 def sync_config() -> str:
     lignes = ["# Écrit par deploy/comptes/powersync.py (python powersync.py) : ne pas modifier à la main.",
               "config:", "  edition: 3", "streams:"]
+    groupes: dict[str, list[str]] = {nom: [] for nom in COMMUNS}
+    seuls: list[str] = []
     for table, (colonnes, filtres) in FLUX.items():
         for nom, condition in filtres.items():
-            lignes += [f"  {table}_{nom}:", "    auto_subscribe: true", f"    query: SELECT {colonnes} FROM {table} WHERE {condition}"]
-    return "\n".join(lignes) + "\n"
+            cte, sous = COMMUNS.get(nom, ("", ""))
+            visible = condition.endswith(f" AND {VISIBLE}")
+            colonne = condition.removesuffix(f" AND {VISIBLE}").removesuffix(f" IN ({sous})")
+            if cte and colonne.isidentifier():
+                groupes[nom].append(f"      - SELECT {colonnes} FROM {table} WHERE {colonne} IN {cte}"
+                                    + (" AND utilisateur_id IN qui_se_montre" if visible else ""))
+            else:
+                seuls += [f"  {table}_{nom}:", "    auto_subscribe: true", f"    query: SELECT {colonnes} FROM {table} WHERE {condition}"]
+    for nom, requetes in groupes.items():
+        cte, sous = COMMUNS[nom]
+        lignes += [f"  {nom}:", "    auto_subscribe: true", "    with:", f"      {cte}: {sous}"]
+        if any("qui_se_montre" in r for r in requetes):
+            lignes.append("      qui_se_montre: SELECT auteur_id FROM visibles WHERE lecteur_id = auth.user_id()")
+        lignes += ["    queries:", *requetes]
+    return "\n".join(lignes + seuls) + "\n"
 
 
 KID = "mb-1"

@@ -138,6 +138,30 @@ module.exports = [
     await aLeMessage(julie, g, 'envoyé pendant la coupure du flux', 40_000);
   } },
 
+  { nom: 'La connexion se fige sans se fermer (serveur ou box qui disparaît sans prévenir) : le téléphone s\'en aperçoit seul', f: async ({ seb, julie }) => {
+    const g = await groupe(seb, [julie]);
+    await message(seb, g, 'avant le gel');
+    await aLeMessage(julie, g, 'avant le gel');
+    B.geler(julie, 'flux');
+    await message(seb, g, 'pendant le gel');
+    await attendre(4000);
+    // Le réseau remarche pour toute nouvelle connexion ; l'ancienne reste muette, et personne ne prévient l'appli.
+    julie.reseau.retablir();
+    const t0 = Date.now();
+    await aLeMessage(julie, g, 'pendant le gel', 150_000);
+    return `rattrapé ${Math.round((Date.now() - t0) / 1000)} s après le retour du réseau`;
+  } },
+
+  { nom: 'Trois minutes sans rien faire : la connexion reste en place, sans rebranchement inutile', seulement: 'powersync', delai: 300_000, f: async ({ seb, julie }) => {
+    const g = await groupe(seb, [julie]);
+    const avant = (await js(julie, () => window.P._file())).rebranchements;
+    await attendre(170_000);
+    const n = (await js(julie, () => window.P._file())).rebranchements - avant;
+    if (n) throw new Error(`${n} rebranchement(s) alors que la connexion marchait`);
+    await message(seb, g, 'après le calme');
+    await aLeMessage(julie, g, 'après le calme', 10_000);
+  } },
+
   { nom: 'Le serveur d\'écriture est coupé seul : je reçois toujours, mes écritures attendent', f: async ({ seb, julie }) => {
     const g = await groupe(seb, [julie]);
     couper(julie, 'api');

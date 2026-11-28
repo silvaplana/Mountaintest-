@@ -30,6 +30,7 @@ function relais() {
     r.prises.set(q.socket, s);
     if (s !== 'page') r.vus.push(`${q.method} ${u.pathname}`);
     if (r.coupe.has(s)) { q.socket.destroy(); return; }
+    if (r.gele.has(s)) return;  // figé : la requête part, rien ne revient
     const regle = s === 'page' ? undefined : r.regles.find((x) => x.reste > 0 && x.quoi.test(`${q.method} ${u.pathname}`));
     if (regle) regle.reste--;
     if (regle?.statut) { q.resume(); rep.writeHead(regle.statut, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }).end('{"detail":"panne simulée"}'); return; }
@@ -44,7 +45,12 @@ function relais() {
         if (s !== 'page' && r.latence) await attendre(r.latence);
         if (q.socket.destroyed) { p.destroy(); return; }
         rep.writeHead(x.statusCode, x.headers);
-        x.pipe(rep);
+        // Figé : la connexion reste ouverte mais plus rien ne passe, et elle ne se fermera jamais (voir `geler`).
+        let fige = false;
+        x.on('data', (d) => { fige = fige || r.gele.has(s); if (!fige) rep.write(d); });
+        x.on('end', () => { if (!fige && !r.gele.has(s)) rep.end(); });
+        // Le serveur est tombé au milieu d'une réponse : le téléphone voit la connexion se fermer.
+        x.on('close', () => { if (!x.complete && !fige) q.socket.destroy(); });
         // Réseau instable : la connexion tombe au bout d'un moment, au hasard.
         if (s !== 'page' && r.instable && Math.random() < r.instable) setTimeout(() => q.socket.destroy(), 100 + Math.random() * 1500);
       });
@@ -59,8 +65,10 @@ function relais() {
     const t = net.connect(Number(port), h === 'localhost' ? '127.0.0.1' : h, () => { prise.write('HTTP/1.1 200 OK\r\n\r\n'); t.pipe(prise); prise.pipe(t); });
     t.on('error', () => prise.destroy()); prise.on('error', () => t.destroy());
   });
+  r.gele = new Set();
+  r.geler = (...services) => { for (const x of services) r.gele.add(x); };
   r.couper = (...services) => { for (const s of services) r.coupe.add(s); for (const [prise, s] of r.prises) if (r.coupe.has(s)) { prise.destroy(); r.prises.delete(prise); } };
-  r.retablir = () => { r.coupe.clear(); r.latence = 0; r.instable = 0; r.regles = []; };
+  r.retablir = () => { r.coupe.clear(); r.gele.clear(); r.latence = 0; r.instable = 0; r.regles = []; };
   r.fermer = () => { for (const prise of r.prises.keys()) prise.destroy(); srv.close(); };
   return new Promise((ok) => srv.listen(0, '127.0.0.1', () => { r.port = srv.address().port; ok(r); }));
 }
@@ -144,6 +152,8 @@ const vide = (a, delai = 20_000) => jusqua(`file de ${a.sub} vide`, async () => 
 /** Mode avion : le téléphone SAIT qu'il n'a pas de réseau. */
 async function avion(a, oui) { if (oui) a.reseau.couper('api', 'flux'); else a.reseau.retablir(); await a.ctx.setOffline(oui); if (!oui && a.page) await js(a, () => window.S.synchroniser().catch(() => undefined)); }
 /** Réseau mort sans que le téléphone le sache (wifi sans internet, tunnel). */
+/** La connexion se fige sans se fermer : plus rien ne passe, et le téléphone n'est prévenu de rien. */
+function geler(a, ...services) { a.reseau.geler(...(services.length ? services : ['api', 'flux'])); }
 function couper(a, ...services) { a.reseau.couper(...(services.length ? services : ['api', 'flux'])); }
 async function retablir(a) { a.reseau.retablir(); await a.ctx.setOffline(false); if (a.page) await js(a, () => window.S.synchroniser().catch(() => undefined)).catch(() => undefined); }
 const lent = (a, ms) => { a.reseau.latence = ms; };
@@ -213,5 +223,5 @@ const message = (a, g, texte, plus = {}) => js(a, ([g, texte, plus]) => window.S
 const textes = async (a, g) => (await vue(a)).messages.filter((m) => m.groupe === g && !m.retire).map((m) => m.texte);
 const aLeMessage = (a, g, texte, delai) => jusqua(`« ${texte} » chez ${a.sub}`, async () => (await textes(a, g)).includes(texte), delai);
 
-module.exports = { ouvrirEnAvion, diagnostic, MODE, PAGE, API, attendre, demarrer, arreter, telephone, connecter, ouvrir, fermer, rouvrir, jeter, js, etat, vue, sql, jusqua, vide, avion, couper,
+module.exports = { geler, ouvrirEnAvion, diagnostic, MODE, PAGE, API, attendre, demarrer, arreter, telephone, connecter, ouvrir, fermer, rouvrir, jeter, js, etat, vue, sql, jusqua, vide, avion, couper,
   retablir, lent, instable, perdreReponse, panne, verite, ecarts, converge, groupe, message, textes, aLeMessage, jetonEssai };

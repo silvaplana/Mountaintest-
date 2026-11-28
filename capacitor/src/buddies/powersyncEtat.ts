@@ -109,16 +109,14 @@ export function projeter(t: Record<string, Ligne[]>, moi: string, vus: Record<st
     retenu: !!h.retenu, par: h.par, coeurs: (coeurs.get(h.id) ?? []).map((c) => c.utilisateur_id as string).sort(), cree_le: iso(h.cree_le), modifie_le: iso(h.modifie_le) }));
 
   const reactions = par(t.reactions_buddies, 'message_id'), votes = par(t.votes_buddies, 'message_id');
-  const fichiers = new Map(t.fichiers_buddies.map((f) => [f.id as string, f]));
   const messages: MessageBuddy[] = tri(t.messages_buddies.filter((m) => ici(m) && ms(m.cree_le) > maintenant - 90 * JOUR), 'cree_le').map((m) => {
-    const f = m.fichier_id ? fichiers.get(m.fichier_id) : undefined;
     const sondage = m.sondage ? json<{ question: string; multiple: boolean; options: string[] } | null>(m.sondage, null) : null;
     return {
       id: m.id, groupe: m.groupe_id ?? null, sortie: m.sortie_id ?? null, par: m.par, nature: m.nature, texte: m.texte, lon: m.lon, lat: m.lat,
       photo: m.photo_id ?? null, bud: !!m.bud, cree_le: iso(m.cree_le), repond_a: m.repond_a ?? null, edite: !!m.edite_le, supprime: !!m.supprime,
       reactions: tri(reactions.get(m.id) ?? [], 'cree_le').map((r) => ({ qui: r.utilisateur_id, emoji: r.emoji })), transfere: !!m.transfere,
       planning: m.planning_id ?? null,
-      fichier: f ? { id: f.id, nom: f.nom, mime: f.mime, taille: f.taille, envoye: !!f.envoye } : null,
+      fichier: m.fichier_id ? { id: m.fichier_id, nom: m.fichier_nom, mime: m.fichier_mime, taille: m.fichier_taille, envoye: !!m.fichier_envoye } : null,
       sondage: sondage ? { ...sondage, votes: tri(votes.get(m.id) ?? [], 'cree_le').map((v) => ({ qui: v.utilisateur_id, option: v.option })) } : null,
     };
   });
@@ -173,7 +171,7 @@ const FICHIER = 'buddies.db';
 
 export const laBase = () => base;
 /** Pour les essais : où en est la file d'envoi. */
-export const _file = () => ({ posees: [...posees], parties: [...parties.keys()], pret: !!pret, base: !!base, poussees: enFile });
+export const _file = () => ({ posees: [...posees], parties: [...parties.keys()], pret: !!pret, base: !!base, poussees: enFile, rebranchements });
 
 async function ouvrir(): Promise<AbstractPowerSyncDatabase> {
   if (Capacitor.isNativePlatform()) {
@@ -191,6 +189,53 @@ async function ouvrir(): Promise<AbstractPowerSyncDatabase> {
   return b;
 }
 
+let acces_ps: { endpoint: string; token: string } | null = null;
+const brancher = (b: AbstractPowerSyncDatabase) => b.connect({
+  fetchCredentials: async () => {
+    const j = await api<{ token: string; endpoint: string; moi: string; maintenant: number }>('GET', '/powersync/jeton');
+    acces_ps = { endpoint: j.endpoint, token: j.token };
+    return acces_ps;
+  },
+  uploadData: envoyer,
+}, { retryDelayMs: 3000, crudUploadThrottleMs: 100 });
+
+/**
+ * Une connexion peut se figer sans se fermer (antenne perdue, box qui oublie la connexion, serveur qui disparaît) :
+ * PowerSync n'a pas de minuterie et resterait « connecté » pour toujours, sans plus rien recevoir. Toutes les 45 s,
+ * on demande donc au service un point de contrôle : il revient par le flux en une seconde. S'il n'est pas revenu
+ * 20 s après, le flux est mort et on le rebranche. Rien n'est perdu : la reprise repart de ce que la base a déjà.
+ */
+const GARDE = 45_000, DELAI_GARDE = 20_000;
+let garde: ReturnType<typeof setInterval> | null = null;
+let rebranchements = 0;
+function surveiller(b: AbstractPowerSyncDatabase) {
+  if (garde) clearInterval(garde);
+  garde = setInterval(() => void (async () => {
+    if (base !== b) { if (garde) clearInterval(garde); return; }
+    if (typeof document !== 'undefined' && document.hidden) return;
+    const st = b.currentStatus;
+    // Pas connecté : PowerSync réessaie déjà. Des envois en attente : aucun point de contrôle n'est appliqué avant leur retour.
+    if (!st.connected || !acces_ps || posees.size || (await b.getNextCrudTransaction())) return;
+    const parti = Date.now();
+    const demander = (x: { endpoint: string; token: string }, id: string) => fetch(`${x.endpoint}/write-checkpoint2.json?client_id=${id}`,
+      { headers: { Authorization: `Token ${x.token}` }, signal: AbortSignal.timeout(10_000) }).catch(() => null);
+    const id = await b.getClientId();
+    let r = await demander(acces_ps, id);
+    if (r?.status === 401) {  // jeton périmé : un flux figé ne le renouvelle plus
+      const j = await api<{ token: string; endpoint: string }>('GET', '/powersync/jeton');
+      r = await demander({ endpoint: j.endpoint, token: j.token }, id);
+    }
+    if (!r?.ok) return;  // sans réseau : rien à conclure
+    await new Promise((ok) => setTimeout(ok, DELAI_GARDE));
+    if (base !== b || !b.currentStatus.connected || posees.size) return;
+    if ((b.currentStatus.lastSyncedAt?.getTime() ?? 0) >= parti) return;
+    journal('powersync', 'flux muet : rebranché');
+    rebranchements++;
+    await b.disconnect();
+    if (base === b) void brancher(b);
+  })().catch(() => undefined), GARDE);
+}
+
 /** Ouvre SQLite et lance la synchro. Sans compte connecté : rien. Appelée au démarrage et à la connexion. */
 export function demarrer(a: Acces): Promise<void> {
   acces = a;
@@ -201,13 +246,8 @@ export function demarrer(a: Acces): Promise<void> {
     for (const x of await b.getAll<{ id: string }>("SELECT json_extract(data, '$.id') AS id FROM ps_crud")) posees.add(x.id);
     const premiere = !a.lire().synchro;
     if (premiere) a.premiere(true);
-    void b.connect({
-      fetchCredentials: async () => {
-        const j = await api<{ token: string; endpoint: string; moi: string; maintenant: number }>('GET', '/powersync/jeton');
-        return { endpoint: j.endpoint, token: j.token };
-      },
-      uploadData: envoyer,
-    }, { retryDelayMs: 3000, crudUploadThrottleMs: 100 });
+    void brancher(b);
+    surveiller(b);
     b.onChange({ onChange: () => { planifier(); } }, { tables: TABLES, throttleMs: 60 });
     b.registerListener({ statusChanged: () => planifier() });
     await rafraichir();
@@ -229,6 +269,8 @@ export function demarrer(a: Acces): Promise<void> {
 export async function oublier() {
   const b = base;
   base = null; pret = null; vus = {}; parties.clear(); posees.clear();
+  if (garde) clearInterval(garde);
+  garde = null; acces_ps = null;
   await b?.disconnectAndClear().catch(() => undefined);
   await b?.close().catch(() => undefined);
 }

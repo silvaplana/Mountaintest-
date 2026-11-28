@@ -16,3 +16,9 @@ client_auth:
   audience: ["powersync"]
 telemetry:
   disable_telemetry_sharing: true
+# Plafonds par personne (1000 par défaut). Les règles font un paquet par groupe et par sortie : la marge couvre des
+# années de sorties. Au plafond, PowerSync refuse de synchroniser le compte : mieux vaut large.
+api:
+  parameters:
+    max_buckets_per_connection: 5000
+    max_parameter_query_results: 5000

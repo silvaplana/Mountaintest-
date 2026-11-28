@@ -238,6 +238,7 @@ class Dispo(Base):
     debut: Mapped[str] = mapped_column(String(10), primary_key=True)
     etat: Mapped[str] = mapped_column(String(4), nullable=False)
     mot: Mapped[str] = mapped_column(String(200), nullable=False, default="")
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)  # recopie du planning (règles PowerSync)
 
 
 class Photo(Base):
@@ -330,6 +331,7 @@ class Depense(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     sortie_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sorties.id", ondelete="CASCADE"), index=True)
     count_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("buddy_counts.id", ondelete="CASCADE"), index=True)
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)  # recopie du Buddy count de groupe (règles PowerSync)
     titre: Mapped[str] = mapped_column(String(80), nullable=False)
     montant: Mapped[int] = mapped_column(Integer, nullable=False)  # centimes
     paye_par: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id"), nullable=False)
@@ -425,6 +427,7 @@ class Coeur(Base):
 
     hebergement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("hebergements.id", ondelete="CASCADE"), primary_key=True)
     utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)  # recopie de l'hébergement (règles PowerSync)
 
 
 class MessageBuddy(Base):
@@ -457,6 +460,11 @@ class MessageBuddy(Base):
     # Un planning du groupe de la conversation, en carte dans le fil (Seb, 27/11, §7.28).
     planning_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
+    # Recopie du fichier joint (FichierBuddy) : le téléphone le lit avec le message, sans table à part.
+    fichier_nom: Mapped[str | None] = mapped_column(String(200))
+    fichier_mime: Mapped[str | None] = mapped_column(String(100))
+    fichier_taille: Mapped[int | None] = mapped_column(BigInteger)
+    fichier_envoye: Mapped[bool | None] = mapped_column(Boolean)
     modifie_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant, index=True)
 
 
@@ -468,6 +476,9 @@ class ReactionBuddy(Base):
     message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("messages_buddies.id", ondelete="CASCADE"), primary_key=True)
     utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
     emoji: Mapped[str] = mapped_column(String(16), nullable=False)
+    # Recopie du groupe ou de la sortie du message : les règles PowerSync filtrent sur une colonne de la table envoyée.
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 
 
@@ -494,6 +505,9 @@ class VoteBuddy(Base):
     message_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("messages_buddies.id", ondelete="CASCADE"), primary_key=True)
     utilisateur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
     option: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Recopie du groupe ou de la sortie du message : les règles PowerSync filtrent sur une colonne de la table envoyée.
+    groupe_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
+    sortie_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, index=True)
     cree_le: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=maintenant)
 
 
@@ -540,6 +554,17 @@ class Visible(Base):
     recalculée par `buddies.recalculer_visibles` ; rien d'autre ne la lit."""
 
     __tablename__ = "visibles"
+
+    auteur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+    lecteur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
+
+
+class Connu(Base):
+    """Bêta PowerSync : de qui (`auteur_id`) chacun (`lecteur_id`) reçoit la fiche (pseudo, photo, initiales). Même
+    principe que `visibles` : une règle « les participants des sorties de mes groupes » coûtait à PowerSync une ligne
+    par participant et par sortie, et son plafond de 1000 par personne arrêtait la synchro. Ici : une par personne connue."""
+
+    __tablename__ = "connus"
 
     auteur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
     lecteur_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("utilisateurs.id", ondelete="CASCADE"), primary_key=True)
