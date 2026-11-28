@@ -15,6 +15,7 @@ const PocketMode = registerPlugin<{
 /** Plugin natif (android/.../PhotoCapture.java, identique côté Kotlin) : ouvre l'application Appareil photo. */
 import { Photo } from './buddies/photoPrise';
 import { IconeSuisCarte } from './buddies/IconeSuisCarte';
+import { PositionIcon } from './buddies/Positions';
 /** Plugin natif (shared/Weather.java) : ouvre l'appli Météo-France, ou sa page Météo montagne. */
 const Weather = registerPlugin<{ open(o: { mountain: boolean }): Promise<void> }>('Weather');
 const BatterySettings = registerPlugin<{ open(o: { what: string }): Promise<void>; airplane(): Promise<{ on: boolean }> }>('BatterySettings');
@@ -32,6 +33,8 @@ export interface QuickProps {
   onSearch: () => void;
   /** 🗺 Partager ma carte, sous la loupe (Seb, 27/11) ; verte pendant le partage. */
   onCarte?: () => void; carteOn?: boolean;
+  /** Ma position, sous la loupe (Seb, 28/11) : appui = partager (à qui ?) ou arrêter ; appui long = qui me voit. */
+  positionOn?: boolean; onPosition?: () => void; onPositionLong?: () => void;
   /** 🗺 : appui = fond suivant ; appui long = choisir le fond. */
   onBaseLayer: () => void;
   /** Fonds de carte permis (version Play : Plan IGN seul, sauf SCAN 25 débloqué). */
@@ -176,7 +179,7 @@ const WIDE_KEY = 'iconesEtendu';
 const ACTIVITIES = Object.keys(ACTIVITY_ICON) as Activity[];
 const LAYER_SHORT: Record<BaseMode, string> = { auto: 'Auto', scan25: 'SCAN 25', planign: 'Plan IGN' };
 
-export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onCarte, carteOn, onBaseLayer, fonds, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
+export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onCarte, carteOn, positionOn, onPosition, onPositionLong, onBaseLayer, fonds, baseLayer, onPickBaseLayer, slopes, onSlopes, shade, onShade, tilted, onTilt3d, onFlat, forests, onForests, drones, onDrones, offline, onOffline, onBuddies, nouveautes, onSkiText, activity, onActivity, onTopos, weather, onWeather, junctionWake, onJunctionWake, offVibrate, onOffVibrate, traceState }: QuickProps) {
   // Flèche : barre réduite (✕, flèche, ◎, 📷) ou étendue, tout sur une colonne (demande de Seb, 24/11). Choix gardé.
   const [wide, setWideState] = useState(() => { try { return localStorage.getItem(WIDE_KEY) === '1'; } catch { return false; } });
   const toggleWide = () => {
@@ -291,6 +294,7 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onCarte
   // Appui long sur la flèche : aide (une étiquette à gauche de chaque icône) ; toucher n'importe où la ferme.
   const [help, setHelp] = useState(false);
   const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
+  const posPress = useRef<{ t?: number; long?: boolean }>({});
   const all = help || wide;
   const wx = useRef<{ timer: ReturnType<typeof setTimeout> | null; long: boolean }>({ timer: null, long: false });
   // Appui long sur une icône : bulle d'aide à sa gauche (pour ⛰, la légende des couleurs en degrés) ; toucher ailleurs la ferme.
@@ -392,6 +396,12 @@ export function QuickButtons({ onFermer, geo, onToast, onDraw, onSearch, onCarte
         onClick={() => { void geo?.trigger(); setTimeout(() => setWatch(((geo as unknown as { _watchState?: WatchState })?._watchState) ?? 'OFF'), 50); }}><LocateIcon /></button>
       {/* 🔍 de nouveau visible sous ◎, même en colonne réduite (Seb, 25/11). */}
       <button aria-label="Rechercher un lieu" data-help="Chercher un lieu" {...lp('search')} onClick={onSearch}>🔍</button>
+      {onPosition && <button className={`qb-position${positionOn ? ' on' : ''}`} aria-pressed={!!positionOn}
+        aria-label={positionOn ? 'Arrêter de partager ma position' : 'Partager ma position'} data-help="Signaler ma position à mes buddies"
+        onPointerDown={() => { posPress.current.long = false; clearTimeout(posPress.current.t);
+          if (onPositionLong) posPress.current.t = window.setTimeout(() => { posPress.current.long = true; onPositionLong(); }, 550); }}
+        onPointerUp={() => clearTimeout(posPress.current.t)} onPointerLeave={() => clearTimeout(posPress.current.t)}
+        onClick={() => { if (!posPress.current.long) onPosition(); }}><PositionIcon on={!!positionOn} /></button>}
       {onCarte && <button className={`qb-carte${carteOn ? ' on' : ''}`} aria-label={carteOn ? 'Arrêter de partager ma carte' : 'Partager ma carte'} data-help="Partager ma carte"
         {...lp('carte')} onClick={onCarte}><IconeSuisCarte /></button>}
       <button disabled={!native} aria-label="Prendre une photo" data-help="Prendre des photos sans quitter l'application" {...lp('photo')}
