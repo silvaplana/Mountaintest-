@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mountain Buddies Bêta</title>
+<link rel="icon" href="icone-beta.png">
+<style>
+  :root { --bg: #e2e9ef; --fg: #16222f; --muted: #34475b; --accent: #b8560a; --glass: #f6f8fab3; --line: #e0a060; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141d27; --fg: #f4f7fa; --muted: #a8b7c6; --accent: #ffb060; --glass: #1d2834cc; --line: #8a5a20; } }
+  body { margin: 0; font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg); background: var(--bg); }
+  main { max-width: 440px; margin: 0 auto; padding: 36px 16px 40px; text-align: center; }
+  .logo { width: 96px; height: 96px; border-radius: 22px; }
+  h1 { font-size: 28px; margin: 12px 0 4px; }
+  p { color: var(--muted); margin: 8px 0; }
+  a.b { display: block; margin: 24px 0 18px; padding: 16px; border-radius: 28px; text-decoration: none; font-weight: 800; font-size: 20px;
+    background: var(--glass); color: var(--accent); border: 1.5px solid var(--line); box-shadow: 0 2px 8px #0002; }
+  a.web { color: var(--accent); }
+  small { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="icone-beta.png" alt="">
+  <h1>Mountain Buddies Bêta</h1>
+  <p>La version d'essai. Elle s'installe à côté de l'appli normale, avec une copie des données : ce qu'on y fait ne change rien dans l'appli normale.</p>
+  <a class="b" href="mountain-buddies-beta.apk">Télécharger la bêta</a>
+  <p><a class="web" href="../app/">ou l'ouvrir dans le navigateur</a></p>
+  <p><small>Version @BUILD@ du @DATE@ · @TAILLE@ Mo</small></p>
+</main>
+</body>
+</html>

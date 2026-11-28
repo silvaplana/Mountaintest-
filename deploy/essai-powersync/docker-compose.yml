@@ -22,4 +22,4 @@ services:
       NODE_OPTIONS: --max-old-space-size=400
     extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["127.0.0.1:8080:8080"]
-    volumes: ["./powersync.yaml:/config/powersync.yaml:ro", "./sync-config.yaml:/config/sync-config.yaml:ro"]
+    volumes: ["../beta/powersync.yaml:/config/powersync.yaml:ro", "../beta/sync-config.yaml:/config/sync-config.yaml:ro"]

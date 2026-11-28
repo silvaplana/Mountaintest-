@@ -11,13 +11,13 @@
  */
 import { envoyer as envoyerFichier, oublier as oublierFichier } from './album';
 import { envoyer as envoyerFichierMessage, oublier as oublierFichierMessage } from './fichiers';
-import { api, connecte, initiales, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
+import { api, API_URL, connecte, initiales, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
 import { annoncerRestauration, debutRestauration } from '../compte/Restauration';
 import { POWERSYNC } from '../config';
 import * as ps from './powersyncEtat';
 
 // Le lien d'invitation (§7.29) : aperçu pour WhatsApp, puis la page principale avec le bandeau de l'invitation.
-export const LIEN_INVITATION = 'https://mountainbuddies.silvaplana.cloud/api/i?c=';
+export const LIEN_INVITATION = `${API_URL}/i?c=`;
 const CLE = 'buddies';
 const CLE_ATTENTE = 'buddies-attente';
 
