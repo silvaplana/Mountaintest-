@@ -167,7 +167,7 @@ export function PropositionCarteAppli({ onToast }: { onToast: (m: string) => voi
   return <div className="ap-propose-voile">
     <div className="ap-propose" role="dialog" aria-label="Carte partagée">
       <span className="ap-propose-icone"><IconeSuisCarte /></span>
-      <div className="ap-propose-texte"><b>{p.de} partage sa carte</b>
+      <div className="ap-propose-texte"><b>{p.de} montre sa carte</b>
         <div>{appel ? `pendant l'appel · ${p.titre ?? ''}` : p.titre}</div></div>
       <div className="ap-propose-boutons">
         <button className="ap-propose-non" onClick={() => setP(null)}>Non merci</button>

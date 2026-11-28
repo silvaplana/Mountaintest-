@@ -787,6 +787,9 @@ Un bloc = une PR, dans les deux applis (Capacitor et Kotlin), chacun utilisable 
 - **Ce qui part chez ceux qui suivent** (Seb, 27 novembre : « tout ce qui est dans mon écran ») : toutes mes traces
   affichées, puis les autres traces (randos…) qui passent dans l'écran, 15 au plus, allégées à 500 points en tout
   (30 au moins par trace). Le contenu part, pas seulement l'identifiant : l'autre ne les a pas.
+- **Vocabulaire (Seb, 28/11)** : on « montre » sa carte, on ne la « partage » pas. Aide de l'icône : « Montrer
+  interactivement ma carte à mes buddies » ; feuille « Montrer ma carte à qui ? » ; messages et notifications
+  « Seb montre sa carte », « Seb a montré sa carte dans <groupe> », « … a arrêté de montrer sa carte ».
 - **🗺 Partager ma carte : une icône sous la loupe** (Seb, 27 novembre ; remplace l'icône de la barre d'appel et du
   haut de la messagerie, et le « Suivre » du fil). Le partage est indépendant de l'appel et des messages. Un appui :
   « Partager ma carte avec qui ? » (groupes et sorties, puis buddies ; derniers choisis d'abord ; même feuille que

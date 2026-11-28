@@ -9,7 +9,7 @@ export const ICON_HELP: Record<IconKey, { title: string; text: string }> = {
   close: { title: '✕ Quitter', text: 'Ferme l\'appli.' },
   locate: { title: 'Me localiser', text: 'Centre la carte sur toi. Encore : coupe le GPS.' },
   search: { title: '🔍 Chercher un lieu', text: 'Cherche une ville, un sommet, un col… Tape ou dis le nom avec 🎤.' },
-  carte: { title: 'Partager ma carte', text: 'Tes buddies voient ta carte bouger en direct, tes traces et ce que tu dessines. Verte : tu partages ; un appui arrête.' },
+  carte: { title: 'Montrer interactivement ma carte à mes buddies', text: 'Tes buddies voient ta carte bouger en direct, tes traces et ce que tu dessines. Verte : tu la montres ; un appui arrête.' },
   photo: { title: '📷 Appareil photo', text: 'Ouvre l’appareil photo.' },
   layer: { title: '🗺 Fond de carte', text: 'SCAN 25, Plan IGN ou auto.' },
   avion: { title: '✈ Mode avion', text: 'Ouvre le réglage. Le GPS marche toujours.' },
