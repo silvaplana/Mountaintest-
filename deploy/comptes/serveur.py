@@ -37,6 +37,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hmac
+import functools
 import json
 import os
 import re
@@ -65,6 +66,7 @@ import buddies
 from evenements import Evenements
 import droits
 import mails
+import powersync
 from modeles import Base, Groupe, Journal, MaTrace, Membre, Telechargement, Usage, Utilisateur, maintenant
 # Adresse publique de Logto (émetteur des jetons) et adresse interne (réseau Docker « web »).
 LOGTO = os.environ.get("LOGTO_ENDPOINT", "https://auth.silvaplana.cloud").rstrip("/")
@@ -90,6 +92,7 @@ async def cycle(_app: FastAPI):
     Base.metadata.create_all(moteur)  # crée les tables manquantes (pas encore de migrations)
     ajouter_colonnes()
     roles_de_groupe()
+    powersync.preparer(moteur)
     flux.demarrer(asyncio.get_running_loop())
     yield
 
@@ -549,6 +552,35 @@ def buddies_sync(corps: Synchro, j: dict = Depends(jeton_requis), s: Session = D
     if mails_ := s.info.pop("mails", []):
         mails.en_arriere_plan(lambda: buddies.envoyer_mails(Sessions, mails_))
     return r
+
+
+# ---------------------------------------------------------------- essai PowerSync (voitures et positions)
+
+@functools.lru_cache(maxsize=1)
+def cle_powersync():
+    return powersync.cle(DOSSIER)
+
+
+@app.get("/powersync/cles")
+def powersync_cles():
+    return powersync.jwks(cle_powersync())
+
+
+@app.get("/powersync/jeton")
+def powersync_jeton(u: Utilisateur = Depends(moi_requis)):
+    return {"token": powersync.jeton(cle_powersync(), u.id), "endpoint": powersync.ADRESSE, "moi": str(u.id)}
+
+
+@app.post("/powersync/ecrire")
+def powersync_ecrire(corps: Synchro, u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    """La file du téléphone, portée par PowerSync : mêmes opérations et mêmes règles que /buddies/sync. La réponse
+    ne porte pas de données : elles reviennent par la réplication."""
+    refus = buddies.appliquer_ops(s, u, corps.ops)
+    if s.info.pop("secouer", False):
+        # Push silencieux : réveille les téléphones dont l'appli est en arrière-plan (PowerSync n'y est pas connecté).
+        appels.sonner(Sessions, buddies.copains(s, u), {"type": "synchro"}, ttl="600s")
+        secouer(s, u, sauf=corps.appareil)  # les appareils encore sur la synchro maison
+    return {"refus": refus}
 
 
 class Ecrit(BaseModel):

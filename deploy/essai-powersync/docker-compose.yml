@@ -1,0 +1,25 @@
+# Essai PowerSync en local : Postgres (réplication logique) + le service PowerSync. Rien de la production.
+# Le serveur Python tourne à côté (voir README.md) ; PowerSync lui demande ses clés publiques (PS_JWKS_URI).
+services:
+  db:
+    image: postgres:17-alpine
+    command: postgres -c wal_level=logical
+    environment: { POSTGRES_USER: mb, POSTGRES_PASSWORD: mb, POSTGRES_DB: mountain }
+    ports: ["127.0.0.1:5433:5432"]
+    volumes: ["./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck: { test: pg_isready -U mb -d mountain, interval: 2s, retries: 30 }
+  powersync:
+    image: journeyapps/powersync-service:1.29.1
+    # Constaté pendant l'essai : si Postgres redémarre, le service s'arrête (ses buckets y sont aussi). Relancé par Docker.
+    restart: unless-stopped
+    depends_on: { db: { condition: service_healthy } }
+    command: ["start", "-r", "unified"]
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/powersync.yaml
+      PS_SOURCE_URI: postgresql://mb:mb@db:5432/mountain
+      PS_STORAGE_URI: postgresql://mb:mb@db:5432/powersync_storage
+      PS_JWKS_URI: ${PS_JWKS_URI:-http://host.docker.internal:8000/powersync/cles}
+      NODE_OPTIONS: --max-old-space-size=400
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["127.0.0.1:8080:8080"]
+    volumes: ["./powersync.yaml:/config/powersync.yaml:ro", "./sync-config.yaml:/config/sync-config.yaml:ro"]

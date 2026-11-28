@@ -1505,9 +1505,9 @@ def mes_demandes(s: Session, u: Utilisateur) -> list[dict[str, Any]]:
         .where(DemandeEntree.utilisateur_id == u.id, Groupe.supprime_le.is_(None)))]
 
 
-def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None) -> dict[str, Any]:
-    debut = maintenant()
-    ranger_me_time(s, u)
+def appliquer_ops(s: Session, u: Utilisateur, ops: list[dict]) -> list[dict]:
+    """Applique une file d'opérations et valide ; rend les refus. Sert à la synchro maison (`synchroniser`) et à
+    l'essai PowerSync (powersync.py), qui garde les mêmes opérations et les mêmes règles."""
     refus = []
     nouveaux = []
     for op in ops:
@@ -1539,6 +1539,13 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             prevenir(s, u, list(participants(s, so)), so, so.nom, "a ajouté une photo à l'album" if n == 1 else f"a ajouté {n} photos à l'album")
     s.commit()
     s.info["nouveaux_messages"] = nouveaux  # pour les notifications (serveur.py, après la réponse)
+    return refus
+
+
+def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None) -> dict[str, Any]:
+    debut = maintenant()
+    ranger_me_time(s, u)
+    refus = appliquer_ops(s, u, ops)
     mes = s.scalars(select(Groupe).join(Membre, Membre.groupe_id == Groupe.id)
                     .where(Membre.utilisateur_id == u.id, Groupe.supprime_le.is_(None))).all()
     d = date(depuis) if depuis else None

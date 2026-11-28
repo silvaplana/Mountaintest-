@@ -1,0 +1,32 @@
+# Qui reçoit quoi. `auth.user_id()` = utilisateurs.id (le `sub` du jeton donné par /powersync/jeton).
+# Chaque ligne envoyée au téléphone doit avoir une colonne `id` : pour une clé composée, on la fabrique.
+config:
+  edition: 3
+streams:
+  # Les membres de mes groupes : de quoi dessiner leur voiture (jamais l'e-mail, le téléphone ni l'IBAN).
+  buddies:
+    auto_subscribe: true
+    query: |
+      SELECT id, pseudo, voiture_modele, voiture_forme, voiture_couleur FROM utilisateurs
+      WHERE id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN
+        (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()))
+  moi:
+    auto_subscribe: true
+    query: SELECT id, pseudo, voiture_modele, voiture_forme, voiture_couleur FROM utilisateurs WHERE id = auth.user_id()
+  # 🚗 La mienne et celles des membres de mes groupes.
+  voitures:
+    auto_subscribe: true
+    query: |
+      SELECT utilisateur_id AS id, lon, lat, garee_le, jusqu FROM voitures
+      WHERE utilisateur_id IN (SELECT utilisateur_id FROM membres WHERE groupe_id IN
+        (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id()))
+  ma_voiture:
+    auto_subscribe: true
+    query: SELECT utilisateur_id AS id, lon, lat, garee_le, jusqu FROM voitures WHERE utilisateur_id = auth.user_id()
+  # 📍 Positions partagées avec mes groupes.
+  positions_groupes:
+    auto_subscribe: true
+    query: |
+      SELECT groupe_id || '/' || utilisateur_id AS id, groupe_id, utilisateur_id, depuis, jusqu, lon, lat, alt, prise_le
+      FROM positions_groupes
+      WHERE groupe_id IN (SELECT groupe_id FROM membres WHERE utilisateur_id = auth.user_id())
