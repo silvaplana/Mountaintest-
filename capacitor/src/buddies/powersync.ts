@@ -11,16 +11,9 @@
  * une opération refusée ou dépassée se défait donc toute seule.
  */
 import { PowerSyncDatabase } from '@powersync/capacitor';
-import { column, Schema, Table, type AbstractPowerSyncDatabase, type PowerSyncBackendConnector } from '@powersync/web';
+import type { AbstractPowerSyncDatabase, PowerSyncBackendConnector } from '@powersync/web';
+import { SCHEMA } from './powersyncSchema';
 import type { Position, Voiture } from './store';
-
-const utilisateurs = new Table({ pseudo: column.text, voiture_modele: column.text, voiture_forme: column.text, voiture_couleur: column.text });
-const voitures = new Table({ lon: column.real, lat: column.real, garee_le: column.integer, jusqu: column.integer });
-const positions_groupes = new Table({ groupe_id: column.text, utilisateur_id: column.text, depuis: column.integer, jusqu: column.integer,
-  lon: column.real, lat: column.real, alt: column.real, prise_le: column.integer });
-/** Ce qui part au serveur : jamais gardé ici une fois envoyé (`insertOnly`). */
-const ops = new Table({ type: column.text, corps: column.text }, { insertOnly: true });
-export const SCHEMA = new Schema({ utilisateurs, voitures, positions_groupes, ops });
 
 export type Serveur = {
   /** Jeton PowerSync et adresse du service (GET /powersync/jeton). */

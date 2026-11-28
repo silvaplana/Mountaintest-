@@ -14,3 +14,5 @@ sync_config:
 client_auth:
   jwks_uri: !env PS_JWKS_URI
   audience: ["powersync"]
+telemetry:
+  disable_telemetry_sharing: true

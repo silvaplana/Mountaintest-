@@ -291,7 +291,9 @@ def utilisateur(s: Session, j: dict[str, Any]) -> Utilisateur:
             u.pseudo = (fiche.get("name") or fiche.get("username") or (u.email or "").split("@")[0] or "")[:40]
         if u.photo is None:  # la photo Google par défaut ; retirée par la personne (""), elle ne revient pas
             u.photo = fiche.get("avatar")
-    u.vu_le = maintenant()
+    # PowerSync (essai) : chaque changement de cette ligne repart vers tous les buddies ; une fois par minute suffit.
+    if nouveau or u.vu_le is None or maintenant() - buddies.date(buddies.iso(u.vu_le)) > timedelta(seconds=60):
+        u.vu_le = maintenant()
     if nouveau:
         s.flush()
         buddies.noter(s, u, "inscription")
@@ -571,11 +573,23 @@ def powersync_jeton(u: Utilisateur = Depends(moi_requis)):
     return {"token": powersync.jeton(cle_powersync(), u.id), "endpoint": powersync.ADRESSE, "moi": str(u.id)}
 
 
+@app.get("/powersync/reste")
+def powersync_reste(u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
+    return buddies.reste(s, u)
+
+
 @app.post("/powersync/ecrire")
 def powersync_ecrire(corps: Synchro, u: Utilisateur = Depends(moi_requis), s: Session = Depends(db)):
     """La file du téléphone, portée par PowerSync : mêmes opérations et mêmes règles que /buddies/sync. La réponse
     ne porte pas de données : elles reviennent par la réplication."""
     refus = buddies.appliquer_ops(s, u, corps.ops)
+    # 🔔 Les mêmes notifications que la synchro maison (messages, paiements, traces et photos partagées, mails).
+    for qui, data in buddies.a_prevenir(s, u, s.info.pop("nouveaux_messages", [])):
+        appels.sonner(Sessions, qui, data, ttl="86400s")
+    for qui, data in s.info.pop("a_prevenir", []):
+        appels.sonner(Sessions, qui, data, ttl="86400s")
+    if mails_ := s.info.pop("mails", []):
+        mails.en_arriere_plan(lambda: buddies.envoyer_mails(Sessions, mails_))
     if s.info.pop("secouer", False):
         # Push silencieux : réveille les téléphones dont l'appli est en arrière-plan (PowerSync n'y est pas connecté).
         appels.sonner(Sessions, buddies.copains(s, u), {"type": "synchro"}, ttl="600s")

@@ -1616,6 +1616,28 @@ def synchroniser(s: Session, u: Utilisateur, ops: list[dict], depuis: str | None
             "demandes": mes_demandes(s, u), "refus": refus}
 
 
+def reste(s: Session, u: Utilisateur) -> dict[str, Any]:
+    """Essai PowerSync : ce que le téléphone ne reçoit pas par la réplication. Soit ce n'est pas en base (« écrit… »),
+    soit c'est calculé pour une personne précise (l'IBAN de ceux à qui je dois de l'argent), soit c'est réservé au
+    Super User. Petit et sans curseur : le téléphone le redemande quand il veut."""
+    gids = list(s.scalars(select(Groupe.id).join(Membre, Membre.groupe_id == Groupe.id)
+                          .where(Membre.utilisateur_id == u.id, Groupe.supprime_le.is_(None))))
+    supprimes = select(Groupe.id).where(Groupe.supprime_le.is_not(None))
+    sids = list(s.scalars(select(Sortie.id).where(Sortie.supprime_le.is_(None), Sortie.groupe_id.not_in(supprimes), or_(
+        Sortie.groupe_id.in_(gids), Sortie.id.in_(select(Participant.sortie_id).where(Participant.utilisateur_id == u.id))))))
+    counts = select(BuddyCount.id).where(BuddyCount.groupe_id.in_(gids))
+    depenses = s.scalars(select(Depense).where(or_(Depense.sortie_id.in_(sids), Depense.count_id.in_(counts)), Depense.supprime_le.is_(None))).all()
+    qui = set(s.scalars(select(Membre.utilisateur_id).where(Membre.groupe_id.in_(gids))))
+    qui |= set(s.scalars(select(Participant.utilisateur_id).where(Participant.sortie_id.in_(sids))))
+    return {"maintenant": int(maintenant().timestamp() * 1000), "moi": str(u.id), "roles": droits.vue_roles(u),
+            "ecrivent": ecrivent(u, gids + sids), "paiements": paiements(s, u, depenses),
+            # « Reçu » des coches : la dernière fois que chaque buddy a parlé au serveur.
+            "vus": {str(x.id): iso(x.vu_le) for x in s.scalars(select(Utilisateur).where(Utilisateur.id.in_(qui - {u.id})))},
+            "signalements": vue_signalements(s, u), "scan25": u.scan25 or u.super_user,
+            "scan25_ids": [str(x) for x in s.scalars(select(Utilisateur.id).where(Utilisateur.scan25))] if u.super_user else [],
+            "demandes": mes_demandes(s, u)}
+
+
 def soldes(depenses: list[Depense]) -> dict[uuid.UUID, float]:
     """Solde de chacun dans une sortie, en centimes : + ce qu'il a payé, − sa part (comme count.ts)."""
     sol: dict[uuid.UUID, float] = {}

@@ -13,6 +13,8 @@ import { envoyer as envoyerFichier, oublier as oublierFichier } from './album';
 import { envoyer as envoyerFichierMessage, oublier as oublierFichierMessage } from './fichiers';
 import { api, connecte, initiales, lire as lireCompte, nomAffiche, suivre as suivreCompte } from '../compte/auth';
 import { annoncerRestauration, debutRestauration } from '../compte/Restauration';
+import { POWERSYNC } from '../config';
+import * as ps from './powersyncEtat';
 
 // Le lien d'invitation (§7.29) : aperçu pour WhatsApp, puis la page principale avec le bandeau de l'invitation.
 export const LIEN_INVITATION = 'https://mountainbuddies.silvaplana.cloud/api/i?c=';
@@ -222,6 +224,7 @@ function petit(): Partial<Etat> {
 }
 /** À appeler une fois avant le premier écran (main.tsx). Reprend la copie d'avant (localStorage) la première fois. */
 export async function charger(): Promise<void> {
+  if (POWERSYNC) void ps.demarrer(accesPowerSync).catch(() => undefined); // en parallèle : ne retarde pas le premier écran
   if (charge || typeof indexedDB === 'undefined') return;
   try {
     const e = await magasin<Etat | undefined>('readonly', (s) => s.get(FICHE));
@@ -257,6 +260,13 @@ function ecrire(e: Etat) {
   else try { localStorage.setItem(CLE, JSON.stringify(e)); } catch { /* stockage plein ou bloqué */ }
   for (const f of abonnes) f(e);
 }
+/** Bêta PowerSync : ce que powersyncEtat.ts a le droit de toucher ici. */
+const accesPowerSync = {
+  lire: () => lire(), ecrire: (e: Etat) => ecrire(e), fichiers: (photos: Set<string>) => { void envoyerFichiersAttente(photos); },
+  premiere: (debut: boolean, nombres?: { groupes: number; sorties: number; albums: number; conversations: number }) => {
+    if (debut) debutRestauration(); else annoncerRestauration(nombres ?? {}, true);
+  },
+};
 const abonnes = new Set<(e: Etat) => void>();
 export function suivre(f: (e: Etat) => void) { abonnes.add(f); return () => { abonnes.delete(f); }; }
 
@@ -266,6 +276,7 @@ const surCompte = (c: { refresh?: string }) => {
   const maintenant = !!c.refresh;
   // Seulement une vraie déconnexion : le début d'une connexion (pkce) ne doit pas effacer l'invitation en attente.
   if (!maintenant && etaitConnecte && (lire().serveur.length || lire().attente.length)) ecrire(vide());
+  if (!maintenant && etaitConnecte && POWERSYNC) void ps.oublier();
   if (maintenant && !etaitConnecte) setTimeout(() => void synchroniser().catch(() => undefined), 0);
   etaitConnecte = maintenant;
 };
@@ -1044,6 +1055,7 @@ export function lot(ops: Op[]): Op[] {
  */
 export function synchroniser(): Promise<string[]> {
   if (!connecte()) return Promise.resolve([]);
+  if (POWERSYNC) return ps.demarrer(accesPowerSync).then(() => ps.synchroniser());
   // Demandée pendant qu'une autre est en route (un événement du serveur, une action) : celle en route a peut-être
   // déjà lu le serveur, elle ne verra pas ce changement. On en refait une juste derrière, une seule pour tous
   // ceux qui demandent entre-temps ; sinon l'événement était perdu jusqu'au prochain passage (2 minutes).
@@ -1145,6 +1157,7 @@ async function envoyerPhotos(connues: Set<string>) {
 
 /** Après « Supprimer mon compte » : on oublie les groupes, sorties et messages gardés sur le téléphone. */
 export function oublierTout() {
+  if (POWERSYNC) void ps.oublier();
   try { localStorage.removeItem(CLE); } catch { /* stockage bloqué */ }
   ecrire(vide());
 }
