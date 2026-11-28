@@ -20,8 +20,8 @@ node essai.cjs                             # les scénarios : deux appareils, ho
 
 ## Fichiers
 
-- `sync-config.yaml` : qui reçoit quoi (une requête SQL par table, filtrée par les groupes de la personne).
-- `powersync.yaml` : le service ; ses « buckets » sont dans une base à part du même Postgres (pas de MongoDB).
+- `../beta/sync-config.yaml` : qui reçoit quoi (écrit par `../comptes/powersync.py`) : un flux par « mes groupes », « les sorties de mes groupes », « les sorties où je participe ».
+- `../beta/powersync.yaml` : le service ; ses « buckets » sont dans une base à part du même Postgres (pas de MongoDB).
 - `../comptes/powersync.py` : jeton, clé publique, publication Postgres.
 - `../../capacitor/src/buddies/powersync.ts` : schéma local, actions, connecteur.
 
